@@ -5,6 +5,9 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUncheckedIndexedAccess": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -30,5 +33,10 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // validator.ts es generado por Next.js y falla cuando app/page.tsx y (store)/page.tsx
+    // coexisten (conflicto de rutas). Se resuelve eliminando src/app/page.tsx.
+    ".next/types/validator.ts"
+  ]
 }

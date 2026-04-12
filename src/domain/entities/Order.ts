@@ -1,0 +1,126 @@
+/**
+ * Ciclo de vida de un pedido:
+ *
+ *   PENDING  →  PAID      (webhook confirma pago aprobado)
+ *   PENDING  →  CANCELLED (webhook informa pago rechazado, o admin cancela)
+ *   PAID     →  SHIPPED   (admin marca como despachado)
+ *   SHIPPED  →  DELIVERED (admin marca como entregado)
+ *
+ *   Un pedido PENDING puede quedar huérfano si el cliente no completa el pago.
+ */
+export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
+
+/**
+ * Pasarela de pago seleccionada en el checkout.
+ * WOMPI es la principal (siempre disponible).
+ * MERCADO_PAGO es el respaldo (se activa/desactiva desde Settings en el panel admin).
+ */
+export type PaymentProvider = 'WOMPI' | 'MERCADO_PAGO'
+
+/**
+ * Estados de pago según la nomenclatura oficial de Wompi.
+ * Mercado Pago tiene su propia nomenclatura pero MercadoPagoService la mapea a estos valores.
+ *
+ *   PENDING  → El cliente no ha completado el pago aún
+ *   APPROVED → Pago exitoso. El pedido pasa a PAID y se descuenta el stock.
+ *   DECLINED → La transacción fue rechazada (fondos insuficientes, etc.)
+ *   VOIDED   → La transacción fue anulada o reembolsada
+ *   ERROR    → Error técnico en la pasarela
+ */
+export type PaymentStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'VOIDED' | 'ERROR'
+
+/**
+ * Dirección de envío capturada en el checkout.
+ * Se almacena como JSON en el campo Order.shippingAddress de PostgreSQL.
+ * Al leerla, se castea de JsonValue a esta interfaz.
+ */
+export interface ShippingAddress {
+  /** Nombre completo del destinatario */
+  fullName: string
+  /** Dirección completa. Ej: "Calle 45 # 23-10, Apto 302" */
+  address: string
+  /** Ciudad. Ej: "Medellín" */
+  city: string
+  /** Departamento. Ej: "Antioquia" */
+  department: string
+  /** Teléfono de contacto para el mensajero */
+  phone: string
+  /** Código postal (opcional — no todas las ciudades colombianas lo usan) */
+  postalCode?: string
+  /** Instrucciones adicionales para el mensajero */
+  notes?: string
+}
+
+/**
+ * Línea de un pedido que vincula el pedido con un producto.
+ * El precio se captura en el momento de la compra para preservar el histórico:
+ * si el precio del producto cambia después, el pedido conserva el precio original.
+ */
+export interface OrderItem {
+  /** ID único del ítem */
+  id: string
+  /** ID del pedido al que pertenece */
+  orderId: string
+  /** ID del producto comprado */
+  productId: string
+  /** Cantidad de unidades del producto en este ítem */
+  quantity: number
+  /**
+   * Precio unitario al momento de la compra, en centavos COP.
+   * Capturado por CreateOrder para preservar el histórico de precios.
+   */
+  priceAtPurchase: number
+}
+
+/**
+ * Registro del pago asociado a un pedido (relación 1:1 con Order).
+ * Se crea con status PENDING al mismo tiempo que el pedido.
+ * El status y externalId se actualizan cuando llega el webhook de la pasarela.
+ */
+export interface Payment {
+  /** ID único del pago */
+  id: string
+  /** ID del pedido asociado */
+  orderId: string
+  /** Pasarela que procesó el pago */
+  provider: PaymentProvider
+  /**
+   * ID de la transacción en Wompi o Mercado Pago.
+   * null hasta que la pasarela confirma el pago via webhook.
+   * Ej Wompi: "24898-1706022601-41414"
+   * Ej MP:    "1234567890"
+   */
+  externalId: string | null
+  /** Estado del pago — se actualiza via webhook */
+  status: PaymentStatus
+  /** Monto del pago en centavos COP */
+  amount: number
+  /** Fecha de creación del registro de pago */
+  createdAt: Date
+}
+
+/**
+ * Entidad principal de pedido.
+ * Se crea con status PENDING cuando el cliente confirma el checkout.
+ * El status cambia a PAID cuando llega el webhook de la pasarela confirmando el pago.
+ */
+export interface Order {
+  /** ID único del pedido (cuid) */
+  id: string
+  /** ID del usuario que realizó el pedido */
+  userId: string
+  /** Estado actual del ciclo de vida del pedido */
+  status: OrderStatus
+  /** Total del pedido en centavos COP (suma de priceAtPurchase × quantity de cada ítem) */
+  total: number
+  /** Dirección de envío serializada como JSON en la base de datos */
+  shippingAddress: ShippingAddress
+  /** Pasarela de pago seleccionada en el checkout */
+  paymentProvider: PaymentProvider
+  /** Fecha de creación del pedido */
+  createdAt: Date
+  /** Ítems del pedido. Opcional — depende de si el query los incluye (include: { items: true }) */
+  items?: OrderItem[]
+  /** Pago asociado. Opcional — depende de si el query lo incluye (include: { payment: true }) */
+  payment?: Payment
+}

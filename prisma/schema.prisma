@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  WOMPI
+  MERCADO_PAGO
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  VOIDED
+  ERROR
+}
+
+// ─── NextAuth.js required models ─────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core models ─────────────────────────────────────────────────────────────
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String?
+  image     String?
+  /// Contraseña hasheada con bcrypt. Null para usuarios OAuth (Google).
+  password  String?
+  role      Role      @default(CUSTOMER)
+  createdAt DateTime  @default(now())
+  accounts  Account[]
+  sessions  Session[]
+  orders    Order[]
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  products    Product[]
+}
+
+model Product {
+  id          String                    @id @default(cuid())
+  name        String
+  slug        String                    @unique
+  description String                    @db.Text
+  price       Int                       // centavos COP
+  stock       Int                       @default(0)
+  sku         String                    @unique
+  images      String[]
+  isActive    Boolean                   @default(true)
+  categoryId  String
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+  category    Category                  @relation(fields: [categoryId], references: [id])
+  compatible  MotorcycleCompatibility[]
+  orderItems  OrderItem[]
+}
+
+model MotorcycleCompatibility {
+  id        String  @id @default(cuid())
+  productId String
+  brand     String
+  model     String
+  year      Int?
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Order {
+  id              String          @id @default(cuid())
+  userId          String
+  status          OrderStatus     @default(PENDING)
+  total           Int             // centavos COP
+  shippingAddress Json
+  paymentProvider PaymentProvider
+  createdAt       DateTime        @default(now())
+  user            User            @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  payment         Payment?
+}
+
+model OrderItem {
+  id              String  @id @default(cuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  priceAtPurchase Int     // centavos COP — precio al momento de la compra
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id         String          @id @default(cuid())
+  orderId    String          @unique
+  provider   PaymentProvider
+  externalId String?         // ID de la transacción en Wompi / Mercado Pago
+  status     PaymentStatus   @default(PENDING)
+  amount     Int             // centavos COP
+  createdAt  DateTime        @default(now())
+  order      Order           @relation(fields: [orderId], references: [id])
+}
+
+model Settings {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}

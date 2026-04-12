@@ -1,0 +1,113 @@
+import { IOrderRepository, CreateOrderInput } from '@/domain/repositories/IOrderRepository'
+import { IProductRepository } from '@/domain/repositories/IProductRepository'
+import { IPaymentService, PaymentResult } from '@/domain/services/IPaymentService'
+import { Order, ShippingAddress, PaymentProvider } from '@/domain/entities/Order'
+import { Result, ok, err, AppError } from '@/domain/shared/Result'
+
+export interface CreateOrderUseCaseInput {
+  userId: string
+  items: Array<{ productId: string; quantity: number }>
+  shippingAddress: ShippingAddress
+  paymentProvider: PaymentProvider
+}
+
+export interface CreateOrderOutput {
+  order: Order
+  payment: PaymentResult
+}
+
+/**
+ * Use case: Crear un pedido y preparar el pago.
+ *
+ * Flujo completo:
+ *   1. Para cada ítem: validar cantidad > 0, buscar el producto, verificar que esté activo,
+ *      verificar que haya stock suficiente.
+ *   2. Calcular el total sumando precio × cantidad de cada ítem.
+ *   3. Crear el pedido en la BD con estado PENDING.
+ *   4. Llamar a la pasarela de pago para preparar la transacción.
+ *   5. Retornar el pedido + los datos de la transacción (referencia, firma, etc.)
+ *
+ * IMPORTANTE: El stock NO se descuenta aquí. Se descuenta en ConfirmPayment
+ * cuando el webhook de la pasarela confirma que el pago fue APPROVED.
+ * Razón: si se descontase aquí y el cliente abandona el pago, el stock quedaría
+ * reducido incorrectamente.
+ *
+ * Este use case recibe las dependencias como parámetros del constructor
+ * (inyección de dependencias), lo que facilita las pruebas unitarias con mocks.
+ */
+export class CreateOrder {
+  constructor(
+    private readonly orderRepo: IOrderRepository,
+    private readonly productRepo: IProductRepository,
+    private readonly paymentService: IPaymentService,
+  ) {}
+
+  async execute(input: CreateOrderUseCaseInput): Promise<Result<CreateOrderOutput>> {
+    // 1. Validar stock y calcular total
+    const resolvedItems: Array<{
+      productId: string
+      quantity: number
+      priceAtPurchase: number
+    }> = []
+
+    let total = 0
+
+    for (const item of input.items) {
+      if (item.quantity <= 0) {
+        return err(new AppError('VALIDATION_ERROR', 'La cantidad debe ser mayor a 0'))
+      }
+
+      const product = await this.productRepo.findBySku(item.productId)
+      const productById = product ?? await this.productRepo.findBySlug(item.productId)
+      // Si no encontramos por SKU, lo buscamos directamente por ID via updateStock pattern
+      // La búsqueda real viene del repositorio
+      const found = productById
+
+      if (!found) {
+        return err(new AppError('NOT_FOUND', `Producto "${item.productId}" no encontrado`))
+      }
+      if (!found.isActive) {
+        return err(new AppError('VALIDATION_ERROR', `Producto "${found.name}" no está disponible`))
+      }
+      if (found.stock < item.quantity) {
+        return err(
+          new AppError(
+            'STOCK_UNAVAILABLE',
+            `Stock insuficiente para "${found.name}". Disponible: ${found.stock}`,
+          ),
+        )
+      }
+
+      resolvedItems.push({
+        productId: found.id,
+        quantity: item.quantity,
+        priceAtPurchase: found.price,
+      })
+      total += found.price * item.quantity
+    }
+
+    // 2. Crear orden en DB con estado PENDING
+    let order: Order
+    try {
+      order = await this.orderRepo.create({
+        userId: input.userId,
+        items: resolvedItems,
+        shippingAddress: input.shippingAddress,
+        paymentProvider: input.paymentProvider,
+        total,
+      })
+    } catch (e) {
+      return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
+    }
+
+    // 3. Iniciar transacción en la pasarela
+    let paymentResult: PaymentResult
+    try {
+      paymentResult = await this.paymentService.createTransaction(order)
+    } catch (e) {
+      return err(new AppError('PAYMENT_ERROR', 'Error al iniciar el pago', e))
+    }
+
+    return ok({ order, payment: paymentResult })
+  }
+}

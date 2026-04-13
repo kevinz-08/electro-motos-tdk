@@ -31,6 +31,7 @@ import Link from 'next/link'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { ProductCard } from '@/components/store/ProductCard'
+import { ScrollDownArrow } from '@/components/ui/ScrollDownArrow'
 
 export default async function HomePage() {
   const repo = new PrismaProductRepository()
@@ -40,38 +41,45 @@ export default async function HomePage() {
   return (
     <>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-24 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-block bg-amber-400/10 border border-amber-400/20 rounded-full px-4 py-1.5 text-amber-400 text-sm font-medium mb-6">
-            🏍️ Taller especializado en Colombia
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-            Repuestos y servicio para tu moto,{' '}
-            <span className="text-amber-400">con garantía real</span>
-          </h1>
-          <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-8">
-            Más de 500 referencias en stock. Envíos a todo Colombia. Pago seguro con Wompi,
-            Nequi, PSE y tarjetas.
+      <section className="relative h-screen min-h-[600px] overflow-hidden bg-black text-white">
+        {/* Video de fondo */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-40"
+        >
+          <source
+            src="https://res.cloudinary.com/dip8uoaue/video/upload/f_auto,q_auto/hero-video_jcgpbo.mp4"
+            type="video/mp4"
+          />
+        </video>
+
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/30 to-transparent" />
+
+        {/* Contenido — alineado a la izquierda, verticalmente centrado */}
+        <div className="relative z-10 h-full flex flex-col justify-center px-8 md:px-20 max-w-2xl">
+          <p className="text-blue-400 text-sm font-semibold tracking-widest uppercase mb-4">
+            H2r Online Store
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/catalogo"
-              className="bg-amber-400 text-gray-900 px-8 py-3 rounded-lg font-bold text-lg hover:bg-amber-300 transition-colors"
-            >
-              Ver catálogo
-            </Link>
-            <Link
-              href="/#categorias"
-              className="border border-gray-600 text-white px-8 py-3 rounded-lg font-bold text-lg hover:border-amber-400 hover:text-amber-400 transition-colors"
-            >
-              Ver categorías
-            </Link>
-          </div>
+          <h1 className="text-5xl md:text-7xl font-black leading-none mb-6">
+            Tu moto<br />merece lo<br />mejor.
+          </h1>
+          <p className="text-white/50 text-base tracking-wide">
+            Repuestos y servicios de alta calidad para cualquier tipo de moto.
+          </p>
+        </div>
+
+        {/* Flecha scroll */}
+        <div className="absolute bottom-24 left-8 md:left-20 z-10">
+          <ScrollDownArrow targetId="trust-badges" />
         </div>
       </section>
 
       {/* Trust badges */}
-      <section className="border-b border-gray-100 py-8 px-4">
+      <section id="trust-badges" className="border-b border-white/10 py-8 px-4 bg-black">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
             { icon: '🔒', label: 'Pago seguro', sub: 'Wompi · Nequi · PSE' },
@@ -82,8 +90,8 @@ export default async function HomePage() {
             <div key={badge.label} className="flex items-center gap-3">
               <span className="text-2xl">{badge.icon}</span>
               <div>
-                <p className="font-semibold text-sm text-gray-900">{badge.label}</p>
-                <p className="text-xs text-gray-500">{badge.sub}</p>
+                <p className="font-semibold text-sm text-white">{badge.label}</p>
+                <p className="text-xs text-white/50">{badge.sub}</p>
               </div>
             </div>
           ))}
@@ -91,9 +99,9 @@ export default async function HomePage() {
       </section>
 
       {/* Categorías */}
-      <section id="categorias" className="py-16 px-4">
+      <section id="categorias" className="py-16 px-4 bg-black">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">
+          <h2 className="text-3xl font-bold text-white mb-8 text-center">
             Encuentra tu repuesto
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -101,15 +109,15 @@ export default async function HomePage() {
               <Link
                 key={cat.id}
                 href={`/catalogo?category=${cat.slug}`}
-                className="group bg-gray-50 border border-gray-200 rounded-xl p-8 text-center hover:border-amber-400 hover:bg-amber-50 transition-all"
+                className="group bg-white/5 border border-white/10 rounded-xl p-8 text-center hover:border-blue-500 hover:bg-blue-500/5 transition-all"
               >
                 <div className="text-4xl mb-4">
                   {cat.slug === 'frenos' ? '🛑' : cat.slug === 'motores' ? '⚙️' : '🛞'}
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 group-hover:text-amber-600 mb-2">
+                <h3 className="text-xl font-bold text-white group-hover:text-blue-400 mb-2">
                   {cat.name}
                 </h3>
-                <p className="text-sm text-gray-500">{cat.description}</p>
+                <p className="text-sm text-white/50">{cat.description}</p>
               </Link>
             ))}
           </div>
@@ -118,11 +126,11 @@ export default async function HomePage() {
 
       {/* Productos destacados */}
       {featuredProducts.length > 0 && (
-        <section className="py-16 px-4 bg-gray-50">
+        <section className="py-16 px-4 bg-black">
           <div className="max-w-5xl mx-auto">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-bold text-gray-900">Productos destacados</h2>
-              <Link href="/catalogo" className="text-amber-600 font-semibold hover:underline text-sm">
+              <h2 className="text-3xl font-bold text-white">Productos destacados</h2>
+              <Link href="/catalogo" className="text-blue-400 font-semibold hover:underline text-sm">
                 Ver todo →
               </Link>
             </div>
@@ -136,10 +144,10 @@ export default async function HomePage() {
       )}
 
       {/* CTA WhatsApp */}
-      <section className="bg-gray-900 text-white py-16 px-4">
+      <section className="bg-black text-white py-16 px-4 border-t border-white/10">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4">¿No encuentras lo que buscas?</h2>
-          <p className="text-gray-400 mb-8">
+          <p className="text-white/60 mb-8">
             Cotiza directamente con nosotros. Conseguimos cualquier repuesto.
           </p>
           <a

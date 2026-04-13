@@ -33,7 +33,7 @@ export function AddToCartButton({ product, quantity = 1, className }: AddToCartB
       onClick={() => addItem(product, quantity)}
       className={
         className ??
-        'w-full mt-3 bg-amber-400 text-gray-900 py-2 px-4 rounded-lg text-sm font-bold hover:bg-amber-300 active:scale-95 transition-all'
+        'w-full mt-3 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-blue-500 active:scale-95 transition-all'
       }
     >
       Agregar al carrito

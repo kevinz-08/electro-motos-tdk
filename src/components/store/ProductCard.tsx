@@ -30,7 +30,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const isLowStock = product.stock > 0 && product.stock <= 5
 
   return (
-    <div className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg hover:border-amber-300 transition-all duration-200">
+    <div className="group bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:shadow-lg hover:border-blue-500 transition-all duration-200">
       <Link href={`/producto/${product.slug}`}>
         <div className="relative aspect-square bg-gray-100 overflow-hidden">
           {mainImage ? (
@@ -62,18 +62,18 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <div className="p-4">
         <Link href={`/producto/${product.slug}`}>
-          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 hover:text-amber-600 transition-colors mb-1">
+          <h3 className="text-sm font-semibold text-white line-clamp-2 hover:text-blue-400 transition-colors mb-1">
             {product.name}
           </h3>
         </Link>
 
-        <p className="text-xs text-gray-400 mb-2">SKU: {product.sku}</p>
+        <p className="text-xs text-white/40 mb-2">SKU: {product.sku}</p>
 
         <div className="flex items-center justify-between mt-3">
           <div>
-            <p className="text-lg font-bold text-gray-900">{formatCOP(product.price)}</p>
+            <p className="text-lg font-bold text-white">{formatCOP(product.price)}</p>
             {isLowStock && (
-              <p className="text-xs text-amber-600 font-medium">¡Solo {product.stock} disponibles!</p>
+              <p className="text-xs text-blue-400 font-medium">¡Solo {product.stock} disponibles!</p>
             )}
           </div>
         </div>

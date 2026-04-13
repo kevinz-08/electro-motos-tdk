@@ -12,7 +12,7 @@ export function SignInButton() {
   return (
     <button
       onClick={() => signIn()}
-      className="text-sm bg-amber-400 text-gray-900 px-3 py-1.5 rounded-md font-semibold hover:bg-amber-300 transition-colors"
+      className="text-sm bg-white text-black px-3 py-1.5 rounded-md font-semibold hover:bg-blue-500 hover:text-white transition-colors"
     >
       Ingresar
     </button>

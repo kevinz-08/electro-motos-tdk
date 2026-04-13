@@ -90,42 +90,42 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+      <div className="bg-[#0a0a0a] border border-gray-200 rounded-xl p-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+          <label className="block text-sm font-medium text-white-700 mb-1">Nombre *</label>
           <input
             required
             type="text"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value, slug: generateSlug(e.target.value) })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Slug (URL)</label>
+          <label className="block text-sm font-medium text-white-700 mb-1">Slug (URL)</label>
           <input
             type="text"
             value={form.slug}
             onChange={(e) => setForm({ ...form, slug: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Descripción *</label>
+          <label className="block text-sm font-medium text-white-700 mb-1">Descripción *</label>
           <textarea
             required
             rows={4}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 resize-none"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 resize-none"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-white-700 mb-1">
               Precio (COP) *
             </label>
             <input
@@ -135,44 +135,44 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
               step="100"
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
               placeholder="85000"
             />
             <p className="text-xs text-gray-400 mt-1">En pesos colombianos (sin centavos)</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+            <label className="block text-sm font-medium text-white-700 mb-1">Stock</label>
             <input
               type="number"
               min="0"
               value={form.stock}
               onChange={(e) => setForm({ ...form, stock: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">SKU *</label>
+            <label className="block text-sm font-medium text-white-700 mb-1">SKU *</label>
             <input
               required
               type="text"
               value={form.sku}
               onChange={(e) => setForm({ ...form, sku: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 font-mono"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 font-mono"
               placeholder="FRE-BRE-FZ25-001"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
+            <label className="block text-sm font-medium text-white-700 mb-1">Categoría *</label>
             <select
               required
               value={form.categoryId}
               onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 bg-black"
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -187,9 +187,9 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
             id="isActive"
             checked={form.isActive}
             onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-            className="w-4 h-4 accent-amber-400"
+            className="w-4 h-4 accent-blue-600"
           />
-          <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+          <label htmlFor="isActive" className="text-sm font-medium text-white-700">
             Producto activo (visible en el catálogo)
           </label>
         </div>
@@ -205,14 +205,14 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
         <button
           type="submit"
           disabled={loading}
-          className="bg-amber-400 text-gray-900 px-6 py-2.5 rounded-lg font-bold hover:bg-amber-300 transition-colors disabled:opacity-60"
+          className="bg-blue-600 text-white-900 px-6 py-2.5 rounded-lg font-bold hover:bg-blue-500 transition-colors disabled:opacity-60"
         >
           {loading ? 'Guardando...' : product ? 'Guardar cambios' : 'Crear producto'}
         </button>
         <button
           type="button"
           onClick={() => router.back()}
-          className="border border-gray-300 text-gray-700 px-6 py-2.5 rounded-lg font-medium hover:border-gray-400 transition-colors"
+          className="border border-gray-300 text-white-700 px-6 py-2.5 rounded-lg font-medium hover:border-red-600 transition-colors"
         >
           Cancelar
         </button>

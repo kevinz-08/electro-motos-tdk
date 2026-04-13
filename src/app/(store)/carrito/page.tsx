@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
 import { useCart } from '@/lib/cart'
+import { Trash2 } from 'lucide-react'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -39,7 +40,9 @@ export default function CartPage() {
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
           <div className="bg-[#111] border border-white/10 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
-            <div className="text-4xl mb-4">🗑️</div>
+            <div className="flex justify-center mb-4">
+              <Trash2 className="w-10 h-10 text-red-500 hover:scale-110 transition-transform" />
+            </div>
             <h2 className="text-xl font-bold text-white mb-2">¿Vaciar el carrito?</h2>
             <p className="text-white/50 text-sm mb-6">
               Se eliminarán todos los productos. Esta acción no se puede deshacer.

@@ -161,7 +161,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                     type="text"
                     value={form.fullName}
                     onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
                     placeholder="Juan Pérez"
                   />
                 </div>
@@ -258,7 +258,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-amber-400 text-gray-900 py-3 rounded-xl font-bold text-base hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-60"
+              className="w-full bg-blue-600 text-white-900 py-3 rounded-xl font-bold text-base hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-60"
             >
               {loading ? 'Procesando...' : 'Continuar al pago →'}
             </button>

@@ -12,6 +12,7 @@ import { signIn, auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { LoginForm } from './LoginForm'
+import Image from 'next/image'
 
 interface PageProps {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>
@@ -29,7 +30,16 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
         {/* Encabezado */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white">Electro Motos Tony</h1>
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/assets/logo.png"
+                alt="Electro Motos Tony"
+                width={80}
+                height={60}
+                className="object-contain block mx-auto"
+                priority
+              />
+            </Link>
           <p className="text-white/50 mt-1 text-sm">Inicia sesión en tu cuenta</p>
         </div>
 

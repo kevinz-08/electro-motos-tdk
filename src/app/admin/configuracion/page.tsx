@@ -10,36 +10,37 @@ export default async function AdminConfigPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Configuración</h1>
+      <h1 className="text-2xl font-bold text-white mb-8">Configuración</h1>
 
       <div className="max-w-2xl space-y-6">
+
         {/* Pasarelas de pago */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="font-bold text-gray-900 mb-1">Pasarelas de pago</h2>
-          <p className="text-sm text-gray-500 mb-6">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <h2 className="font-bold text-white mb-1">Pasarelas de pago</h2>
+          <p className="text-sm text-white/40 mb-6">
             Wompi es la pasarela principal y siempre está activa. Mercado Pago es el respaldo
             — actívalo solo si Wompi tiene incidentes.
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Wompi — siempre activo */}
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center justify-between p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
               <div>
-                <p className="font-semibold text-green-800">Wompi</p>
-                <p className="text-xs text-green-600">
+                <p className="font-semibold text-white">Wompi</p>
+                <p className="text-xs text-white/40">
                   Pasarela principal · Tarjeta, Nequi, PSE, Bancolombia
                 </p>
               </div>
-              <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full">
+              <span className="text-xs font-bold text-green-400 bg-green-500/20 px-3 py-1 rounded-full">
                 Activo
               </span>
             </div>
 
             {/* Mercado Pago — toggle */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-lg">
               <div>
-                <p className="font-semibold text-gray-900">Mercado Pago</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-semibold text-white">Mercado Pago</p>
+                <p className="text-xs text-white/40">
                   Pasarela de respaldo · Actívalo en caso de incidente en Wompi
                 </p>
               </div>
@@ -48,17 +49,18 @@ export default async function AdminConfigPage() {
           </div>
         </div>
 
-        {/* Info del sistema */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="font-bold text-gray-900 mb-4">Sincronización con Optimun</h2>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-sm text-amber-800">
+        {/* Sincronización */}
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <h2 className="font-bold text-white mb-4">Sincronización con Optimun</h2>
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <p className="text-sm text-blue-300">
               <span className="font-semibold">Fase 2</span> — La sincronización automática con
               Optimun está planificada para la próxima versión. Por ahora usa el importador CSV
               en la sección de Stock para actualizar inventario manualmente.
             </p>
           </div>
         </div>
+
       </div>
     </div>
   )

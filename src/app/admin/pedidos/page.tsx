@@ -15,11 +15,11 @@ interface PageProps {
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  PENDING: { label: 'Pendiente', color: 'bg-amber-100 text-amber-700' },
-  PAID: { label: 'Pagado', color: 'bg-green-100 text-green-700' },
-  SHIPPED: { label: 'Enviado', color: 'bg-blue-100 text-blue-700' },
-  DELIVERED: { label: 'Entregado', color: 'bg-purple-100 text-purple-700' },
-  CANCELLED: { label: 'Cancelado', color: 'bg-red-100 text-red-700' },
+  PENDING:   { label: 'Pendiente', color: 'bg-amber-500/20 text-amber-400' },
+  PAID:      { label: 'Pagado',    color: 'bg-green-500/20 text-green-400' },
+  SHIPPED:   { label: 'Enviado',   color: 'bg-blue-500/20 text-blue-400' },
+  DELIVERED: { label: 'Entregado', color: 'bg-purple-500/20 text-purple-400' },
+  CANCELLED: { label: 'Cancelado', color: 'bg-red-500/20 text-red-400' },
 }
 
 const providerLabels: Record<string, string> = {
@@ -40,9 +40,9 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Pedidos</h1>
+      <h1 className="text-2xl font-bold text-white mb-6">Pedidos</h1>
 
-      {/* Filtro por estado */}
+      {/* Filtros de estado */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {[undefined, 'PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((s) => (
           <a
@@ -50,8 +50,8 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
             href={s ? `/admin/pedidos?status=${s}` : '/admin/pedidos'}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               params.status === s || (!params.status && !s)
-                ? 'bg-gray-900 text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white/5 border border-white/10 text-white/50 hover:border-white/30 hover:text-white'
             }`}
           >
             {s ? statusConfig[s]?.label : 'Todos'}
@@ -59,35 +59,35 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="border-b border-white/10">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-gray-700">Pedido</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-700">Fecha</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-700">Pasarela</th>
-              <th className="text-right px-4 py-3 font-semibold text-gray-700">Total</th>
-              <th className="text-center px-4 py-3 font-semibold text-gray-700">Estado</th>
-              <th className="px-4 py-3 font-semibold text-gray-700">Cambiar estado</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Pedido</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Fecha</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Pasarela</th>
+              <th className="text-right px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Total</th>
+              <th className="text-center px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Estado</th>
+              <th className="px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Cambiar estado</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-white/5">
             {orders.map((order) => {
-              const sc = statusConfig[order.status] ?? { label: order.status, color: 'bg-gray-100 text-gray-600' }
+              const sc = statusConfig[order.status] ?? { label: order.status, color: 'bg-white/10 text-white/50' }
               return (
-                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-gray-900 font-medium">
+                <tr key={order.id} className="hover:bg-white/5 transition-colors">
+                  <td className="px-4 py-3 font-mono text-white font-medium">
                     #{order.id.slice(-8).toUpperCase()}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3 text-white/50">
                     {new Date(order.createdAt).toLocaleDateString('es-CO')}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-xs font-medium text-gray-600">
+                    <span className="text-xs font-medium text-white/50">
                       {providerLabels[order.paymentProvider] ?? order.paymentProvider}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-bold">{formatCOP(order.total)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-white">{formatCOP(order.total)}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${sc.color}`}>
                       {sc.label}
@@ -102,7 +102,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
           </tbody>
         </table>
         {orders.length === 0 && (
-          <div className="text-center py-12 text-gray-400">No hay pedidos</div>
+          <div className="text-center py-12 text-white/30">No hay pedidos</div>
         )}
       </div>
     </div>

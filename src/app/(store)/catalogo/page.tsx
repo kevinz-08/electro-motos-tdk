@@ -78,7 +78,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
                 <li>
                   <a
                     href="/catalogo"
-                    className={`text-sm block px-2 py-1 rounded hover:bg-amber-50 hover:text-amber-700 ${!params.category ? 'text-amber-600 font-semibold bg-amber-50' : 'text-gray-600'}`}
+                    className={`text-sm block px-2 py-1 rounded hover:bg-blue-50 hover:text-blue-700 ${!params.category ? 'text-blue-600 font-semibold bg-blue-50' : 'text-gray-600'}`}
                   >
                     Todas
                   </a>
@@ -87,7 +87,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
                   <li key={cat.id}>
                     <a
                       href={`/catalogo?category=${cat.slug}`}
-                      className={`text-sm block px-2 py-1 rounded hover:bg-amber-50 hover:text-amber-700 ${params.category === cat.slug ? 'text-amber-600 font-semibold bg-amber-50' : 'text-gray-600'}`}
+                      className={`text-sm block px-2 py-1 rounded hover:bg-blue-50 hover:text-blue-700 ${params.category === cat.slug ? 'text-blue-600 font-semibold bg-blue-50' : 'text-gray-600'}`}
                     >
                       {cat.name}
                     </a>
@@ -112,7 +112,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
         {/* Productos */}
         <div className="flex-1">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-white-900">
               {params.category
                 ? categories.find((c) => c.slug === params.category)?.name ?? 'Catálogo'
                 : 'Todo el catálogo'}
@@ -135,7 +135,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
               />
               <button
                 type="submit"
-                className="bg-amber-400 text-gray-900 px-4 py-2 rounded-lg text-sm font-bold hover:bg-amber-300 transition-colors"
+                className="bg-blue-600 text-white-900 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-500 transition-colors"
               >
                 Buscar
               </button>

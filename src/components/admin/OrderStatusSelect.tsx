@@ -42,7 +42,7 @@ export function OrderStatusSelect({ orderId, currentStatus }: OrderStatusSelectP
       value={status}
       onChange={(e) => handleChange(e.target.value as OrderStatus)}
       disabled={loading}
-      className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-amber-400 disabled:opacity-50"
+      className="text-xs bg-black border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-400 disabled:opacity-50"
     >
       {statusOptions.map((s) => (
         <option key={s} value={s}>

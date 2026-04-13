@@ -24,18 +24,18 @@ export default async function LoginPage({ searchParams }: PageProps) {
   if (session?.user) redirect(callbackUrl ?? '/')
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white border border-gray-200 rounded-2xl p-8 w-full max-w-md shadow-sm">
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-8 w-full max-w-md">
 
         {/* Encabezado */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">⚡ Electro Motos Tony</h1>
-          <p className="text-gray-500 mt-1 text-sm">Inicia sesión en tu cuenta</p>
+          <h1 className="text-2xl font-bold text-white">Electro Motos Tony</h1>
+          <p className="text-white/50 mt-1 text-sm">Inicia sesión en tu cuenta</p>
         </div>
 
         {/* Error de autenticación (viene de NextAuth via query param) */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-6">
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3 mb-6">
             {error === 'CredentialsSignin'
               ? 'Correo o contraseña incorrectos.'
               : 'Error de autenticación. Intenta de nuevo.'}
@@ -48,10 +48,10 @@ export default async function LoginPage({ searchParams }: PageProps) {
         {/* Separador */}
         <div className="relative my-5">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
+            <div className="w-full border-t border-white/10" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white px-3 text-xs text-gray-400">o continúa con</span>
+            <span className="bg-[#0a0a0a] px-3 text-xs text-white/30">o continúa con</span>
           </div>
         </div>
 
@@ -64,7 +64,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
         >
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-2.5 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-center gap-3 border border-white/10 rounded-lg py-2.5 px-4 text-sm font-medium text-white hover:border-white/30 hover:bg-white/5 transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -77,14 +77,19 @@ export default async function LoginPage({ searchParams }: PageProps) {
         </form>
 
         {/* Link a registro */}
-        <p className="text-sm text-gray-500 text-center mt-6">
+        <p className="text-sm text-white/40 text-center mt-6">
           ¿No tienes cuenta?{' '}
-          <Link href="/auth/register" className="text-amber-600 font-semibold hover:underline">
+          <Link href="/auth/register" className="text-blue-400 font-semibold hover:underline">
             Crear cuenta gratis
           </Link>
         </p>
+        <p className='text-sm text-white/40 text-center mt-2'>
+          <Link href="/">
+            ← Volver a el Inicio
+          </Link>
+        </p>
 
-        <p className="text-xs text-gray-400 text-center mt-3">
+        <p className="text-xs text-white/20 text-center mt-3">
           Al ingresar aceptas nuestros términos de uso y política de privacidad.
         </p>
       </div>

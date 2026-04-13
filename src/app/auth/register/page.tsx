@@ -33,7 +33,6 @@ export default function RegisterPage() {
     e.preventDefault()
     setError(null)
 
-    // Validación en cliente: contraseñas coinciden
     if (form.password !== form.confirmPassword) {
       setError('Las contraseñas no coinciden.')
       return
@@ -63,7 +62,6 @@ export default function RegisterPage() {
         return
       }
 
-      // Éxito → ir al login con parámetro de bienvenida
       router.push('/auth/login?registered=1')
     } catch {
       setError('Error de red. Verifica tu conexión e intenta de nuevo.')
@@ -73,27 +71,27 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white border border-gray-200 rounded-2xl p-8 w-full max-w-md shadow-sm">
+    <div className="min-h-screen bg-black flex items-center justify-center px-4 py-10">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-8 w-full max-w-md">
 
         {/* Encabezado */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">⚡ Electro Motos Tony</h1>
-          <p className="text-gray-500 mt-1 text-sm">Crea tu cuenta gratuita</p>
+          <h1 className="text-2xl font-bold text-white">Electro Motos Tony</h1>
+          <p className="text-white/50 mt-1 text-sm">Crea tu cuenta gratuita</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Error inline */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
               {error}
             </div>
           )}
 
           {/* Nombre completo */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="name" className="block text-sm font-medium text-white/70 mb-1">
               Nombre completo *
             </label>
             <input
@@ -104,13 +102,13 @@ export default function RegisterPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Juan Pérez"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 transition-colors"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           {/* Correo electrónico */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-white/70 mb-1">
               Correo electrónico *
             </label>
             <input
@@ -121,20 +119,20 @@ export default function RegisterPage() {
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="tu@correo.com"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 transition-colors"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           {/* Contraseña */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Contraseña * <span className="text-gray-400 font-normal">(mín. 8 caracteres)</span>
+              <label htmlFor="password" className="block text-sm font-medium text-white/70">
+                Contraseña * <span className="text-white/30 font-normal">(mín. 8 caracteres)</span>
               </label>
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="text-xs text-gray-400 hover:text-gray-600"
+                className="text-xs text-white/30 hover:text-white/60 transition-colors"
               >
                 {showPassword ? 'Ocultar' : 'Mostrar'}
               </button>
@@ -147,13 +145,13 @@ export default function RegisterPage() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               placeholder="••••••••"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 transition-colors"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           {/* Confirmar contraseña */}
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-white/70 mb-1">
               Confirmar contraseña *
             </label>
             <input
@@ -164,14 +162,14 @@ export default function RegisterPage() {
               value={form.confirmPassword}
               onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
               placeholder="••••••••"
-              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none transition-colors ${
+              className={`w-full bg-white/5 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none transition-colors border ${
                 form.confirmPassword && form.password !== form.confirmPassword
-                  ? 'border-red-400 focus:border-red-400'
-                  : 'border-gray-300 focus:border-amber-400'
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-white/10 focus:border-blue-500'
               }`}
             />
             {form.confirmPassword && form.password !== form.confirmPassword && (
-              <p className="text-xs text-red-500 mt-1">Las contraseñas no coinciden</p>
+              <p className="text-xs text-red-400 mt-1">Las contraseñas no coinciden</p>
             )}
           </div>
 
@@ -179,7 +177,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-400 text-gray-900 py-2.5 rounded-lg text-sm font-bold hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-60 mt-2"
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-60 mt-2"
           >
             {loading ? 'Creando cuenta...' : 'Crear cuenta'}
           </button>
@@ -188,17 +186,17 @@ export default function RegisterPage() {
         {/* Separador */}
         <div className="relative my-5">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
+            <div className="w-full border-t border-white/10" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white px-3 text-xs text-gray-400">o regístrate con</span>
+            <span className="bg-[#0a0a0a] px-3 text-xs text-white/30">o regístrate con</span>
           </div>
         </div>
 
-        {/* Google — redirige a login que tiene el server action de Google */}
+        {/* Google */}
         <Link
           href="/auth/login"
-          className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-2.5 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-center gap-3 border border-white/10 rounded-lg py-2.5 px-4 text-sm font-medium text-white hover:border-white/30 hover:bg-white/5 transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -210,14 +208,20 @@ export default function RegisterPage() {
         </Link>
 
         {/* Link a login */}
-        <p className="text-sm text-gray-500 text-center mt-6">
+        <p className="text-sm text-white/40 text-center mt-6">
           ¿Ya tienes cuenta?{' '}
-          <Link href="/auth/login" className="text-amber-600 font-semibold hover:underline">
+          <Link href="/auth/login" className="text-blue-400 font-semibold hover:underline">
             Inicia sesión
           </Link>
         </p>
+        
+        <p className='text-sm text-white/40 text-center mt-1'>
+          <Link href="/">
+            ← Volver a el Inicio
+          </Link>
+        </p>
 
-        <p className="text-xs text-gray-400 text-center mt-3">
+        <p className="text-xs text-white/20 text-center mt-3">
           Al crear tu cuenta aceptas nuestros términos de uso y política de privacidad.
         </p>
       </div>

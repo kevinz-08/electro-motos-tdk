@@ -35,7 +35,7 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
     const result = await signIn('credentials', {
       email,
       password,
-      redirect: false, // Manejamos la redirección manualmente para mostrar errores inline
+      redirect: false,
     })
 
     setLoading(false)
@@ -45,7 +45,6 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
       return
     }
 
-    // Login exitoso → redirigir
     router.push(callbackUrl ?? '/')
     router.refresh()
   }
@@ -54,14 +53,14 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Error inline */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       {/* Email */}
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="email" className="block text-sm font-medium text-white/70 mb-1">
           Correo electrónico
         </label>
         <input
@@ -72,21 +71,20 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="tu@correo.com"
-          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 transition-colors"
+          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500 transition-colors"
         />
       </div>
 
       {/* Contraseña */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="password" className="block text-sm font-medium text-white/70">
             Contraseña
           </label>
-          {/* Mostrar/ocultar contraseña */}
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="text-xs text-white/30 hover:text-white/60 transition-colors"
           >
             {showPassword ? 'Ocultar' : 'Mostrar'}
           </button>
@@ -99,7 +97,7 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
-          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 transition-colors"
+          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500 transition-colors"
         />
       </div>
 
@@ -107,15 +105,14 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-amber-400 text-gray-900 py-2.5 rounded-lg text-sm font-bold hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-60"
+        className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-60"
       >
         {loading ? 'Ingresando...' : 'Ingresar'}
       </button>
 
-      {/* Link olvidé contraseña (placeholder — pendiente implementar) */}
-      <p className="text-xs text-center text-gray-400">
+      <p className="text-xs text-center text-white/30">
         ¿Olvidaste tu contraseña?{' '}
-        <Link href="/auth/login?magic=1" className="text-amber-600 hover:underline">
+        <Link href="/auth/login?magic=1" className="text-blue-400 hover:underline">
           Recuperar por correo
         </Link>
       </p>

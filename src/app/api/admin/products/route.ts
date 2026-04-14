@@ -34,6 +34,7 @@ const productSchema = z.object({
   sku: z.string().min(1),
   categoryId: z.string().min(1),
   isActive: z.boolean().default(true),
+  images: z.array(z.string().url()).default([]),
 })
 
 export async function POST(request: NextRequest) {
@@ -50,6 +51,6 @@ export async function POST(request: NextRequest) {
   }
 
   const repo = new PrismaProductRepository()
-  const product = await repo.save({ ...parsed.data, images: [] })
+  const product = await repo.save({ ...parsed.data })
   return Response.json(product, { status: 201 })
 }

@@ -33,6 +33,7 @@ const updateSchema = z.object({
   sku: z.string().min(1).optional(),
   categoryId: z.string().min(1).optional(),
   isActive: z.boolean().optional(),
+  images: z.array(z.string().url()).optional(),
 })
 
 export async function PUT(

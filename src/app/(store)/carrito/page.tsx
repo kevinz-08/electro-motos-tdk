@@ -15,8 +15,10 @@ function formatCOP(cents: number): string {
 }
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, total, clearCart } = useCart()
+  const { items, removeItem, updateQuantity, clearCart } = useCart()
   const [showConfirm, setShowConfirm] = useState(false)
+
+  const cartTotal = items.reduce((acc, i) => acc + i.product.price * i.quantity, 0)
 
   if (items.length === 0) {
     return (
@@ -161,7 +163,7 @@ export default function CartPage() {
               <div className="border-t border-white/10 pt-4 mb-6">
                 <div className="flex justify-between font-bold text-white">
                   <span>Total</span>
-                  <span>{formatCOP(total())}</span>
+                  <span>{formatCOP(cartTotal)}</span>
                 </div>
                 <p className="text-xs text-white/30 mt-1">Envío calculado al finalizar</p>
               </div>

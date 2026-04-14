@@ -31,7 +31,7 @@ const TOP_CATEGORIES = [
 
 export function Navbar() {
   const { data: session } = useSession()
-  const user = session?.user as (typeof session.user & { role?: string }) | undefined
+  const user = session?.user as ({ name?: string | null; email?: string | null; role?: string }) | undefined
   const isAdmin = user?.role === 'ADMIN'
   const firstName = user?.name?.split(' ')[0] ?? 'Mi cuenta'
 
@@ -71,13 +71,13 @@ export function Navbar() {
 
           {/* ── Col 1: Logo (izquierda) ── */}
           <div className="flex items-center">
-            <Link href="/" className="shrink-0 border border-white/20 rounded-lg p-1.5 hover:border-white/40 transition-colors">
+            <Link href="/" className="">
               <Image
-                src="/assets/logo.png"
+                src="/assets/LogoPage.png"
                 alt="Electro Motos Tony"
-                width={70}
-                height={38}
-                className="object-contain block"
+                width={80}
+                height={60}
+                className="object-contain"
                 priority
               />
             </Link>

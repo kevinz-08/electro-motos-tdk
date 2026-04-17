@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { CartIcon } from '@/components/ui/CartIcon'
 
@@ -35,6 +36,31 @@ export function Navbar() {
   const isAdmin = user?.role === 'ADMIN'
   const firstName = user?.name?.split(' ')[0] ?? 'Mi cuenta'
 
+  const pathname      = usePathname()
+  const searchParams  = useSearchParams()
+  const router        = useRouter()
+  const isCatalog     = pathname === '/catalogo' || pathname.startsWith('/catalogo')
+
+  // Estado del buscador contextual del catálogo
+  const [catalogSearch, setCatalogSearch] = useState(searchParams.get('search') ?? '')
+
+  const handleCatalogSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    const params = new URLSearchParams(searchParams.toString())
+    if (catalogSearch.trim()) {
+      params.set('search', catalogSearch.trim())
+    } else {
+      params.delete('search')
+    }
+    params.delete('page')
+    router.push(`/catalogo?${params.toString()}`)
+  }
+
+  // Sincronizar campo si el usuario navega con back/forward
+  useEffect(() => {
+    setCatalogSearch(searchParams.get('search') ?? '')
+  }, [searchParams])
+
   // Estados de apertura
   const [catOpen, setCatOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
@@ -64,6 +90,91 @@ export function Navbar() {
     catLeaveTimer.current = setTimeout(() => setCatOpen(false), 120)
   }
 
+  // ── Layout especial para el catálogo ─────────────────────────────────────
+  if (isCatalog) {
+    return (
+      <header className="sticky top-0 z-50 bg-black border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 h-16">
+
+            {/* Logo */}
+            <Link href="/" className="shrink-0">
+              <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={70} height={52} className="object-contain" priority />
+            </Link>
+
+            {/* Buscador centrado — ocupa el espacio restante */}
+            <form onSubmit={handleCatalogSearch} className="flex-1 flex items-center max-w-2xl mx-auto">
+              <div className="flex w-full rounded-full overflow-hidden border border-white/15 bg-white/5 focus-within:border-white/30 transition-colors">
+                <input
+                  type="text"
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  placeholder="Buscar productos..."
+                  className="flex-1 bg-transparent text-white placeholder-white/35 text-sm px-5 py-2.5 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 bg-white/10 hover:bg-white/20 transition-colors px-5 flex items-center justify-center"
+                  aria-label="Buscar"
+                >
+                  <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+
+            {/* Iconos derecha */}
+            <div className="shrink-0 flex items-center gap-1">
+              {/* Mi cuenta */}
+              <div ref={userRef} className="relative">
+                <button
+                  onClick={() => setUserOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-sm"
+                  aria-label="Mi cuenta"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span className="hidden sm:inline text-xs font-medium">{firstName}</span>
+                </button>
+
+                {userOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-56 bg-[#111] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                    {session?.user ? (
+                      <>
+                        <div className="px-4 py-3 border-b border-white/10">
+                          <p className="text-sm font-semibold text-white truncate">{firstName}</p>
+                          <p className="text-xs text-white/40 truncate">{user?.email}</p>
+                        </div>
+                        <div className="p-1.5 space-y-0.5">
+                          <Link href={isAdmin ? '/admin' : '/perfil'} className="flex items-center gap-2 px-3 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors" onClick={() => setUserOpen(false)}>Mi cuenta</Link>
+                          <Link href="/pedidos" className="flex items-center gap-2 px-3 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors" onClick={() => setUserOpen(false)}>Mis pedidos</Link>
+                          <div className="my-1 border-t border-white/10" />
+                          <button onClick={() => { signOut({ callbackUrl: '/' }); setUserOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">Cerrar sesión</button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-1.5 space-y-0.5">
+                        <Link href="/auth/register" className="flex items-center gap-2 px-3 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors" onClick={() => setUserOpen(false)}>Crear cuenta</Link>
+                        <Link href="/auth/login" className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" onClick={() => setUserOpen(false)}>Iniciar sesión</Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Carrito */}
+              <CartIcon />
+            </div>
+
+          </div>
+        </div>
+      </header>
+    )
+  }
+
+  // ── Layout estándar (resto de páginas) ────────────────────────────────────
   return (
     <header className="sticky top-0 z-50 bg-black border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -71,6 +71,11 @@ const CATEGORIES = [
     name: 'Repuestos Motor',
     description: 'Pistones, anillos, cigüeñales y repuestos internos de motor',
   },
+  {
+    slug: 'equipamiento',
+    name: 'Equipamiento',
+    description: 'Balaclavas, guantes y accesorios de protección para el motociclista',
+  },
 ]
 
 // ─── Productos ────────────────────────────────────────────────────────────────
@@ -874,16 +879,218 @@ const PRODUCTS: Array<{
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
   {
-    sku: 'FIL-AIR-DOM400-001',
-    name: 'Filtro de aire alto flujo Dominar 400',
-    slug: 'filtro-aire-alto-flujo-dominar-400',
-    description: 'Filtro de aire de alto flujo para Bajaj Dominar 400. Aumenta la entrada de aire al motor para mejor rendimiento. Lavable y reutilizable.',
-    price: 11_000_000, // $110.000 COP
-    stock: 12,
+    sku: '9-APACHE',
+    name: 'Filtro Aire Alto Flujo Apache 160/180/200',
+    slug: 'filtro-aire-alto-flujo-apache-160-180-200',
+    description: 'Filtro de aire de alto flujo compatible con Apache 160, 180 y 200. Lavable y reutilizable, mejora la entrada de aire al motor.',
+    price: 7_500_000, // $75.000 COP
+    stock: 5,
+    images: [],
+    isActive: true,
+    categorySlug: 'filtros',
+    compatible: [
+      { brand: 'TVS', model: 'Apache 160' },
+      { brand: 'TVS', model: 'Apache 180' },
+      { brand: 'TVS', model: 'Apache 200' },
+    ],
+  },
+  {
+    sku: '9-BA37',
+    name: 'Filtro Aire Alto Flujo KYN Dominar 400',
+    slug: 'filtro-aire-alto-flujo-kyn-dominar-400',
+    description: 'Filtro de aire de alto flujo KYN para Bajaj Dominar 400. Aumenta la entrada de aire al motor para mejor rendimiento.',
+    price: 11_500_000, // $115.000 COP
+    stock: 2,
     images: [],
     isActive: true,
     categorySlug: 'filtros',
     compatible: [{ brand: 'Bajaj', model: 'Dominar 400' }],
+  },
+  {
+    sku: '9-CB190',
+    name: 'Filtro Aire Alto Flujo CB 190 / CB 160',
+    slug: 'filtro-aire-alto-flujo-cb190-cb160',
+    description: 'Filtro de aire de alto flujo para Honda CB 190 y CB 160. Lavable y reutilizable.',
+    price: 7_500_000, // $75.000 COP
+    stock: 3,
+    images: [],
+    isActive: true,
+    categorySlug: 'filtros',
+    compatible: [
+      { brand: 'Honda', model: 'CB 190' },
+      { brand: 'Honda', model: 'CB 160' },
+    ],
+  },
+  {
+    sku: '9-DR150',
+    name: 'Filtro Aire Alto Flujo DR 150',
+    slug: 'filtro-aire-alto-flujo-dr150',
+    description: 'Filtro de aire de alto flujo para Suzuki DR 150. Mejora el rendimiento del motor con mayor entrada de aire.',
+    price: 7_500_000, // $75.000 COP
+    stock: 3,
+    images: [],
+    isActive: true,
+    categorySlug: 'filtros',
+    compatible: [{ brand: 'Suzuki', model: 'DR 150' }],
+  },
+  {
+    sku: '9-GIX150',
+    name: 'Filtro Aire Alto Flujo Gixxer 150',
+    slug: 'filtro-aire-alto-flujo-gixxer-150',
+    description: 'Filtro de aire de alto flujo para Suzuki Gixxer 150. Lavable y reutilizable, optimiza la mezcla aire-combustible.',
+    price: 7_500_000, // $75.000 COP
+    stock: 10,
+    images: [],
+    isActive: true,
+    categorySlug: 'filtros',
+    compatible: [{ brand: 'Suzuki', model: 'Gixxer 150' }],
+  },
+  {
+    sku: '9-K390',
+    name: 'Filtro de Aire Alto Flujo KTM 390 3G',
+    slug: 'filtro-aire-alto-flujo-ktm-390-3g',
+    description: 'Filtro de aire de alto flujo para KTM 390 3G. Alto rendimiento y larga vida útil.',
+    price: 8_500_000, // $85.000 COP
+    stock: 5,
+    images: [],
+    isActive: true,
+    categorySlug: 'filtros',
+    compatible: [{ brand: 'KTM', model: '390 3G' }],
+  },
+  {
+    sku: '9-KT250',
+    name: 'Filtro Aire Alto Flujo KTM 200/250 NG/WO',
+    slug: 'filtro-aire-alto-flujo-ktm-200-250-ng-wo',
+    description: 'Filtro de aire de alto flujo para KTM 200 y 250 versiones NG y WO. Lavable y reutilizable.',
+    price: 8_500_000, // $85.000 COP
+    stock: 5,
+    images: [],
+    isActive: true,
+    categorySlug: 'filtros',
+    compatible: [
+      { brand: 'KTM', model: '200 NG' },
+      { brand: 'KTM', model: '200 WO' },
+      { brand: 'KTM', model: '250 NG' },
+      { brand: 'KTM', model: '250 WO' },
+    ],
+  },
+
+  // ── Filtros Yamaha ───────────────────────────────────────────────────────────
+  {
+    sku: '9-YA19',
+    name: 'Filtro de Aire Alto Flujo KYN Yamaha MT15',
+    slug: 'filtro-aire-alto-flujo-kyn-yamaha-mt15',
+    description: 'Filtro de aire de alto flujo KYN para Yamaha MT15. Lavable y reutilizable, mejora la entrada de aire al motor.',
+    price: 9_500_000, // $95.000 COP
+    stock: 3,
+    images: [],
+    isActive: true,
+    categorySlug: 'filtros',
+    compatible: [{ brand: 'Yamaha', model: 'MT15' }],
+  },
+  {
+    sku: '9-YA150',
+    name: 'Filtro de Aire Alto Flujo XTZ 150',
+    slug: 'filtro-aire-alto-flujo-xtz-150',
+    description: 'Filtro de aire de alto flujo para Yamaha XTZ 150. Lavable y reutilizable, optimiza la mezcla aire-combustible.',
+    price: 7_500_000, // $75.000 COP
+    stock: 8,
+    images: [],
+    isActive: true,
+    categorySlug: 'filtros',
+    compatible: [{ brand: 'Yamaha', model: 'XTZ 150' }],
+  },
+
+  // ── Iluminación ─────────────────────────────────────────────────────────────
+  {
+    sku: '9-2586',
+    name: 'Direccionales LED Naranja Doble Pantalla (Par)',
+    slug: 'direccionales-led-naranja-doble-pantalla-par',
+    description: 'Par de direccionales LED color naranja con doble pantalla. Alta visibilidad y bajo consumo energético.',
+    price: 1_500_000, // $15.000 COP
+    stock: 2,
+    images: [],
+    isActive: true,
+    categorySlug: 'iluminacion',
+    compatible: [],
+  },
+
+  // ── Sistema Eléctrico ────────────────────────────────────────────────────────
+  {
+    sku: '9-M2060',
+    name: 'Módulo de Estacionarias',
+    slug: 'modulo-de-estacionarias',
+    description: 'Módulo electrónico para luces estacionarias. Compatible con múltiples modelos de moto.',
+    price: 6_000_000, // $60.000 COP
+    stock: 5,
+    images: [],
+    isActive: true,
+    categorySlug: 'sistema-electrico',
+    compatible: [],
+  },
+
+  // ── Accesorios ───────────────────────────────────────────────────────────────
+  {
+    sku: '9-2821',
+    name: 'Caballete para Moto Rojo',
+    slug: 'caballete-para-moto-rojo',
+    description: 'Caballete trasero para moto color rojo. Resistente y de fácil instalación.',
+    price: 11_500_000, // $115.000 COP
+    stock: 0,
+    images: [],
+    isActive: true,
+    categorySlug: 'accesorios',
+    compatible: [],
+  },
+  {
+    sku: '9-3500',
+    name: 'Fender para Gixxer 150',
+    slug: 'fender-para-gixxer-150',
+    description: 'Fender trasero para Suzuki Gixxer 150. Protege de salpicaduras y mejora la estética de la moto.',
+    price: 11_000_000, // $110.000 COP
+    stock: 2,
+    images: [],
+    isActive: true,
+    categorySlug: 'accesorios',
+    compatible: [{ brand: 'Suzuki', model: 'Gixxer 150' }],
+  },
+  {
+    sku: '9-LK303',
+    name: 'Candado con Alarma Macizo',
+    slug: 'candado-con-alarma-macizo',
+    description: 'Candado macizo con alarma incorporada para moto. Alta seguridad contra robos, activa alarma sonora al detectar movimiento.',
+    price: 8_500_000, // $85.000 COP
+    stock: 0,
+    images: [],
+    isActive: true,
+    categorySlug: 'accesorios',
+    compatible: [],
+  },
+
+  // ── Equipamiento ─────────────────────────────────────────────────────────────
+  {
+    sku: '9-05601',
+    name: 'Balaclava Negro',
+    slug: 'balaclava-negro',
+    description: 'Balaclava de color negro para motociclismo. Protege el rostro y cuello del viento y el frío.',
+    price: 2_500_000, // $25.000 COP
+    stock: 2,
+    images: [],
+    isActive: true,
+    categorySlug: 'equipamiento',
+    compatible: [],
+  },
+  {
+    sku: '9-05602',
+    name: 'Balaclava Negro Cubre Cabello',
+    slug: 'balaclava-negro-cubre-cabello',
+    description: 'Balaclava negra con diseño cubre cabello. Ideal para usar bajo el casco, mantiene el cabello recogido y protege del viento.',
+    price: 2_000_000, // $20.000 COP
+    stock: 2,
+    images: [],
+    isActive: true,
+    categorySlug: 'equipamiento',
+    compatible: [],
   },
 
   // ── Frenos ──────────────────────────────────────────────────────────────────

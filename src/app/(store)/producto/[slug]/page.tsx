@@ -31,6 +31,7 @@ import Image from 'next/image'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { GetProductBySlug } from '@/domain/use-cases/products/GetProductBySlug'
 import { AddToCartButton } from '@/components/store/AddToCartButton'
+import { cloudinaryUrl } from '@/lib/cloudinary'
 import type { Metadata } from 'next'
 
 interface PageProps {
@@ -64,9 +65,10 @@ export default async function ProductPage({ params }: PageProps) {
   if (!result.ok) notFound()
 
   const product = result.value
-  const mainImage = product.images[0]
+  const mainImage = cloudinaryUrl(product.images[0], 'detail')
 
   return (
+    <div className="min-h-screen bg-white">
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         {/* Imagen */}
@@ -117,7 +119,7 @@ export default async function ProductPage({ params }: PageProps) {
 
           <AddToCartButton
             product={product}
-            className="w-full bg-amber-400 text-gray-900 py-3 px-6 rounded-xl text-base font-bold hover:bg-amber-300 active:scale-95 transition-all mb-3"
+            className="w-full bg-blue-600 text-white py-3 px-6 rounded-xl text-base font-bold hover:bg-blue-500 active:scale-95 transition-all mb-3"
           />
 
           <div className="text-sm text-gray-500 flex items-center gap-4 mt-4">
@@ -152,6 +154,7 @@ export default async function ProductPage({ params }: PageProps) {
           )}
         </div>
       </div>
+    </div>
     </div>
   )
 }

@@ -5,15 +5,17 @@
  *
  * Layout:
  *   - Imagen cuadrada que ocupa todo el ancho, sin padding lateral.
- *   - Al hacer hover: aparece un botón circular de carrito en la esquina
- *     inferior derecha de la imagen (reemplaza el botón visible permanente).
+ *   - Al hacer hover: si el producto tiene ≥2 imágenes, hace crossfade
+ *     a la segunda imagen (transición CSS pura, sin estado).
+ *     Si solo hay una imagen, aplica scale-105 como antes.
+ *   - Botón circular de carrito aparece en la esquina inferior derecha al hover.
  *   - Debajo de la imagen: nombre → precio. Sin elementos extra.
  *
  * Badges:
  *   - stock = 0   → overlay "Agotado" semitransparente sobre la imagen.
  *   - 1–5 stock   → chip "Últimas N" en la esquina superior izquierda.
  *
- * El componente es 'use client' porque AddToCartIcon usa useCart (hook de cliente).
+ * El componente es 'use client' porque CartHoverButton usa useCart.
  */
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
@@ -94,8 +96,13 @@ function CartHoverButton({ product }: { product: Product }) {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const mainImage  = cloudinaryUrl(product.images[0], 'card')
-  const isLowStock  = product.stock > 0 && product.stock <= 5
+  // Máximo 4 imágenes; la segunda se muestra en hover (crossfade CSS puro)
+  const images       = product.images.slice(0, 4)
+  const firstImage   = images[0] ? cloudinaryUrl(images[0], 'card') : null
+  const secondImage  = images[1] ? cloudinaryUrl(images[1], 'card') : null
+  const hasSecond    = !!secondImage
+
+  const isLowStock   = product.stock > 0 && product.stock <= 5
   const isOutOfStock = product.stock === 0
 
   return (
@@ -106,14 +113,41 @@ export function ProductCard({ product }: ProductCardProps) {
         href={`/producto/${product.slug}`}
         className="relative block aspect-square overflow-hidden bg-gray-50 shrink-0"
       >
-        {mainImage ? (
-          <Image
-            src={mainImage}
-            alt={product.name}
-            fill
-            className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          />
+        {firstImage ? (
+          <>
+            {/* Imagen principal: se oculta en hover si hay segunda imagen */}
+            <Image
+              src={firstImage}
+              alt={product.name}
+              fill
+              className={`object-contain p-4 transition-all duration-500 ${hasSecond ? 'group-hover:opacity-0' : 'group-hover:scale-105'}`}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            />
+
+            {/* Segunda imagen: crossfade en hover */}
+            {hasSecond && (
+              <Image
+                src={secondImage!}
+                alt={`${product.name} — vista 2`}
+                fill
+                className="object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                loading="lazy"
+              />
+            )}
+
+            {/* Indicador de múltiples fotos (puntitos) */}
+            {images.length > 1 && (
+              <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1 pointer-events-none">
+                {images.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`block rounded-full transition-all duration-500 ${i === 0 ? 'w-3 h-1.5 bg-gray-400 group-hover:w-1.5 group-hover:bg-gray-300' : 'w-1.5 h-1.5 bg-gray-300 group-hover:bg-gray-500'}`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-300">
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">

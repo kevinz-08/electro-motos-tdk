@@ -13,7 +13,8 @@
  *   - description: primeros 160 caracteres de la descripción
  *
  * Elementos de la página:
- *   - Imagen principal (o placeholder si no tiene imágenes)
+ *   - ProductImageGallery (Client Component): galería interactiva con
+ *     hasta 4 imágenes, botones ← → y miniaturas clicables.
  *   - SKU del producto
  *   - Nombre y precio formateado en COP
  *   - Indicador de stock: verde (en stock), amarillo (pocas unidades), rojo (agotado)
@@ -27,11 +28,10 @@
  *   6+ unidades   → "En stock (N unidades)" (verde)
  */
 import { notFound } from 'next/navigation'
-import Image from 'next/image'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { GetProductBySlug } from '@/domain/use-cases/products/GetProductBySlug'
 import { AddToCartButton } from '@/components/store/AddToCartButton'
-import { cloudinaryUrl } from '@/lib/cloudinary'
+import { ProductImageGallery } from '@/components/store/ProductImageGallery'
 import type { Metadata } from 'next'
 
 interface PageProps {
@@ -65,32 +65,17 @@ export default async function ProductPage({ params }: PageProps) {
   if (!result.ok) notFound()
 
   const product = result.value
-  const mainImage = cloudinaryUrl(product.images[0], 'detail')
 
   return (
     <div className="min-h-screen bg-white">
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-        {/* Imagen */}
-        <div className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
-          {mainImage ? (
-            <Image
-              src={mainImage}
-              alt={product.name}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-300">
-              <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-          )}
-        </div>
+
+        {/* ── Galería de imágenes (hasta 4) ── */}
+        <ProductImageGallery
+          images={product.images}
+          productName={product.name}
+        />
 
         {/* Detalle */}
         <div>

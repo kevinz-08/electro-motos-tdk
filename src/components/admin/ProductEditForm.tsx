@@ -309,7 +309,7 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
               <>
                 <ImagePlus className="w-6 h-6 text-white/30" />
                 <span className="text-sm text-white/50">
-                  Haz clic para subir imágenes
+                  Haz clic para subir imágenes - MAXIMO 4 IMAGENES
                 </span>
                 <span className="text-xs text-white/25">PNG, JPG, WEBP · Máx. 10 MB</span>
               </>

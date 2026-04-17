@@ -4,7 +4,11 @@
       "Bash(npm install:*)",
       "Bash(npx prisma:*)",
       "Bash(npx tsc:*)",
-      "WebFetch(domain:h2r.venndelo.com)"
+      "WebFetch(domain:h2r.venndelo.com)",
+      "WebFetch(domain:www.fpmoto.com)",
+      "Bash(dir \"C:\\\\Users\\\\pagin\\\\VSC-Business\\\\electro-motos-tdk\\\\public\\\\assets\\\\bannerByCategory\")",
+      "Bash(dir \"C:\\\\Users\\\\pagin\\\\VSC-Business\\\\electro-motos-tdk\\\\public\\\\assets\")",
+      "Bash(dir \"C:\\\\Users\\\\pagin\\\\VSC-Business\\\\electro-motos-tdk\\\\public\\\\assets\" /B)"
     ]
   }
 }

@@ -66,36 +66,48 @@ export class PrismaProductRepository implements IProductRepository {
    * Lista productos con filtros opcionales y paginación.
    *
    * Construcción del filtro `where`:
-   * - Por defecto solo productos activos (isActive: true).
+   * - Siempre filtra isActive: true.
    * - `inStock: true` agrega `stock > 0`.
-   * - `categorySlug` hace join con Category por slug.
+   * - `categorySlug` soporta jerarquía de dos niveles:
+   *     Si el slug es una categoría PADRE, incluye automáticamente los IDs
+   *     de todas sus subcategorías hijas (una consulta extra por llamada).
+   *     Si es una subcategoría (leaf), filtra solo por su ID.
    * - `search` busca en nombre, descripción y SKU (case-insensitive).
    * - `minPrice` / `maxPrice` filtran por rango de precio en centavos.
    */
   async findAll(filters: ProductFilters): Promise<PaginatedProducts> {
-    const page = filters.page ?? 1
+    const page  = filters.page  ?? 1
     const limit = filters.limit ?? 12
-    const skip = (page - 1) * limit
+    const skip  = (page - 1) * limit
+
+    // Resolver IDs de categoría con expansión padre → hijos
+    let categoryIdFilter: { in: string[] } | undefined
+    if (filters.categorySlug) {
+      const cat = await prisma.category.findUnique({
+        where: { slug: filters.categorySlug },
+        include: { children: { select: { id: true } } },
+      })
+      if (cat) {
+        categoryIdFilter = { in: [cat.id, ...cat.children.map((c) => c.id)] }
+      }
+    }
 
     const where = {
-      // Si inStock viene definido, no forzamos isActive para dar más flexibilidad
-      isActive: filters.inStock !== undefined ? undefined : true,
-      ...(filters.inStock !== undefined && { stock: { gt: 0 } }),
-      ...(filters.categorySlug && {
-        category: { slug: filters.categorySlug },
-      }),
+      isActive: true,
+      ...(filters.inStock  && { stock: { gt: 0 } }),
+      ...(categoryIdFilter && { categoryId: categoryIdFilter }),
       ...(filters.search && {
         OR: [
-          { name: { contains: filters.search, mode: 'insensitive' as const } },
+          { name:        { contains: filters.search, mode: 'insensitive' as const } },
           { description: { contains: filters.search, mode: 'insensitive' as const } },
-          { sku: { contains: filters.search, mode: 'insensitive' as const } },
+          { sku:         { contains: filters.search, mode: 'insensitive' as const } },
         ],
       }),
       ...(filters.minPrice !== undefined && { price: { gte: filters.minPrice } }),
       ...(filters.maxPrice !== undefined && { price: { lte: filters.maxPrice } }),
     }
 
-    // Promise.all para ejecutar count y findMany en paralelo (una sola red round-trip)
+    // Promise.all — count + findMany en paralelo
     const [items, total] = await Promise.all([
       prisma.product.findMany({
         where,

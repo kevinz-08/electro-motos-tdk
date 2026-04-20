@@ -3,14 +3,15 @@
 /**
  * FilterDrawer — botón "Seleccionar filtros" + panel lateral deslizante.
  *
- * Funciona como un componente autónomo: gestiona su estado de apertura
- * internamente y aplica los filtros navegando con router.push().
- *
  * Filtros soportados:
- *   - Categoría (radio)
+ *   - Categoría (radio) — jerarquía padre → subcategorías expandible
  *   - Disponibilidad / Solo en stock (checkbox)
- *   - Rango de precio en COP pesos (inputs). Los valores se multiplican × 100
- *     al construir la URL porque la BD los almacena en centavos.
+ *   - Rango de precio en COP pesos (inputs)
+ *
+ * La sección de categorías muestra las 5 categorías padre. Cada padre tiene
+ * un chevron que despliega sus subcategorías. Seleccionar el padre filtra
+ * todos sus productos (el repositorio expande el ID padre + hijos).
+ * Seleccionar una subcategoría filtra solo esa subcategoría.
  *
  * Al hacer "Aplicar" se navega a /catalogo?...params.
  * Al hacer "Limpiar" se navega a /catalogo (sin params).
@@ -19,10 +20,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
+interface FilterChild {
+  id: string
+  name: string
+  slug: string
+}
+
 interface FilterCategory {
   id: string
   name: string
   slug: string
+  children?: FilterChild[]
 }
 
 interface Props {
@@ -46,6 +54,17 @@ function buildUrl(filters: {
   return `/catalogo${qs ? `?${qs}` : ''}`
 }
 
+/** Devuelve el slug del padre que contiene el slug activo */
+function findParentSlug(categories: FilterCategory[], activeSlug: string): string {
+  // Si el slug es un padre, devuelve él mismo
+  if (categories.some((c) => c.slug === activeSlug)) return activeSlug
+  // Si es un hijo, devuelve el padre
+  for (const cat of categories) {
+    if (cat.children?.some((ch) => ch.slug === activeSlug)) return cat.slug
+  }
+  return ''
+}
+
 export function FilterDrawer({
   categories,
   currentCategory,
@@ -63,13 +82,21 @@ export function FilterDrawer({
   const [minPrice, setMinPrice]       = useState(currentMinPrice ?? '')
   const [maxPrice, setMaxPrice]       = useState(currentMaxPrice ?? '')
 
+  // Qué padre está expandido — al abrir se auto-expande el que contiene el filtro activo
+  const [expandedParent, setExpandedParent] = useState<string>(() =>
+    currentCategory ? findParentSlug(categories, currentCategory) : ''
+  )
+
   // Sincronizar si los params externos cambian (navegación back/forward)
   useEffect(() => {
     setSelCategory(currentCategory ?? '')
     setInStock(currentInStock === 'true')
     setMinPrice(currentMinPrice ?? '')
     setMaxPrice(currentMaxPrice ?? '')
-  }, [currentCategory, currentInStock, currentMinPrice, currentMaxPrice])
+    if (currentCategory) {
+      setExpandedParent(findParentSlug(categories, currentCategory))
+    }
+  }, [currentCategory, currentInStock, currentMinPrice, currentMaxPrice, categories])
 
   // Cerrar con Escape
   useEffect(() => {
@@ -85,12 +112,22 @@ export function FilterDrawer({
     return () => { document.body.style.overflow = '' }
   }, [isOpen])
 
+  /** Selecciona categoría padre y auto-expande sus hijos */
+  const selectParent = useCallback((slug: string) => {
+    setSelCategory(slug)
+    setExpandedParent((prev) => (prev === slug ? prev : slug))
+  }, [])
+
+  /** Alterna la expansión de un padre sin cambiar el filtro seleccionado */
+  const toggleExpand = useCallback((slug: string) => {
+    setExpandedParent((prev) => (prev === slug ? '' : slug))
+  }, [])
+
   const apply = useCallback(() => {
     router.push(buildUrl({
       category:  selCategory || undefined,
       inStock:   inStock ? 'true' : undefined,
       search:    currentSearch || undefined,
-      // Convertir pesos → centavos para la BD
       minPrice:  minPrice ? String(Number(minPrice) * 100) : undefined,
       maxPrice:  maxPrice ? String(Number(maxPrice) * 100) : undefined,
     }))
@@ -102,11 +139,11 @@ export function FilterDrawer({
     setInStock(false)
     setMinPrice('')
     setMaxPrice('')
+    setExpandedParent('')
     router.push('/catalogo')
     setIsOpen(false)
   }, [router])
 
-  // Conteo de filtros activos para el badge del botón
   const activeCount = [
     !!currentCategory,
     currentInStock === 'true',
@@ -170,25 +207,68 @@ export function FilterDrawer({
           {/* ── Categoría ── */}
           <div>
             <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Categoría</h3>
-            <ul className="space-y-1">
+            <ul className="space-y-0.5">
+
+              {/* "Todas" */}
               <li>
                 <button
-                  onClick={() => setSelCategory('')}
+                  onClick={() => { setSelCategory(''); setExpandedParent('') }}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selCategory === '' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                 >
                   Todas las categorías
                 </button>
               </li>
-              {categories.map((cat) => (
-                <li key={cat.id}>
-                  <button
-                    onClick={() => setSelCategory(cat.slug)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selCategory === cat.slug ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-                  >
-                    {cat.name}
-                  </button>
-                </li>
-              ))}
+
+              {/* Categorías padre con hijos colapsables */}
+              {categories.map((cat) => {
+                const isExpanded = expandedParent === cat.slug
+                const isParentActive = selCategory === cat.slug
+                const hasChildren = (cat.children?.length ?? 0) > 0
+
+                return (
+                  <li key={cat.id}>
+                    {/* Fila del padre */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => selectParent(cat.slug)}
+                        className={`flex-1 text-left px-3 py-2 rounded-lg text-sm transition-colors ${isParentActive ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
+                      >
+                        {cat.name}
+                      </button>
+                      {hasChildren && (
+                        <button
+                          onClick={() => toggleExpand(cat.slug)}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                          aria-label={isExpanded ? 'Colapsar' : 'Expandir'}
+                        >
+                          <svg
+                            className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Subcategorías (expandibles) */}
+                    {hasChildren && isExpanded && (
+                      <ul className="ml-3 mt-0.5 mb-1 border-l-2 border-gray-100 pl-3 space-y-0.5">
+                        {cat.children!.map((child) => (
+                          <li key={child.id}>
+                            <button
+                              onClick={() => setSelCategory(child.slug)}
+                              className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${selCategory === child.slug ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}`}
+                            >
+                              {child.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </div>
 

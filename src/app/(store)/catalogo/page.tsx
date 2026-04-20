@@ -2,15 +2,15 @@
  * Catálogo de productos — dos vistas:
  *
  * LANDING  (sin filtros activos → /catalogo)
- *   1. Hero full-screen con parallax (Banner-catalogo.jpg)
- *   2. Carrusel horizontal "Explorar por categoría" (imágenes retrato)
- *   3. Secciones por categoría con scroll vertical:
- *      - Banner hero por categoría (bg-fixed parallax + CTA "Ver más")
- *      - "Productos Populares" (carrusel horizontal de ProductCards)
+ *   1. Hero full-screen con parallax
+ *   2. Carrusel horizontal "Explorar por categoría" (categorías padre)
+ *   3. Secciones por categoría padre con scroll vertical:
+ *      - Banner hero + "Productos Populares" (agrega subcategorías)
  *   4. Trust strip + WhatsApp CTA
  *
  * GRID     (category / search / inStock activos → /catalogo?category=X)
  *   Breadcrumb + trust strip + sidebar + grid de productos + paginación.
+ *   El FilterDrawer muestra las 5 categorías padre con sus subcategorías.
  *
  * Server Component. Tema claro/oscuro → CatalogThemeWrapper (client).
  */
@@ -41,28 +41,30 @@ interface PageProps {
   }>
 }
 
-type PrismaProduct = {
+type PrismaProductRaw = {
   id: string; name: string; slug: string; description: string
   price: number; stock: number; sku: string; images: string[]
   isActive: boolean; categoryId: string; createdAt: Date; updatedAt: Date
 }
 
+type ChildCatRef = { id: string; name: string; slug: string }
+
+/** Categoría padre enriquecida con productos agregados de todas sus subcategorías */
 type CategoryFull = {
   id: string; name: string; slug: string; description: string | null
-  _count: { products: number }
-  products: PrismaProduct[]
+  products: PrismaProductRaw[]
+  productCount: number
 }
 
-// Para la vista Grid solo necesitamos el conteo, sin los productos
-type CategorySlim = {
-  id: string; name: string; slug: string; description: string | null
-  _count: { products: number }
+/** Categoría padre con hijos — usada para el FilterDrawer en vista Grid */
+type ParentCategorySlim = {
+  id: string; name: string; slug: string
+  children: ChildCatRef[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Mapea un producto Prisma a la entidad de dominio */
-function toDomain(p: PrismaProduct): Product {
+function toDomain(p: PrismaProductRaw): Product {
   return {
     id: p.id, name: p.name, slug: p.slug, description: p.description,
     price: p.price, stock: p.stock, sku: p.sku, images: p.images,
@@ -83,37 +85,41 @@ function buildUrl(
   return `/catalogo${qs ? `?${qs}` : ''}`
 }
 
-// ── Metadata de categorías ────────────────────────────────────────────────────
+// ── Metadata de categorías (padres) ──────────────────────────────────────────
 
 const CAT: Record<string, { icon: string; desc: string }> = {
-  'frenos':            { icon: '', desc: 'Mantén el control en cada curva. Pastillas, discos y kits de frenos de alta calidad para todas las marcas.' },
-  'motores':           { icon: '',  desc: 'El corazón de tu moto siempre al máximo. Pistones, anillos, cigüeñales y repuestos para un rendimiento óptimo.' },
-  'llantas':           { icon: '', desc: 'Agarre que inspira confianza. Llantas para asfalto, campo y todo tipo de terreno.' },
-  'sistema-electrico': { icon: '',  desc: 'Mantén el sistema eléctrico en perfectas condiciones. Reguladores, fusibles e interruptores.' },
-  'arneses':           { icon: '', desc: 'Conexiones confiables para tu moto. Arneses de cableado y conectores de calidad.' },
-  'baterias':          { icon: '', desc: 'Arranque garantizado en todo momento. Baterías de larga duración para todas las marcas.' },
-  'iluminacion':       { icon: '', desc: 'Ve y sé visto en la vía. Bombillas, faros LED y luces de alta visibilidad.' },
-  'accesorios':        { icon: '', desc: 'Personaliza y equipa tu moto con accesorios de alta calidad.' },
-  'filtros':           { icon: '', desc: 'Protege el motor de tu moto. Filtros de aire y aceite de alta eficiencia.' },
-  'repuestos-motor':   { icon: '', desc: 'Todo lo que necesitas para el motor. Repuestos genuinos para mantener tu moto impecable.' },
+  'sistema-electrico': {
+    icon: '⚡',
+    desc: 'Ramales, reguladores, CDI, bobinas y baterías. Todo para mantener el sistema eléctrico de tu moto en perfectas condiciones.',
+  },
+  'repuestos': {
+    icon: '🔧',
+    desc: 'Filtros de aire, bujías, frenos y repuestos de motor. Piezas originales y de calidad para tu moto.',
+  },
+  'aceites': {
+    icon: '🛢️',
+    desc: 'Aceites Liquimoly y SKY de alta calidad para proteger y alargar la vida útil del motor de tu moto.',
+  },
+  'llantas': {
+    icon: '🏍️',
+    desc: 'Llantas para asfalto, campo y todo tipo de terreno. Agarre, durabilidad y seguridad en cada kilómetro.',
+  },
+  'accesorios': {
+    icon: '🔩',
+    desc: 'Espejos, exploradores, bombillas LED, equipamiento y más accesorios para personalizar tu moto.',
+  },
 }
 
 const catIcon = (slug: string) => CAT[slug]?.icon ?? '📦'
 const catDesc = (slug: string) => CAT[slug]?.desc ?? 'Repuestos de alta calidad para tu moto.'
 
-// Imágenes de banner por categoría (reemplazar con fotos reales)
 const BANNER_FALLBACK = '/assets/bannerByCategory/banner-category-example.jpg'
 const BANNER: Record<string, string> = {
-  'frenos':            '/assets/bannerByCategory/frenos.jpg',
-  'motores':           '/assets/bannerByCategory/motores.jpg',
-  'llantas':           '/assets/bannerByCategory/llantas.jpg',
   'sistema-electrico': '/assets/bannerByCategory/sistema-electrico.jpg',
-  'arneses':           '/assets/bannerByCategory/arneses.jpg',
-  'baterias':          '/assets/bannerByCategory/baterias.jpg',
-  'iluminacion':       '/assets/bannerByCategory/iluminacion.jpg',
+  'repuestos':         '/assets/bannerByCategory/repuestos.jpg',
+  'aceites':           '/assets/bannerByCategory/aceites.jpg',
+  'llantas':           '/assets/bannerByCategory/llantas.jpg',
   'accesorios':        '/assets/bannerByCategory/accesorios.jpg',
-  'filtros':           '/assets/bannerByCategory/filtros.jpg',
-  'repuestos-motor':   '/assets/bannerByCategory/repuestos-motor.jpg',
 }
 const getBanner = (slug: string) => BANNER[slug] ?? BANNER_FALLBACK
 
@@ -138,21 +144,21 @@ export default async function CatalogPage({ searchParams }: PageProps) {
     // === VISTA GRID ===
     const page = Number(params.page ?? 1)
 
-    const [result, categories] = await Promise.all([
+    const [result, parentCategories] = await Promise.all([
       new ListProducts(repo).execute({
         categorySlug: params.category,
         search: params.search,
         page,
         limit: 12,
         inStock: params.inStock === 'true' ? true : undefined,
-        // Los params de precio vienen en pesos COP; la BD los almacena en centavos
         minPrice: params.minPrice ? Number(params.minPrice) : undefined,
         maxPrice: params.maxPrice ? Number(params.maxPrice) : undefined,
       }),
       prisma.category.findMany({
-        include: { _count: { select: { products: { where: { isActive: true } } } } },
+        where: { parentId: null },
+        include: { children: { select: { id: true, name: true, slug: true } } },
         orderBy: { name: 'asc' },
-      }) as unknown as Promise<CategorySlim[]>,
+      }) as Promise<ParentCategorySlim[]>,
     ])
 
     const { items, total, limit } = result.ok
@@ -160,13 +166,26 @@ export default async function CatalogPage({ searchParams }: PageProps) {
       : { items: [], total: 0, limit: 12 }
 
     const totalPages = Math.ceil(total / limit)
-    const activeCat = categories.find((c) => c.slug === params.category)
+
+    // Busca el nombre de la categoría activa en padres e hijos
+    let activeCat: { name: string; slug: string } | undefined
+    if (params.category) {
+      const parentMatch = parentCategories.find((p) => p.slug === params.category)
+      if (parentMatch) {
+        activeCat = { name: parentMatch.name, slug: parentMatch.slug }
+      } else {
+        for (const parent of parentCategories) {
+          const child = parent.children.find((c) => c.slug === params.category)
+          if (child) { activeCat = { name: child.name, slug: child.slug }; break }
+        }
+      }
+    }
 
     return (
       <CatalogThemeWrapper>
         <GridView
           items={items}
-          categories={categories}
+          parentCategories={parentCategories}
           activeCat={activeCat}
           params={params}
           total={total}
@@ -178,22 +197,40 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   }
 
   // === VISTA LANDING ===
-  // Traer categorías con sus productos (top 8 con stock por categoría)
-  const categoriesRaw = await prisma.category.findMany({
-    include: {
-      _count: { select: { products: { where: { isActive: true } } } },
-      products: {
-        where: { isActive: true, stock: { gt: 0 } },
-        take: 8,
-        orderBy: { createdAt: 'desc' },
-      },
-    },
+  // Traer categorías padre con sus hijos (para agregar productos)
+  const parentsRaw = await prisma.category.findMany({
+    where: { parentId: null },
+    include: { children: { select: { id: true } } },
     orderBy: { name: 'asc' },
-  }) as CategoryFull[]
+  })
 
-  // Solo mostrar categorías que tienen productos
-  const categories = categoriesRaw.filter((c) => c._count.products > 0)
-  const totalProducts = categoriesRaw.reduce((sum, c) => sum + c._count.products, 0)
+  // Para cada padre, agregar productos de todas sus subcategorías
+  const categoriesRaw = await Promise.all(
+    parentsRaw.map(async (parent) => {
+      const allIds = [parent.id, ...parent.children.map((c) => c.id)]
+      const [products, productCount] = await Promise.all([
+        prisma.product.findMany({
+          where: { isActive: true, stock: { gt: 0 }, categoryId: { in: allIds } },
+          take: 8,
+          orderBy: { createdAt: 'desc' },
+        }) as Promise<PrismaProductRaw[]>,
+        prisma.product.count({
+          where: { isActive: true, categoryId: { in: allIds } },
+        }),
+      ])
+      return {
+        id: parent.id,
+        name: parent.name,
+        slug: parent.slug,
+        description: parent.description,
+        products,
+        productCount,
+      } as CategoryFull
+    })
+  )
+
+  const categories = categoriesRaw.filter((c) => c.productCount > 0)
+  const totalProducts = categoriesRaw.reduce((sum, c) => sum + c.productCount, 0)
 
   return (
     <CatalogThemeWrapper>
@@ -252,7 +289,6 @@ function LandingView({
             </button>
           </form>
 
-          {/* CTA — ver catálogo completo */}
           <div className="mt-6">
             <Link
               href="/catalogo?showAll=true"
@@ -275,7 +311,7 @@ function LandingView({
               id: c.id,
               name: c.name,
               slug: c.slug,
-              productCount: c._count.products,
+              productCount: c.productCount,
             }))}
           />
         </div>
@@ -285,7 +321,6 @@ function LandingView({
       {categories.map((cat) => (
         <section key={cat.id} className="border-t c-divider">
 
-          {/* 3.1 Banner hero de categoría */}
           <CategoryHeroBanner
             slug={cat.slug}
             name={cat.name}
@@ -293,7 +328,6 @@ function LandingView({
             imageSrc={getBanner(cat.slug)}
           />
 
-          {/* 3.2 Productos populares */}
           {cat.products.length > 0 && (
             <div className="c-bg py-10 px-4 sm:px-6 lg:px-8">
               <div className="max-w-7xl mx-auto">
@@ -308,7 +342,7 @@ function LandingView({
                     href={`/catalogo?category=${cat.slug}`}
                     className="text-sm font-semibold c-active-text hover:underline shrink-0"
                   >
-                    Ver todos ({cat._count.products}) →
+                    Ver todos ({cat.productCount}) →
                   </Link>
                 </div>
 
@@ -367,11 +401,11 @@ function LandingView({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function GridView({
-  items, categories, activeCat, params, total, page, totalPages,
+  items, parentCategories, activeCat, params, total, page, totalPages,
 }: {
   items: Product[]
-  categories: CategorySlim[]
-  activeCat: CategorySlim | undefined
+  parentCategories: ParentCategorySlim[]
+  activeCat: { name: string; slug: string } | undefined
   params: Record<string, string | undefined>
   total: number
   page: number
@@ -380,7 +414,6 @@ function GridView({
   const url = (overrides: Record<string, string | undefined>) =>
     buildUrl(params, overrides)
 
-  // Chips de filtros activos (para mostrar bajo el toolbar)
   const activeChips: { label: string; removeUrl: string }[] = []
   if (params.category && activeCat) {
     activeChips.push({ label: activeCat.name, removeUrl: url({ category: undefined, page: undefined }) })
@@ -401,7 +434,6 @@ function GridView({
   }
 
   return (
-    // catalog-light fuerza las variables CSS al tema claro → tarjetas con fondo blanco
     <div className="catalog-light bg-white min-h-screen">
 
       {/* ── Breadcrumb + título ── */}
@@ -426,11 +458,11 @@ function GridView({
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-        {/* ── Toolbar: filtros + conteo ── */}
+        {/* ── Toolbar ── */}
         <div className="flex items-center justify-between gap-4 mb-5">
           <div className="flex items-center gap-3">
             <FilterDrawer
-              categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug }))}
+              categories={parentCategories}
               currentCategory={params.category}
               currentInStock={params.inStock}
               currentSearch={params.search}
@@ -438,7 +470,6 @@ function GridView({
               currentMaxPrice={params.maxPrice}
             />
 
-            {/* Chips de filtros activos */}
             {activeChips.length > 0 && (
               <div className="hidden sm:flex items-center gap-2 flex-wrap">
                 {activeChips.map((chip) => (
@@ -465,7 +496,7 @@ function GridView({
           </p>
         </div>
 
-        {/* Chips en móvil (bajo el toolbar) */}
+        {/* Chips en móvil */}
         {activeChips.length > 0 && (
           <div className="sm:hidden flex flex-wrap gap-2 mb-5">
             {activeChips.map((chip) => (
@@ -501,7 +532,6 @@ function GridView({
               ))}
             </div>
 
-            {/* Paginación */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-1.5 mt-12 flex-wrap">
                 {page > 1 && (

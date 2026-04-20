@@ -29,18 +29,13 @@ interface Props {
   categories: Category[]
 }
 
-// ── Rutas de imágenes ─────────────────────────────────────────────────────────
+// ── Rutas de imágenes (categorías padre) ─────────────────────────────────────
 const EXPLORE_IMAGE: Record<string, string> = {
-  'frenos':            '/assets/exploreByCategory/frenos.jpg',
-  'motores':           '/assets/exploreByCategory/motores.jpg',
-  'llantas':           '/assets/exploreByCategory/llantas.jpg',
   'sistema-electrico': '/assets/exploreByCategory/sistema-electrico.jpg',
-  'arneses':           '/assets/exploreByCategory/arneses.jpg',
-  'baterias':          '/assets/exploreByCategory/baterias.jpg',
-  'iluminacion':       '/assets/exploreByCategory/iluminacion.jpg',
+  'repuestos':         '/assets/exploreByCategory/repuestos.jpg',
+  'aceites':           '/assets/exploreByCategory/aceites.jpg',
+  'llantas':           '/assets/exploreByCategory/llantas.jpg',
   'accesorios':        '/assets/exploreByCategory/accesorios.jpg',
-  'filtros':           '/assets/exploreByCategory/filtros.jpg',
-  'repuestos-motor':   '/assets/exploreByCategory/repuestos-motor.jpg',
 }
 
 const FALLBACK = '/assets/exploreByCategory/explore-category-example.jpg'

@@ -29,37 +29,39 @@ const CLOUDINARY_RE = /^https?:\/\/res\.cloudinary\.com\/([^/]+)\/image\/upload\
 type ImageContext = 'thumbnail' | 'card' | 'detail' | 'carousel' | 'admin'
 
 const WIDTH: Record<ImageContext, number> = {
-  thumbnail: 200,   // carrito, mini-vistas
-  card:      480,   // ProductCard (grid 2-4 col)
-  detail:    900,   // página de producto (50vw en desktop ≈ 700px + margen)
-  carousel:  480,   // ProductCarousel, CategoryExploreCarousel
-  admin:     400,   // tabla de productos del admin
+  thumbnail: 200,
+  card:      480,
+  detail:    900,
+  carousel:  480,
+  admin:     400,
 }
 
 /**
  * Construye una URL de Cloudinary optimizada para el contexto dado.
- *
- * @param src       URL original almacenada en la BD (Cloudinary o externa)
- * @param context   Contexto de uso — determina el ancho de entrega
- * @returns         URL con transformaciones f_auto,q_auto,w_N,c_limit inyectadas
- *
- * @example
- * cloudinaryUrl(product.images[0], 'card')
- * // → "https://res.cloudinary.com/mi-cloud/image/upload/f_auto,q_auto,w_480,c_limit/v123/producto.jpg"
+ * Acepta dos formatos:
+ *   - URL completa:  "https://res.cloudinary.com/cloud/image/upload/..."
+ *   - Public ID:     "products/7-RR23/1"  (formato almacenado por upload-catalog.ts)
  */
 export function cloudinaryUrl(src: string | undefined | null, context: ImageContext): string {
   if (!src) return ''
 
+  const width      = WIDTH[context]
+  const transforms = `f_auto,q_auto,w_${width},c_limit`
+
+  // Public ID (no empieza con http) → construir URL completa
+  if (!src.startsWith('http')) {
+    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? process.env.CLOUDINARY_CLOUD_NAME
+    if (!cloud) return src
+    return `https://res.cloudinary.com/${cloud}/image/upload/${transforms}/${src}`
+  }
+
+  // URL completa de Cloudinary → inyectar/reemplazar transformaciones
   const match = src.match(CLOUDINARY_RE)
-  if (!match) return src   // No es Cloudinary — devolver sin cambios
+  if (!match) return src
 
-  const width       = WIDTH[context]
-  const transforms  = `f_auto,q_auto,w_${width},c_limit`
-  const prefix      = match[0]                     // "https://res.cloudinary.com/{cloud}/image/upload/"
-
-  // Si ya tiene transformaciones inyectadas, las reemplazamos para no duplicar
-  const rest = src.slice(prefix.length)
-  const cleanRest = rest.replace(/^[^v][^/]*\//, '')   // quitar segmento de transforms previo si existe
+  const prefix    = match[0]
+  const rest      = src.slice(prefix.length)
+  const cleanRest = rest.replace(/^[^v][^/]*\//, '')
 
   return `${prefix}${transforms}/${cleanRest}`
 }

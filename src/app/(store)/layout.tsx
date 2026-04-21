@@ -19,7 +19,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={120} height={34} className="object-contain mb-3" />
+              <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={120} height={34} className="object-contain mb-3" style={{ height: 'auto' }} />
               <p className="text-sm">Taller especializado en repuestos y servicio técnico de motos en Colombia.</p>
             </div>
             <div>

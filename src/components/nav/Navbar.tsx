@@ -41,6 +41,7 @@ const MEGA_MENU = [
       { name: 'Estatores',   slug: 'estatores' },
       { name: 'Bobinas',     slug: 'bobinas' },
       { name: 'Sensores',     slug: 'sensores' },
+      { name: 'Motores de Arranque',     slug: 'motores-de-arranque' },
     ],
   },
   {
@@ -300,7 +301,7 @@ export function Navbar() {
 
               {/* Logo */}
               <Link href="/" className="shrink-0">
-                <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={70} height={52} className="object-contain" priority />
+                <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={70} height={52} className="object-contain" style={{ height: 'auto' }} priority />
               </Link>
 
               {/* Buscador central */}
@@ -366,7 +367,7 @@ export function Navbar() {
             {/* ── Col 1: Logo ── */}
             <div className="flex items-center">
               <Link href="/">
-                <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={80} height={60} className="object-contain" priority />
+                <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={80} height={60} className="object-contain" style={{ height: 'auto' }} priority />
               </Link>
             </div>
 

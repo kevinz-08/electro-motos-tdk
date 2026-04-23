@@ -20,9 +20,11 @@
  */
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Image from 'next/image'
 import { Product } from '@h2r/domain'
 import { X, ImagePlus, Loader2 } from 'lucide-react'
+import { apiClient } from '@/lib/api-client'
 
 interface Category {
   id: string
@@ -37,6 +39,7 @@ interface ProductEditFormProps {
 
 export function ProductEditForm({ product, categories }: ProductEditFormProps) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [images, setImages] = useState<string[]>(product?.images ?? [])
@@ -67,19 +70,16 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
       images,
     }
 
-    const url = product ? `/api/admin/products/${product.id}` : '/api/admin/products'
-    const method = product ? 'PUT' : 'POST'
+    const client = apiClient(session?.user?.accessToken)
 
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      const res = product
+        ? await client.put(`/admin/products/${product.id}`, payload)
+        : await client.post('/admin/products', payload)
 
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string }
-        throw new Error(data.error ?? 'Error al guardar el producto')
+        const data = (await res.json()) as { error?: string; message?: string }
+        throw new Error(data.message ?? data.error ?? 'Error al guardar el producto')
       }
 
       router.push('/admin/productos')
@@ -113,14 +113,14 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
       formData.append('sku', form.sku || 'producto')
 
       try {
-        const res = await fetch('/api/admin/products/upload-image', {
-          method: 'POST',
-          body: formData,
-        })
+        const res = await apiClient(session?.user?.accessToken).postForm(
+          '/admin/products/upload-image',
+          formData,
+        )
 
         if (!res.ok) {
-          const data = (await res.json()) as { error?: string }
-          throw new Error(data.error ?? 'Error al subir la imagen')
+          const data = (await res.json()) as { error?: string; message?: string }
+          throw new Error(data.message ?? data.error ?? 'Error al subir la imagen')
         }
 
         const data = (await res.json()) as { url: string }

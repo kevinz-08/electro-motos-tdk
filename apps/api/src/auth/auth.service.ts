@@ -27,7 +27,13 @@ export class AuthService {
     return { message: 'Usuario registrado correctamente' }
   }
 
-  async login(dto: LoginDto): Promise<{ accessToken: string; role: string }> {
+  async login(dto: LoginDto): Promise<{
+    accessToken: string
+    role: string
+    userId: string
+    name: string
+    email: string
+  }> {
     const user = await this.userRepo.findByEmail(dto.email)
     if (!user) throw new UnauthorizedException('Credenciales inválidas')
 
@@ -38,6 +44,20 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, raw.password)
     if (!valid) throw new UnauthorizedException('Credenciales inválidas')
 
+    const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role }
+    return {
+      accessToken: this.jwtService.sign(payload),
+      role: user.role,
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+    }
+  }
+
+  /** Usado por NextAuth server-side para emitir un JWT NestJS a usuarios OAuth (Google). */
+  async issueTokenByEmail(email: string): Promise<{ accessToken: string; role: string }> {
+    const user = await this.userRepo.findByEmail(email)
+    if (!user) throw new UnauthorizedException('Usuario no encontrado')
     const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role }
     return { accessToken: this.jwtService.sign(payload), role: user.role }
   }

@@ -2,26 +2,54 @@
  * Configuración central de NextAuth v5.
  *
  * Proveedores disponibles:
- *  - Credentials: email + contraseña (bcrypt). Para usuarios registrados con formulario.
- *  - Google: OAuth. Crea usuario automáticamente si no existe.
+ *  - Credentials: email + contraseña. authorize() llama al NestJS API (POST /auth/login)
+ *    en lugar de verificar bcrypt localmente. La contraseña nunca toca Next.js.
+ *  - Google: OAuth. PrismaAdapter crea el usuario si no existe. Después de crear la sesión,
+ *    el jwt callback llama al endpoint interno /auth/session-token para obtener el JWT NestJS.
  *
  * Estrategia de sesión: JWT (necesaria para Credentials + PrismaAdapter juntos).
- * El rol se almacena en el token JWT para evitar consultas a BD en cada request.
  *
- * Flujo de rol:
- *  1. Al iniciar sesión (jwt callback): se consulta el rol en la BD y se guarda en el token.
- *  2. Al leer sesión (session callback): el rol se copia del token a session.user.role.
+ * Tokens:
+ *  - NextAuth JWT (cookie httpOnly): mantiene la sesión del browser con id, role, accessToken.
+ *  - NestJS JWT (accessToken): se usa como Bearer token en todas las llamadas a la API.
  */
 import NextAuth from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import Google from 'next-auth/providers/google'
 import Credentials from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
 import { prisma } from '@/infrastructure/database/prisma-client'
+
+// ── Augmentaciones de tipo ────────────────────────────────────────────────────
+declare module 'next-auth' {
+  interface User {
+    role?: string
+    accessToken?: string
+  }
+  interface Session {
+    user: {
+      id: string
+      name?: string | null
+      email?: string | null
+      image?: string | null
+      role: string
+      accessToken?: string
+    }
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    id: string
+    role: string
+    accessToken?: string
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+const API_URL = process.env['API_URL'] ?? 'http://localhost:3001'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // PrismaAdapter maneja la creación de usuarios y cuentas OAuth.
-  // Con estrategia JWT, no se crean registros en la tabla Session.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adapter: PrismaAdapter(prisma as any),
 
@@ -30,15 +58,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   providers: [
     // ─── Google OAuth ────────────────────────────────────────────────────────
-    // Si el correo no existe en la BD, NextAuth lo crea automáticamente.
     Google({
       clientId: process.env['GOOGLE_CLIENT_ID'] ?? '',
       clientSecret: process.env['GOOGLE_CLIENT_SECRET'] ?? '',
     }),
 
     // ─── Credentials (email + contraseña) ───────────────────────────────────
-    // Solo para usuarios registrados con formulario (/auth/register).
-    // Los usuarios de Google NO tienen password — no pueden iniciar sesión aquí.
     Credentials({
       credentials: {
         email: { label: 'Correo electrónico', type: 'email' },
@@ -46,26 +71,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
+        try {
+          const res = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password,
+            }),
+          })
+          if (!res.ok) return null
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        })
-
-        // Usuario no existe o no tiene contraseña (registrado con Google)
-        if (!user || !user.password) return null
-
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password,
-        )
-        if (!isValid) return null
-
-        // Retornar los campos mínimos que NextAuth necesita
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
+          const data = (await res.json()) as {
+            accessToken: string
+            role: string
+            userId: string
+            name: string
+            email: string
+          }
+          return {
+            id: data.userId,
+            email: data.email,
+            name: data.name,
+            role: data.role,
+            accessToken: data.accessToken,
+          }
+        } catch {
+          return null
         }
       },
     }),
@@ -74,30 +106,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     /**
      * JWT callback — se ejecuta al crear o actualizar el token.
-     * `user` solo está disponible en el primer inicio de sesión.
-     * Aprovechamos ese momento para añadir el rol al token.
+     * `user` y `account` solo están disponibles en el primer inicio de sesión.
      */
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email! },
-          select: { id: true, role: true },
-        })
-        token.id = dbUser?.id ?? user.id
-        token.role = dbUser?.role ?? 'CUSTOMER'
+        token.id = user.id!
+
+        if (user.accessToken) {
+          // Credentials: authorize() ya obtuvo el JWT NestJS
+          token.accessToken = user.accessToken
+          token.role = user.role ?? 'CUSTOMER'
+        } else if (account?.provider === 'google') {
+          // Google OAuth: pedir JWT NestJS al endpoint interno
+          try {
+            const res = await fetch(`${API_URL}/auth/session-token`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-internal-secret': process.env['INTERNAL_API_SECRET'] ?? '',
+              },
+              body: JSON.stringify({ email: user.email }),
+            })
+            if (res.ok) {
+              const data = (await res.json()) as { accessToken: string; role: string }
+              token.accessToken = data.accessToken
+              token.role = data.role
+            }
+          } catch {
+            // No fatal — el usuario puede seguir navegando; las llamadas autenticadas fallarán
+            token.role = 'CUSTOMER'
+          }
+        }
       }
       return token
     },
 
     /**
-     * Session callback — transforma el token JWT en el objeto de sesión.
-     * El cliente ve `session.user.role` e `session.user.id`.
+     * Session callback — transforma el token JWT en el objeto de sesión del cliente.
      */
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id as string
-        ;(session.user as typeof session.user & { role: string }).role =
-          token.role as string
+        session.user.id = token.id
+        session.user.role = token.role
+        session.user.accessToken = token.accessToken
       }
       return session
     },

@@ -579,4 +579,90 @@ El backend NestJS expone los endpoints de pago completos con la misma lógica qu
 
 ---
 
+## Fase 5 — Conexión apps/web → NestJS API + limpieza de rutas duplicadas
+
+**Qué se hizo:**
+
+### 5.1 — Nuevo endpoint interno en NestJS: `POST /auth/session-token`
+
+Se añadió `issueTokenByEmail(email)` en `AuthService` y un nuevo endpoint `POST /auth/session-token` en `AuthController`. El endpoint está protegido por el header `x-internal-secret` (env var `INTERNAL_API_SECRET`) y solo se llama desde el servidor Next.js durante el JWT callback de NextAuth al autenticar usuarios Google OAuth. Se marca `@SkipThrottle()` para no verse afectado por el rate limiter.
+
+El método `login()` en `AuthService` también se amplió para retornar `{ userId, name, email }` (además de `{ accessToken, role }`), evitando que NextAuth tenga que decodificar el JWT para obtener la identidad del usuario.
+
+### 5.2 — NextAuth migrado a JWT NestJS
+
+Se reescribió `apps/web/src/lib/auth.ts`:
+
+- **Credentials `authorize()`**: ya no usa Prisma ni bcrypt directamente. Llama `POST {API_URL}/auth/login` al NestJS y retorna el usuario con `{ id, name, email, role, accessToken }`. Eliminada la dependencia de `bcryptjs` en el archivo.
+
+- **`jwt` callback**:
+  - Credentials → extrae `accessToken` y `role` del objeto `user` devuelto por `authorize()`
+  - Google OAuth → llama `POST {API_URL}/auth/session-token` con el `INTERNAL_API_SECRET` para obtener el JWT NestJS correspondiente al email del usuario ya verificado por Google
+
+- **`session` callback**: expone `session.user.accessToken` y `session.user.role` al cliente.
+
+- **Type augmentation** (inline en `auth.ts`): amplía `User`, `Session` y `JWT` de NextAuth para incluir `role` y `accessToken`.
+
+### 5.3 — ApiClient (`apps/web/src/lib/api-client.ts`)
+
+Factory function `apiClient(accessToken?)` que retorna un objeto con métodos `get`, `post`, `put`, `patch`, `delete`, `postForm`. Usa `NEXT_PUBLIC_API_URL` como base (seguro para el browser). El `Content-Type: application/json` se añade automáticamente en todos los métodos excepto `postForm` (multipart, donde el browser debe fijar el boundary).
+
+### 5.4 — Componentes migrados a NestJS
+
+Se actualizaron 5 archivos para usar `apiClient` en lugar de llamadas a rutas Next.js:
+
+- **`CheckoutForm.tsx`**: `POST /api/orders` → `apiClient(token).post('/orders', ...)`. La firma de integridad Wompi usa `apiClient()` sin token (endpoint público).
+- **`MercadoPagoToggle.tsx`**: `PATCH /api/admin/settings/mercadopago` → `apiClient(token).patch('/admin/settings/mercadopago', ...)`.
+- **`CsvStockImport.tsx`**: `PATCH /api/admin/stock/bulk` → `apiClient(token).patch('/admin/stock/bulk', ...)`.
+- **`ProductEditForm.tsx`**: `POST/PUT /api/admin/products[/:id]` → `apiClient(token).post/put(...)`. Upload de imagen: `apiClient(token).postForm('/admin/products/upload-image', formData)`.
+- **`apps/web/src/app/auth/register/page.tsx`**: `POST /api/auth/register` → `fetch(\`${NEXT_PUBLIC_API_URL}/auth/register\`)` directo.
+
+Todos los componentes añaden `const { data: session } = useSession()` para obtener el `accessToken` de la sesión. Los errores ahora leen `data.message ?? data.error` (NestJS retorna `message`, no `error`).
+
+### 5.5 — Eliminación de rutas Next.js duplicadas
+
+Se eliminaron 14 archivos de `apps/web/src/app/api/` que quedaron reemplazados por NestJS:
+
+- `auth/register/route.ts`, `orders/route.ts`, `orders/[id]/status/route.ts`, `products/route.ts`
+- `admin/products/route.ts`, `admin/products/[id]/route.ts`, `admin/products/[id]/stock/route.ts`
+- `admin/products/upload-image/route.ts`, `admin/settings/mercadopago/route.ts`, `admin/stock/bulk/route.ts`
+- `payments/wompi/integrity/route.ts`, `payments/wompi/webhook/route.ts`
+- `payments/mercadopago/webhook/route.ts`, `payments/mercadopago/create-preference/route.ts`
+
+**Permanece en Next.js:**
+
+- `apps/web/src/app/api/auth/[...nextauth]/route.ts` — NextAuth maneja la sesión del browser (OAuth callbacks, cookies, etc.)
+- Los Server Components (catalog, producto, admin pages) siguen usando `PrismaProductRepository` y el cliente Prisma directamente — es válido en un monorepo donde ambas apps comparten la misma BD, y evita una capa extra de HTTP en el renderizado SSR.
+
+**Variables de entorno nuevas:**
+
+- `API_URL` — URL del NestJS en entornos server-side de Next.js (no expuesto al browser). Ej: `http://localhost:3001`.
+- `NEXT_PUBLIC_API_URL` — URL del NestJS expuesta al browser para llamadas client-side. Ej: `http://localhost:3001`.
+- `INTERNAL_API_SECRET` — Secreto compartido entre Next.js y NestJS para el endpoint `/auth/session-token`.
+
+**Archivos creados:**
+
+- `apps/web/src/lib/api-client.ts`
+- `apps/api/src/auth/dto/session-token.dto.ts`
+
+**Archivos modificados:**
+
+- `apps/api/src/auth/auth.service.ts` — login extendido + issueTokenByEmail
+- `apps/api/src/auth/auth.controller.ts` — POST /auth/session-token
+- `apps/web/src/lib/auth.ts` — NextAuth completo reescrito
+- `apps/web/src/app/auth/register/page.tsx` — llama NestJS directamente
+- `apps/web/src/components/checkout/CheckoutForm.tsx` — apiClient con JWT
+- `apps/web/src/components/admin/MercadoPagoToggle.tsx` — apiClient con JWT
+- `apps/web/src/components/admin/CsvStockImport.tsx` — apiClient con JWT
+- `apps/web/src/components/admin/ProductEditForm.tsx` — apiClient con JWT
+
+**Archivos eliminados:** 14 rutas Next.js (listadas en §5.5)
+
+**Fin:**
+
+`apps/web` ya no tiene rutas de API duplicando la lógica de `apps/api`. El flujo de datos es:
+`Browser → NestJS (port 3001)` para operaciones autenticadas y `SSR → Prisma` para renderizado de páginas. La autenticación de sesión sigue en NextAuth (cookies), pero las llamadas a la API usan el JWT NestJS almacenado en la sesión.
+
+---
+
 *Última actualización: 2026-04-23*

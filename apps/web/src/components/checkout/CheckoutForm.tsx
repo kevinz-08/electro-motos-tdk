@@ -15,8 +15,10 @@
  * pero internamente todo se maneja en centavos.
  */
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { useCart } from '@/lib/cart'
 import { WompiWidget } from './WompiWidget'
+import { apiClient } from '@/lib/api-client'
 
 interface CheckoutFormProps {
   userEmail: string
@@ -40,6 +42,7 @@ function formatCOP(cents: number): string {
 }
 
 export function CheckoutForm({ userEmail }: CheckoutFormProps) {
+  const { data: session } = useSession()
   const { items, total, clearCart } = useCart()
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping')
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -69,27 +72,25 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
     setError(null)
 
     try {
+      const client = apiClient(session?.user?.accessToken)
+
       // 1. Crear el pedido
-      const orderRes = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
-          shippingAddress: {
-            fullName: form.fullName,
-            address: form.address,
-            city: form.city,
-            department: form.department,
-            phone: form.phone,
-            notes: form.notes || undefined,
-          },
-          paymentProvider: 'WOMPI',
-        }),
+      const orderRes = await client.post('/orders', {
+        items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+        shippingAddress: {
+          fullName: form.fullName,
+          address: form.address,
+          city: form.city,
+          department: form.department,
+          phone: form.phone,
+          notes: form.notes || undefined,
+        },
+        paymentProvider: 'WOMPI',
       })
 
       if (!orderRes.ok) {
-        const data = (await orderRes.json()) as { error?: string }
-        throw new Error(data.error ?? 'Error al crear el pedido')
+        const data = (await orderRes.json()) as { error?: string; message?: string }
+        throw new Error(data.message ?? data.error ?? 'Error al crear el pedido')
       }
 
       const { order } = (await orderRes.json()) as {
@@ -102,15 +103,11 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
         }
       }
 
-      // 2. Obtener firma de integridad del servidor
-      const integrityRes = await fetch('/api/payments/wompi/integrity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: order.id,
-          amountInCents: cartTotal,
-          currency: 'COP',
-        }),
+      // 2. Obtener firma de integridad (endpoint público — no requiere JWT)
+      const integrityRes = await apiClient().post('/payments/wompi/integrity', {
+        orderId: order.id,
+        amountInCents: cartTotal,
+        currency: 'COP',
       })
 
       if (!integrityRes.ok) throw new Error('Error al preparar el pago')

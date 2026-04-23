@@ -27,7 +27,12 @@
  * (usa updateMany que no lanza error si no encuentra el registro).
  */
 import { useRef, useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { apiClient } from '@/lib/api-client'
+
 export function CsvStockImport() {
+
+  const { data: session } = useSession()
   const inputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ updated: number; errors: string[] } | null>(null)
@@ -58,11 +63,7 @@ export function CsvStockImport() {
     }
 
     if (updates.length > 0) {
-      const res = await fetch('/api/admin/stock/bulk', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates }),
-      })
+      const res = await apiClient(session?.user?.accessToken).patch('/admin/stock/bulk', { updates })
       const data = (await res.json()) as { updated: number }
       setResult({ updated: data.updated, errors })
     } else {

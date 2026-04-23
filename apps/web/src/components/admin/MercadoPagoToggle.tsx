@@ -19,6 +19,8 @@
  *   - Deshabilita el botón mientras la petición está en curso (evita doble click)
  */
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { apiClient } from '@/lib/api-client'
 
 interface MercadoPagoToggleProps {
   /** Estado inicial del toggle, leído desde la BD al cargar la página */
@@ -26,17 +28,17 @@ interface MercadoPagoToggleProps {
 }
 
 export function MercadoPagoToggle({ enabled: initial }: MercadoPagoToggleProps) {
+  const { data: session } = useSession()
   const [enabled, setEnabled] = useState(initial)
   const [loading, setLoading] = useState(false)
 
   const toggle = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/settings/mercadopago', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !enabled }),
-      })
+      const res = await apiClient(session?.user?.accessToken).patch(
+        '/admin/settings/mercadopago',
+        { enabled: !enabled },
+      )
       if (res.ok) setEnabled(!enabled)
     } finally {
       setLoading(false)

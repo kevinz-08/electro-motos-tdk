@@ -46,7 +46,8 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/register", {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+      const res = await fetch(`${apiBase}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -56,10 +57,10 @@ export default function RegisterPage() {
         }),
       });
 
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as { error?: string; message?: string };
 
       if (!res.ok) {
-        setError(data.error ?? "Error al crear la cuenta. Intenta de nuevo.");
+        setError(data.message ?? data.error ?? "Error al crear la cuenta. Intenta de nuevo.");
         return;
       }
 

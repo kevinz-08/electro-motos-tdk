@@ -55,6 +55,10 @@ next-env.d.ts
 # prisma generated client (regenerated via pnpm --filter @h2r/database generate)
 packages/database/src/generated/
 
+# compiled JS artifacts that land next to TS source (e.g. from stray tsc runs)
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+
 # assets de trabajo locales (fotos de productos sin procesar, etc.)
 tmp-productos/
 apps/web/tmp-productos/

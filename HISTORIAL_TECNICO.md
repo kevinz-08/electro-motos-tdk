@@ -314,4 +314,70 @@ Preparar el repositorio para la migración progresiva del backend a NestJS (Fase
 
 ---
 
-*Última actualización: 2026-04-22*
+## 18. Fase 1 — Esqueleto NestJS (`apps/api`)
+
+**Qué se hizo:**
+
+Se creó el paquete `@h2r/api` en `apps/api/` como el futuro backend REST de la tienda. El objetivo de esta fase es únicamente el andamiaje: que el servidor NestJS arranque limpio, consuma los paquetes `@h2r/domain` y `@h2r/database` del workspace y exponga los módulos base listos para recibir los controladores de Fase 2.
+
+**Estructura creada:**
+
+```text
+apps/api/
+├── src/
+│   ├── main.ts                                  # Bootstrap NestJS con Helmet, compresión, CORS, Swagger
+│   ├── app.module.ts                            # ConfigModule + ThrottlerModule + InfrastructureModule
+│   └── shared/
+│       └── filters/
+│           └── http-exception.filter.ts         # Mapea AppError del dominio a códigos HTTP
+│   └── infrastructure/
+│       ├── database/
+│       │   ├── prisma.service.ts               # Wraps singleton prisma de @h2r/database con lifecycle NestJS
+│       │   └── prisma.module.ts                # @Global() — exporta PrismaService a toda la app
+│       ├── injection-tokens.ts                 # Símbolos DI: PRODUCT_REPOSITORY, ORDER_REPOSITORY, etc.
+│       └── infrastructure.module.ts            # Importa PrismaModule; providers de repos comentados (Fase 2)
+├── .env.example                                # Variables requeridas documentadas
+├── nest-cli.json                               # webpack: true — resuelve imports cross-workspace sin rootDir
+├── package.json                                # @h2r/api con NestJS 10, passport, throttler, ts-loader
+├── tsconfig.json                               # IDE/type-check (noEmit: true, incluye packages/domain src)
+└── tsconfig.build.json                         # Compilación webpack (noEmit: false, sin rootDir)
+```
+
+**Decisiones técnicas relevantes:**
+
+1. **Webpack mode (`nest-cli.json` → `"webpack": true`)**: El compilador NestJS por defecto usa `tsc` directamente, lo que fuerza `rootDir: ./src` y rechaza archivos de `packages/domain/src/**` referenciados vía `paths`. Con webpack, el bundler resuelve los imports cross-workspace sin que TypeScript aplique la restricción de `rootDir`. Output: `dist/main.js` (bundle único). Requiere `ts-loader` como devDependency.
+
+2. **Dos tsconfigs separados**:
+   - `tsconfig.json` (noEmit: true, sin rootDir): usado por el IDE y `tsc --noEmit`. Incluye `../../packages/domain/src/**/*.ts` para que el servidor de lenguaje resuelva los path aliases correctamente.
+   - `tsconfig.build.json` (noEmit: false, sin rootDir): usado por `nest build`. Solo incluye `src/**/*.ts`; webpack se encarga del resto.
+
+3. **HttpExceptionFilter**: Captura `AppError` del dominio (con campo `code`) y lo mapea a HTTP: `NOT_FOUND → 404`, `UNAUTHORIZED → 401`, `FORBIDDEN → 403`, `CONFLICT → 409`, `VALIDATION_ERROR → 422`, resto → 500. Cualquier otro error no esperado devuelve 500 genérico.
+
+4. **PrismaService**: No instancia `PrismaClient` directamente — importa el singleton `prisma` de `@h2r/database` y lo expone como `db` para que los repositorios hagan `this.db.product.findMany(...)`. `onModuleInit` llama `$connect()`; `onModuleDestroy` llama `$disconnect()`.
+
+5. **Tokens de inyección simbólicos**: Los repositorios se inyectan por `Symbol` (`PRODUCT_REPOSITORY`, `ORDER_REPOSITORY`, etc.) para que NestJS pueda intercambiar implementaciones sin cambiar el código de los use cases.
+
+6. **CORS y Swagger**: Sólo acepta origen `FRONTEND_URL` (env var). Swagger sólo se monta en `NODE_ENV !== 'production'` en `/api/docs`.
+
+**Archivos modificados/creados:**
+
+- `apps/api/package.json` *(nuevo)*
+- `apps/api/tsconfig.json` *(nuevo)*
+- `apps/api/tsconfig.build.json` *(nuevo)*
+- `apps/api/nest-cli.json` *(nuevo)*
+- `apps/api/.env.example` *(nuevo)*
+- `apps/api/src/main.ts` *(nuevo)*
+- `apps/api/src/app.module.ts` *(nuevo)*
+- `apps/api/src/shared/filters/http-exception.filter.ts` *(nuevo)*
+- `apps/api/src/infrastructure/database/prisma.service.ts` *(nuevo)*
+- `apps/api/src/infrastructure/database/prisma.module.ts` *(nuevo)*
+- `apps/api/src/infrastructure/injection-tokens.ts` *(nuevo)*
+- `apps/api/src/infrastructure/infrastructure.module.ts` *(nuevo)*
+
+**Fin:**
+
+`pnpm exec nest build` en `apps/api/` compila a `dist/main.js` sin errores. El servidor NestJS arranca correctamente con `node dist/main.js`. Base lista para Fase 2: migración de repositorios y servicios de infraestructura desde `apps/web`.
+
+---
+
+*Última actualización: 2026-04-23*

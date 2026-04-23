@@ -49,7 +49,7 @@ export class AuthService {
       accessToken: this.jwtService.sign(payload),
       role: user.role,
       userId: user.id,
-      name: user.name,
+      name: user.name ?? '',
       email: user.email,
     }
   }

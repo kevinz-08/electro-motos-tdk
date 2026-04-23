@@ -1,10 +1,8 @@
 import {
-  Body, Controller, HttpCode, Inject, Logger, NotFoundException, Post, Req, UnauthorizedException,
+  Body, Controller, Headers, HttpCode, Inject, Logger, NotFoundException, Post, UnauthorizedException,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
-import { Request } from 'express'
-import { IncomingHttpHeaders } from 'http'
 import { ConfirmPayment, IOrderRepository, IProductRepository, PaymentStatus } from '@h2r/domain'
 import { ORDER_REPOSITORY, PRODUCT_REPOSITORY } from '../infrastructure/injection-tokens'
 import { MercadoPagoService } from '../infrastructure/services/MercadoPagoService'
@@ -46,8 +44,8 @@ export class MercadoPagoController {
   @SkipThrottle()
   @HttpCode(200)
   @ApiOperation({ summary: 'Webhook IPN de Mercado Pago' })
-  async webhook(@Body() payload: unknown, @Req() req: Request) {
-    if (!this.mpService.validateWebhook(payload, this.toHeaders(req.headers))) {
+  async webhook(@Body() payload: unknown, @Headers() rawHeaders: Record<string, string | string[] | undefined>) {
+    if (!this.mpService.validateWebhook(payload, this.toHeaders(rawHeaders))) {
       throw new UnauthorizedException('Firma de webhook inválida')
     }
 
@@ -105,7 +103,7 @@ export class MercadoPagoController {
     return { received: true, stateChanged: result.value.stateChanged }
   }
 
-  private toHeaders(raw: IncomingHttpHeaders): Headers {
+  private toHeaders(raw: Record<string, string | string[] | undefined>): Headers {
     return {
       get: (name: string) => {
         const v = raw[name.toLowerCase()]

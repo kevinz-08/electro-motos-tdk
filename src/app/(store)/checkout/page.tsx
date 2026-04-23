@@ -1,6 +1,13 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { CheckoutForm } from '@/components/checkout/CheckoutForm'
+
+export const metadata: Metadata = {
+  title: 'Finalizar compra',
+  description: 'Completa tus datos de envío y pago para confirmar tu pedido.',
+  robots: { index: false, follow: false },
+}
 
 /** Checkout — requiere sesión (el middleware también lo valida) */
 export default async function CheckoutPage() {

@@ -1,6 +1,16 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { auth, signOut } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+
+export const metadata: Metadata = {
+  title: {
+    default: 'Panel Admin',
+    template: '%s · Admin | H2R Online Store',
+  },
+  description: 'Panel administrativo de H2R Online Store.',
+  robots: { index: false, follow: false },
+}
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: '📊' },

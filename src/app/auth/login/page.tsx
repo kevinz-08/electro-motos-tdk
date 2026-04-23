@@ -8,11 +8,18 @@
  * Si ya hay sesión activa, redirige al destino (callbackUrl) o a la raíz.
  * Si no tiene cuenta, el link "Crear cuenta" lleva a /auth/register.
  */
+import type { Metadata } from 'next'
 import { signIn, auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { LoginForm } from './LoginForm'
 import Image from 'next/image'
+
+export const metadata: Metadata = {
+  title: 'Iniciar sesión',
+  description: 'Accede a tu cuenta para gestionar tus pedidos y continuar con tus compras.',
+  robots: { index: false, follow: false },
+}
 
 interface PageProps {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>

@@ -15,6 +15,7 @@
  * Server Component. Tema claro/oscuro → CatalogThemeWrapper (client).
  */
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { ListProducts } from '@/domain/use-cases/products/ListProducts'
 import { ProductCard } from '@/components/store/ProductCard'
@@ -89,23 +90,23 @@ function buildUrl(
 
 const CAT: Record<string, { icon: string; desc: string }> = {
   'sistema-electrico': {
-    icon: '⚡',
+    icon: '',
     desc: 'Ramales, reguladores, CDI, bobinas y baterías. Todo para mantener el sistema eléctrico de tu moto en perfectas condiciones.',
   },
   'repuestos': {
-    icon: '🔧',
+    icon: '',
     desc: 'Filtros de aire, bujías, frenos y repuestos de motor. Piezas originales y de calidad para tu moto.',
   },
   'aceites': {
-    icon: '🛢️',
+    icon: '',
     desc: 'Aceites Liquimoly y SKY de alta calidad para proteger y alargar la vida útil del motor de tu moto.',
   },
   'llantas': {
-    icon: '🏍️',
+    icon: '',
     desc: 'Llantas para asfalto, campo y todo tipo de terreno. Agarre, durabilidad y seguridad en cada kilómetro.',
   },
   'accesorios': {
-    icon: '🔩',
+    icon: '',
     desc: 'Espejos, exploradores, bombillas LED, equipamiento y más accesorios para personalizar tu moto.',
   },
 }
@@ -131,6 +132,35 @@ const TRUST = [
   { icon: <svg key="t3" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>, label: 'Garantía incluida' },
   { icon: <svg key="t4" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>, label: 'Asesoría por WhatsApp' },
 ]
+
+// ── Metadata ──────────────────────────────────────────────────────────────────
+
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const { category, search } = await searchParams
+
+  if (search) {
+    return {
+      title: `Resultados para "${search}"`,
+      description: `Productos que coinciden con "${search}" en el catálogo de repuestos para motos.`,
+    }
+  }
+
+  if (category) {
+    const cat = await prisma.category.findUnique({ where: { slug: category } })
+    if (cat) {
+      return {
+        title: cat.name,
+        description: cat.description ?? catDesc(cat.slug),
+      }
+    }
+  }
+
+  return {
+    title: 'Catálogo de repuestos para motos',
+    description:
+      'Explora nuestro catálogo completo de repuestos, aceites, llantas y accesorios para motos. Envío a todo Colombia.',
+  }
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 

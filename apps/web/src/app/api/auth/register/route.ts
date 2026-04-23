@@ -16,6 +16,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/infrastructure/database/prisma-client'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const registerSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100),
@@ -27,6 +28,14 @@ const registerSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown'
+  if (!checkRateLimit(`register:${ip}`, 5, 60_000)) {
+    return Response.json(
+      { error: 'Demasiadas solicitudes. Intenta en un minuto.' },
+      { status: 429 },
+    )
+  }
+
   let body: unknown
   try {
     body = await request.json()

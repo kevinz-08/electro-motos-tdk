@@ -6,6 +6,7 @@ import { WompiService } from '@/infrastructure/services/WompiService'
 import { MercadoPagoService } from '@/infrastructure/services/MercadoPagoService'
 import { CreateOrder } from '@h2r/domain'
 import { prisma } from '@/infrastructure/database/prisma-client'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { z } from 'zod'
 
 const createOrderSchema = z.object({
@@ -59,6 +60,13 @@ export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) {
     return Response.json({ error: 'No autorizado' }, { status: 401 })
+  }
+
+  if (!checkRateLimit(`orders:${session.user.id}`, 10, 60_000)) {
+    return Response.json(
+      { error: 'Demasiadas solicitudes. Intenta en un minuto.' },
+      { status: 429 },
+    )
   }
 
   let body: unknown

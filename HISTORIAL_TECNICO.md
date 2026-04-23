@@ -507,4 +507,76 @@ apps/api/src/
 
 ---
 
+## Fase 4 — PaymentsModule + Hardening de seguridad
+
+**Qué se hizo:**
+
+### 4.1 — PaymentsModule en apps/api
+
+Se creó `apps/api/src/payments/` con dos controladores y el módulo que los agrupa:
+
+**`WompiController`** (`POST /payments/wompi/integrity` + `POST /payments/wompi/webhook`):
+
+- `/integrity` es `@Public()` y no requiere JWT. Recibe `{ orderId, amountInCents, currency? }` y retorna `{ reference, integritySignature, publicKey, amountInCents, currency }`. La referencia sigue el formato `ORDER-{orderId}-{timestamp}` para que el webhook pueda extraer el orderId.
+- `/webhook` es `@Public()` y `@SkipThrottle()`. Valida la firma SHA256 de Wompi, aplica el use case `ConfirmPayment` con idempotencia (`updateMany WHERE status='PENDING'`), y dispara el email de confirmación solo cuando `stateChanged === true`. Devuelve 200 siempre (excepto firma inválida → 401) para evitar reintentos masivos de Wompi.
+
+**`MercadoPagoController`** (`POST /payments/mercadopago/create-preference` + `POST /payments/mercadopago/webhook`):
+
+- `/create-preference` requiere JWT. Busca el pedido por ID y llama a `MercadoPagoService.createTransaction(order)`, retornando el `init_point` para el redirect.
+- `/webhook` es `@Public()` y `@SkipThrottle()`. Valida HMAC-SHA256 del header `x-signature`, consulta `getTransactionStatus(externalId)` a la API de MP, y confirma el pago via `ConfirmPayment`.
+
+**Adaptador de headers**: Ambos controladores usan un helper privado `toHeaders(raw: IncomingHttpHeaders): Headers` que envuelve el objeto `req.headers` de Express en una interfaz compatible con `Headers.get()` (Fetch API). Esto permite reutilizar los métodos `validateWebhook()` de los servicios sin cambiarlos.
+
+### 4.2 — ThrottlerGuard como APP_GUARD global
+
+Se agregó `ThrottlerGuard` como tercer `APP_GUARD` en `app.module.ts` (junto a `JwtAuthGuard` y `RolesGuard`). El límite global es **100 req/min**. Los endpoints de autenticación tienen límites más estrictos vía `@Throttle`:
+
+- `POST /auth/register` → 5 req/min (disuade ataques de creación masiva de cuentas)
+- `POST /auth/login` → 10 req/min (disuade brute force de credenciales)
+
+Los webhooks de pago tienen `@SkipThrottle()` para que los reintentos de Wompi/MP nunca sean rechazados por el throttler.
+
+### 4.3 — Seguridad en apps/web
+
+**Security headers** en `apps/web/next.config.ts`:
+
+Todos los responses de Next.js ahora incluyen:
+
+- `X-Frame-Options: DENY` — previene clickjacking
+- `X-Content-Type-Options: nosniff` — previene MIME sniffing
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `X-XSS-Protection: 1; mode=block`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+
+**Rate limiting en Next.js API routes** (`apps/web/src/lib/rate-limit.ts`):
+
+Se implementó un rate limiter de ventana deslizante basado en `Map<key, timestamp[]>`. Retorna `false` si el límite se excede, `true` si la solicitud es permitida. Se aplica:
+
+- `POST /api/auth/register` → 5 req/min por IP (claves: `register:{ip}`)
+- `POST /api/orders` → 10 req/min por usuario autenticado (clave: `orders:{userId}`)
+
+**Archivos creados:**
+
+- `apps/api/src/payments/dto/wompi-integrity.dto.ts`
+- `apps/api/src/payments/dto/mp-preference.dto.ts`
+- `apps/api/src/payments/wompi.controller.ts`
+- `apps/api/src/payments/mercadopago.controller.ts`
+- `apps/api/src/payments/payments.module.ts`
+- `apps/web/src/lib/rate-limit.ts`
+
+**Archivos modificados:**
+
+- `apps/api/src/app.module.ts` — `ThrottlerGuard` + `PaymentsModule`
+- `apps/api/src/auth/auth.controller.ts` — `@Throttle` en register (5/min) y login (10/min)
+- `apps/web/next.config.ts` — `headers()` con 6 security headers
+- `apps/web/src/app/api/auth/register/route.ts` — rate limit 5/min por IP
+- `apps/web/src/app/api/orders/route.ts` — rate limit 10/min por userId
+
+**Fin:**
+
+El backend NestJS expone los endpoints de pago completos con la misma lógica que las rutas Next.js, y añade throttling granular a nivel de guards globales. El frontend Next.js aplica headers de seguridad a todas las respuestas y limita las rutas más sensibles. La API está lista para Fase 5: conectar `apps/web` al NestJS backend vía un `ApiClient`, actualizar NextAuth para obtener tokens JWT, y eliminar las rutas `apps/web/src/app/api/` que quedan duplicadas.
+
+---
+
 *Última actualización: 2026-04-23*

@@ -243,4 +243,75 @@ Eliminar falsos positivos en la consola de desarrollo. Estos warnings no son bug
 
 ---
 
-*Última actualización: 2026-04-20*
+---
+
+## 17. Reestructuración del repo a monorepo pnpm + Turborepo (Fase 0)
+
+**Qué se hizo:**
+Se convirtió el repo plano de Next.js en un monorepo con pnpm workspaces + Turborepo. La nueva estructura es:
+
+```text
+/
+├── apps/
+│   ├── web/          ← Next.js 16 (contenido movido desde el root)
+│   └── api/          ← reservado para NestJS (Fase 1)
+├── packages/
+│   ├── domain/       ← dominio puro, TypeScript sin dependencias externas
+│   ├── database/     ← Prisma 7 + schema + migraciones + seed centralizado
+│   └── types/        ← DTOs compartidos (vacío por ahora, se llena en Fase 3-5)
+├── package.json      ← root con scripts de turbo y pnpm --filter
+├── pnpm-workspace.yaml
+├── turbo.json
+├── tsconfig.base.json
+└── .npmrc
+```
+
+Movimientos con `git mv` (historial preservado):
+
+- `src/domain` → `packages/domain/src`
+- `prisma/` → `packages/database/prisma/`
+- `prisma.config.ts` → `packages/database/prisma.config.ts`
+- Todo lo demás (`src/`, `public/`, `scripts/`, `package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `eslint.config.mjs`) → `apps/web/`
+
+Archivos no-trackeados (`.env`, `.env.local`, `.env.example`, `tmp-productos/`, `next-env.d.ts`) movidos con `mv` regular.
+
+**Archivos nuevos:**
+
+- `package.json` *(nuevo root — scripts `turbo dev/build/lint/type-check` y `db:*` vía `pnpm --filter @h2r/database`)*
+- `pnpm-workspace.yaml` *(declara `apps/*` y `packages/*`)*
+- `turbo.json` *(pipeline con `^build` dependencies, outputs `.next/**` y `dist/**`, task específico para `@h2r/database#generate`)*
+- `tsconfig.base.json` *(compilerOptions estrictas heredadas por todos los paquetes)*
+- `.npmrc` *(`auto-install-peers`, `link-workspace-packages`, `shared-workspace-lockfile`)*
+- `packages/domain/package.json`, `tsconfig.json`, `src/index.ts` *(barrel que re-exporta entities, repositories, services, shared, use-cases)*
+- `packages/database/package.json`, `tsconfig.json`, `src/index.ts` *(singleton Prisma + PrismaPg adapter + re-export de tipos generados)*
+- `packages/types/package.json`, `tsconfig.json`, `src/index.ts` *(scaffold vacío)*
+- `apps/web/package.json` *(reescrito — removidos `@prisma/client`, `@prisma/adapter-pg`, `pg`, `prisma`, `@types/pg`; agregados `@h2r/domain`, `@h2r/database`, `@h2r/types` como `workspace:*`)*
+- `apps/web/tsconfig.json` *(extiende `tsconfig.base.json`, agrega paths `@h2r/*` para TS + mantiene `@/*` para Next.js, excluye `src/generated/**`)*
+
+**Decisiones técnicas importantes:**
+
+1. **Prisma 7 con output custom**: el schema tiene `output = "../src/generated/prisma"`. Al mover el schema a `packages/database/prisma/schema.prisma`, ese path relativo ahora resuelve a `packages/database/src/generated/prisma/`, que es exactamente donde `@h2r/database` lo espera. No se tocó el schema — la ruta relativa absorbe el cambio.
+
+2. **Singleton único cross-paquete**: `@h2r/database/src/index.ts` centraliza el singleton de Prisma con el adapter `PrismaPg`. La fachada `apps/web/src/infrastructure/database/prisma-client.ts` se redujo a un solo `export { prisma } from '@h2r/database'` para no romper los ~13 imports existentes de `@/infrastructure/database/prisma-client`.
+
+3. **Re-export de tipos generados**: `@h2r/database` re-exporta `PrismaClient`, `Prisma`, enums y models directamente desde `./generated/prisma/*`. Los consumidores hacen `import { type Order as PrismaOrder } from '@h2r/database'` en lugar de importar el path interno.
+
+4. **Imports masivos actualizados**: 22 imports de `@/domain/...` → `@h2r/domain` en 17 archivos de `apps/web/src/`. 4 imports de `@/generated/prisma/client` → `@h2r/database` en los 3 repositorios (Order, Product, User).
+
+5. **Carga de `.env` multi-ubicación**: `prisma.config.ts` ahora usa `dotenv.config({ path })` con 4 candidatos (`../../.env`, `../../apps/web/.env`, `../../apps/web/.env.local`, `./.env`) para que `pnpm --filter @h2r/database migrate:dev` funcione sin importar dónde el usuario haya puesto `DATABASE_URL`.
+
+6. **`.gitignore` actualizado**: patrones adaptados a monorepo (`node_modules` sin slash inicial, `.turbo`, `apps/api/dist/`, `packages/database/src/generated/`).
+
+**Pendiente para cerrar Fase 0:**
+
+- Instalar `pnpm` en el entorno local (corepack 0.30 tiene bug de signing — requiere `npm install -g corepack@latest` o `npm install -g pnpm`).
+- Correr `pnpm install` desde el root para generar el lockfile y el linking de workspaces.
+- Correr `pnpm --filter @h2r/database generate` para regenerar el cliente Prisma en la nueva ubicación.
+- Verificar que `pnpm --filter @h2r/web dev` arranca Next.js sin errores de resolución.
+
+**Fin:**
+Preparar el repositorio para la migración progresiva del backend a NestJS (Fase 1+) sin romper el Next.js actual. El dominio, la base de datos y los tipos quedan como paquetes reutilizables que tanto `apps/web` (hoy) como `apps/api` (próximamente) consumen con los mismos contratos, evitando duplicación y divergencia.
+
+---
+
+*Última actualización: 2026-04-22*

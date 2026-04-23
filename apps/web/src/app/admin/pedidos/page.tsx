@@ -1,0 +1,110 @@
+import { PrismaOrderRepository } from '@/infrastructure/repositories/PrismaOrderRepository'
+import { OrderStatus } from '@h2r/domain'
+import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect'
+
+function formatCOP(cents: number): string {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+  }).format(cents / 100)
+}
+
+interface PageProps {
+  searchParams: Promise<{ status?: string; page?: string }>
+}
+
+const statusConfig: Record<string, { label: string; color: string }> = {
+  PENDING:   { label: 'Pendiente', color: 'bg-amber-500/20 text-amber-400' },
+  PAID:      { label: 'Pagado',    color: 'bg-green-500/20 text-green-400' },
+  SHIPPED:   { label: 'Enviado',   color: 'bg-blue-500/20 text-blue-400' },
+  DELIVERED: { label: 'Entregado', color: 'bg-purple-500/20 text-purple-400' },
+  CANCELLED: { label: 'Cancelado', color: 'bg-red-500/20 text-red-400' },
+}
+
+const providerLabels: Record<string, string> = {
+  WOMPI: 'Wompi',
+  MERCADO_PAGO: 'Mercado Pago',
+}
+
+export default async function AdminPedidosPage({ searchParams }: PageProps) {
+  const params = await searchParams
+  const page = Number(params.page ?? 1)
+
+  const repo = new PrismaOrderRepository()
+  const orders = await repo.findAll({
+    status: params.status as OrderStatus | undefined,
+    page,
+    limit: 20,
+  })
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-white mb-6">Pedidos</h1>
+
+      {/* Filtros de estado */}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {[undefined, 'PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((s) => (
+          <a
+            key={s ?? 'all'}
+            href={s ? `/admin/pedidos?status=${s}` : '/admin/pedidos'}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              params.status === s || (!params.status && !s)
+                ? 'bg-blue-600 text-white'
+                : 'bg-white/5 border border-white/10 text-white/50 hover:border-white/30 hover:text-white'
+            }`}
+          >
+            {s ? statusConfig[s]?.label : 'Todos'}
+          </a>
+        ))}
+      </div>
+
+      <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="border-b border-white/10">
+            <tr>
+              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Pedido</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Fecha</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Pasarela</th>
+              <th className="text-right px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Total</th>
+              <th className="text-center px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Estado</th>
+              <th className="px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Cambiar estado</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {orders.map((order) => {
+              const sc = statusConfig[order.status] ?? { label: order.status, color: 'bg-white/10 text-white/50' }
+              return (
+                <tr key={order.id} className="hover:bg-white/5 transition-colors">
+                  <td className="px-4 py-3 font-mono text-white font-medium">
+                    #{order.id.slice(-8).toUpperCase()}
+                  </td>
+                  <td className="px-4 py-3 text-white/50">
+                    {new Date(order.createdAt).toLocaleDateString('es-CO')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-medium text-white/50">
+                      {providerLabels[order.paymentProvider] ?? order.paymentProvider}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-white">{formatCOP(order.total)}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${sc.color}`}>
+                      {sc.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <OrderStatusSelect orderId={order.id} currentStatus={order.status} />
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {orders.length === 0 && (
+          <div className="text-center py-12 text-white/30">No hay pedidos</div>
+        )}
+      </div>
+    </div>
+  )
+}

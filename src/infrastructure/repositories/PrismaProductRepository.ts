@@ -44,6 +44,15 @@ function toDomain(
 /** Implementación de acceso a datos de productos con Prisma */
 export class PrismaProductRepository implements IProductRepository {
 
+  /** Busca un producto por su ID único (cuid) */
+  async findById(id: string): Promise<Product | null> {
+    const p = await prisma.product.findUnique({
+      where: { id },
+      include: { compatible: true },
+    })
+    return p ? toDomain(p) : null
+  }
+
   /** Busca un producto por su slug único (usado en rutas /producto/[slug]) */
   async findBySlug(slug: string): Promise<Product | null> {
     const p = await prisma.product.findUnique({
@@ -186,6 +195,18 @@ export class PrismaProductRepository implements IProductRepository {
     await prisma.product.update({
       where: { id },
       data: { stock: newStock },
+    })
+  }
+
+  /**
+   * Decremento atómico del stock en la BD (`UPDATE ... SET stock = stock - $by`).
+   * Evita race conditions entre webhooks concurrentes: el cálculo ocurre
+   * dentro de la BD bajo el lock de la fila.
+   */
+  async decrementStock(id: string, by: number): Promise<void> {
+    await prisma.product.update({
+      where: { id },
+      data: { stock: { decrement: by } },
     })
   }
 

@@ -4,7 +4,18 @@
  * Implementado por PrismaOrderRepository en infrastructure/repositories/.
  * Los use cases CreateOrder y ConfirmPayment dependen de esta interfaz.
  */
-import { Order, OrderStatus, OrderItem, ShippingAddress, PaymentProvider } from '@/domain/entities/Order'
+import { Order, OrderStatus, OrderItem, ShippingAddress, PaymentProvider, PaymentStatus } from '@/domain/entities/Order'
+
+/**
+ * Resultado de `transitionFromPending`.
+ *  - `applied: true`  → Este webhook ejecutó la transición (fue el primero en llegar).
+ *  - `applied: false` → El pedido ya no estaba en PENDING; el cambio lo hizo un webhook anterior.
+ *                       Esto es idempotencia: no es error, pero el caller debería evitar efectos
+ *                       secundarios (ej: enviar email al cliente por segunda vez).
+ */
+export interface PaymentTransitionResult {
+  applied: boolean
+}
 
 /**
  * Datos necesarios para crear un nuevo pedido.
@@ -43,6 +54,21 @@ export interface IOrderRepository {
    * Se llama desde ConfirmPayment cuando llega el webhook de la pasarela.
    */
   updatePaymentExternalId(orderId: string, externalId: string): Promise<void>
+  /**
+   * Transición atómica desde PENDING que actualiza Order.status, Payment.status y
+   * Payment.externalId en una sola transacción de BD.
+   *
+   * Atomicidad garantiza:
+   *   - Idempotencia correcta ante reintentos del webhook: solo el primero aplica.
+   *   - Order.status y Payment.status quedan siempre consistentes.
+   *
+   * El caller debe verificar `applied` para decidir efectos secundarios
+   * (ej: enviar email, descontar stock).
+   */
+  transitionFromPending(
+    orderId: string,
+    to: { orderStatus: OrderStatus; paymentStatus: PaymentStatus; externalId: string },
+  ): Promise<PaymentTransitionResult>
   /** Calcula los ingresos del día (pedidos PAID creados hoy). Retorna centavos COP. */
   getTodayRevenue(): Promise<number>
   /** Cuenta pedidos con status PENDING. Para alertas en el dashboard. */

@@ -32,6 +32,8 @@ export interface PaginatedProducts {
  * Implementado por PrismaProductRepository en infrastructure/repositories/.
  */
 export interface IProductRepository {
+  /** Busca un producto por su ID único (cuid). Retorna null si no existe. */
+  findById(id: string): Promise<Product | null>
   /** Busca un producto por su slug URL. Retorna null si no existe. */
   findBySlug(slug: string): Promise<Product | null>
   /** Busca un producto por su SKU único. Retorna null si no existe. */
@@ -46,6 +48,12 @@ export interface IProductRepository {
   update(id: string, data: Partial<Product>): Promise<Product>
   /** Actualiza únicamente el campo stock (operación frecuente, endpoint separado) */
   updateStock(id: string, newStock: number): Promise<void>
+  /**
+   * Decremento atómico del stock (`stock -= by`).
+   * Se usa desde ConfirmPayment para evitar races: dos webhooks concurrentes no
+   * pueden descontar el mismo stock porque el decremento ocurre en la BD, no en memoria.
+   */
+  decrementStock(id: string, by: number): Promise<void>
   /** Elimina un producto. Los MotorcycleCompatibility relacionados se eliminan en cascade. */
   delete(id: string): Promise<void>
 }

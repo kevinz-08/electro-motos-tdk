@@ -6,7 +6,7 @@
  * Prisma 7 no tiene conversión automática de tipos JSON — el cast es explícito y necesario.
  */
 import { prisma } from '@/infrastructure/database/prisma-client'
-import { IOrderRepository, CreateOrderInput } from '@/domain/repositories/IOrderRepository'
+import { IOrderRepository, CreateOrderInput, PaymentTransitionResult } from '@/domain/repositories/IOrderRepository'
 import {
   Order,
   OrderStatus,
@@ -151,6 +151,35 @@ export class PrismaOrderRepository implements IOrderRepository {
     await prisma.payment.update({
       where: { orderId },
       data: { externalId },
+    })
+  }
+
+  /**
+   * Transición atómica PENDING → orderStatus con actualización consistente de Payment.
+   *
+   * La operación usa `updateMany` con `status: 'PENDING'` como condición, de modo que
+   * solo el primer webhook que llegue aplica el cambio. Los reintentos posteriores
+   * reciben `applied: false` (idempotencia real a nivel de BD, sin race con findById).
+   *
+   * Se envuelve en `$transaction` para que Order y Payment queden siempre en sincronía.
+   */
+  async transitionFromPending(
+    orderId: string,
+    to: { orderStatus: OrderStatus; paymentStatus: PaymentStatus; externalId: string },
+  ): Promise<PaymentTransitionResult> {
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.order.updateMany({
+        where: { id: orderId, status: 'PENDING' },
+        data: { status: to.orderStatus },
+      })
+      if (updated.count === 0) {
+        return { applied: false }
+      }
+      await tx.payment.update({
+        where: { orderId },
+        data: { status: to.paymentStatus, externalId: to.externalId },
+      })
+      return { applied: true }
     })
   }
 

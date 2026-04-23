@@ -97,15 +97,20 @@ export async function POST(request: NextRequest) {
     return Response.json({ received: true, error: result.error.code })
   }
 
-  if (paymentStatus === 'APPROVED') {
+  // Evitar email duplicado si este es un reintento del webhook — solo mandamos
+  // cuando este llamado efectivamente transicionó el estado del pedido.
+  if (paymentStatus === 'APPROVED' && result.value.stateChanged) {
     const order = await orderRepo.findById(orderId)
     if (order) {
-      const user = await prisma.user.findUnique({ where: { id: order.userId } })
+      const user = await prisma.user.findUnique({
+        where: { id: order.userId },
+        select: { email: true },
+      })
       if (user?.email) {
         new ResendEmailService().sendOrderConfirmation(order, user.email).catch(console.error)
       }
     }
   }
 
-  return Response.json({ received: true })
+  return Response.json({ received: true, stateChanged: result.value.stateChanged })
 }

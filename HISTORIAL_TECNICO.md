@@ -380,4 +380,51 @@ apps/api/
 
 ---
 
+## 19. Fase 2 — Repositorios y servicios en `apps/api`
+
+**Qué se hizo:**
+
+Se migraron los repositorios Prisma y los servicios de infraestructura desde `apps/web/src/infrastructure/` a `apps/api/src/infrastructure/`, adaptándolos al modelo de inyección de dependencias de NestJS. `apps/web` conserva sus propias copias por ahora (se eliminarán en Fase 5 cuando los controladores Next.js apunten al API REST).
+
+**Archivos creados:**
+
+```text
+apps/api/src/infrastructure/
+├── repositories/
+│   ├── PrismaProductRepository.ts   # IProductRepository con PrismaService inyectado
+│   ├── PrismaOrderRepository.ts     # IOrderRepository + transición atómica PENDING→X
+│   └── PrismaUserRepository.ts      # IUserRepository (solo lectura)
+└── services/
+    ├── WompiService.ts              # IPaymentService — pasarela principal Colombia
+    ├── MercadoPagoService.ts        # IPaymentService — pasarela de respaldo
+    ├── ResendEmailService.ts        # Emails transaccionales (confirmación, despacho, rechazo)
+    └── CloudinaryService.ts        # Upload/delete de imágenes de productos
+```
+
+**Decisiones técnicas:**
+
+1. **Inyección de PrismaService en lugar de `prisma` directo**: Los repositorios reciben `PrismaService` vía constructor (`this.prisma.client.*`) en lugar de importar el singleton directamente. Esto permite que NestJS gestione el ciclo de vida (`$connect` / `$disconnect`) y facilita mocking en tests.
+
+2. **Tipos estructurales en lugar de tipos generados de Prisma 7**: Prisma 7 renombró los tipos de modelos (`Product` → `ProductModel`, `Order` → `OrderModel`, etc.) rompiendo los imports directos. La solución: definir tipos estructurales inline (`PrismaProductRow`, `PrismaOrderRow`, etc.) que coinciden con la forma real de los datos retornados por Prisma. Esto desacopla los repositorios de los nombres internos que genera Prisma y hace el código más resistente a futuras versiones.
+
+3. **`Prisma.InputJsonValue`** (del namespace `Prisma` de `@h2r/database`) se sigue usando para el cast de `shippingAddress` en `PrismaOrderRepository.create` — este tipo SÍ sigue exportándose en Prisma 7 bajo el mismo nombre.
+
+4. **`compatible.year` es nullable**: El schema tiene `year Int?`, por lo que el campo llega como `number | null`. Se usa `c.year ?? 0` al mapear a `MotorcycleCompatibility.year` (el dominio lo tipifica como `number`).
+
+5. **`InfrastructureModule` actualizado**: Los 3 repositorios se proveen con sus tokens de inyección simbólicos. `WompiService` se bindea al token `PAYMENT_SERVICE` (pasarela principal). Todos los servicios también se proveen directamente por clase para que los controllers de Fase 3/4 puedan inyectarlos sin pasar por el token.
+
+6. **Nuevas dependencias en `@h2r/api`**: `cloudinary ^2.9.0`, `mercadopago ^2.12.0`, `resend ^6.10.0` — las mismas versiones que `apps/web` para consistencia.
+
+**Archivos modificados:**
+
+- `apps/api/src/infrastructure/infrastructure.module.ts` — descomentados y completados providers/exports
+- `apps/api/package.json` — agregadas dependencias cloudinary, mercadopago, resend
+- `pnpm-lock.yaml` — actualizado
+
+**Fin:**
+
+`pnpm --filter @h2r/api exec nest build` compila limpio. `InfrastructureModule` expone todos los tokens (`PRODUCT_REPOSITORY`, `ORDER_REPOSITORY`, `USER_REPOSITORY`, `PAYMENT_SERVICE`) y los servicios concretos listos para ser inyectados en los módulos de negocio de Fase 3.
+
+---
+
 *Última actualización: 2026-04-23*

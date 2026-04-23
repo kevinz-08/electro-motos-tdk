@@ -59,12 +59,18 @@ importers:
       class-validator:
         specifier: ^0.14.1
         version: 0.14.4
+      cloudinary:
+        specifier: ^2.9.0
+        version: 2.9.0
       compression:
         specifier: ^1.7.5
         version: 1.8.1
       helmet:
         specifier: ^8.0.0
         version: 8.1.0
+      mercadopago:
+        specifier: ^2.12.0
+        version: 2.12.0
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -77,6 +83,9 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
+      resend:
+        specifier: ^6.10.0
+        version: 6.12.2
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2

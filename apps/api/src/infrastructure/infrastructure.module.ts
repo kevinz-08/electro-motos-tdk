@@ -1,36 +1,38 @@
 import { Module } from '@nestjs/common'
 import { PrismaModule } from './database/prisma.module'
-import {
-  PRODUCT_REPOSITORY,
-  ORDER_REPOSITORY,
-  USER_REPOSITORY,
-} from './injection-tokens'
+import { PRODUCT_REPOSITORY, ORDER_REPOSITORY, USER_REPOSITORY, PAYMENT_SERVICE } from './injection-tokens'
+import { PrismaProductRepository } from './repositories/PrismaProductRepository'
+import { PrismaOrderRepository } from './repositories/PrismaOrderRepository'
+import { PrismaUserRepository } from './repositories/PrismaUserRepository'
+import { WompiService } from './services/WompiService'
+import { MercadoPagoService } from './services/MercadoPagoService'
+import { ResendEmailService } from './services/ResendEmailService'
+import { CloudinaryService } from './services/CloudinaryService'
 
-/**
- * InfrastructureModule — registra todas las implementaciones concretas
- * de las interfaces del dominio.
- *
- * En Fase 2 se agregarán:
- *   PrismaProductRepository, PrismaOrderRepository, PrismaUserRepository
- *   WompiService, MercadoPagoService, ResendEmailService, CloudinaryService
- *
- * Por ahora solo expone PrismaModule (global) para que los módulos de negocio
- * puedan importar InfrastructureModule y recibir PrismaService.
- */
 @Module({
   imports: [PrismaModule],
   providers: [
-    // Fase 2: descomentar cuando se migren los repositorios desde apps/web
-    // { provide: PRODUCT_REPOSITORY, useClass: PrismaProductRepository },
-    // { provide: ORDER_REPOSITORY,   useClass: PrismaOrderRepository },
-    // { provide: USER_REPOSITORY,    useClass: PrismaUserRepository },
+    { provide: PRODUCT_REPOSITORY, useClass: PrismaProductRepository },
+    { provide: ORDER_REPOSITORY,   useClass: PrismaOrderRepository },
+    { provide: USER_REPOSITORY,    useClass: PrismaUserRepository },
+    // PAYMENT_SERVICE token → Wompi (pasarela principal Colombia)
+    { provide: PAYMENT_SERVICE,    useClass: WompiService },
+    // Servicios concretos también disponibles por clase para inyección directa en controllers
+    WompiService,
+    MercadoPagoService,
+    ResendEmailService,
+    CloudinaryService,
   ],
   exports: [
     PrismaModule,
-    // Fase 2: agregar los tokens aquí cuando estén implementados
-    // PRODUCT_REPOSITORY,
-    // ORDER_REPOSITORY,
-    // USER_REPOSITORY,
+    PRODUCT_REPOSITORY,
+    ORDER_REPOSITORY,
+    USER_REPOSITORY,
+    PAYMENT_SERVICE,
+    WompiService,
+    MercadoPagoService,
+    ResendEmailService,
+    CloudinaryService,
   ],
 })
 export class InfrastructureModule {}

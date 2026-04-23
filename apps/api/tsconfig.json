@@ -8,6 +8,7 @@
     "noEmit": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
     "paths": {
       "@h2r/domain": ["../../packages/domain/src"],
       "@h2r/database": ["../../packages/database/src"],

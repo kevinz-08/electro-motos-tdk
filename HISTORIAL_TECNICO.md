@@ -427,4 +427,84 @@ apps/api/src/infrastructure/
 
 ---
 
+## 20. Fase 3 — Módulos de negocio: Auth, Products, Orders, Admin
+
+**Qué se hizo:**
+
+Se implementaron los cuatro módulos de negocio de la API NestJS con todos sus controladores, DTOs y lógica de autenticación. La API queda completamente funcional para el catálogo, creación de pedidos y el panel admin. Solo falta el módulo de webhooks de pago (Fase 4).
+
+**Estructura creada:**
+
+```text
+apps/api/src/
+├── auth/
+│   ├── dto/              register.dto.ts · login.dto.ts
+│   ├── strategies/       jwt.strategy.ts
+│   ├── guards/           jwt-auth.guard.ts · roles.guard.ts
+│   ├── decorators/       @Public() · @Roles() · @CurrentUser()
+│   ├── auth.service.ts   register() · login() con bcrypt
+│   ├── auth.controller.ts  POST /auth/register · POST /auth/login
+│   └── auth.module.ts
+├── products/
+│   ├── dto/              list-products.dto.ts
+│   ├── products.controller.ts  GET /products (público)
+│   └── products.module.ts
+├── orders/
+│   ├── dto/              create-order.dto.ts · update-order-status.dto.ts
+│   ├── orders.controller.ts   POST /orders · PATCH /orders/:id/status
+│   └── orders.module.ts
+└── admin/
+    ├── dto/              create-product · update-product · update-stock · bulk-stock-update · toggle-setting
+    ├── admin-products.controller.ts    POST/PUT/DELETE/PATCH /admin/products
+    ├── admin-stock.controller.ts       PATCH /admin/stock/bulk
+    ├── admin-settings.controller.ts    PATCH /admin/settings/mercadopago
+    ├── admin-dashboard.controller.ts   GET /admin/dashboard
+    └── admin.module.ts
+```
+
+**Endpoints expuestos:**
+
+| Método | Ruta | Auth | Descripción |
+| ------ | ---- | ---- | ----------- |
+| POST | `/auth/register` | Público | Registro con bcrypt (cost 12) |
+| POST | `/auth/login` | Público | Login, devuelve JWT |
+| GET | `/products` | Público | Catálogo con filtros: category, search, price, inStock, page, limit |
+| POST | `/orders` | JWT | Crear pedido via `CreateOrder` use case + pasarela |
+| PATCH | `/orders/:id/status` | ADMIN | Actualizar estado manualmente |
+| GET | `/admin/dashboard` | ADMIN | Revenue, pendientes, stock bajo, pedidos recientes |
+| POST | `/admin/products` | ADMIN | Crear producto |
+| PUT | `/admin/products/:id` | ADMIN | Actualizar producto |
+| DELETE | `/admin/products/:id` | ADMIN | Eliminar producto |
+| PATCH | `/admin/products/:id/stock` | ADMIN | Actualizar stock individual |
+| POST | `/admin/products/upload-image` | ADMIN | Subir imagen a Cloudinary (multipart) |
+| PATCH | `/admin/stock/bulk` | ADMIN | Actualización masiva de stock por SKU |
+| PATCH | `/admin/settings/mercadopago` | ADMIN | Habilitar/deshabilitar Mercado Pago |
+
+**Decisiones técnicas:**
+
+1. **Guards globales en AppModule (secure-by-default)**: `JwtAuthGuard` y `RolesGuard` se registran como `APP_GUARD` en el módulo raíz. Todas las rutas requieren JWT por defecto. Las rutas públicas usan el decorador `@Public()` que pone metadata `isPublic: true` — `JwtAuthGuard` la lee con `Reflector` y salta la verificación. Esto evita olvidar proteger un endpoint nuevo.
+
+2. **Selección dinámica de pasarela en `POST /orders`**: El controlador inyecta tanto `WompiService` (vía token `PAYMENT_SERVICE`) como `MercadoPagoService` (por clase). Cuando el body dice `paymentProvider: 'MERCADO_PAGO'`, consulta la tabla `Settings` para verificar que esté habilitado, y luego pasa `mercadoPagoService` al constructor del use case `CreateOrder`. De lo contrario usa Wompi. El use case no sabe qué pasarela está usando — depende de `IPaymentService`.
+
+3. **`CreateOrder` y `ListProducts` se instancian con `new`**: Los use cases del dominio son clases planas, no injectables de NestJS. Los controladores los instancian con `new UseCase(repo1, repo2, service)` pasando las dependencias inyectadas. Esto cumple el patrón de Clean Architecture sin necesitar hacer los use cases dependientes del framework.
+
+4. **`strictPropertyInitialization: false` en tsconfig**: Los DTOs de NestJS usan class-validator y son populados por el `ValidationPipe` (no por constructores). TypeScript no puede saber que los campos siempre estarán definidos al llegar al handler, por lo que `strictPropertyInitialization: true` produce falsos positivos en todos los DTOs. Deshabilitar es el estándar de la comunidad NestJS.
+
+5. **`PAYMENT_ERROR: 502`** agregado al `HttpExceptionFilter`: El use case `CreateOrder` puede lanzar `AppError('PAYMENT_ERROR')` si la pasarela falla. Ahora se mapea a HTTP 502 (Bad Gateway) en lugar de 500.
+
+6. **Upload de imagen sin `Express.Multer.File`**: Se usa un tipo estructural inline `{ buffer: Buffer; originalname: string }` para el parámetro `@UploadedFile()`. Esto evita depender del tipo global `Express.Multer.File` que requiere configuración adicional de tsconfig, y funciona igual en runtime. `@types/multer` se agrega para autocompletado del IDE aunque no se use directamente.
+
+**Archivos modificados:**
+
+- `apps/api/src/app.module.ts` — añadidos 4 módulos + `APP_GUARD` global
+- `apps/api/src/shared/filters/http-exception.filter.ts` — `PAYMENT_ERROR → 502`
+- `apps/api/tsconfig.json` — `strictPropertyInitialization: false`
+- `apps/api/package.json` — `@types/multer` en devDeps
+
+**Fin:**
+
+`pnpm --filter @h2r/api exec nest build` compila limpio. Swagger disponible en `/api/docs` al arrancar en modo development. La API está lista para Fase 4: `PaymentsModule` con los webhooks de Wompi y Mercado Pago.
+
+---
+
 *Última actualización: 2026-04-23*

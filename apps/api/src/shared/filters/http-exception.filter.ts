@@ -18,6 +18,7 @@ const DOMAIN_ERROR_STATUS: Record<string, number> = {
   CONFLICT: HttpStatus.CONFLICT,                         // 409
   STOCK_UNAVAILABLE: HttpStatus.CONFLICT,                // 409
   PAYMENT_REQUIRED: HttpStatus.PAYMENT_REQUIRED,         // 402
+  PAYMENT_ERROR: HttpStatus.BAD_GATEWAY,                  // 502
   INTERNAL_ERROR: HttpStatus.INTERNAL_SERVER_ERROR,      // 500
 }
 

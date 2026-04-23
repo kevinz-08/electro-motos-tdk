@@ -7,7 +7,7 @@
  *   - Muestra hasta 4 imágenes del producto.
  *   - Imagen principal grande con fade-in al cambiar.
  *   - Botones ← → sobre la imagen principal para navegar (visible si hay >1 imagen).
- *   - Fila de miniaturas debajo; la activa tiene borde azul.
+ *   - Fila de miniaturas debajo; la activa tiene borde azul claro.
  *   - Si el producto no tiene imágenes muestra un placeholder SVG.
  *
  * Se usa en /producto/[slug]/page.tsx (Server Component) pasando
@@ -121,7 +121,7 @@ export function ProductImageGallery({ images, productName }: Props) {
               aria-label={`Ver imagen ${i + 1}`}
               className={`relative flex-1 aspect-square rounded-xl overflow-hidden border-2 transition-all duration-200 ${
                 i === current
-                  ? 'border-blue-500 shadow-sm'
+                  ? 'border-sky-400 shadow-sm'
                   : 'border-gray-100 hover:border-gray-300'
               }`}
             >

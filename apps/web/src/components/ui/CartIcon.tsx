@@ -15,7 +15,7 @@ export function CartIcon() {
   return (
     <Link
       href="/carrito"
-      className="relative p-2 text-white hover:text-blue-400 transition-colors"
+      className="relative p-2 text-white hover:text-sky-300 transition-colors"
       aria-label="Carrito de compras"
     >
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +28,7 @@ export function CartIcon() {
       </svg>
 
       {itemCount > 0 && (
-        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-sky-400 text-black text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
           {itemCount > 99 ? '99+' : itemCount}
         </span>
       )}

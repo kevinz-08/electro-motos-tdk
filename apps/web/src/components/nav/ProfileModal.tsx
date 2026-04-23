@@ -112,7 +112,7 @@ export function ProfileModal({ isOpen, onClose, user }: Props) {
         {/* ── Cabecera con avatar ────────────────────────────────────── */}
         <div className="flex flex-col items-center px-8 pt-8 pb-6 border-b border-white/10">
           {/* Avatar con iniciales */}
-          <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-black mb-4 select-none shadow-lg ring-4 ring-blue-600/20">
+          <div className="w-20 h-20 rounded-full bg-sky-500 flex items-center justify-center text-white text-2xl font-black mb-4 select-none shadow-lg ring-4 ring-sky-500/20">
             {initials}
           </div>
 
@@ -143,7 +143,7 @@ export function ProfileModal({ isOpen, onClose, user }: Props) {
                 onChange={(e) => setPhone(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSavePhone() }}
                 placeholder="+57 300 000 0000"
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors"
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-sky-400 transition-colors"
               />
               <button
                 onClick={handleSavePhone}
@@ -165,7 +165,7 @@ export function ProfileModal({ isOpen, onClose, user }: Props) {
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-semibold text-sm transition-colors"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-sky-400 hover:bg-sky-500 text-black hover:text-white rounded-xl font-semibold text-sm transition-colors"
             >
               {/* WhatsApp icon */}
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

@@ -104,7 +104,7 @@ export default async function ProductPage({ params }: PageProps) {
 
           <AddToCartButton
             product={product}
-            className="w-full bg-blue-600 text-white py-3 px-6 rounded-xl text-base font-bold hover:bg-blue-500 active:scale-95 transition-all mb-3"
+            className="w-full bg-sky-400 text-black py-3 px-6 rounded-xl text-base font-bold hover:bg-sky-500 hover:text-white active:scale-95 transition-all mb-3"
           />
 
           <div className="text-sm text-gray-500 flex items-center gap-4 mt-4">
@@ -128,7 +128,7 @@ export default async function ProductPage({ params }: PageProps) {
                 {product.compatible.map((c) => (
                   <span
                     key={c.id}
-                    className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full border border-gray-200"
+                    className="text-xs bg-sky-50 text-gray-700 px-3 py-1 rounded-full border border-sky-100"
                   >
                     {c.brand} {c.model}
                     {c.year ? ` (${c.year})` : ''}

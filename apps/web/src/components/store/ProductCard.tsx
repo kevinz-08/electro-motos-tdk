@@ -70,7 +70,7 @@ function CartHoverButton({ product }: { product: Product }) {
     <button
       onClick={handleClick}
       aria-label={added ? 'Producto añadido' : `Agregar ${product.name} al carrito`}
-      className={`absolute bottom-3 right-3 z-10 w-10 h-10 rounded-full shadow-lg flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 active:scale-90 transition-all duration-200 ${added ? 'bg-green-500 text-white scale-110' : 'bg-white text-gray-800 hover:bg-blue-600 hover:text-white'}`}
+      className={`absolute bottom-3 right-3 z-10 w-10 h-10 rounded-full shadow-lg flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 active:scale-90 transition-all duration-200 ${added ? 'bg-sky-500 text-white scale-110' : 'bg-white text-gray-800 hover:bg-sky-400 hover:text-white'}`}
     >
       {added ? (
         /* Chulito con animación de "dibujado" */
@@ -189,7 +189,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Nombre */}
         <Link href={`/producto/${product.slug}`}>
-          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 hover:text-blue-600 transition-colors leading-snug">
+          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 hover:text-sky-600 transition-colors leading-snug">
             {product.name}
           </h3>
         </Link>

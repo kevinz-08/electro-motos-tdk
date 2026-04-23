@@ -69,7 +69,7 @@ export function CategoryHeroBanner({ slug, name, description, imageSrc }: Props)
         </p>
         <Link
           href={`/catalogo?category=${slug}`}
-          className="inline-flex items-center gap-2 bg-white text-black px-7 py-3 rounded-full font-bold text-sm hover:bg-blue-500 hover:text-white active:scale-95 transition-all w-fit"
+          className="inline-flex items-center gap-2 bg-sky-400 text-black px-7 py-3 rounded-full font-bold text-sm hover:bg-sky-500 hover:text-white active:scale-95 transition-all w-fit"
         >
           Ver más
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

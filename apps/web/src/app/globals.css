@@ -2,40 +2,42 @@
 
 /* ── Base colors ─────────────────────────────────────────────────────────── */
 :root {
-  --background: #000000;
-  --foreground: #ffffff;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --accent: #38bdf8;
+  --accent-hover: #0284c7;
 
-  /* Store/catalog semantic tokens — dark (default) */
-  --c-bg:             #000000;
-  --c-surface:        rgba(255, 255, 255, 0.05);
-  --c-surface-2:      rgba(255, 255, 255, 0.03);
-  --c-surface-hover:  rgba(255, 255, 255, 0.08);
-  --c-border:         rgba(255, 255, 255, 0.10);
-  --c-border-hover:   rgba(59, 130, 246, 0.55);
-  --c-text:           #ffffff;
-  --c-text-2:         rgba(255, 255, 255, 0.65);
-  --c-text-3:         rgba(255, 255, 255, 0.45);
-  --c-text-4:         rgba(255, 255, 255, 0.25);
-  --c-divider:        rgba(255, 255, 255, 0.06);
-  --c-active-bg:      rgba(59, 130, 246, 0.15);
-  --c-active-text:    #93c5fd;
+  /* Tokens globales del storefront (paleta clara) */
+  --c-bg:             #ffffff;
+  --c-surface:        #ffffff;
+  --c-surface-2:      #f8fafc;
+  --c-surface-hover:  #f1f5f9;
+  --c-border:         #e5e7eb;
+  --c-border-hover:   #38bdf8;
+  --c-text:           #0a0a0a;
+  --c-text-2:         #374151;
+  --c-text-3:         #6b7280;
+  --c-text-4:         #9ca3af;
+  --c-divider:        #e5e7eb;
+  --c-active-bg:      #e0f2fe;
+  --c-active-text:    #0284c7;
 }
 
 /* Light theme overrides ─────────────────────────────────────────────────── */
 .catalog-light {
-  --c-bg:             #f1f5f9;
+  --c-bg:             #ffffff;
   --c-surface:        #ffffff;
   --c-surface-2:      #f8fafc;
   --c-surface-hover:  #f1f5f9;
-  --c-border:         #e2e8f0;
-  --c-border-hover:   rgba(59, 130, 246, 0.55);
-  --c-text:           #0f172a;
-  --c-text-2:         #475569;
-  --c-text-3:         #94a3b8;
-  --c-text-4:         #cbd5e1;
-  --c-divider:        #e2e8f0;
-  --c-active-bg:      rgba(37, 99, 235, 0.09);
-  --c-active-text:    #2563eb;
+  --c-border:         #e5e7eb;
+  --c-border-hover:   #38bdf8;
+  --c-text:           #0a0a0a;
+  --c-text-2:         #374151;
+  --c-text-3:         #6b7280;
+  --c-text-4:         #9ca3af;
+  --c-divider:        #e5e7eb;
+  --c-active-bg:      #e0f2fe;
+  --c-active-text:    #0284c7;
 }
 
 /* ── Tailwind theme ─────────────────────────────────────────────────────── */
@@ -91,4 +93,5 @@ textarea::placeholder               { color: var(--c-text-4); }
 @utility animate-fadeIn {
   animation: fadeIn 0.25s ease-out forwards;
 }
+
 

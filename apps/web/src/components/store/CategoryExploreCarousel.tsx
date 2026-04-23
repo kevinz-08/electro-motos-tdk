@@ -164,7 +164,7 @@ export function CategoryExploreCarousel({ categories }: Props) {
             </div>
 
             {/* Nombre */}
-            <p className="mt-3 text-sm font-semibold c-text text-center group-hover:text-blue-400 transition-colors">
+            <p className="mt-3 text-sm font-semibold c-text text-center group-hover:text-sky-500 transition-colors">
               {cat.name}
             </p>
           </Link>

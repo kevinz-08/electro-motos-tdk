@@ -17,7 +17,7 @@ interface Props {
 }
 
 // Clase única por botón — sin saltos de línea para evitar normalización de whitespace
-const BTN_BASE = 'absolute top-1/2 -translate-y-[calc(50%+1rem)] z-10 w-10 h-10 rounded-full bg-[var(--c-surface)] border border-[var(--c-border)] shadow-xl flex items-center justify-center c-text-2 hover:c-text hover:border-blue-500 transition-all opacity-0 group-hover/carousel:opacity-100'
+const BTN_BASE = 'absolute top-1/2 -translate-y-[calc(50%+1rem)] z-10 w-10 h-10 rounded-full bg-[var(--c-surface)] border border-[var(--c-border)] shadow-xl flex items-center justify-center c-text-2 hover:c-text hover:border-sky-400 transition-all opacity-0 group-hover/carousel:opacity-100'
 
 export function ProductCarousel({ products }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)

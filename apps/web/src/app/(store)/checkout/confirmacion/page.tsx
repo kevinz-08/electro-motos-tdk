@@ -42,7 +42,7 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
       )}
       <Link
         href="/catalogo"
-        className="bg-amber-400 text-gray-900 px-8 py-3 rounded-lg font-bold hover:bg-amber-300 transition-colors"
+        className="bg-sky-400 text-black px-8 py-3 rounded-lg font-bold hover:bg-sky-500 hover:text-white transition-colors"
       >
         Seguir comprando
       </Link>

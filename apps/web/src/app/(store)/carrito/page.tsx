@@ -36,7 +36,7 @@ export default function CartPage() {
         <p className="text-gray-400 mb-8 max-w-xs">Agrega productos desde el catálogo para continuar con tu compra.</p>
         <Link
           href="/catalogo?showAll=true"
-          className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-500 active:scale-95 transition-all"
+          className="bg-sky-400 text-black px-8 py-3 rounded-xl font-bold hover:bg-sky-500 hover:text-white active:scale-95 transition-all"
         >
           Ver catálogo
         </Link>
@@ -87,7 +87,7 @@ export default function CartPage() {
             <h1 className="text-3xl font-black text-gray-900">Tu carrito</h1>
             <p className="text-sm text-gray-400 mt-1">{itemsCount} {itemsCount === 1 ? 'producto' : 'productos'}</p>
           </div>
-          <Link href="/catalogo?showAll=true" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+          <Link href="/catalogo?showAll=true" className="text-sm text-sky-600 hover:text-sky-700 font-medium transition-colors">
             ← Seguir comprando
           </Link>
         </div>
@@ -119,7 +119,7 @@ export default function CartPage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <Link href={`/producto/${product.slug}`}>
-                    <h3 className="text-sm font-semibold text-gray-900 hover:text-blue-600 line-clamp-2 transition-colors leading-snug">
+                    <h3 className="text-sm font-semibold text-gray-900 hover:text-sky-600 line-clamp-2 transition-colors leading-snug">
                       {product.name}
                     </h3>
                   </Link>
@@ -151,7 +151,7 @@ export default function CartPage() {
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => updateQuantity(product.id, quantity - 1)}
-                      className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors text-base font-medium"
+                      className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:border-sky-400 hover:text-sky-600 transition-colors text-base font-medium"
                       aria-label="Reducir cantidad"
                     >
                       −
@@ -160,7 +160,7 @@ export default function CartPage() {
                     <button
                       onClick={() => updateQuantity(product.id, Math.min(quantity + 1, product.stock))}
                       disabled={quantity >= product.stock}
-                      className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base font-medium"
+                      className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:border-sky-400 hover:text-sky-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base font-medium"
                       aria-label="Aumentar cantidad"
                     >
                       +
@@ -217,7 +217,7 @@ export default function CartPage() {
               {/* CTA principal */}
               <Link
                 href="/checkout"
-                className="block w-full bg-blue-600 text-white py-3.5 px-6 rounded-xl font-bold text-center hover:bg-blue-500 active:scale-95 transition-all shadow-sm"
+                className="block w-full bg-sky-500 text-white py-3.5 px-6 rounded-xl font-bold text-center hover:bg-sky-600 active:scale-95 transition-all shadow-sm"
               >
                 Finalizar pedido →
               </Link>

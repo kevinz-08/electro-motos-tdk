@@ -208,7 +208,7 @@ export function Navbar() {
               onClick={openProfile}
               className="w-full text-left px-4 py-3 border-b border-white/10 hover:bg-white/5 transition-colors group"
             >
-              <p className="text-sm font-semibold text-white truncate group-hover:text-blue-400 transition-colors">
+              <p className="text-sm font-semibold text-white truncate group-hover:text-sky-300 transition-colors">
                 {firstName}
               </p>
               <p className="text-xs text-white/40 truncate">{user?.email}</p>
@@ -278,7 +278,7 @@ export function Navbar() {
             </Link>
             <Link
               href="/auth/login"
-              className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-sky-300 hover:bg-sky-400/10 rounded-lg transition-colors"
               onClick={() => setUserOpen(false)}
             >
               Iniciar sesión
@@ -360,7 +360,7 @@ export function Navbar() {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
-      <header className="sticky top-0 z-50 bg-black/50 backdrop-blur-md border-b border-white/10 relative">
+      <header className="sticky top-0 z-50 bg-black border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-3 items-center h-16">
 
@@ -464,7 +464,7 @@ export function Navbar() {
                 <p className="text-[11px] font-bold text-white/30 uppercase tracking-[0.2em]">Categorías</p>
                 <Link
                   href="/catalogo"
-                  className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                className="text-xs font-semibold text-sky-300 hover:text-sky-200 transition-colors flex items-center gap-1"
                   onClick={() => setCatOpen(false)}
                 >
                   Ver catálogo completo
@@ -484,11 +484,11 @@ export function Navbar() {
                       onClick={() => setCatOpen(false)}
                       className="group block mb-3"
                     >
-                      <span className="text-base font-bold text-white group-hover:text-blue-400 transition-colors leading-tight">
+                      <span className="text-base font-bold text-white group-hover:text-sky-300 transition-colors leading-tight">
                         {parent.name}
                       </span>
                       {/* Línea subrayado animada */}
-                      <span className="block mt-1 h-px w-8 bg-blue-500/50 group-hover:w-full transition-all duration-300 ease-out" />
+                      <span className="block mt-1 h-px w-8 bg-sky-400/70 group-hover:w-full transition-all duration-300 ease-out" />
                     </Link>
 
                     {/* Subcategorías */}
@@ -533,14 +533,14 @@ export function Navbar() {
               </button>
               {mobileCatOpen && (
                 <div className="mt-1 ml-3 space-y-3 pb-1">
-                  <Link href="/catalogo" className="block px-3 py-2 text-sm font-semibold text-blue-400 hover:bg-white/5 rounded-lg transition-colors" onClick={() => setMobileOpen(false)}>
+                  <Link href="/catalogo" className="block px-3 py-2 text-sm font-semibold text-sky-300 hover:bg-white/5 rounded-lg transition-colors" onClick={() => setMobileOpen(false)}>
                     Ver todo el catálogo →
                   </Link>
                   {MEGA_MENU.map((parent) => (
                     <div key={parent.slug}>
                       <Link
                         href={`/catalogo?category=${parent.slug}`}
-                        className="block px-3 py-1.5 text-sm font-semibold text-white hover:text-blue-400 transition-colors"
+                        className="block px-3 py-1.5 text-sm font-semibold text-white hover:text-sky-300 transition-colors"
                         onClick={() => setMobileOpen(false)}
                       >
                         {parent.name}
@@ -577,7 +577,7 @@ export function Navbar() {
                     onClick={() => { setMobileOpen(false); setProfileOpen(true) }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white hover:bg-white/5 rounded-lg transition-colors"
                   >
-                    <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-sky-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                       {initials}
                     </div>
                     <div className="text-left min-w-0">
@@ -595,7 +595,7 @@ export function Navbar() {
               </>
             ) : (
               <div className="border-t border-white/10 pt-2 mt-2 space-y-0.5">
-                <Link href="/auth/login" className="block px-3 py-2.5 text-sm font-semibold text-blue-400 hover:bg-white/5 rounded-lg transition-colors" onClick={() => setMobileOpen(false)}>
+                <Link href="/auth/login" className="block px-3 py-2.5 text-sm font-semibold text-sky-300 hover:bg-white/5 rounded-lg transition-colors" onClick={() => setMobileOpen(false)}>
                   Iniciar sesión
                 </Link>
                 <Link href="/auth/register" className="block px-3 py-2.5 text-sm text-white/70 hover:bg-white/5 rounded-lg transition-colors" onClick={() => setMobileOpen(false)}>

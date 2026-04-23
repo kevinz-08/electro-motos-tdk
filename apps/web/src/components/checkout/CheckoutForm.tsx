@@ -135,7 +135,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
     return (
       <div className="text-center py-10 text-gray-500">
         Tu carrito está vacío.{' '}
-        <a href="/catalogo" className="text-amber-600 hover:underline">
+        <a href="/catalogo" className="text-sky-600 hover:underline">
           Volver al catálogo
         </a>
       </div>
@@ -161,7 +161,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                     type="text"
                     value={form.fullName}
                     onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
                     placeholder="Juan Pérez"
                   />
                 </div>
@@ -175,7 +175,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                     type="text"
                     value={form.address}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
                     placeholder="Calle 45 # 23-10, Apto 302"
                   />
                 </div>
@@ -189,7 +189,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                     type="text"
                     value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
                     placeholder="Medellín"
                   />
                 </div>
@@ -203,7 +203,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                     type="text"
                     value={form.department}
                     onChange={(e) => setForm({ ...form, department: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
                     placeholder="Antioquia"
                   />
                 </div>
@@ -217,7 +217,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                     type="tel"
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
                     placeholder="3001234567"
                   />
                 </div>
@@ -242,7 +242,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     rows={2}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400 resize-none"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400 resize-none"
                     placeholder="Instrucciones para el mensajero..."
                   />
                 </div>
@@ -258,7 +258,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white-900 py-3 rounded-xl font-bold text-base hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-60"
+              className="w-full bg-sky-500 text-white py-3 rounded-xl font-bold text-base hover:bg-sky-600 active:scale-95 transition-all disabled:opacity-60"
             >
               {loading ? 'Procesando...' : 'Continuar al pago →'}
             </button>

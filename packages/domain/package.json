@@ -1,0 +1,22 @@
+{
+  "name": "@h2r/domain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Dominio puro del e-commerce H2R: entidades, interfaces de repositorio, use cases y Result<T,E>. Cero dependencias externas.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"(no lint for @h2r/domain yet)\""
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}

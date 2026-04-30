@@ -1,0 +1,24 @@
+import { Body, Controller, Patch } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { PrismaService } from '../infrastructure/database/prisma.service'
+import { Roles } from '../auth/decorators/roles.decorator'
+import { ToggleSettingDto } from './dto/toggle-setting.dto'
+
+@ApiTags('admin / settings')
+@ApiBearerAuth('access-token')
+@Roles('ADMIN')
+@Controller('admin/settings')
+export class AdminSettingsController {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Patch('mercadopago')
+  @ApiOperation({ summary: 'Habilitar o deshabilitar Mercado Pago como pasarela de pago' })
+  async toggleMercadoPago(@Body() dto: ToggleSettingDto) {
+    await this.prisma.client.settings.upsert({
+      where: { key: 'MERCADOPAGO_ENABLED' },
+      update: { value: dto.enabled ? 'true' : 'false' },
+      create: { key: 'MERCADOPAGO_ENABLED', value: dto.enabled ? 'true' : 'false' },
+    })
+    return { success: true, enabled: dto.enabled }
+  }
+}

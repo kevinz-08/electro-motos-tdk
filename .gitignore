@@ -1,8 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
-/.pnp
+node_modules
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,15 +10,26 @@
 !.yarn/releases
 !.yarn/versions
 
+# pnpm
+.pnpm-store
+.pnpm-debug.log*
+
+# turbo
+.turbo
+
 # testing
-/coverage
+coverage
 
 # next.js
-/.next/
-/out/
+.next/
+out/
+
+# nestjs
+apps/api/dist/
 
 # production
-/build
+build
+dist
 
 # misc
 .DS_Store
@@ -28,10 +39,11 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
@@ -40,6 +52,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/src/generated/prisma
+# prisma generated client (regenerated via pnpm --filter @h2r/database generate)
+packages/database/src/generated/
 
+# compiled JS artifacts that land next to TS source (e.g. from stray tsc runs)
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+
+# assets de trabajo locales (fotos de productos sin procesar, etc.)
 tmp-productos/
+apps/web/tmp-productos/

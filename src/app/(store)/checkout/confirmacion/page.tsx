@@ -1,8 +1,15 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { PrismaOrderRepository } from '@/infrastructure/repositories/PrismaOrderRepository'
 
 interface PageProps {
   searchParams: Promise<{ orderId?: string }>
+}
+
+export const metadata: Metadata = {
+  title: 'Confirmación del pedido',
+  description: 'Revisa el estado de tu pedido y los siguientes pasos tras el pago.',
+  robots: { index: false, follow: false },
 }
 
 export default async function ConfirmacionPage({ searchParams }: PageProps) {

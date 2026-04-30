@@ -41,33 +41,61 @@ export interface UploadResult {
 
 /** Servicio de gestión de imágenes con Cloudinary */
 export class CloudinaryService {
-  /** Sube una imagen de producto. Retorna la URL segura. */
+  /**
+   * Sube una imagen de producto y retorna una URL de entrega optimizada.
+   *
+   * Estrategia:
+   *   1. Subir el archivo original sin transformaciones → preserva calidad máxima en Cloudinary.
+   *   2. Construir la URL de entrega con transformaciones on-the-fly:
+   *        f_auto   → WebP/AVIF automático según el browser del visitante
+   *        q_auto   → Cloudinary elige la calidad óptima (IA)
+   *        w_1200   → Ancho máximo para página de detalle (50vw en desktop ancho)
+   *        c_limit  → Solo reduce, nunca amplía
+   *
+   *   Cloudinary aplica estas transformaciones una vez y las cachea globalmente,
+   *   por lo que no hay costo de procesamiento por cada request.
+   *
+   *   La URL optimizada es la que se almacena en Product.images[] en la BD.
+   *   Desde el frontend se puede reducir aún más el ancho con cloudinaryUrl()
+   *   de src/lib/cloudinary.ts para contextos específicos (card, thumbnail, etc.).
+   */
   async uploadProductImage(file: Buffer, productSku: string): Promise<UploadResult> {
-    const result = await new Promise<UploadResult>((resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream(
-          {
-            folder: 'electro-motos-tony/products',
-            public_id: `${productSku}-${Date.now()}`,
-            transformation: [{ width: 800, height: 800, crop: 'limit', quality: 'auto' }],
-          },
-          (error, result) => {
-            if (error || !result) {
-              reject(error ?? new Error('Upload failed'))
-              return
-            }
-            resolve({
-              publicId: result.public_id,
-              url: result.url,
-              secureUrl: result.secure_url,
-              width: result.width,
-              height: result.height,
-            })
-          },
-        )
-        .end(file)
+    const uploaded = await new Promise<{ public_id: string; width: number; height: number }>(
+      (resolve, reject) => {
+        cloudinary.uploader
+          .upload_stream(
+            {
+              folder:    'electro-motos-tony/products',
+              public_id: `${productSku}-${Date.now()}`,
+              // Subir sin transformación para preservar la imagen original
+            },
+            (error, result) => {
+              if (error || !result) {
+                reject(error ?? new Error('Upload failed'))
+                return
+              }
+              resolve({ public_id: result.public_id, width: result.width, height: result.height })
+            },
+          )
+          .end(file)
+      },
+    )
+
+    // Construir URL de entrega optimizada (f_auto + q_auto + tamaño máximo para detalle)
+    const optimizedUrl = cloudinary.url(uploaded.public_id, {
+      transformation: [
+        { fetch_format: 'auto', quality: 'auto', width: 1200, crop: 'limit' },
+      ],
+      secure: true,
     })
-    return result
+
+    return {
+      publicId:  uploaded.public_id,
+      url:       optimizedUrl,
+      secureUrl: optimizedUrl,
+      width:     uploaded.width,
+      height:    uploaded.height,
+    }
   }
 
   /** Elimina una imagen de Cloudinary por su public_id */

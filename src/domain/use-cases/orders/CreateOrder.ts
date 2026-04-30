@@ -57,11 +57,7 @@ export class CreateOrder {
         return err(new AppError('VALIDATION_ERROR', 'La cantidad debe ser mayor a 0'))
       }
 
-      const product = await this.productRepo.findBySku(item.productId)
-      const productById = product ?? await this.productRepo.findBySlug(item.productId)
-      // Si no encontramos por SKU, lo buscamos directamente por ID via updateStock pattern
-      // La búsqueda real viene del repositorio
-      const found = productById
+      const found = await this.productRepo.findById(item.productId)
 
       if (!found) {
         return err(new AppError('NOT_FOUND', `Producto "${item.productId}" no encontrado`))

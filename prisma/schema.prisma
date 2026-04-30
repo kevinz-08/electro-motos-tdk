@@ -89,11 +89,16 @@ model User {
 }
 
 model Category {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   name        String
-  slug        String    @unique
+  slug        String     @unique
   description String?
   imageUrl    String?
+  /// null  → categoría raíz (padre)
+  /// non-null → subcategoría; apunta al id del padre
+  parentId    String?
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
   products    Product[]
 }
 

@@ -1,4 +1,4 @@
-# ⚡ Electro Motos Tony — E-commerce de Repuestos para Motos
+# ⚡ H2R Online Store — E-commerce de Repuestos para Motos
 
 E-commerce completo para un taller de motos colombiano. Permite a los clientes comprar
 repuestos en línea con pago a través de **Wompi** (principal) o **Mercado Pago** (respaldo),

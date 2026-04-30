@@ -31,8 +31,8 @@ const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
 
 export const metadata: Metadata = {
   title: {
-    default: 'Electro Motos Tony — Repuestos y Servicios',
-    template: '%s | Electro Motos Tony',
+    default: 'H2R Online Store — Repuestos y Servicios',
+    template: '%s | H2R Online Store',
   },
   description:
     'Taller especializado en motos eléctricas y a gasolina. Repuestos originales y servicio técnico en Colombia.',
@@ -40,13 +40,13 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'es_CO',
-    siteName: 'Electro Motos Tony',
+    siteName: 'H2r Online Store',
   },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${geist.variable} h-full antialiased`}>
+    <html lang="es" className={`${geist.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-white text-gray-900" suppressHydrationWarning>
         <AuthSessionProvider>{children}</AuthSessionProvider>
       </body>

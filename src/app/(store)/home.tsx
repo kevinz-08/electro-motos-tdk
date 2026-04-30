@@ -33,10 +33,22 @@ import { prisma } from '@/infrastructure/database/prisma-client'
 import { ProductCard } from '@/components/store/ProductCard'
 import { ScrollDownArrow } from '@/components/ui/ScrollDownArrow'
 
+const CAT_ICONS: Record<string, string> = {
+  'sistema-electrico': '⚡',
+  'repuestos':         '🔧',
+  'aceites':           '🛢️',
+  'llantas':           '🏍️',
+  'accesorios':        '🔩',
+}
+
 export default async function HomePage() {
   const repo = new PrismaProductRepository()
   const { items: featuredProducts } = await repo.findAll({ inStock: true, limit: 4, page: 1 })
-  const categories = await prisma.category.findMany({ take: 3 })
+  // Solo categorías padre (parentId null), ordenadas por nombre — resultado determinista
+  const categories = await prisma.category.findMany({
+    where: { parentId: null },
+    orderBy: { name: 'asc' },
+  })
 
   return (
     <>
@@ -104,20 +116,19 @@ export default async function HomePage() {
           <h2 className="text-3xl font-bold text-white mb-8 text-center">
             Encuentra tu repuesto
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {categories.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/catalogo?category=${cat.slug}`}
-                className="group bg-white/5 border border-white/10 rounded-xl p-8 text-center hover:border-blue-500 hover:bg-blue-500/5 transition-all"
+                className="group bg-white/5 border border-white/10 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-500/5 transition-all"
               >
-                <div className="text-4xl mb-4">
-                  {cat.slug === 'frenos' ? '🛑' : cat.slug === 'motores' ? '⚙️' : '🛞'}
+                <div className="text-3xl mb-3">
+                  {CAT_ICONS[cat.slug] ?? '📦'}
                 </div>
-                <h3 className="text-xl font-bold text-white group-hover:text-blue-400 mb-2">
+                <h3 className="text-sm font-bold text-white group-hover:text-blue-400 leading-tight">
                   {cat.name}
                 </h3>
-                <p className="text-sm text-white/50">{cat.description}</p>
               </Link>
             ))}
           </div>

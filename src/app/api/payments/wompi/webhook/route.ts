@@ -10,32 +10,24 @@ import { PaymentStatus } from '@/domain/entities/Order'
 /**
  * POST /api/payments/wompi/webhook
  *
- * Endpoint que recibe los eventos de pago enviados por Wompi a nuestro servidor.
- * Wompi envía este webhook cuando una transacción cambia de estado.
+ * Endpoint que recibe los eventos de pago enviados por Wompi.
  *
- * SEGURIDAD: Este endpoint valida la firma criptográfica del evento antes de procesarlo.
- * Si un atacante envía una petición falsa a esta URL, será rechazada con 401.
+ * Seguridad:
+ *   1. Valida la firma criptográfica del evento (SHA256) contra WOMPI_EVENTS_SECRET.
+ *   2. Rechaza eventos con timestamp fuera de ventana (anti-replay, ver WompiService).
+ *   3. Valida que `amount_in_cents` del evento coincida con Order.total (defensa en profundidad).
  *
- * IDEMPOTENCIA: Si Wompi envía el mismo evento más de una vez (reintentos),
- * el use case ConfirmPayment verifica que el pedido no haya sido procesado ya.
+ * Idempotencia:
+ *   ConfirmPayment aplica la transición PENDING → PAID/CANCELLED mediante un
+ *   `updateMany WHERE status='PENDING'` atómico. Si Wompi reintenta el mismo webhook,
+ *   el segundo llamado no cambia nada y no dispara efectos secundarios (email).
  *
- * Flujo completo:
- *   1. Parsear el body JSON
- *   2. Validar la firma SHA256 del evento (WompiService.validateWebhook)
- *      → 401 si la firma no coincide
- *   3. Verificar que sea un evento de tipo "transaction.*"
- *   4. Extraer el orderId de la referencia "ORDER-{orderId}-{timestamp}"
- *   5. Mapear el status de Wompi al PaymentStatus del dominio
- *   6. Llamar a ConfirmPayment use case
- *   7. Si APPROVED: enviar email de confirmación al cliente (fire-and-forget)
- *   8. Retornar 200 siempre (incluso en errores propios) para que Wompi no reintente
+ * Respuestas HTTP:
+ *   200 → evento procesado (o duplicado idempotente, o ignorado por no ser transaction.*)
+ *   401 → firma inválida o expirada (único caso donde rechazamos explícitamente)
+ *   Todos los demás errores retornan 200 con `error` en el body para evitar reintentos
+ *   masivos de Wompi ante fallos transitorios de nuestro lado.
  *
- * IMPORTANTE: Retornamos 200 aunque haya un error interno propio.
- * Si retornamos 4xx/5xx, Wompi reintentará el webhook múltiples veces.
- * Es mejor log del error y retornar 200 que inundar el sistema con reintentos.
- * La excepción es la firma inválida (401), que sí queremos rechazar.
- *
- * Referencia de la documentación de Wompi:
  * @see https://docs.wompi.co/docs/colombia/eventos-de-pago/
  */
 export async function POST(request: NextRequest) {
@@ -43,47 +35,44 @@ export async function POST(request: NextRequest) {
   try {
     payload = await request.json()
   } catch {
-    return Response.json({ error: 'Body inválido' }, { status: 400 })
+    console.warn('[Wompi webhook] Body no es JSON válido')
+    return Response.json({ received: true, error: 'invalid_body' }, { status: 200 })
   }
 
-  // 1. Validar firma del webhook
   const wompiService = new WompiService()
   if (!wompiService.validateWebhook(payload, request.headers)) {
     return Response.json({ error: 'Firma inválida' }, { status: 401 })
   }
 
-  // 2. Extraer datos de la transacción
   const event = payload as {
-    event: string
-    data: {
-      transaction: {
-        id: string
-        reference: string
-        status: string
+    event?: string
+    data?: {
+      transaction?: {
+        id?: string
+        reference?: string
+        status?: string
+        amount_in_cents?: number
       }
     }
   }
 
-  // Solo procesar eventos de transacción
   if (!event.event?.startsWith('transaction.')) {
     return Response.json({ received: true, processed: false })
   }
 
   const transaction = event.data?.transaction
-  if (!transaction) {
-    return Response.json({ error: 'Evento sin datos de transacción' }, { status: 400 })
+  if (!transaction?.id || !transaction.reference || !transaction.status) {
+    console.warn('[Wompi webhook] Evento sin campos requeridos de transacción')
+    return Response.json({ received: true, error: 'missing_transaction_fields' }, { status: 200 })
   }
 
-  // Extraer orderId de la referencia: "ORDER-{orderId}-{timestamp}"
-  const referenceParts = transaction.reference?.split('-')
-  if (!referenceParts || referenceParts.length < 2 || referenceParts[0] !== 'ORDER') {
-    return Response.json({ error: 'Referencia inválida' }, { status: 400 })
+  // "ORDER-{orderId}-{timestamp}" → orderId. Regex robusto por si el cuid cambia.
+  const refMatch = transaction.reference.match(/^ORDER-(.+)-(\d+)$/)
+  if (!refMatch || !refMatch[1]) {
+    console.warn(`[Wompi webhook] Referencia inválida: "${transaction.reference}"`)
+    return Response.json({ received: true, error: 'invalid_reference' }, { status: 200 })
   }
-  const orderId = referenceParts[1]
-
-  if (!orderId) {
-    return Response.json({ error: 'orderId no encontrado en referencia' }, { status: 400 })
-  }
+  const orderId = refMatch[1]
 
   const statusMap: Record<string, PaymentStatus> = {
     APPROVED: 'APPROVED',
@@ -94,7 +83,6 @@ export async function POST(request: NextRequest) {
   }
   const paymentStatus: PaymentStatus = statusMap[transaction.status] ?? 'ERROR'
 
-  // 3. Confirmar pago vía use case
   const orderRepo = new PrismaOrderRepository()
   const productRepo = new PrismaProductRepository()
   const confirmPayment = new ConfirmPayment(orderRepo, productRepo)
@@ -103,29 +91,36 @@ export async function POST(request: NextRequest) {
     orderId,
     externalId: transaction.id,
     status: paymentStatus,
+    amountInCents: transaction.amount_in_cents,
   })
 
   if (!result.ok) {
-    // Log del error sin exponer detalles al exterior
-    console.error('[Wompi webhook] ConfirmPayment error:', result.error.message)
-    // Retornar 200 para que Wompi no reintente — el error es de nuestro lado
+    console.error(
+      `[Wompi webhook] ConfirmPayment error en pedido ${orderId}: ` +
+        `${result.error.code} — ${result.error.message}`,
+    )
     return Response.json({ received: true, error: result.error.code }, { status: 200 })
   }
 
-  // 4. Enviar email si el pago fue aprobado
-  if (paymentStatus === 'APPROVED') {
+  if (paymentStatus === 'APPROVED' && result.value.stateChanged) {
     const order = await orderRepo.findById(orderId)
     if (order) {
-      const user = await prisma.user.findUnique({ where: { id: order.userId } })
+      const user = await prisma.user.findUnique({
+        where: { id: order.userId },
+        select: { email: true },
+      })
       if (user?.email) {
-        const emailService = new ResendEmailService()
-        // Fire-and-forget — no bloquear la respuesta al webhook
-        emailService.sendOrderConfirmation(order, user.email).catch((e) => {
-          console.error('[Wompi webhook] Error enviando email:', e)
-        })
+        new ResendEmailService()
+          .sendOrderConfirmation(order, user.email)
+          .catch((e) => console.error(`[Wompi webhook] Error enviando email a ${user.email}:`, e))
       }
     }
   }
 
-  return Response.json({ received: true })
+  console.log(
+    `[Wompi webhook] pedido=${orderId} status=${paymentStatus} ` +
+      `stateChanged=${result.value.stateChanged} final=${result.value.finalStatus}`,
+  )
+
+  return Response.json({ received: true, stateChanged: result.value.stateChanged })
 }

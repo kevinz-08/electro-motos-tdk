@@ -1,9 +1,10 @@
 /**
- * prisma/catalog.ts — Poblar catálogo de productos
+ * prisma/catalog.ts — Poblar catálogo con jerarquía de tres niveles
  *
- * Archivo independiente del seed principal.
- * Se puede ejecutar solo cuando necesitas cargar o actualizar el catálogo
- * sin tocar usuarios, pedidos ni configuración.
+ *   Categorías Padre → Subcategorías → Productos
+ *
+ * Categorías Padre:
+ *   Sistema Eléctrico, Repuestos, Aceites, Llantas, Accesorios
  *
  * Ejecutar:
  *   npm run db:catalog
@@ -11,72 +12,81 @@
  * Todos los precios están en CENTAVOS COP.
  * Ejemplo: $29.000 COP → 2_900_000 centavos
  *
- * Para agregar nuevas categorías: agrega un objeto al array CATEGORIES.
- * Para agregar productos: agrega un objeto al array PRODUCTS y referencia el slug de la categoría.
+ * Agregar categorías: agrega objetos en PARENT_CATEGORIES o SUBCATEGORIES.
+ * Agregar productos:  agrega objetos en PRODUCTS con el slug de la subcategoría.
  */
 import 'dotenv/config'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({ connectionString: process.env['DATABASE_URL'] ?? '' })
-const prisma = new PrismaClient({ adapter })
+const prisma  = new PrismaClient({ adapter })
 
-// ─── Categorías ───────────────────────────────────────────────────────────────
-// Para agregar una categoría nueva, añade un objeto aquí.
-// El campo `slug` es el identificador único y se usa en las URLs del catálogo.
+// ─── Categorías Padre ─────────────────────────────────────────────────────────
 
-const CATEGORIES = [
+const PARENT_CATEGORIES = [
   {
     slug: 'sistema-electrico',
     name: 'Sistema Eléctrico',
-    description: 'CDI, stators, reguladores, bobinas y componentes eléctricos para motos',
+    description: 'Todo el sistema eléctrico de tu moto: CDI, stators, reguladores, arneses y baterías.',
   },
   {
-    slug: 'arneses',
-    name: 'Arneses Eléctricos',
-    description: 'Ramales y arneses eléctricos para las principales marcas y modelos',
+    slug: 'repuestos',
+    name: 'Repuestos',
+    description: 'Filtros de aire, frenos, bujías y repuestos internos de motor.',
   },
   {
-    slug: 'baterias',
-    name: 'Baterías',
-    description: 'Baterías Magna y de otras marcas para todo tipo de moto',
-  },
-  {
-    slug: 'iluminacion',
-    name: 'Iluminación',
-    description: 'Bombillos LED, stops integrados y accesorios de iluminación',
-  },
-  {
-    slug: 'accesorios',
-    name: 'Accesorios',
-    description: 'Fenders, portaplacas retráctiles y accesorios para motos',
-  },
-  {
-    slug: 'filtros',
-    name: 'Filtros',
-    description: 'Filtros de aire de alto flujo y mantenimiento',
-  },
-  {
-    slug: 'frenos',
-    name: 'Frenos',
-    description: 'Pastillas, discos y kits de frenos para motos',
+    slug: 'aceites',
+    name: 'Aceites',
+    description: 'Aceites de motor y lubricantes de las mejores marcas para todas las motos.',
   },
   {
     slug: 'llantas',
     name: 'Llantas',
-    description: 'Llantas y neumáticos para todo tipo de moto',
+    description: 'Llantas y neumáticos para todo tipo de moto y terreno.',
   },
   {
-    slug: 'repuestos-motor',
-    name: 'Repuestos Motor',
-    description: 'Pistones, anillos, cigüeñales y repuestos internos de motor',
+    slug: 'accesorios',
+    name: 'Accesorios',
+    description: 'Accesorios, equipamiento y personalización para tu moto.',
   },
 ]
 
+// ─── Subcategorías ────────────────────────────────────────────────────────────
+// `parentSlug` indica a qué categoría padre pertenece.
+
+const SUBCATEGORIES = [
+  // ── Sistema Eléctrico ────────────────────────────────────────────────────
+  { slug: 'ramales',      name: 'Ramales',      parentSlug: 'sistema-electrico', description: 'Arneses y ramales eléctricos completos para las principales marcas y modelos.' },
+  { slug: 'reguladores',  name: 'Reguladores',  parentSlug: 'sistema-electrico', description: 'Reguladores rectificadores que protegen el sistema eléctrico y la batería.' },
+  { slug: 'cdi',          name: 'CDI',          parentSlug: 'sistema-electrico', description: 'Módulos CDI y flashers para el control del encendido electrónico.' },
+  { slug: 'baterias',     name: 'Baterías',     parentSlug: 'sistema-electrico', description: 'Baterías Magna y de otras marcas para todo tipo de moto.' },
+  { slug: 'estatores',    name: 'Estatores',    parentSlug: 'sistema-electrico', description: 'Stators de encendido para un sistema de carga estable y duradera.' },
+  { slug: 'bobinas',      name: 'Bobinas',      parentSlug: 'sistema-electrico', description: 'Bobinas de alta tensión y de señal para el sistema de encendido.' },
+  { slug: 'sensores',      name: 'Sensores',      parentSlug: 'sistema-electrico', description: 'Sensores eléctricos que monitorean y regulan parámetros clave del motor y sistema electrónico de la moto.' },
+  { slug: 'motores-de-arranque',      name: 'Motores de Arraque',      parentSlug: 'sistema-electrico', description: 'Motores de arranque que garantizan un encendido rápido y eficiente en todo tipo de motocicletas.' },
+
+  // ── Repuestos ────────────────────────────────────────────────────────────
+  { slug: 'filtro-de-aire',  name: 'Filtro de Aire',  parentSlug: 'repuestos', description: 'Filtros de aire de alto flujo lavables y reutilizables para mayor rendimiento.' },
+  { slug: 'bujias',          name: 'Bujías',           parentSlug: 'repuestos', description: 'Bujías de encendido para todas las marcas y cilindradas.' },
+  { slug: 'conectores',      name: 'Conectores',       parentSlug: 'repuestos', description: 'Conectores eléctricos y terminales para reparaciones eléctricas.' },
+  { slug: 'frenos',          name: 'Frenos',           parentSlug: 'repuestos', description: 'Pastillas, discos y kits de frenos para todas las marcas.' },
+  { slug: 'repuestos-motor', name: 'Repuestos Motor',  parentSlug: 'repuestos', description: 'Pistones, anillos, cigüeñales y repuestos internos de motor.' },
+
+  // ── Aceites ──────────────────────────────────────────────────────────────
+  { slug: 'liquimoly', name: 'Liquimoly', parentSlug: 'aceites', description: 'Aceites de motor y aditivos Liqui-Moly de alta performance.' },
+  { slug: 'sky',       name: 'SKY',       parentSlug: 'aceites', description: 'Lubricantes SKY para moto.' },
+
+  // ── Accesorios ───────────────────────────────────────────────────────────
+  { slug: 'espejos',       name: 'Espejos',       parentSlug: 'accesorios', description: 'Espejos retrovisores universales y específicos para cada moto.' },
+  { slug: 'exploradores',  name: 'Exploradores',  parentSlug: 'accesorios', description: 'Luces exploradores y barras de iluminación auxiliar.' },
+  { slug: 'bombillas-led', name: 'Bombillas LED', parentSlug: 'accesorios', description: 'Bombillas LED de alta intensidad, stops y direccionales.' },
+  { slug: 'equipamiento',  name: 'Equipamiento',  parentSlug: 'accesorios', description: 'Balaclavas, guantes y accesorios de protección para el motociclista.' },
+  { slug: 'objetivo',      name: 'Objetivo',      parentSlug: 'accesorios', description: 'Accesorios de cámara y soporte de dispositivos para moto.' },
+]
+
 // ─── Productos ────────────────────────────────────────────────────────────────
-// Para agregar un producto nuevo, añade un objeto aquí.
-// `categorySlug` debe coincidir con un slug de CATEGORIES.
-// `compatible` lista las motos compatibles (puede ser array vacío).
+// `categorySlug` debe coincidir con un slug de SUBCATEGORIES o PARENT_CATEGORIES.
 
 const PRODUCTS: Array<{
   sku: string
@@ -90,967 +100,361 @@ const PRODUCTS: Array<{
   categorySlug: string
   compatible: Array<{ brand: string; model: string; year?: number }>
 }> = [
-
-  // ── Sistema Eléctrico: Stators ──────────────────────────────────────────────
-  {
-    sku: 'ELE-STA-KYM110-001',
-    name: 'Stator KYMCO Unik 110',
-    slug: 'stator-kymco-unik-110',
-    description: 'Stator de encendido para KYMCO Unik 110. Bobinado original, alta durabilidad y rendimiento estable de carga.',
-    price: 13_900_000, // $139.000 COP
-    stock: 8,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'KYMCO', model: 'Unik 110' }],
+{
+    sku:          '6-10100',
+    name:         'CDI PULSAR 160 NS',
+    slug:         '6-10100',
+    description:  '',
+    price:        17000000,
+    stock:        1,
+    images:       ["products/6-10100/1","products/6-10100/2"],
+    isActive:     true,
+    categorySlug: 'cdi',
+    compatible:   [],
   },
   {
-    sku: 'ELE-STA-KTM200-002',
-    name: 'Stator KTM Duke 200',
-    slug: 'stator-ktm-duke-200',
-    description: 'Stator completo para KTM Duke 200. Pieza de repuesto de alta calidad para el sistema de carga.',
-    price: 16_200_000, // $162.000 COP
-    stock: 5,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'KTM', model: 'Duke 200' }],
+    sku:          '6-45600',
+    name:         'CDI SUZUKI GIXXER 150',
+    slug:         '6-45600',
+    description:  '',
+    price:        18000000,
+    stock:        1,
+    images:       ["products/6-45600/1","products/6-45600/2"],
+    isActive:     true,
+    categorySlug: 'cdi',
+    compatible:   [],
   },
   {
-    sku: 'ELE-STA-DIS125-003',
-    name: 'Stator completo Discover 125 ST',
-    slug: 'stator-discover-125-st',
-    description: 'Stator completo para Bajaj Discover 125 ST. Compatible con sistema de encendido original.',
-    price: 10_200_000, // $102.000 COP
-    stock: 12,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Bajaj', model: 'Discover 125 ST' }],
+    sku:          '6-AKRACI',
+    name:         'CDI AKT 110 RACING',
+    slug:         '6-akraci',
+    description:  '',
+    price:        18500000,
+    stock:        1,
+    images:       ["products/6-AKRACI/1","products/6-AKRACI/2","products/6-AKRACI/3","products/6-AKRACI/4"],
+    isActive:     true,
+    categorySlug: 'cdi',
+    compatible:   [],
   },
   {
-    sku: 'ELE-STA-PUL180-004',
-    name: 'Stator completo Pulsar 180 UG',
-    slug: 'stator-pulsar-180-ug',
-    description: 'Stator completo para Bajaj Pulsar 180 UG. Bobinado reforzado para mayor vida útil.',
-    price: 10_200_000, // $102.000 COP
-    stock: 10,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Bajaj', model: 'Pulsar 180 UG' }],
+    sku:          '6-CDIXTZ2',
+    name:         'CDI YAMAHA XTZ 125 M. 2019',
+    slug:         '6-cdixtz2',
+    description:  '',
+    price:        18000000,
+    stock:        1,
+    images:       ["products/6-CDIXTZ2/1","products/6-CDIXTZ2/2"],
+    isActive:     true,
+    categorySlug: 'cdi',
+    compatible:   [],
   },
   {
-    sku: 'ELE-STA-PUL135-005',
-    name: 'Stator completo Pulsar 135 LS',
-    slug: 'stator-pulsar-135-ls',
-    description: 'Stator completo para Bajaj Pulsar 135 LS. Repuesto directo del sistema de carga.',
-    price: 12_000_000, // $120.000 COP
-    stock: 9,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Bajaj', model: 'Pulsar 135 LS' }],
+    sku:          '6-ECU',
+    name:         'ECU DE YAMAHA FZ 2.0',
+    slug:         '6-ecu',
+    description:  '',
+    price:        35000000,
+    stock:        0,
+    images:       ["products/6-ECU/1","products/6-ECU/2","products/6-ECU/3","products/6-ECU/4"],
+    isActive:     true,
+    categorySlug: 'cdi',
+    compatible:   [],
   },
   {
-    sku: 'ELE-STA-AUT125-006',
-    name: 'Stator completo Auteco XCD 125',
-    slug: 'stator-auteco-xcd-125',
-    description: 'Stator completo para Auteco XCD 125. Alta eficiencia en la generación de carga.',
-    price: 12_000_000, // $120.000 COP
-    stock: 7,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Auteco', model: 'XCD 125' }],
+    sku:          '8-32700',
+    name:         'STATOR COMPLETO TVS 100',
+    slug:         '8-32700',
+    description:  '',
+    price:        12000000,
+    stock:        1,
+    images:       ["products/8-32700/1","products/8-32700/2"],
+    isActive:     true,
+    categorySlug: 'estatores',
+    compatible:   [],
   },
   {
-    sku: 'ELE-STA-AKT125-007',
-    name: 'Stator AKT 125 NKD/TT',
-    slug: 'stator-akt-125-nkd-tt',
-    description: 'Stator para AKT 125 NKD y AKT TT 125. Compatible con ambas versiones.',
-    price: 9_500_000, // $95.000 COP
-    stock: 14,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [
-      { brand: 'AKT', model: 'NKD 125' },
-      { brand: 'AKT', model: 'TT 125' },
-    ],
+    sku:          '10-0008',
+    name:         'RAMAL ELECTRICO DT 125-175  M.V 1994-95',
+    slug:         '10-0008',
+    description:  '',
+    price:        13500000,
+    stock:        1,
+    images:       ["products/10-0008/1","products/10-0008/2","products/10-0008/3","products/10-0008/4"],
+    isActive:     true,
+    categorySlug: 'ramales',
+    compatible:   [],
   },
   {
-    sku: 'ELE-STA-ECO-008',
-    name: 'Stator Eco de Luxe KS',
-    slug: 'stator-eco-de-luxe-ks',
-    description: 'Stator para Eco de Luxe KS. Repuesto del sistema de generación eléctrica.',
-    price: 10_800_000, // $108.000 COP
-    stock: 6,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Eco', model: 'De Luxe KS' }],
-  },
-
-  // ── Sistema Eléctrico: CDI ──────────────────────────────────────────────────
-  {
-    sku: 'ELE-CDI-AKT110-001',
-    name: 'CDI AKT 110 Original',
-    slug: 'cdi-akt-110-original',
-    description: 'CDI original para AKT 110. Controla el encendido electrónico de forma precisa. Instalación directa, sin modificaciones.',
-    price: 6_500_000, // $65.000 COP
-    stock: 20,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'AKT', model: '110' }],
+    sku:          '10-0023',
+    name:         'RAMAL ELECTRICO LIBERO 125  2014-2018',
+    slug:         '10-0023',
+    description:  '',
+    price:        14000000,
+    stock:        1,
+    images:       ["products/10-0023/1","products/10-0023/2","products/10-0023/3","products/10-0023/4"],
+    isActive:     true,
+    categorySlug: 'ramales',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-BWS125-002',
-    name: 'CDI BWS 125 4T',
-    slug: 'cdi-bws-125-4t',
-    description: 'CDI para Yamaha BWS 125 4 tiempos. Compatible con sistema de encendido CDI AC.',
-    price: 18_000_000, // $180.000 COP
-    stock: 8,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'BWS 125 4T' }],
+    sku:          '10-0030',
+    name:         'RAMAL ELECTRICO RX 115 M.N 1997 -2000',
+    slug:         '10-0030',
+    description:  '',
+    price:        9500000,
+    stock:        1,
+    images:       ["products/10-0030/1","products/10-0030/2","products/10-0030/3","products/10-0030/4","products/10-0030/5"],
+    isActive:     true,
+    categorySlug: 'ramales',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-BEST125-003',
-    name: 'CDI Best 125',
-    slug: 'cdi-best-125',
-    description: 'CDI para Best 125. Módulo de encendido electrónico de repuesto.',
-    price: 9_690_000, // $96.900 COP
-    stock: 10,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Best', model: '125' }],
+    sku:          '10-0041',
+    name:         'RAMAL ELECTRICO XTZ 125 ESTARTER M. 2007-2012',
+    slug:         '10-0041',
+    description:  '',
+    price:        15500000,
+    stock:        1,
+    images:       ["products/10-0041/1","products/10-0041/2","products/10-0041/3","products/10-0041/4","products/10-0041/5"],
+    isActive:     true,
+    categorySlug: 'ramales',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-PUL180-004',
-    name: 'CDI Pulsar 180/200 ref: DJ111023',
-    slug: 'cdi-pulsar-180-200-dj111023',
-    description: 'CDI para Bajaj Pulsar 180 y 200. Referencia DJ111023. Compatible con modelos estándar.',
-    price: 12_000_000, // $120.000 COP
-    stock: 15,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [
-      { brand: 'Bajaj', model: 'Pulsar 180' },
-      { brand: 'Bajaj', model: 'Pulsar 200' },
-    ],
+    sku:          '10-0053',
+    name:         'RAMAL ELECTRICO XTZ 125 M.N 2018-2023',
+    slug:         '10-0053',
+    description:  '',
+    price:        18000000,
+    stock:        0,
+    images:       ["products/10-0053/1","products/10-0053/2","products/10-0053/3","products/10-0053/4","products/10-0053/5"],
+    isActive:     true,
+    categorySlug: 'ramales',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-DIS135-005',
-    name: 'CDI Discover 135 Sport ref: DJ111017',
-    slug: 'cdi-discover-135-sport-dj111017',
-    description: 'CDI para Bajaj Discover 135 Sport. Referencia DJ111017.',
-    price: 12_000_000, // $120.000 COP
-    stock: 10,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Bajaj', model: 'Discover 135 Sport' }],
+    sku:          '10-0055',
+    name:         'RAMAL ELECTRICO SZ 150 R 2016-2018',
+    slug:         '10-0055',
+    description:  '',
+    price:        21500000,
+    stock:        0,
+    images:       ["products/10-0055/1","products/10-0055/2","products/10-0055/3","products/10-0055/4"],
+    isActive:     true,
+    categorySlug: 'ramales',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-PUL220-006',
-    name: 'CDI Pulsar 220GP/220S/220F',
-    slug: 'cdi-pulsar-220',
-    description: 'CDI para Bajaj Pulsar 220GP, 220S y 220F. Compatible con las tres versiones.',
-    price: 16_990_000, // $169.900 COP
-    stock: 7,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [
-      { brand: 'Bajaj', model: 'Pulsar 220GP' },
-      { brand: 'Bajaj', model: 'Pulsar 220S' },
-      { brand: 'Bajaj', model: 'Pulsar 220F' },
-    ],
+    sku:          '10-1005',
+    name:         'RAMAL ELECTRICO BEST 125 M. 2008-2016',
+    slug:         '10-1005',
+    description:  '',
+    price:        21000000,
+    stock:        1,
+    images:       ["products/10-1005/1","products/10-1005/2","products/10-1005/3","products/10-1005/4","products/10-1005/5"],
+    isActive:     true,
+    categorySlug: 'ramales',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-PUL200NS-007',
-    name: 'CDI Pulsar 200 NS',
-    slug: 'cdi-pulsar-200-ns',
-    description: 'CDI para Bajaj Pulsar 200 NS. Módulo de encendido electrónico directo.',
-    price: 15_500_000, // $155.000 COP
-    stock: 9,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Bajaj', model: 'Pulsar 200 NS' }],
+    sku:          '10-4031',
+    name:         'RAMAL ELECTRICO PULSAR 180 II (2008-2009)',
+    slug:         '10-4031',
+    description:  '',
+    price:        20800000,
+    stock:        0,
+    images:       ["products/10-4031/1","products/10-4031/2","products/10-4031/3","products/10-4031/4"],
+    isActive:     true,
+    categorySlug: 'ramales',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-PUL135-008',
-    name: 'CDI Pulsar 135',
-    slug: 'cdi-pulsar-135',
-    description: 'CDI para Bajaj Pulsar 135. Repuesto directo del módulo de encendido.',
-    price: 16_000_000, // $160.000 COP
-    stock: 11,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Bajaj', model: 'Pulsar 135' }],
+    sku:          '7-R15V2',
+    name:         'REGULADOR RECTIFICADOR YAMAHA R15 V2',
+    slug:         '7-r15v2',
+    description:  '',
+    price:        15000000,
+    stock:        0,
+    images:       ["products/7-R15V2/1","products/7-R15V2/2","products/7-R15V2/3","products/7-R15V2/4"],
+    isActive:     true,
+    categorySlug: 'reguladores',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-GN125-009',
-    name: 'CDI GN/GS 125',
-    slug: 'cdi-gn-gs-125',
-    description: 'CDI para Suzuki GN 125 y GS 125. Compatible con ambos modelos.',
-    price: 10_200_000, // $102.000 COP
-    stock: 18,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [
-      { brand: 'Suzuki', model: 'GN 125' },
-      { brand: 'Suzuki', model: 'GS 125' },
-    ],
+    sku:          '7-RR160',
+    name:         'REGULADOR RECTIFICADOR FZ 16 - SZ-R - FAZER (4 ENTRA)',
+    slug:         '7-rr160',
+    description:  '',
+    price:        9500000,
+    stock:        2,
+    images:       ["products/7-RR160/1","products/7-RR160/2"],
+    isActive:     true,
+    categorySlug: 'reguladores',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-LIB110-010',
-    name: 'CDI Libero 110',
-    slug: 'cdi-libero-110',
-    description: 'CDI para Yamaha Libero 110. Repuesto del módulo de encendido electrónico.',
-    price: 9_690_000, // $96.900 COP
-    stock: 12,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'Libero 110' }],
+    sku:          '7-RR23',
+    name:         'REGULADOR RECTIFICADOR HONDA CB 110',
+    slug:         '7-rr23',
+    description:  '',
+    price:        8500000,
+    stock:        1,
+    images:       ["products/7-RR23/1","products/7-RR23/2","products/7-RR23/3","products/7-RR23/4"],
+    isActive:     true,
+    categorySlug: 'reguladores',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-CRY110-011',
-    name: 'CDI Yamaha Crypton 110',
-    slug: 'cdi-yamaha-crypton-110',
-    description: 'CDI para Yamaha Crypton 110. Módulo de encendido de repuesto.',
-    price: 7_990_000, // $79.900 COP
-    stock: 10,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'Crypton 110' }],
+    sku:          '7-RR35',
+    name:         'REGULADOR RECTIFICADOR HONDA CBF 150',
+    slug:         '7-rr35',
+    description:  '',
+    price:        8500000,
+    stock:        1,
+    images:       ["products/7-RR35/1","products/7-RR35/2","products/7-RR35/3","products/7-RR35/4"],
+    isActive:     true,
+    categorySlug: 'reguladores',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-XLR125-012',
-    name: 'CDI Honda XLR 125',
-    slug: 'cdi-honda-xlr-125',
-    description: 'CDI para Honda XLR 125. Módulo de encendido electrónico de repuesto.',
-    price: 5_970_000, // $59.700 COP
-    stock: 8,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Honda', model: 'XLR 125' }],
+    sku:          '7-RR98',
+    name:         'REGULADOR RECTIFICADOR SUZUKI GSR600',
+    slug:         '7-rr98',
+    description:  '',
+    price:        38000000,
+    stock:        1,
+    images:       ["products/7-RR98/1","products/7-RR98/2","products/7-RR98/3","products/7-RR98/4"],
+    isActive:     true,
+    categorySlug: 'reguladores',
+    compatible:   [],
   },
   {
-    sku: 'ELE-CDI-CRI115-013',
-    name: 'CDI Yamaha Cripton 115',
-    slug: 'cdi-yamaha-cripton-115',
-    description: 'CDI para Yamaha Cripton 115. Compatible con el sistema de encendido original.',
-    price: 9_690_000, // $96.900 COP
-    stock: 9,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'Cripton 115' }],
+    sku:          '7-RR99',
+    name:         'REGULADOR RECTIFICADOR HONDA NAVI',
+    slug:         '7-rr99',
+    description:  '',
+    price:        8800000,
+    stock:        1,
+    images:       ["products/7-RR99/1","products/7-RR99/2","products/7-RR99/3","products/7-RR99/4"],
+    isActive:     true,
+    categorySlug: 'reguladores',
+    compatible:   [],
+  },
+  {
+    sku:          '14-15010',
+    name:         'BOMBA DE GASOLINA FZ 2.0 - CRIPTON 115 FI',
+    slug:         '14-15010',
+    description:  '',
+    price:        14500000,
+    stock:        3,
+    images:       ["products/14-15010/1","products/14-15010/2"],
+    isActive:     true,
+    categorySlug: 'sensores',
+    compatible:   [],
+  },
+  {
+    sku:          '16-TPSFZ',
+    name:         'SENSOR HIBRIDO TPS FZ 2.0',
+    slug:         '16-tpsfz',
+    description:  '',
+    price:        18000000,
+    stock:        1,
+    images:       ["products/16-TPSFZ/1","products/16-TPSFZ/2","products/16-TPSFZ/3","products/16-TPSFZ/4"],
+    isActive:     true,
+    categorySlug: 'sensores',
+    compatible:   [],
   },
 
-  // ── Sistema Eléctrico: Bobinas ──────────────────────────────────────────────
-  {
-    sku: 'ELE-BOB-PUL180-001',
-    name: 'Bobina de alta Pulsar 180/200',
-    slug: 'bobina-alta-pulsar-180-200',
-    description: 'Bobina de alta tensión para Bajaj Pulsar 180 y 200. Garantiza una chispa potente para un encendido eficiente.',
-    price: 2_900_000, // $29.000 COP
-    stock: 30,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [
-      { brand: 'Bajaj', model: 'Pulsar 180' },
-      { brand: 'Bajaj', model: 'Pulsar 200' },
-    ],
-  },
-  {
-    sku: 'ELE-BOB-CDI-002',
-    name: 'Bobina de alta CDI incorporado',
-    slug: 'bobina-alta-cdi-incorporado',
-    description: 'Bobina de alta tensión con CDI incorporado. Universal para varias referencias de motos.',
-    price: 2_500_000, // $25.000 COP
-    stock: 25,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [],
-  },
-  {
-    sku: 'ELE-BOB-GN125-003',
-    name: 'Bobina de alta GN125/GS125',
-    slug: 'bobina-alta-gn125-gs125',
-    description: 'Bobina de alta para Suzuki GN 125 y GS 125. Compatible con encendido CDI y convencional.',
-    price: 4_680_000, // $46.800 COP
-    stock: 20,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [
-      { brand: 'Suzuki', model: 'GN 125' },
-      { brand: 'Suzuki', model: 'GS 125' },
-    ],
-  },
-  {
-    sku: 'ELE-BOB-RX115-004',
-    name: 'Bobina de alta RX 115/DT',
-    slug: 'bobina-alta-rx-115-dt',
-    description: 'Bobina de alta para Yamaha RX 115 y DT. Repuesto directo para el sistema de encendido.',
-    price: 3_500_000, // $35.000 COP
-    stock: 18,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [
-      { brand: 'Yamaha', model: 'RX 115' },
-      { brand: 'Yamaha', model: 'DT' },
-    ],
-  },
-  {
-    sku: 'ELE-BOB-XT225-005',
-    name: 'Bobina de señal Yamaha XT 225',
-    slug: 'bobina-senal-yamaha-xt-225',
-    description: 'Bobina de señal (pickup) para Yamaha XT 225. Genera la señal de encendido para el CDI.',
-    price: 6_350_000, // $63.500 COP
-    stock: 7,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'XT 225' }],
-  },
-  {
-    sku: 'ELE-BOB-DT125-006',
-    name: 'Bobina de luz y carga Yamaha DT 125',
-    slug: 'bobina-luz-carga-yamaha-dt-125',
-    description: 'Bobina de luz y carga para Yamaha DT 125. Genera corriente para iluminación y carga de batería.',
-    price: 3_500_000, // $35.000 COP
-    stock: 15,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'DT 125' }],
-  },
-  {
-    sku: 'ELE-BOB-RX115B-007',
-    name: 'Bobina de luz y carga Yamaha RX 115',
-    slug: 'bobina-luz-carga-yamaha-rx-115',
-    description: 'Bobina de luz y carga para Yamaha RX 115. Compatible con sistema de encendido convencional.',
-    price: 3_500_000, // $35.000 COP
-    stock: 15,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'RX 115' }],
-  },
-
-  // ── Sistema Eléctrico: Reguladores ─────────────────────────────────────────
-  {
-    sku: 'ELE-REG-HON125-001',
-    name: 'Regulador Honda Storm 125',
-    slug: 'regulador-honda-storm-125',
-    description: 'Regulador rectificador para Honda Storm 125. Controla el voltaje del sistema eléctrico y protege la batería.',
-    price: 8_100_000, // $81.000 COP
-    stock: 12,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Honda', model: 'Storm 125' }],
-  },
-  {
-    sku: 'ELE-REG-FZ160-002',
-    name: 'Regulador Yamaha FZ-160',
-    slug: 'regulador-yamaha-fz-160',
-    description: 'Regulador rectificador para Yamaha FZ-160. Estabiliza el voltaje para proteger el sistema eléctrico.',
-    price: 9_000_000, // $90.000 COP
-    stock: 10,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'FZ-160' }],
-  },
-  {
-    sku: 'ELE-REG-LIB125-003',
-    name: 'Regulador Libero 125',
-    slug: 'regulador-libero-125',
-    description: 'Regulador rectificador para Yamaha Libero 125. Repuesto directo para el sistema de carga.',
-    price: 9_000_000, // $90.000 COP
-    stock: 11,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Yamaha', model: 'Libero 125' }],
-  },
-  {
-    sku: 'ELE-REG-PUL180-004',
-    name: 'Regulador Pulsar 180/200',
-    slug: 'regulador-pulsar-180-200',
-    description: 'Regulador rectificador para Bajaj Pulsar 180 y 200. Evita sobrecargas en el sistema eléctrico.',
-    price: 8_500_000, // $85.000 COP
-    stock: 14,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [
-      { brand: 'Bajaj', model: 'Pulsar 180' },
-      { brand: 'Bajaj', model: 'Pulsar 200' },
-    ],
-  },
-
-  // ── Sistema Eléctrico: Flashers ─────────────────────────────────────────────
-  {
-    sku: 'ELE-FLA-BAJ-001',
-    name: 'Flasher para moto Bajaj',
-    slug: 'flasher-moto-bajaj',
-    description: 'Flasher (intermitente electrónico) compatible con motos Bajaj. Reemplaza la unidad de control de direccionales.',
-    price: 2_500_000, // $25.000 COP
-    stock: 35,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Bajaj', model: 'Universal' }],
-  },
-  {
-    sku: 'ELE-FLA-CB190-002',
-    name: 'Flasher Honda CB 190 R',
-    slug: 'flasher-honda-cb-190-r',
-    description: 'Flasher para Honda CB 190 R. Control electrónico de las luces direccionales.',
-    price: 3_000_000, // $30.000 COP
-    stock: 20,
-    images: [],
-    isActive: true,
-    categorySlug: 'sistema-electrico',
-    compatible: [{ brand: 'Honda', model: 'CB 190 R' }],
-  },
-
-  // ── Arneses Eléctricos ──────────────────────────────────────────────────────
-  {
-    sku: 'ARN-GS125-2011-001',
-    name: 'Ramal eléctrico GS 125 modelo 2011',
-    slug: 'ramal-electrico-gs-125-2011',
-    description: 'Arnés eléctrico completo para Suzuki GS 125 modelo 2011. Incluye todos los conectores originales.',
-    price: 18_000_000, // $180.000 COP
-    stock: 6,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Suzuki', model: 'GS 125', year: 2011 }],
-  },
-  {
-    sku: 'ARN-GN125-2013-002',
-    name: 'Ramal eléctrico GN 125 modelo 2013',
-    slug: 'ramal-electrico-gn-125-2013',
-    description: 'Arnés eléctrico completo para Suzuki GN 125 modelo 2013.',
-    price: 17_900_000, // $179.000 COP
-    stock: 5,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Suzuki', model: 'GN 125', year: 2013 }],
-  },
-  {
-    sku: 'ARN-GS125-2014-003',
-    name: 'Ramal eléctrico GS 125 MN 2014-2017',
-    slug: 'ramal-electrico-gs-125-mn-2014-2017',
-    description: 'Arnés eléctrico para Suzuki GS 125 MN, modelos 2014 a 2017.',
-    price: 18_500_000, // $185.000 COP
-    stock: 7,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [
-      { brand: 'Suzuki', model: 'GS 125 MN', year: 2014 },
-      { brand: 'Suzuki', model: 'GS 125 MN', year: 2015 },
-      { brand: 'Suzuki', model: 'GS 125 MN', year: 2016 },
-      { brand: 'Suzuki', model: 'GS 125 MN', year: 2017 },
-    ],
-  },
-  {
-    sku: 'ARN-PUL180-2012-004',
-    name: 'Ramal eléctrico Pulsar 180 GT 2012',
-    slug: 'ramal-electrico-pulsar-180-gt-2012',
-    description: 'Arnés eléctrico para Bajaj Pulsar 180 GT modelo 2012.',
-    price: 17_000_000, // $170.000 COP
-    stock: 6,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Bajaj', model: 'Pulsar 180 GT', year: 2012 }],
-  },
-  {
-    sku: 'ARN-GN125N-2017-005',
-    name: 'Ramal eléctrico GN 125 Nova modelo 2017',
-    slug: 'ramal-electrico-gn-125-nova-2017',
-    description: 'Arnés eléctrico para Suzuki GN 125 Nova modelo 2017.',
-    price: 16_000_000, // $160.000 COP
-    stock: 5,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Suzuki', model: 'GN 125 Nova', year: 2017 }],
-  },
-  {
-    sku: 'ARN-GN125-2011-006',
-    name: 'Ramal eléctrico GN 125 modelo 2011',
-    slug: 'ramal-electrico-gn-125-2011',
-    description: 'Arnés eléctrico para Suzuki GN 125 modelo 2011.',
-    price: 9_500_000, // $95.000 COP
-    stock: 8,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Suzuki', model: 'GN 125', year: 2011 }],
-  },
-  {
-    sku: 'ARN-GN125I-007',
-    name: 'Ramal eléctrico GN 125 Intruder',
-    slug: 'ramal-electrico-gn-125-intruder',
-    description: 'Arnés eléctrico para Suzuki GN 125 Intruder.',
-    price: 9_500_000, // $95.000 COP
-    stock: 7,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Suzuki', model: 'GN 125 Intruder' }],
-  },
-  {
-    sku: 'ARN-XTZ125-2014-008',
-    name: 'Ramal eléctrico XTZ 125 2014-2018',
-    slug: 'ramal-electrico-xtz-125-2014-2018',
-    description: 'Arnés eléctrico para Yamaha XTZ 125, modelos 2014 a 2018.',
-    price: 17_900_000, // $179.000 COP
-    stock: 9,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [
-      { brand: 'Yamaha', model: 'XTZ 125', year: 2014 },
-      { brand: 'Yamaha', model: 'XTZ 125', year: 2015 },
-      { brand: 'Yamaha', model: 'XTZ 125', year: 2016 },
-      { brand: 'Yamaha', model: 'XTZ 125', year: 2017 },
-      { brand: 'Yamaha', model: 'XTZ 125', year: 2018 },
-    ],
-  },
-  {
-    sku: 'ARN-XTZ125-2007-009',
-    name: 'Ramal eléctrico XTZ 125 Starter 2007',
-    slug: 'ramal-electrico-xtz-125-starter-2007',
-    description: 'Arnés eléctrico para Yamaha XTZ 125 con arranque eléctrico (starter), modelo 2007.',
-    price: 15_500_000, // $155.000 COP
-    stock: 5,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Yamaha', model: 'XTZ 125', year: 2007 }],
-  },
-  {
-    sku: 'ARN-LIB125-2014-010',
-    name: 'Ramal eléctrico Libero 125 2014-2018',
-    slug: 'ramal-electrico-libero-125-2014-2018',
-    description: 'Arnés eléctrico para Yamaha Libero 125, modelos 2014 a 2018.',
-    price: 14_000_000, // $140.000 COP
-    stock: 8,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [
-      { brand: 'Yamaha', model: 'Libero 125', year: 2014 },
-      { brand: 'Yamaha', model: 'Libero 125', year: 2018 },
-    ],
-  },
-  {
-    sku: 'ARN-GS125V-2008-011',
-    name: 'Ramal eléctrico GS 125 MV 2008-2014',
-    slug: 'ramal-electrico-gs-125-mv-2008-2014',
-    description: 'Arnés eléctrico para Suzuki GS 125 MV, modelos 2008 a 2014.',
-    price: 18_000_000, // $180.000 COP
-    stock: 6,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [
-      { brand: 'Suzuki', model: 'GS 125 MV', year: 2008 },
-      { brand: 'Suzuki', model: 'GS 125 MV', year: 2014 },
-    ],
-  },
-  {
-    sku: 'ARN-DT125-1996-012',
-    name: 'Ramal eléctrico DT 125-175 Special 1996-98',
-    slug: 'ramal-electrico-dt-125-175-special-1996-98',
-    description: 'Arnés eléctrico para Yamaha DT 125/175 Special, modelos 1996 a 1998.',
-    price: 12_000_000, // $120.000 COP
-    stock: 4,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [
-      { brand: 'Yamaha', model: 'DT 125 Special', year: 1996 },
-      { brand: 'Yamaha', model: 'DT 175 Special', year: 1998 },
-    ],
-  },
-  {
-    sku: 'ARN-FZ16-2012-013',
-    name: 'Ramal eléctrico FZ-16 2012-2014',
-    slug: 'ramal-electrico-fz-16-2012-2014',
-    description: 'Arnés eléctrico para Yamaha FZ-16, modelos 2012 a 2014. El más completo del mercado.',
-    price: 23_000_000, // $230.000 COP
-    stock: 5,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [
-      { brand: 'Yamaha', model: 'FZ-16', year: 2012 },
-      { brand: 'Yamaha', model: 'FZ-16', year: 2013 },
-      { brand: 'Yamaha', model: 'FZ-16', year: 2014 },
-    ],
-  },
-  {
-    sku: 'ARN-DT125-2000-014',
-    name: 'Ramal eléctrico DT 125 2000-2008',
-    slug: 'ramal-electrico-dt-125-2000-2008',
-    description: 'Arnés eléctrico para Yamaha DT 125, modelos 2000 a 2008.',
-    price: 14_500_000, // $145.000 COP
-    stock: 6,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [
-      { brand: 'Yamaha', model: 'DT 125', year: 2000 },
-      { brand: 'Yamaha', model: 'DT 125', year: 2008 },
-    ],
-  },
-  {
-    sku: 'ARN-DT125-1994-015',
-    name: 'Ramal eléctrico DT 125/175 1994-95',
-    slug: 'ramal-electrico-dt-125-175-1994-95',
-    description: 'Arnés eléctrico para Yamaha DT 125 y DT 175, modelos 1994 y 1995.',
-    price: 13_500_000, // $135.000 COP
-    stock: 4,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [
-      { brand: 'Yamaha', model: 'DT 125', year: 1994 },
-      { brand: 'Yamaha', model: 'DT 175', year: 1995 },
-    ],
-  },
-  {
-    sku: 'ARN-RX115-016',
-    name: 'Ramal eléctrico RX 115',
-    slug: 'ramal-electrico-rx-115',
-    description: 'Arnés eléctrico para Yamaha RX 115. Compatible con modelos recientes.',
-    price: 9_500_000, // $95.000 COP
-    stock: 9,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Yamaha', model: 'RX 115' }],
-  },
-  {
-    sku: 'ARN-YBR125-017',
-    name: 'Ramal eléctrico YBR 125 SS',
-    slug: 'ramal-electrico-ybr-125-ss',
-    description: 'Arnés eléctrico para Yamaha YBR 125 SS. Incluye todos los conectores del sistema eléctrico.',
-    price: 17_000_000, // $170.000 COP
-    stock: 7,
-    images: [],
-    isActive: true,
-    categorySlug: 'arneses',
-    compatible: [{ brand: 'Yamaha', model: 'YBR 125 SS' }],
-  },
-
-  // ── Baterías ────────────────────────────────────────────────────────────────
-  {
-    sku: 'BAT-MAG-YB7BB-001',
-    name: 'Batería Magna MF-YB7BB',
-    slug: 'bateria-magna-mf-yb7bb',
-    description: 'Batería Magna libre de mantenimiento MF-YB7BB. 12V 7Ah. Compatible con motos de mediana cilindrada. Lista para instalar.',
-    price: 8_970_000, // $89.700 COP
-    stock: 15,
-    images: [],
-    isActive: true,
-    categorySlug: 'baterias',
-    compatible: [],
-  },
-  {
-    sku: 'BAT-MAG-YB6LB-002',
-    name: 'Batería Magna MF-YB6.5LB',
-    slug: 'bateria-magna-mf-yb6-5lb',
-    description: 'Batería Magna libre de mantenimiento MF-YB6.5LB. 12V 6.5Ah. Ideal para motos pequeñas y medianas.',
-    price: 8_010_000, // $80.100 COP
-    stock: 20,
-    images: [],
-    isActive: true,
-    categorySlug: 'baterias',
-    compatible: [],
-  },
-  {
-    sku: 'BAT-MAG-12N7B-003',
-    name: 'Batería Magna MF-12N7B-3A',
-    slug: 'bateria-magna-mf-12n7b-3a',
-    description: 'Batería Magna MF-12N7B-3A. 12V 7Ah. Alta capacidad de arranque en frío. Libre de mantenimiento.',
-    price: 10_210_000, // $102.100 COP
-    stock: 12,
-    images: [],
-    isActive: true,
-    categorySlug: 'baterias',
-    compatible: [],
-  },
-  {
-    sku: 'BAT-MAG-YB3LA-004',
-    name: 'Batería Magna MF-YB3LA',
-    slug: 'bateria-magna-mf-yb3la',
-    description: 'Batería Magna MF-YB3LA. 12V 3Ah. Para motos pequeñas de 110cc. Compacta y liviana.',
-    price: 6_100_000, // $61.000 COP
-    stock: 25,
-    images: [],
-    isActive: true,
-    categorySlug: 'baterias',
-    compatible: [],
-  },
-
-  // ── Iluminación ─────────────────────────────────────────────────────────────
-  {
-    sku: 'ILU-STOP-PUL200-001',
-    name: 'Stop integrado Pulsar 200 NS',
-    slug: 'stop-integrado-pulsar-200-ns',
-    description: 'Stop integrado con direccionales para Bajaj Pulsar 200 NS. Diseño slim, LED de alta visibilidad.',
-    price: 11_000_000, // $110.000 COP
-    stock: 10,
-    images: [],
-    isActive: true,
-    categorySlug: 'iluminacion',
-    compatible: [{ brand: 'Bajaj', model: 'Pulsar 200 NS' }],
-  },
-  {
-    sku: 'ILU-LED-H4-001',
-    name: 'Bombillo H4 LED 12000 lúmenes M4 Plus',
-    slug: 'bombillo-h4-led-12000-lumenes-m4-plus',
-    description: 'Bombillo H4 LED de 12000 lúmenes M4 Plus. Luz blanca de alta intensidad. Compatible con la mayoría de motos con faro H4. Temperatura de color 6000K.',
-    price: 6_500_000, // $65.000 COP
-    stock: 30,
-    images: [],
-    isActive: true,
-    categorySlug: 'iluminacion',
-    compatible: [],
-  },
-
-  // ── Accesorios ──────────────────────────────────────────────────────────────
-  {
-    sku: 'ACC-FEND-KTM-001',
-    name: 'Fender portaplaca retráctil KTM',
-    slug: 'fender-portaplaca-retractil-ktm',
-    description: 'Fender o portaplaca retráctil para KTM. Elimina el guardafango trasero de fábrica dándole un look más deportivo. Instalación sin modificaciones.',
-    price: 11_000_000, // $110.000 COP
-    stock: 8,
-    images: [],
-    isActive: true,
-    categorySlug: 'accesorios',
-    compatible: [{ brand: 'KTM', model: 'Universal' }],
-  },
-  {
-    sku: 'ACC-FEND-PUL-002',
-    name: 'Fender portaplaca retráctil Pulsar',
-    slug: 'fender-portaplaca-retractil-pulsar',
-    description: 'Fender o portaplaca retráctil para Bajaj Pulsar. Diseño deportivo, fácil instalación. Compatible con varias versiones de Pulsar.',
-    price: 11_000_000, // $110.000 COP
-    stock: 10,
-    images: [],
-    isActive: true,
-    categorySlug: 'accesorios',
-    compatible: [{ brand: 'Bajaj', model: 'Pulsar Universal' }],
-  },
-
-  // ── Filtros ─────────────────────────────────────────────────────────────────
-  {
-    sku: 'FIL-AIR-DOM400-001',
-    name: 'Filtro de aire alto flujo Dominar 400',
-    slug: 'filtro-aire-alto-flujo-dominar-400',
-    description: 'Filtro de aire de alto flujo para Bajaj Dominar 400. Aumenta la entrada de aire al motor para mejor rendimiento. Lavable y reutilizable.',
-    price: 11_000_000, // $110.000 COP
-    stock: 12,
-    images: [],
-    isActive: true,
-    categorySlug: 'filtros',
-    compatible: [{ brand: 'Bajaj', model: 'Dominar 400' }],
-  },
-
-  // ── Frenos ──────────────────────────────────────────────────────────────────
-  {
-    sku: 'FRE-BRE-FZ25-001',
-    name: 'Pastillas de freno Brembo Yamaha FZ25',
-    slug: 'pastillas-freno-brembo-yamaha-fz25',
-    description: 'Pastillas de freno originales Brembo para Yamaha FZ25. Alta resistencia al calor y larga durabilidad. Desgaste progresivo para mayor seguridad.',
-    price: 8_500_000, // $85.000 COP
-    stock: 25,
-    images: [],
-    isActive: true,
-    categorySlug: 'frenos',
-    compatible: [
-      { brand: 'Yamaha', model: 'FZ25', year: 2020 },
-      { brand: 'Yamaha', model: 'FZ25', year: 2021 },
-      { brand: 'Yamaha', model: 'FZ25', year: 2022 },
-    ],
-  },
-  {
-    sku: 'FRE-DIS-CB150-002',
-    name: 'Disco de freno delantero Honda CB150',
-    slug: 'disco-freno-delantero-honda-cb150',
-    description: 'Disco de freno delantero de alta calidad para Honda CB150. Acero inoxidable, diseño ventilado para mejor disipación de calor.',
-    price: 19_500_000, // $195.000 COP
-    stock: 15,
-    images: [],
-    isActive: true,
-    categorySlug: 'frenos',
-    compatible: [
-      { brand: 'Honda', model: 'CB150', year: 2019 },
-      { brand: 'Honda', model: 'CB150', year: 2020 },
-      { brand: 'Honda', model: 'CB150', year: 2021 },
-    ],
-  },
-  {
-    sku: 'FRE-KIT-AKT125-003',
-    name: 'Kit freno trasero AKT 125',
-    slug: 'kit-freno-trasero-akt-125',
-    description: 'Kit completo de freno trasero para AKT 125. Incluye zapatas, resortes y pasadores. Fácil instalación.',
-    price: 12_000_000, // $120.000 COP
-    stock: 30,
-    images: [],
-    isActive: true,
-    categorySlug: 'frenos',
-    compatible: [
-      { brand: 'AKT', model: 'TT125', year: 2020 },
-      { brand: 'AKT', model: 'NKD125', year: 2021 },
-    ],
-  },
-
-  // ── Llantas ─────────────────────────────────────────────────────────────────
-  {
-    sku: 'LLA-PIR-100-90-18-001',
-    name: 'Llanta delantera Pirelli 100/90-18',
-    slug: 'llanta-delantera-pirelli-100-90-18',
-    description: 'Llanta delantera Pirelli Sport Demon 100/90-18. Excelente agarre en pavimento seco y mojado. Diseño sport de alto rendimiento.',
-    price: 12_500_000, // $125.000 COP
-    stock: 12,
-    images: [],
-    isActive: true,
-    categorySlug: 'llantas',
-    compatible: [],
-  },
-  {
-    sku: 'LLA-MIC-120-80-17-002',
-    name: 'Llanta trasera Michelin 120/80-17',
-    slug: 'llanta-trasera-michelin-120-80-17',
-    description: 'Llanta trasera Michelin Pilot Street 120/80-17. Compuesto de goma de larga duración. Ideal para uso urbano y carretera.',
-    price: 15_800_000, // $158.000 COP
-    stock: 8,
-    images: [],
-    isActive: true,
-    categorySlug: 'llantas',
-    compatible: [],
-  },
-  {
-    sku: 'LLA-MAX-90-90-21-003',
-    name: 'Llanta todo terreno Maxxis 90/90-21',
-    slug: 'llanta-todo-terreno-maxxis-90-90-21',
-    description: 'Llanta Maxxis Enduro 90/90-21 para uso mixto. Taco profundo para terrenos difíciles. Estructura reforzada anti-pinchazos.',
-    price: 22_000_000, // $220.000 COP
-    stock: 3,
-    images: [],
-    isActive: true,
-    categorySlug: 'llantas',
-    compatible: [],
-  },
-
-  // ── Repuestos Motor ─────────────────────────────────────────────────────────
-  {
-    sku: 'MOT-PIS-YBR125-001',
-    name: 'Pistón completo Yamaha YBR 125',
-    slug: 'piston-completo-yamaha-ybr125',
-    description: 'Pistón completo con anillos para Yamaha YBR 125. Aluminio de alta resistencia, medidas estándar. Incluye pasador y seguros.',
-    price: 35_000_000, // $350.000 COP
-    stock: 10,
-    images: [],
-    isActive: true,
-    categorySlug: 'repuestos-motor',
-    compatible: [{ brand: 'Yamaha', model: 'YBR125', year: 2018 }],
-  },
-  {
-    sku: 'MOT-ANI-WAV110-002',
-    name: 'Anillos motor Honda Wave 110',
-    slug: 'anillos-motor-honda-wave-110',
-    description: 'Juego de anillos de motor para Honda Wave 110. Cromo duro, alta resistencia al desgaste. Medida estándar 50mm.',
-    price: 18_000_000, // $180.000 COP
-    stock: 20,
-    images: [],
-    isActive: true,
-    categorySlug: 'repuestos-motor',
-    compatible: [
-      { brand: 'Honda', model: 'Wave 110', year: 2019 },
-      { brand: 'Honda', model: 'Wave 110', year: 2020 },
-    ],
-  },
-  {
-    sku: 'MOT-CIG-BOX150-003',
-    name: 'Cigüeñal Bajaj Boxer 150',
-    slug: 'ciguenal-bajaj-boxer-150',
-    description: 'Cigüeñal completo con rodamientos para Bajaj Boxer 150. Balanceado de fábrica. Garantía de 6 meses.',
-    price: 85_000_000, // $850.000 COP
-    stock: 5,
-    images: [],
-    isActive: true,
-    categorySlug: 'repuestos-motor',
-    compatible: [{ brand: 'Bajaj', model: 'Boxer 150', year: 2020 }],
-  },
-  {
-    sku: 'MOT-FIL-CBR150-004',
-    name: 'Filtro de aceite Honda CBR 150',
-    slug: 'filtro-aceite-honda-cbr150',
-    description: 'Filtro de aceite original para Honda CBR 150. Alta capacidad de filtración. Recomendado cambio cada 3.000 km.',
-    price: 2_500_000, // $25.000 COP
-    stock: 50,
-    images: [],
-    isActive: true,
-    categorySlug: 'repuestos-motor',
-    compatible: [
-      { brand: 'Honda', model: 'CBR150R', year: 2020 },
-      { brand: 'Honda', model: 'CBR150R', year: 2021 },
-      { brand: 'Honda', model: 'CBR150R', year: 2022 },
-    ],
-  },
+  // ── Placeholders — una entrada por subcategoría sin productos reales aún ──
+  { sku: 'PH-BAT-001',  name: 'Batería Magna MF-YB7BB',               slug: 'ph-bat-001',  description: '', price: 8_970_000,  stock: 5,  images: [], isActive: true, categorySlug: 'baterias',          compatible: [] },
+  { sku: 'PH-BOB-001',  name: 'Bobina de alta Pulsar 180/200',        slug: 'ph-bob-001',  description: '', price: 2_900_000,  stock: 10, images: [], isActive: true, categorySlug: 'bobinas',           compatible: [] },
+  { sku: 'PH-MOT-001',  name: 'Motor de Arranque Honda CB 110',       slug: 'ph-mot-001',  description: '', price: 9_500_000,  stock: 3,  images: [], isActive: true, categorySlug: 'motores-de-arranque', compatible: [] },
+  { sku: 'PH-FAI-001',  name: 'Filtro Aire Alto Flujo CB 190',        slug: 'ph-fai-001',  description: '', price: 3_500_000,  stock: 5,  images: [], isActive: true, categorySlug: 'filtro-de-aire',    compatible: [] },
+  { sku: 'PH-BUJ-001',  name: 'Bujía NGK CR7HSA',                    slug: 'ph-buj-001',  description: '', price: 1_200_000,  stock: 20, images: [], isActive: true, categorySlug: 'bujias',            compatible: [] },
+  { sku: 'PH-CON-001',  name: 'Conector eléctrico universal 2 pines', slug: 'ph-con-001',  description: '', price: 500_000,    stock: 50, images: [], isActive: true, categorySlug: 'conectores',        compatible: [] },
+  { sku: 'PH-FRE-001',  name: 'Pastillas de freno Brembo FZ25',       slug: 'ph-fre-001',  description: '', price: 8_500_000,  stock: 8,  images: [], isActive: true, categorySlug: 'frenos',            compatible: [] },
+  { sku: 'PH-RPM-001',  name: 'Pistón completo Yamaha YBR 125',       slug: 'ph-rpm-001',  description: '', price: 35_000_000, stock: 4,  images: [], isActive: true, categorySlug: 'repuestos-motor',   compatible: [] },
+  { sku: 'PH-LIQ-001',  name: 'Aceite Liqui-Moly 4T 10W40',          slug: 'ph-liq-001',  description: '', price: 4_500_000,  stock: 15, images: [], isActive: true, categorySlug: 'liquimoly',         compatible: [] },
+  { sku: 'PH-SKY-001',  name: 'Aceite SKY 4T 20W50',                  slug: 'ph-sky-001',  description: '', price: 3_200_000,  stock: 20, images: [], isActive: true, categorySlug: 'sky',               compatible: [] },
+  { sku: 'PH-LLA-001',  name: 'Llanta Pirelli Sport Demon 100/90-18', slug: 'ph-lla-001',  description: '', price: 12_500_000, stock: 6,  images: [], isActive: true, categorySlug: 'llantas',           compatible: [] },
+  { sku: 'PH-ESP-001',  name: 'Espejo retrovisor universal derecho',   slug: 'ph-esp-001',  description: '', price: 2_800_000,  stock: 12, images: [], isActive: true, categorySlug: 'espejos',           compatible: [] },
+  { sku: 'PH-EXP-001',  name: 'Explorador LED 12V 20W universal',     slug: 'ph-exp-001',  description: '', price: 3_500_000,  stock: 8,  images: [], isActive: true, categorySlug: 'exploradores',      compatible: [] },
+  { sku: 'PH-LED-001',  name: 'Bombillo H4 LED 12000 lúmenes',        slug: 'ph-led-001',  description: '', price: 6_500_000,  stock: 10, images: [], isActive: true, categorySlug: 'bombillas-led',     compatible: [] },
+  { sku: 'PH-EQU-001',  name: 'Balaclava negra para moto',            slug: 'ph-equ-001',  description: '', price: 2_000_000,  stock: 5,  images: [], isActive: true, categorySlug: 'equipamiento',      compatible: [] },
+  { sku: 'PH-OBJ-001',  name: 'Soporte de celular para manillar',     slug: 'ph-obj-001',  description: '', price: 3_500_000,  stock: 7,  images: [], isActive: true, categorySlug: 'objetivo',          compatible: [] },
 ]
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('Cargando catálogo...\n')
+  console.log('Cargando catálogo jerárquico...\n')
 
-  // 1. Crear / actualizar categorías
-  console.log('📂 Categorías:')
+  // ── Limpieza de productos que ya no están en el seed ────────────────────────
+  const currentSkus = PRODUCTS.map(p => p.sku)
+  const toDelete = await prisma.product.findMany({
+    where: { sku: { notIn: currentSkus } },
+    select: { id: true },
+  })
+  if (toDelete.length > 0) {
+    const ids = toDelete.map(p => p.id)
+    // Borrar dependencias antes de borrar los productos
+    await prisma.orderItem.deleteMany({ where: { productId: { in: ids } } })
+    await prisma.motorcycleCompatibility.deleteMany({ where: { productId: { in: ids } } })
+    const deleted = await prisma.product.deleteMany({ where: { id: { in: ids } } })
+    console.log(`🗑  ${deleted.count} productos obsoletos eliminados\n`)
+  }
+
+  // ── Limpieza de categorías antiguas que ya no existen en la nueva estructura ──
+  const OBSOLETE_SLUGS = [
+    'arneses',
+    'iluminacion',
+    'filtros',
+    'repuestos-motor-old',
+  ]
+  for (const slug of OBSOLETE_SLUGS) {
+    const cat = await prisma.category.findUnique({ where: { slug } })
+    if (cat) {
+      const productCount = await prisma.product.count({ where: { categoryId: cat.id } })
+      if (productCount === 0) {
+        await prisma.category.delete({ where: { slug } })
+        console.log(`  🗑  Categoría obsoleta eliminada: ${slug}`)
+      }
+    }
+  }
+
+  // ── Paso 1: Upsert categorías padre ───────────────────────────────────────
+  console.log('📂 Categorías Padre:')
   const categoryMap: Record<string, string> = {} // slug → id
 
-  for (const cat of CATEGORIES) {
+  for (const cat of PARENT_CATEGORIES) {
     const record = await prisma.category.upsert({
-      where: { slug: cat.slug },
-      update: { name: cat.name, description: cat.description },
-      create: cat,
+      where:  { slug: cat.slug },
+      update: { name: cat.name, description: cat.description, parentId: null },
+      create: { ...cat, parentId: null },
     })
     categoryMap[cat.slug] = record.id
     console.log(`  ✓ ${cat.name}`)
   }
 
-  // 2. Crear / actualizar productos
+  // ── Paso 2: Upsert subcategorías ──────────────────────────────────────────
+  console.log('\n📂 Subcategorías:')
+  for (const sub of SUBCATEGORIES) {
+    const parentId = categoryMap[sub.parentSlug]
+    if (!parentId) {
+      console.warn(`  ⚠️  Padre no encontrado: "${sub.parentSlug}" — omitiendo ${sub.slug}`)
+      continue
+    }
+    const { parentSlug: _, ...data } = sub
+    const record = await prisma.category.upsert({
+      where:  { slug: sub.slug },
+      update: { name: sub.name, description: sub.description, parentId },
+      create: { ...data, parentId },
+    })
+    categoryMap[sub.slug] = record.id
+    console.log(`  ✓ ${sub.name} (← ${sub.parentSlug})`)
+  }
+
+  // ── Paso 3: Upsert productos ──────────────────────────────────────────────
   console.log('\n📦 Productos:')
   let created = 0
   let skipped = 0
@@ -1083,16 +487,14 @@ async function main() {
     created++
   }
 
-  console.log(`\n✅ Catálogo cargado: ${created} productos, ${CATEGORIES.length} categorías`)
-  if (skipped > 0) console.log(`⚠️  ${skipped} productos omitidos por categoría inválida`)
-  console.log(`\nTotal productos en este catálogo: ${PRODUCTS.length}`)
+  const totalCats = PARENT_CATEGORIES.length + SUBCATEGORIES.length
+  console.log(`\n✅ Catálogo cargado: ${created} productos, ${totalCats} categorías`)
+  if (skipped > 0) console.log(`⚠️  ${skipped} productos omitidos`)
+  console.log(`\n  Padres:        ${PARENT_CATEGORIES.length}`)
+  console.log(`  Subcategorías: ${SUBCATEGORIES.length}`)
+  console.log(`  Productos:     ${PRODUCTS.length}`)
 }
 
 main()
-  .catch((e) => {
-    console.error(e)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  })
+  .catch((e) => { console.error(e); process.exit(1) })
+  .finally(() => prisma.$disconnect())

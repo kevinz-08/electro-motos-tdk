@@ -1,4 +1,5 @@
 import 'reflect-metadata'
+import 'dotenv/config'
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe, Logger } from '@nestjs/common'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
@@ -13,7 +14,12 @@ async function bootstrap() {
   })
 
   // Seguridad y compresión
-  app.use(helmet())
+  // En desarrollo, Swagger UI requiere scripts/estilos inline — relajamos CSP solo ahí
+  app.use(
+    helmet({
+      contentSecurityPolicy: process.env['NODE_ENV'] === 'production' ? undefined : false,
+    }),
+  )
   app.use(compression())
 
   // CORS — solo acepta el frontend declarado en FRONTEND_URL
@@ -48,7 +54,13 @@ async function bootstrap() {
       )
       .build()
     const document = SwaggerModule.createDocument(app, config)
-    SwaggerModule.setup('api/docs', app, document)
+    SwaggerModule.setup('api/docs', app, document, {
+      customCssUrl: 'https://unpkg.com/swagger-ui-dist@5/swagger-ui.css',
+      customJs: [
+        'https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js',
+        'https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js',
+      ],
+    })
     Logger.log('Swagger disponible en /api/docs', 'Bootstrap')
   }
 

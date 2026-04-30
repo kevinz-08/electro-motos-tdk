@@ -2,6 +2,7 @@
   "name": "h2r-store",
   "version": "0.0.0",
   "private": true,
+  "packageManager": "pnpm@9.0.0",
   "description": "H2R Online Store — monorepo (apps/web, apps/api, packages/{domain,database,types}).",
   "scripts": {
     "dev": "turbo dev",

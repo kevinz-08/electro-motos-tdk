@@ -665,4 +665,103 @@ Se eliminaron 14 archivos de `apps/web/src/app/api/` que quedaron reemplazados p
 
 ---
 
-*Última actualización: 2026-04-23*
+---
+
+## 21. Correcciones de arranque del backend NestJS (sesión de pruebas)
+
+**Qué se hizo:**
+
+Resolución de una serie de errores en cadena que impedían levantar `apps/api` en modo desarrollo.
+
+### 21.1 — webpack bundlea paquetes `@h2r/*` directamente
+
+**Problema:** NestJS webpack usa `webpack-node-externals` que externaliza todos los `node_modules`, incluyendo los workspace packages (`@h2r/database`, `@h2r/domain`). En runtime, Node.js intenta `require('@h2r/database')` que resuelve al `.ts` fuente, produciendo `SyntaxError: Unexpected token ':'`.
+
+**Solución:** Se creó `apps/api/webpack.config.js` con `allowlist: [/^@h2r\//]` en `nodeExternals` y aliases explícitos apuntando a los `.ts` fuente de cada paquete. También se extendió `tsconfig.build.json` para incluir los paquetes en la compilación. Se registró el config en `nest-cli.json` con `"webpackConfigPath": "webpack.config.js"`.
+
+**Archivos creados/modificados:**
+
+- `apps/api/webpack.config.js` *(nuevo)*
+- `apps/api/nest-cli.json`
+- `apps/api/tsconfig.build.json`
+
+### 21.2 — `DATABASE_URL` indefinida al arrancar
+
+**Problema:** El singleton de Prisma en `@h2r/database` se crea en tiempo de importación del módulo (antes de que NestJS ejecute `ConfigModule.forRoot()`), por lo que `process.env['DATABASE_URL']` aún no está definida.
+
+**Solución:**
+
+- Se añadió `import 'dotenv/config'` como segunda línea de `apps/api/src/main.ts` (después de `reflect-metadata`), forzando la carga del `.env` antes de cualquier módulo.
+- Se creó `apps/api/.env` con `DATABASE_URL` y todas las variables necesarias (JWT, Wompi, Cloudinary, etc.).
+- Se añadió `dotenv` como dependencia directa de `@h2r/api` (pnpm strict mode bloquea el uso de transitivas).
+- Se creó `packages/database/.env` para que `pnpm run db:seed` también encuentre `DATABASE_URL`.
+
+**Archivos creados/modificados:**
+
+- `apps/api/src/main.ts`
+- `apps/api/.env` *(nuevo, en .gitignore)*
+- `apps/api/package.json`
+- `packages/database/.env` *(nuevo, en .gitignore)*
+
+### 21.3 — `ResendEmailService` lanza si `RESEND_API_KEY` está vacía
+
+**Problema:** `new Resend(undefined)` lanza una excepción en el constructor, crasheando el arranque del servidor aunque el email no sea una funcionalidad crítica para desarrollo.
+
+**Solución:** Inicialización condicional: `this.resend = apiKey ? new Resend(apiKey) : null`. Cada método de envío retorna temprano si `this.resend` es `null` y registra un `console.warn` al arrancar.
+
+**Archivos modificados:**
+
+- `apps/api/src/infrastructure/services/ResendEmailService.ts`
+
+### 21.4 — Swagger UI en blanco (helmet + webpack)
+
+**Problema 1:** `helmet()` aplica una CSP estricta que bloquea los scripts y estilos inline de Swagger UI.
+**Solución:** `contentSecurityPolicy: false` en desarrollo (`NODE_ENV !== 'production'`).
+
+**Problema 2:** webpack bundlea todo en `dist/main.js`, haciendo que los assets estáticos de Swagger UI (CSS/JS) no sean accesibles en disco.
+**Solución:** Se configuró `SwaggerModule.setup()` con `customCssUrl` y `customJs` apuntando a CDN (`unpkg.com/swagger-ui-dist@5`).
+
+**Problema 3:** El `JwtAuthGuard` global bloqueaba con 401 las peticiones a `/api/docs/*` (assets de Swagger).
+**Solución:** Se añadió un early-return en `canActivate()` si `request.url?.startsWith('/api/docs')`.
+
+**Archivos modificados:**
+
+- `apps/api/src/main.ts`
+- `apps/api/src/auth/guards/jwt-auth.guard.ts`
+
+### 21.5 — Variables de entorno en `apps/web`
+
+Se añadieron `API_URL`, `NEXT_PUBLIC_API_URL` e `INTERNAL_API_SECRET` al `apps/web/.env.local` para que NextAuth pueda comunicarse con el backend NestJS.
+
+**Archivos modificados:**
+
+- `apps/web/.env.local`
+
+---
+
+## 22. Productos destacados aleatorios en la home
+
+**Qué se hizo:**
+Se cambió la lógica de la sección "Productos destacados" de la página de inicio. Antes traía los 4 productos con stock más recientes (`findAll({ inStock: true, limit: 4 })`). Ahora selecciona 4 productos aleatorios con stock en cada carga usando una query raw de PostgreSQL (`ORDER BY RANDOM()`), ya que Prisma no expone esta función nativamente.
+
+**Implementación:**
+
+```ts
+const randomRows = await prisma.$queryRaw<{ id: string }[]>`
+  SELECT id FROM "Product" WHERE stock > 0 ORDER BY RANDOM() LIMIT 4
+`
+const featuredProducts = randomRows.length > 0
+  ? await Promise.all(randomRows.map((r) => repo.findById(r.id).then((p) => p!)))
+  : []
+```
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/home.tsx`
+
+**Fin:**
+Que la sección de destacados muestre productos variados en cada visita, en lugar de siempre los mismos 4 más recientes.
+
+---
+
+*Última actualización: 2026-04-30*

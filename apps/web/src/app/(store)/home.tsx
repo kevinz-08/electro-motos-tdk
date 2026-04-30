@@ -75,7 +75,14 @@ const HERO_BANNERS = [
 
 export default async function HomePage() {
   const repo = new PrismaProductRepository()
-  const { items: featuredProducts } = await repo.findAll({ inStock: true, limit: 4, page: 1 })
+
+  // Selecciona 4 productos aleatorios con stock usando ORDER BY RANDOM() de PostgreSQL
+  const randomRows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Product" WHERE stock > 0 ORDER BY RANDOM() LIMIT 4
+  `
+  const featuredProducts = randomRows.length > 0
+    ? await Promise.all(randomRows.map((r) => repo.findById(r.id).then((p) => p!)))
+    : []
   // Solo categorías padre (parentId null), ordenadas por nombre — resultado determinista
   const categories = await prisma.category.findMany({
     where: { parentId: null },

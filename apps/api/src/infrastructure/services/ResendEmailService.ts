@@ -4,15 +4,20 @@ import { Order } from '@h2r/domain'
 
 @Injectable()
 export class ResendEmailService {
-  private readonly resend: Resend
+  private readonly resend: Resend | null
   private readonly from: string
 
   constructor() {
-    this.resend = new Resend(process.env['RESEND_API_KEY'])
+    const apiKey = process.env['RESEND_API_KEY']
+    this.resend = apiKey ? new Resend(apiKey) : null
     this.from = process.env['RESEND_FROM_EMAIL'] ?? 'no-reply@h2ronlinestore.co'
+    if (!apiKey) {
+      console.warn('[ResendEmailService] RESEND_API_KEY no configurada — los emails no se enviarán')
+    }
   }
 
   async sendOrderConfirmation(order: Order, customerEmail: string): Promise<void> {
+    if (!this.resend) return
     await this.resend.emails.send({
       from: this.from,
       to: customerEmail,
@@ -22,6 +27,7 @@ export class ResendEmailService {
   }
 
   async sendShippingNotification(order: Order, customerEmail: string, trackingNumber?: string): Promise<void> {
+    if (!this.resend) return
     await this.resend.emails.send({
       from: this.from,
       to: customerEmail,
@@ -31,6 +37,7 @@ export class ResendEmailService {
   }
 
   async sendPaymentDeclined(order: Order, customerEmail: string): Promise<void> {
+    if (!this.resend) return
     await this.resend.emails.send({
       from: this.from,
       to: customerEmail,

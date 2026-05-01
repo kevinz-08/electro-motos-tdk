@@ -9,6 +9,21 @@
         ".next/**",
         "!.next/cache/**",
         "src/generated/**"
+      ],
+      "env": [
+        "DATABASE_URL",
+        "API_URL",
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXTAUTH_URL",
+        "NEXTAUTH_SECRET",
+        "INTERNAL_API_SECRET",
+        "CLOUDINARY_CLOUD_NAME",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+        "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET"
       ]
     },
     "dev": {

@@ -120,7 +120,7 @@ export default async function HomePage() {
           <div className="max-w-5xl mx-auto">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-3xl font-bold text-gray-900">Productos destacados</h2>
-              <Link href="/catalogo" className="text-sky-600 font-semibold hover:text-sky-700 hover:underline text-sm">
+              <Link href="/catalogo?showAll=true" className="text-sky-600 font-semibold hover:text-sky-700 hover:underline text-sm">
                 Ver todo →
               </Link>
             </div>

@@ -22,9 +22,25 @@ async function bootstrap() {
   )
   app.use(compression())
 
-  // CORS — solo acepta el frontend declarado en FRONTEND_URL
+  // CORS — acepta el frontend declarado en FRONTEND_URL más localhost en desarrollo
+  const allowedOrigins = [
+    process.env['FRONTEND_URL'] ?? 'http://localhost:3000',
+    'http://localhost:3000',
+  ].filter(Boolean)
   app.enableCors({
-    origin: process.env['FRONTEND_URL'] ?? 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Permitir peticiones sin origin (server-side, Swagger, curl)
+      if (!origin) return callback(null, true)
+      // Permitir cualquier subdominio de ngrok en desarrollo
+      if (process.env['NODE_ENV'] !== 'production' && origin.endsWith('.ngrok-free.app')) {
+        return callback(null, true)
+      }
+      if (process.env['NODE_ENV'] !== 'production' && origin.endsWith('.ngrok-free.dev')) {
+        return callback(null, true)
+      }
+      if (allowedOrigins.includes(origin)) return callback(null, true)
+      callback(new Error(`CORS bloqueado para origin: ${origin}`))
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })

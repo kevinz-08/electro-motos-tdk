@@ -764,4 +764,124 @@ Que la sección de destacados muestre productos variados en cada visita, en luga
 
 ---
 
-*Última actualización: 2026-04-30*
+---
+
+## 23. Corrección del Widget de Wompi — parámetros no encontrados
+
+**Qué se hizo:**
+Se corrigió un bug en `WompiWidget.tsx` donde el script de Wompi reportaba que los parámetros obligatorios (`public-key`, `currency`, `amount-in-cents`, `reference`) no estaban presentes, impidiendo que el botón de pago se renderizara.
+
+**Causa raíz:**
+El componente original creaba el `<form>`, los `<input>` hidden y el `<script>` de Wompi todos dinámicamente vía JavaScript en el mismo `useEffect`. El script de Wompi usa `document.currentScript.parentElement` para localizar el form. Al crearse todo en el mismo ciclo JS, el script podía ejecutarse antes de que los campos hidden estuvieran listos en el DOM.
+
+**Solución:**
+Se reescribió `WompiWidget.tsx` para renderizar el `<form>` y todos los `<input>` como JSX (presentes en el DOM real antes de que `useEffect` corra). El `useEffect` ahora solo appenda el `<script>` al form ya renderizado via `formRef`. Esto garantiza que cuando el script de Wompi ejecuta, el form y sus campos ya existen en el DOM.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/checkout/WompiWidget.tsx`
+
+**Fin:**
+El botón de pago de Wompi renderiza correctamente en el paso 2 del checkout.
+
+---
+
+## 24. Simplificación del flujo de checkout — eliminar segunda llamada a integrity
+
+**Qué se hizo:**
+
+Se corrigió un bug en `CheckoutForm.tsx` donde se realizaban dos llamadas innecesarias para obtener la firma de integridad de Wompi:
+
+1. `POST /orders` ya devuelve `{ order, payment }` donde `payment` incluye `reference`, `integritySignature`, `publicKey` y `amountInCents` (generados por `WompiService.createTransaction()` internamente).
+2. A pesar de esto, el código hacía una segunda llamada a `POST /payments/wompi/integrity` que generaba un `reference` **diferente** (con distinto timestamp: `ORDER-{id}-{ts2}` vs `ORDER-{id}-{ts1}`).
+
+**Consecuencia del bug:**
+El widget recibía una referencia que no coincidía con la que había quedado registrada en la orden. Si bien el webhook puede extraer el `orderId` de cualquier formato `ORDER-{id}-{ts}`, la discrepancia era innecesaria y podía generar confusión al rastrear pagos.
+
+**Solución:**
+
+- Se eliminó la segunda llamada a `/payments/wompi/integrity`.
+- `payment` de la respuesta de `POST /orders` se usa directamente como `wompiParams`.
+- Se añadió validación de `payment?.publicKey`: si está vacío (variable de entorno `WOMPI_PUBLIC_KEY` no configurada), se muestra un error claro al usuario en lugar de redirigir a Wompi con parámetros inválidos.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/checkout/CheckoutForm.tsx`
+- `README.md` — sección 7 actualizada para reflejar el flujo simplificado
+
+**Fin:**
+El flujo de checkout hace una sola llamada al backend para crear la orden y obtener los parámetros de pago. El `WompiWidget` usa exactamente la misma referencia e integritySignature que generó el servidor, eliminando toda ambigüedad.
+
+---
+
+## 25. Corrección del redirect-url para Wompi en entorno local
+
+**Qué se hizo:**
+
+La WAF de Wompi (CloudFront) rechaza con **403** cualquier petición cuyo parámetro `redirect-url` contenga `localhost` o `127.0.0.1`, ya que lo detecta como un posible ataque SSRF. En desarrollo, `window.location.origin` siempre retorna `http://localhost:3000`, lo que disparaba el bloqueo inmediatamente.
+
+**Solución:**
+
+- Se agregó la variable de entorno `NEXT_PUBLIC_APP_URL` en `apps/web/.env.local`.
+- `CheckoutForm.tsx` ahora construye el `redirect-url` usando `process.env.NEXT_PUBLIC_APP_URL` con fallback a `window.location.origin`.
+- Para probar Wompi en local se requiere exponer el frontend con ngrok (`ngrok http 3000`) y poner esa URL en `NEXT_PUBLIC_APP_URL`.
+- En producción se pone el dominio real.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/checkout/CheckoutForm.tsx`
+- `apps/web/.env.local` — agregado `NEXT_PUBLIC_APP_URL`
+
+**Fin:**
+
+Wompi acepta el redirect-url cuando apunta a una URL pública HTTPS (ngrok en dev, dominio real en prod). El bloqueo 403 de CloudFront desaparece.
+
+---
+
+## 26. CORS en NestJS — soporte ngrok para testing local de Wompi
+
+**Qué se hizo:**
+
+Se amplió la configuración CORS de `apps/api/src/main.ts` para aceptar automáticamente cualquier subdominio de `ngrok-free.app` y `ngrok-free.dev` en modo desarrollo. Esto permite que el browser haga peticiones a `localhost:3001` desde la URL pública de ngrok sin que el backend las rechace.
+
+En producción (`NODE_ENV=production`) solo se acepta el origin declarado en `FRONTEND_URL`.
+
+**Archivos modificados:**
+
+- `apps/api/src/main.ts`
+
+**Fin:**
+
+Las llamadas del checkout (`POST /orders`) funcionan cuando el frontend se accede desde ngrok, sin necesidad de actualizar el backend cada vez que ngrok genera una nueva URL.
+
+---
+
+## 27. Configuración de deploy — Vercel (frontend) + Railway (backend)
+
+**Qué se hizo:**
+
+Se crearon los archivos de configuración de deployment para ambas plataformas.
+
+**`vercel.json`** (raíz del monorepo):
+- `installCommand`: `pnpm install --frozen-lockfile` — instala todo el workspace
+- `buildCommand`: genera Prisma client + build de Next.js
+- `outputDirectory`: apunta a `apps/web/.next`
+- `ignoreCommand`: solo redeploya si cambiaron archivos de `apps/web` o `packages`
+
+**`railway.toml`** (raíz del monorepo):
+- `buildCommand`: instala deps + genera Prisma + compila NestJS con webpack
+- `startCommand`: `node apps/api/dist/main.js` — ejecuta el bundle de producción
+- `healthcheckPath`: Railway verifica que el servicio levantó antes de enrutar tráfico
+
+**Archivos creados:**
+
+- `vercel.json`
+- `railway.toml`
+
+**Fin:**
+
+El monorepo queda listo para deploy con un solo push a la rama `main`. Railway usa el `railway.toml` para construir y servir el backend NestJS. Vercel usa el `vercel.json` para construir y servir el frontend Next.js.
+
+---
+
+*Última actualización: 2026-05-01*

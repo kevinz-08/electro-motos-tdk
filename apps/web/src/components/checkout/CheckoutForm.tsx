@@ -74,7 +74,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
     try {
       const client = apiClient(session?.user?.accessToken)
 
-      // 1. Crear el pedido
+      // Crear el pedido — la respuesta ya incluye la firma de integridad Wompi
       const orderRes = await client.post('/orders', {
         items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
         shippingAddress: {
@@ -93,7 +93,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
         throw new Error(data.message ?? data.error ?? 'Error al crear el pedido')
       }
 
-      const { order } = (await orderRes.json()) as {
+      const { order, payment } = (await orderRes.json()) as {
         order: { id: string }
         payment: {
           reference: string
@@ -103,23 +103,12 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
         }
       }
 
-      // 2. Obtener firma de integridad (endpoint público — no requiere JWT)
-      const integrityRes = await apiClient().post('/payments/wompi/integrity', {
-        orderId: order.id,
-        amountInCents: cartTotal,
-        currency: 'COP',
-      })
-
-      if (!integrityRes.ok) throw new Error('Error al preparar el pago')
-      const wompiData = (await integrityRes.json()) as {
-        reference: string
-        integritySignature: string
-        publicKey: string
-        amountInCents: number
+      if (!payment?.publicKey) {
+        throw new Error('Configuración de pago incompleta. Contacta al administrador.')
       }
 
       setOrderId(order.id)
-      setWompiParams(wompiData)
+      setWompiParams(payment)
       setStep('payment')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error inesperado')
@@ -269,7 +258,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
             {wompiParams && (
               <WompiWidget
                 {...wompiParams}
-                redirectUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/checkout/confirmacion?orderId=${orderId}`}
+                redirectUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/checkout/confirmacion?orderId=${orderId}`}
                 onSuccess={() => clearCart()}
               />
             )}

@@ -119,18 +119,18 @@ function parseProdFolder(name: string): {
   const tailMatch = name.match(/-\s*(\d{1,4})\s*-\s*(\d{4,7})\s*$/)
   if (!tailMatch) return null
 
-  const stock = parseInt(tailMatch[1], 10)
-  const price = parseInt(tailMatch[2], 10) * 100  // COP → centavos
+  const stock = parseInt(tailMatch[1]!, 10)
+  const price = parseInt(tailMatch[2]!, 10) * 100  // COP → centavos
 
-  const withoutTail = name.slice(0, name.lastIndexOf(tailMatch[0])).trim()
+  const withoutTail = name.slice(0, name.lastIndexOf(tailMatch[0]!)).trim()
 
   // Paso 2 — SKU al inicio (formato: número + guión + código alfanumérico)
   const skuMatch = withoutTail.match(/^(\d+-[A-Z0-9]+)-(.+)$/i)
   if (!skuMatch) return null
 
   return {
-    sku:   skuMatch[1].trim(),
-    name:  skuMatch[2].trim(),
+    sku:   skuMatch[1]!.trim(),
+    name:  skuMatch[2]!.trim(),
     stock,
     price,
   }

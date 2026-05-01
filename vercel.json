@@ -2,6 +2,5 @@
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @h2r/database generate && pnpm --filter @h2r/web build",
-  "outputDirectory": "apps/web/.next",
-  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- apps/web packages"
+  "outputDirectory": "apps/web/.next"
 }

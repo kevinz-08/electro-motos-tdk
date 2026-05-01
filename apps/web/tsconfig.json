@@ -32,6 +32,7 @@
   "exclude": [
     "node_modules",
     ".next/types/validator.ts",
-    "src/generated/**/*"
+    "src/generated/**/*",
+    "scripts/**/*"
   ]
 }

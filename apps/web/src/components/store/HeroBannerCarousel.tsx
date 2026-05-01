@@ -14,10 +14,12 @@ interface HeroBannerCarouselProps {
 
 export function HeroBannerCarousel({ banners }: HeroBannerCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0)
-  const active = banners[activeIndex]
 
   const canRender = useMemo(() => banners.length > 0, [banners.length])
   if (!canRender) return null
+
+  const active = banners[activeIndex]!
+
 
   const goPrev = () => setActiveIndex((prev) => (prev - 1 + banners.length) % banners.length)
   const goNext = () => setActiveIndex((prev) => (prev + 1) % banners.length)

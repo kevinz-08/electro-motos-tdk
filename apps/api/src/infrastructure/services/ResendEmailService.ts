@@ -94,6 +94,22 @@ export class ResendEmailService {
     }
   }
 
+  /** Email con enlace para restablecer la contraseña. Token expira en 1 hora. */
+  async sendPasswordReset(customerEmail: string, name: string, rawToken: string): Promise<void> {
+    if (!this.resend) return
+    const resetUrl = `${this.frontendUrl}/auth/reset-password/${rawToken}`
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to: customerEmail,
+        subject: 'Recupera tu contraseña — Electro Motos Tony',
+        html: this.buildPasswordResetEmail(name, resetUrl),
+      })
+    } catch (e) {
+      this.logger.error(`sendPasswordReset failed email=${customerEmail}: ${e}`)
+    }
+  }
+
   /** Email cuando la pasarela rechaza el pago. */
   async sendPaymentDeclined(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
@@ -126,6 +142,85 @@ export class ResendEmailService {
       currency: 'COP',
       minimumFractionDigits: 0,
     }).format(cents / 100)
+  }
+
+  private buildPasswordResetEmail(name: string, resetUrl: string): string {
+    return /* html */ `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recuperar contraseña</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" style="max-width:560px;" cellspacing="0" cellpadding="0">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#0f172a;border-radius:12px 12px 0 0;padding:24px 32px;text-align:center;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#f59e0b;letter-spacing:-0.5px;">
+                ⚡ Electro Motos Tony
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background:#ffffff;padding:36px 32px;">
+              <p style="font-size:36px;margin:0 0 12px;">🔐</p>
+              <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">
+                Recupera tu contraseña
+              </h1>
+              <p style="margin:0 0 8px;font-size:15px;color:#374151;line-height:1.6;">
+                Hola, <strong>${name}</strong>. Recibimos una solicitud para restablecer la contraseña de tu cuenta.
+              </p>
+              <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
+                Haz clic en el botón para crear una nueva contraseña. Este enlace es válido por <strong>1 hora</strong>.
+              </p>
+
+              <!-- CTA -->
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="border-radius:8px;background:#2563eb;">
+                    <a href="${resetUrl}"
+                       style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;
+                              color:#ffffff;text-decoration:none;border-radius:8px;">
+                      Restablecer contraseña
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">
+                Si no solicitaste este cambio, ignora este correo. Tu contraseña no será modificada.
+              </p>
+              <p style="margin:0;font-size:13px;color:#6b7280;">
+                Por seguridad, no compartas este enlace con nadie.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:20px 32px;
+                        border-top:1px solid #e5e7eb;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                Electro Motos Tony · Accesorios y repuestos para motos<br/>
+                Si tienes dudas, contáctanos en soporte@electromotos-tony.co
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim()
   }
 
   private buildEmail(opts: {

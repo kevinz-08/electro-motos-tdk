@@ -112,7 +112,7 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
 
       <p className="text-xs text-center text-white/30">
         ¿Olvidaste tu contraseña?{' '}
-        <Link href="/auth/login?magic=1" className="text-blue-400 hover:underline">
+        <Link href="/auth/forgot-password" className="text-blue-400 hover:underline">
           Recuperar por correo
         </Link>
       </p>

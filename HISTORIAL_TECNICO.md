@@ -1073,4 +1073,282 @@ Se creó `apps/web/src/lib/queries/getOrderConfirmation.ts` con una query Prisma
 
 ---
 
+---
+
+## 33. Sprint 2 — CRUD completo de categorías en el panel admin
+
+**Rama:** `sprint2/admin-categories-and-404`
+
+**Qué se hizo:**
+
+Se implementó la gestión completa de categorías desde el panel de administración: endpoints REST en NestJS, página Server Component, y UI interactiva con formularios de creación/edición y eliminación con confirmación inline.
+
+### API — `AdminCategoriesController`
+
+**4 endpoints** bajo `/admin/categories` (todos requieren rol `ADMIN`):
+
+| Método   | Ruta                     | Descripción                                        |
+| -------- | ------------------------ | -------------------------------------------------- |
+| `GET`    | `/admin/categories`      | Lista todas con padre y `_count.products`          |
+| `POST`   | `/admin/categories`      | Crea, valida unicidad de slug y máximo 2 niveles   |
+| `PUT`    | `/admin/categories/:id`  | Edita, mismas validaciones + anti-auto-referencia  |
+| `DELETE` | `/admin/categories/:id`  | Bloquea si tiene productos o subcategorías         |
+
+**Validaciones de negocio:**
+
+- Slug único (regex `^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+- Máximo 2 niveles de jerarquía (padre → hijo, no nieto)
+- El `DELETE` lanza `ConflictException` con conteo si la categoría tiene productos o hijos
+- Auto-referencia bloqueada: una categoría no puede ser su propio padre
+
+**DTO:** `CreateCategoryDto` con `class-validator` (`@IsString`, `@MinLength`, `@MaxLength`, `@Matches`, `@IsOptional`).
+
+### Web — `/admin/categorias`
+
+**`AdminCategoriasPage`** (Server Component): query Prisma con `parent` e `_count.products`, pasa `CategoryRow[]` tipados a `CategoryManager`.
+
+**`CategoryManager`** (Client Component, ~300 líneas):
+
+- `categorySchema` con Zod v4 para validación client-side
+- `toSlug()` helper: auto-genera slug desde el nombre mientras escribe
+- Sub-componente `CategoryForm` compartido entre crear y editar
+- Sub-componente `Modal` con cierre por Escape y clic en backdrop
+- Tabla con badge "Raíz" / nombre del padre, conteo de productos
+- Confirmación de borrado inline (sin modal extra) con mensaje de error de la API si el delete falla
+- `router.refresh()` tras cada mutación para re-ejecutar el Server Component
+
+**Archivos creados:**
+
+- `apps/api/src/admin/dto/create-category.dto.ts`
+- `apps/api/src/admin/admin-categories.controller.ts`
+- `apps/web/src/app/admin/categorias/page.tsx`
+- `apps/web/src/components/admin/CategoryManager.tsx`
+
+**Archivos modificados:**
+
+- `apps/api/src/admin/admin.module.ts` — añadido `AdminCategoriesController`
+- `apps/web/src/app/admin/layout.tsx` — añadido link "Categorías" al sidebar
+
+---
+
+## 34. Sprint 2 — Página 404 personalizada
+
+**Rama:** `sprint2/admin-categories-and-404`
+
+**Qué se hizo:**
+
+Se creó `apps/web/src/app/not-found.tsx` — el archivo raíz que Next.js usa automáticamente para cualquier ruta no encontrada.
+
+**Contenido:** número `404` en tipografía enorme y gris claro (`text-[120px]`), ícono 🏍️, título "Página no encontrada", descripción, y dos CTAs: "Ir al inicio" (fondo negro) y "Ver catálogo" (fondo sky-400).
+
+**Archivos creados:**
+
+- `apps/web/src/app/not-found.tsx`
+
+---
+
+## 35. Corrección de bug — redirect de cierre de sesión hacia ngrok caído
+
+**Qué se hizo:**
+
+Al cerrar sesión, NextAuth redirigía a `https://hefty-overgrown-bagful.ngrok-free.dev/` (túnel ngrok offline) en lugar de `http://localhost:3000/`. La causa era que `NEXTAUTH_URL` en `apps/web/.env.local` apuntaba al antiguo túnel de ngrok que se usó para probar Wompi.
+
+`signOut({ callbackUrl: '/' })` en `Navbar.tsx` usa una ruta relativa (`/`), pero NextAuth la resuelve contra `NEXTAUTH_URL`, produciendo la URL absoluta del ngrok caído.
+
+**Solución:** Actualizar ambas variables en `apps/web/.env.local`:
+
+```env
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:3000
+```
+
+**Nota:** Cuando se necesite volver a probar Wompi con ngrok, levantar un nuevo túnel y actualizar ambas variables con la nueva URL.
+
+**Archivos modificados:**
+
+- `apps/web/.env.local`
+
+---
+
+## 36. Sprint 3 — Loading skeletons para rutas de la tienda
+
+**Rama:** `sprint3/loading-skeletons-password-recovery-invoice`
+
+**Qué se hizo:**
+
+Se agregaron `loading.tsx` a las 4 rutas principales de la tienda para eliminar el flash de pantalla vacía durante la carga de Server Components. Next.js App Router muestra automáticamente el contenido del `loading.tsx` mientras la página resuelve sus datos asíncronos (streaming con Suspense).
+
+### `Skeleton.tsx` — primitivas compartidas
+
+`apps/web/src/components/ui/Skeleton.tsx` exporta 4 primitivas sin dependencias externas:
+
+- `SkeletonBlock` — rectángulo con `animate-pulse` y `rounded-lg` (versión clara)
+- `SkeletonLine` — línea con `rounded-full` y `h-4` (versión clara)
+- `SkeletonBlockDark` — mismo pero con `bg-white/10` para fondos oscuros
+- `SkeletonLineDark` — idem
+
+### Skeletons por ruta
+
+| Ruta               | Esqueleto                                                               |
+| ------------------ | ----------------------------------------------------------------------- |
+| `/catalogo`        | Grid 12 cards con toolbar (botón filtros + chip) y breadcrumb           |
+| `/producto/[slug]` | Galería (imagen principal + 4 miniaturas) + columna de detalle completa |
+| `/checkout`        | Layout 2 columnas: 6 campos de formulario + resumen con 3 items         |
+| `/pedidos`         | 3 cards de pedido con header, 2 items cada una y footer                 |
+
+**Decisión clave:** Todos son Server Components puros (sin `'use client'`). Las dimensiones replican exactamente el layout real para cero Cumulative Layout Shift (CLS).
+
+**Archivos creados:**
+
+- `apps/web/src/components/ui/Skeleton.tsx`
+- `apps/web/src/app/(store)/catalogo/loading.tsx`
+- `apps/web/src/app/(store)/producto/[slug]/loading.tsx`
+- `apps/web/src/app/(store)/checkout/loading.tsx`
+- `apps/web/src/app/(store)/pedidos/loading.tsx`
+
+---
+
+## 37. Sprint 3 — Recuperación de contraseña (forgot/reset password)
+
+**Rama:** `sprint3/loading-skeletons-password-recovery-invoice`
+
+**Qué se hizo:**
+
+Se implementó el flujo completo de recuperación de contraseña con máxima seguridad: generación de token de 256 bits, almacenamiento solo del hash SHA-256, expiración de 1 hora, invalidación tras uso y protección anti-enumeración de emails.
+
+### Schema Prisma — `PasswordResetToken`
+
+Nuevo modelo agregado a `packages/database/prisma/schema.prisma`:
+
+```prisma
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique  // SHA-256 — nunca almacenamos el token crudo
+  expiresAt DateTime
+  usedAt    DateTime?           // null = disponible, non-null = consumido
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+```
+
+Migración aplicada: `20260508221543_add_password_reset_token`.
+
+### API — endpoints públicos
+
+**`POST /auth/forgot-password`** (throttle: 3 req / 15 min):
+
+1. Busca usuario por email (solo con `password` no nulo — excluye OAuth)
+2. Invalida tokens anteriores pendientes del mismo usuario (`updateMany usedAt = now`)
+3. Genera `rawToken = randomBytes(32).toString('hex')` (256 bits)
+4. Almacena `tokenHash = sha256(rawToken)` en la BD
+5. Envía email con link `${FRONTEND_URL}/auth/reset-password/${rawToken}`
+6. **Siempre responde `200 OK`** con el mismo mensaje — anti-enumeración
+
+**`POST /auth/reset-password`** (throttle: 5 req / 60 seg):
+
+1. Calcula `tokenHash = sha256(dto.token)`
+2. Busca el registro en BD por hash
+3. Valida: existe + `usedAt === null` + `expiresAt > now()`
+4. Ejecuta transacción: `UPDATE user SET password = bcrypt(newPass)` + `UPDATE token SET usedAt = now()`
+5. Responde `400` con mensaje si el token es inválido o expiró
+
+### Seguridad implementada
+
+| Amenaza                 | Mitigación                                                          |
+| ----------------------- | ------------------------------------------------------------------- |
+| Enumeración de emails   | Siempre `200 OK` aunque el email no exista                          |
+| Brute-force del token   | SHA-256 en BD; token de 256 bits en URL — impracticable             |
+| Reutilización del token | `usedAt` se marca al consumir                                       |
+| Token expirado          | `expiresAt = now + 1h`, validado en cada uso                        |
+| Flood de solicitudes    | Throttle estricto 3/15min en forgot-password                        |
+| OAuth sin contraseña    | Usuarios Google sin `password` excluidos del flujo                  |
+| Tokens huérfanos        | Al solicitar reset nuevo, los anteriores pendientes se invalidan    |
+
+### Email de recuperación
+
+Nuevo método `sendPasswordReset()` en `ResendEmailService` con template HTML responsivo (tabla-based, compatible con Gmail/Outlook). Botón CTA azul con enlace al token, advertencia de 1 hora de expiración, y aviso de que si el usuario no solicitó el cambio puede ignorar el correo.
+
+### Frontend
+
+**`/auth/forgot-password`**: formulario con Zod v4 (`z.email()`), estado success con checkmark verde, manejo explícito de rate-limit 429, mensaje genérico en éxito para no revelar si el email existe.
+
+**`/auth/reset-password/[token]`**: el Server Component extrae el token de los params y lo pasa como prop al Client Component. Formulario con nueva contraseña + confirmación, validación Zod v4 con `refine()` para verificar coincidencia, redirect automático a `/auth/login` tras 2.5 segundos de éxito. Error de token inválido/expirado incluye link directo a `/auth/forgot-password`.
+
+**`LoginForm.tsx`**: link "Recuperar por correo" actualizado de `?magic=1` a `/auth/forgot-password`.
+
+**Archivos creados:**
+
+- `packages/database/prisma/migrations/20260508221543_add_password_reset_token/migration.sql`
+- `apps/api/src/auth/dto/forgot-password.dto.ts`
+- `apps/api/src/auth/dto/reset-password.dto.ts`
+- `apps/web/src/app/auth/forgot-password/page.tsx`
+- `apps/web/src/app/auth/forgot-password/ForgotPasswordForm.tsx`
+- `apps/web/src/app/auth/reset-password/[token]/page.tsx`
+- `apps/web/src/app/auth/reset-password/[token]/ResetPasswordForm.tsx`
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma` — nuevo modelo + relación en `User`
+- `apps/api/src/auth/auth.service.ts` — métodos `forgotPassword()` y `resetPassword()`
+- `apps/api/src/auth/auth.controller.ts` — 2 endpoints con throttle
+- `apps/api/src/infrastructure/services/ResendEmailService.ts` — `sendPasswordReset()` + template
+- `apps/web/src/app/auth/login/LoginForm.tsx` — link actualizado
+
+---
+
+## 38. Sprint 3 — Generación de factura PDF desde historial de pedidos
+
+**Rama:** `sprint3/loading-skeletons-password-recovery-invoice`
+
+**Qué se hizo:**
+
+Se agregó la posibilidad de descargar una factura PDF desde cada pedido en `/pedidos`. El PDF se genera 100% client-side con jsPDF usando los datos ya cargados por el Server Component — sin fetches adicionales.
+
+### Arquitectura de la solución
+
+**`generateInvoicePdf.ts`** — utilidad pura (sin side-effects):
+
+- Recibe `OrderHistoryEntry` (mismo tipo que usa la página)
+- Usa `import('jspdf')` dinámico — jsPDF (~300 KB) no entra en el bundle inicial
+- Construye el documento y llama `doc.save('factura-XXXXXXXX.pdf')`
+- No tiene estado ni dependencias de React
+
+**`InvoiceDownloadButton.tsx`** — Client Component mínimo:
+
+- Recibe `order: OrderHistoryEntry` como prop del Server Component
+- Maneja solo el estado `loading` (spinner mientras genera)
+- Llama `generateInvoicePdf(order)` al hacer clic
+
+**`pedidos/page.tsx`** — sin cambio en la query:
+
+- Importa `InvoiceDownloadButton` y lo pasa `order={order}` dentro del footer de cada card
+- El botón aparece junto al link "Ver detalle →"
+
+### Diseño del PDF
+
+| Sección            | Contenido                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| Header negro       | Nombre de tienda + `FACTURA #XXXXXXXX` en esquina derecha                             |
+| Metadata           | Fecha formateada + estado del pedido                                                  |
+| Datos de envío     | Ciudad, departamento, método de pago                                                  |
+| Tabla de productos | Cabecera negra · filas alternadas · columnas: Producto / Cant. / P. Unit. / Subtotal  |
+| Total              | Bloque con fondo sky-500 y tipografía blanca bold                                     |
+| Footer             | Email de soporte + disclaimer de factura electrónica                                  |
+
+Tipografía con `helvetica` (embebida en jsPDF). Colores tomados de la paleta Tailwind del proyecto (slate-900, slate-500, slate-100, sky-500).
+
+**Archivos creados:**
+
+- `apps/web/src/lib/generateInvoicePdf.ts`
+- `apps/web/src/components/store/InvoiceDownloadButton.tsx`
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/pedidos/page.tsx` — import + botón en footer de cada card
+- `apps/web/package.json` — dependencia `jspdf`
+
+---
+
 *Última actualización: 2026-05-08*

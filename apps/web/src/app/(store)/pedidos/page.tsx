@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getOrderHistory } from '@/lib/queries/getOrderHistory'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
+import { InvoiceDownloadButton } from '@/components/store/InvoiceDownloadButton'
 
 export const metadata: Metadata = {
   title: 'Mis pedidos',
@@ -143,12 +144,15 @@ export default async function PedidosPage({ searchParams }: PageProps) {
                   <p className="text-xs text-gray-400">
                     Envío a {order.shippingCity}, {order.shippingDepartment}
                   </p>
-                  <Link
-                    href={`/checkout/confirmacion?orderId=${order.id}`}
-                    className="text-xs font-semibold text-sky-600 hover:text-sky-800 transition-colors"
-                  >
-                    Ver detalle →
-                  </Link>
+                  <div className="flex items-center gap-4">
+                    <InvoiceDownloadButton order={order} />
+                    <Link
+                      href={`/checkout/confirmacion?orderId=${order.id}`}
+                      className="text-xs font-semibold text-sky-600 hover:text-sky-800 transition-colors"
+                    >
+                      Ver detalle →
+                    </Link>
+                  </div>
                 </div>
               </article>
             ))}

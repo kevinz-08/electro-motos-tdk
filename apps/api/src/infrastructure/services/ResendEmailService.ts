@@ -1,103 +1,241 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { Resend } from 'resend'
 import { Order } from '@h2r/domain'
 
 @Injectable()
 export class ResendEmailService {
+  private readonly logger = new Logger(ResendEmailService.name)
   private readonly resend: Resend | null
   private readonly from: string
+  private readonly frontendUrl: string
 
   constructor() {
     const apiKey = process.env['RESEND_API_KEY']
     this.resend = apiKey ? new Resend(apiKey) : null
     this.from = process.env['RESEND_FROM_EMAIL'] ?? 'no-reply@h2ronlinestore.co'
+    this.frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000'
     if (!apiKey) {
-      console.warn('[ResendEmailService] RESEND_API_KEY no configurada — los emails no se enviarán')
+      this.logger.warn('RESEND_API_KEY no configurada — los emails no se enviarán')
     }
   }
 
+  /** Email inmediato al crear el pedido (estado PENDING). */
+  async sendOrderReceived(order: Order, customerEmail: string): Promise<void> {
+    if (!this.resend) return
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to: customerEmail,
+        subject: `Recibimos tu pedido #${order.id.slice(-8).toUpperCase()} ⚡`,
+        html: this.buildEmail({
+          accentColor: '#0ea5e9',
+          icon: '📦',
+          heading: 'Pedido recibido',
+          intro: `Estamos procesando tu pago. En cuanto sea confirmado, te enviaremos otro correo.`,
+          orderId: order.id,
+          total: order.total,
+          address: order.shippingAddress,
+          cta: { label: 'Ver mi pedido', href: `${this.frontendUrl}/checkout/confirmacion?orderId=${order.id}` },
+        }),
+      })
+    } catch (e) {
+      this.logger.error(`sendOrderReceived failed orderId=${order.id}: ${e}`)
+    }
+  }
+
+  /** Email al confirmar que el pago fue APROBADO (estado PAID). */
   async sendOrderConfirmation(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
-    await this.resend.emails.send({
-      from: this.from,
-      to: customerEmail,
-      subject: `¡Tu pedido #${order.id.slice(-8).toUpperCase()} fue confirmado! 🏍️`,
-      html: this.orderConfirmationHtml(order),
-    })
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to: customerEmail,
+        subject: `¡Pago confirmado! Pedido #${order.id.slice(-8).toUpperCase()} 🏍️`,
+        html: this.buildEmail({
+          accentColor: '#16a34a',
+          icon: '✅',
+          heading: '¡Pago confirmado!',
+          intro: 'Tu pedido fue aprobado y está siendo preparado para envío.',
+          orderId: order.id,
+          total: order.total,
+          address: order.shippingAddress,
+          cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
+          footer: 'Te notificaremos cuando tu pedido sea despachado.',
+        }),
+      })
+    } catch (e) {
+      this.logger.error(`sendOrderConfirmation failed orderId=${order.id}: ${e}`)
+    }
   }
 
+  /** Email cuando el envío sale del almacén (estado SHIPPED). */
   async sendShippingNotification(order: Order, customerEmail: string, trackingNumber?: string): Promise<void> {
     if (!this.resend) return
-    await this.resend.emails.send({
-      from: this.from,
-      to: customerEmail,
-      subject: `Tu pedido #${order.id.slice(-8).toUpperCase()} fue enviado`,
-      html: this.shippingNotificationHtml(order, trackingNumber),
-    })
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to: customerEmail,
+        subject: `Tu pedido #${order.id.slice(-8).toUpperCase()} está en camino 🚚`,
+        html: this.buildEmail({
+          accentColor: '#2563eb',
+          icon: '🚚',
+          heading: '¡Tu pedido está en camino!',
+          intro: trackingNumber
+            ? `Número de seguimiento: <strong>${trackingNumber}</strong>`
+            : 'Tu pedido salió de nuestro almacén y está en camino.',
+          orderId: order.id,
+          total: order.total,
+          address: order.shippingAddress,
+          cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
+        }),
+      })
+    } catch (e) {
+      this.logger.error(`sendShippingNotification failed orderId=${order.id}: ${e}`)
+    }
   }
 
+  /** Email cuando la pasarela rechaza el pago. */
   async sendPaymentDeclined(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
-    await this.resend.emails.send({
-      from: this.from,
-      to: customerEmail,
-      subject: `Problema con tu pago — Pedido #${order.id.slice(-8).toUpperCase()}`,
-      html: this.paymentDeclinedHtml(order),
-    })
+    try {
+      await this.resend.emails.send({
+        from: this.from,
+        to: customerEmail,
+        subject: `Problema con tu pago — Pedido #${order.id.slice(-8).toUpperCase()}`,
+        html: this.buildEmail({
+          accentColor: '#dc2626',
+          icon: '❌',
+          heading: 'El pago no pudo procesarse',
+          intro: 'Tu pago fue rechazado. Puedes intentarlo nuevamente con otro método de pago.',
+          orderId: order.id,
+          total: order.total,
+          address: order.shippingAddress,
+          cta: { label: 'Volver al carrito', href: `${this.frontendUrl}/carrito` },
+        }),
+      })
+    } catch (e) {
+      this.logger.error(`sendPaymentDeclined failed orderId=${order.id}: ${e}`)
+    }
   }
+
+  // ─── Template builder ────────────────────────────────────────────────────────
 
   private formatCOP(cents: number): string {
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(cents / 100)
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+    }).format(cents / 100)
   }
 
-  private orderConfirmationHtml(order: Order): string {
-    return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
-<body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:#1a1a2e;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
-    <h1 style="color:#f59e0b;margin:0;">⚡ H2R Online Store</h1>
-  </div>
-  <div style="background:#f9f9f9;padding:30px;border-radius:0 0 8px 8px;">
-    <h2 style="color:#16a34a;">¡Tu pedido fue confirmado!</h2>
-    <p>Número de pedido: <strong>#${order.id.slice(-8).toUpperCase()}</strong></p>
-    <p>Total: <strong>${this.formatCOP(order.total)}</strong></p>
-    <p>Dirección de envío: ${order.shippingAddress.address}, ${order.shippingAddress.city}</p>
-    <hr style="border:1px solid #e5e7eb;margin:20px 0;">
-    <p style="font-size:14px;color:#6b7280;">Te notificaremos cuando tu pedido sea despachado.</p>
-  </div>
-</body></html>`
-  }
+  private buildEmail(opts: {
+    accentColor: string
+    icon: string
+    heading: string
+    intro: string
+    orderId: string
+    total: number
+    address: Order['shippingAddress']
+    cta: { label: string; href: string }
+    footer?: string
+  }): string {
+    const shortId = opts.orderId.slice(-8).toUpperCase()
+    return /* html */ `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${opts.heading}</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" style="max-width:560px;" cellspacing="0" cellpadding="0">
 
-  private shippingNotificationHtml(order: Order, trackingNumber?: string): string {
-    return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
-<body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:#1a1a2e;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
-    <h1 style="color:#f59e0b;margin:0;">⚡ H2R Online Store</h1>
-  </div>
-  <div style="background:#f9f9f9;padding:30px;border-radius:0 0 8px 8px;">
-    <h2 style="color:#2563eb;">¡Tu pedido está en camino! 🚚</h2>
-    <p>Pedido: <strong>#${order.id.slice(-8).toUpperCase()}</strong></p>
-    ${trackingNumber ? `<p>Número de seguimiento: <strong>${trackingNumber}</strong></p>` : ''}
-    <p>Destino: ${order.shippingAddress.address}, ${order.shippingAddress.city}</p>
-  </div>
-</body></html>`
-  }
+          <!-- Header -->
+          <tr>
+            <td style="background:#0f172a;border-radius:12px 12px 0 0;padding:24px 32px;text-align:center;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#f59e0b;letter-spacing:-0.5px;">
+                ⚡ H2R Online Store
+              </p>
+            </td>
+          </tr>
 
-  private paymentDeclinedHtml(order: Order): string {
-    const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000'
-    return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
-<body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:0 auto;padding:20px;">
-  <div style="background:#1a1a2e;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
-    <h1 style="color:#f59e0b;margin:0;">⚡ H2R Online Store</h1>
-  </div>
-  <div style="background:#f9f9f9;padding:30px;border-radius:0 0 8px 8px;">
-    <h2 style="color:#dc2626;">Hubo un problema con tu pago</h2>
-    <p>Pedido: <strong>#${order.id.slice(-8).toUpperCase()}</strong></p>
-    <p>Total: ${this.formatCOP(order.total)}</p>
-    <a href="${frontendUrl}/carrito"
-       style="display:inline-block;background:#f59e0b;color:#000;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin-top:16px;">
-      Volver al carrito
-    </a>
-  </div>
-</body></html>`
+          <!-- Body -->
+          <tr>
+            <td style="background:#ffffff;padding:36px 32px;">
+              <p style="font-size:40px;margin:0 0 12px;">${opts.icon}</p>
+              <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:${opts.accentColor};">
+                ${opts.heading}
+              </h1>
+              <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
+                ${opts.intro}
+              </p>
+
+              <!-- Order details -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                     style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="font-size:13px;color:#6b7280;padding-bottom:8px;">Número de pedido</td>
+                        <td align="right" style="font-size:13px;font-weight:700;color:#111827;padding-bottom:8px;">
+                          #${shortId}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#6b7280;padding-bottom:8px;">Total</td>
+                        <td align="right" style="font-size:13px;font-weight:700;color:#111827;padding-bottom:8px;">
+                          ${this.formatCOP(opts.total)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#6b7280;">Envío a</td>
+                        <td align="right" style="font-size:13px;color:#111827;">
+                          ${opts.address.city}, ${opts.address.department}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA -->
+              <table role="presentation" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="border-radius:8px;background:${opts.accentColor};">
+                    <a href="${opts.cta.href}"
+                       style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;
+                              color:#ffffff;text-decoration:none;border-radius:8px;">
+                      ${opts.cta.label}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              ${opts.footer ? `<p style="margin:24px 0 0;font-size:13px;color:#6b7280;">${opts.footer}</p>` : ''}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:20px 32px;
+                        border-top:1px solid #e5e7eb;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                H2R Online Store · Accesorios y repuestos para motos eléctricas<br/>
+                Si tienes dudas, contáctanos en soporte@h2ronlinestore.co
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim()
   }
 }

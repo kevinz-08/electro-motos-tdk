@@ -4,12 +4,14 @@ import { AdminProductsController } from './admin-products.controller'
 import { AdminStockController } from './admin-stock.controller'
 import { AdminSettingsController } from './admin-settings.controller'
 import { AdminDashboardController } from './admin-dashboard.controller'
+import { AdminCategoriesController } from './admin-categories.controller'
 
 @Module({
   imports: [InfrastructureModule],
   controllers: [
     AdminDashboardController,
     AdminProductsController,
+    AdminCategoriesController,
     AdminStockController,
     AdminSettingsController,
   ],

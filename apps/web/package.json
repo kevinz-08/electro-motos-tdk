@@ -17,6 +17,7 @@
     "@h2r/types": "workspace:*",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.8.0",
     "mercadopago": "^2.12.0",
     "next": "16.2.3",

@@ -62,3 +62,7 @@ packages/*/src/**/*.d.ts
 # assets de trabajo locales (fotos de productos sin procesar, etc.)
 tmp-productos/
 apps/web/tmp-productos/
+
+# .md para opencode y claude code
+BACKLOG.md
+AUDITORIA.md

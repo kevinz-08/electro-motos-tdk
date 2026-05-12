@@ -75,17 +75,31 @@ model VerificationToken {
 // ─── Core models ─────────────────────────────────────────────────────────────
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  image     String?
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  name                String?
+  image               String?
   /// Contraseña hasheada con bcrypt. Null para usuarios OAuth (Google).
-  password  String?
-  role      Role      @default(CUSTOMER)
+  password            String?
+  role                Role                 @default(CUSTOMER)
+  createdAt           DateTime             @default(now())
+  accounts            Account[]
+  sessions            Session[]
+  orders              Order[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  /// SHA-256 del token crudo enviado por email. Nunca almacenamos el token en claro.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
   createdAt DateTime  @default(now())
-  accounts  Account[]
-  sessions  Session[]
-  orders    Order[]
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Category {

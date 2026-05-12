@@ -5,6 +5,8 @@ import { AuthService } from './auth.service'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 import { SessionTokenDto } from './dto/session-token.dto'
+import { ForgotPasswordDto } from './dto/forgot-password.dto'
+import { ResetPasswordDto } from './dto/reset-password.dto'
 import { Public } from './decorators/public.decorator'
 
 @ApiTags('auth')
@@ -45,5 +47,21 @@ export class AuthController {
       throw new UnauthorizedException('Acceso no autorizado')
     }
     return this.authService.issueTokenByEmail(dto.email)
+  }
+
+  @Post('forgot-password')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 900_000, limit: 3 } })
+  @ApiOperation({ summary: 'Solicitar enlace de recuperación de contraseña' })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto)
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @ApiOperation({ summary: 'Establecer nueva contraseña con token de recuperación' })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto)
   }
 }

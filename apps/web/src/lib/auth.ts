@@ -37,14 +37,11 @@ declare module 'next-auth' {
   }
 }
 
-declare module 'next-auth/jwt' {
-  interface JWT {
-    id: string
-    role: string
-    accessToken?: string
-  }
-}
 // ─────────────────────────────────────────────────────────────────────────────
+// Note: `declare module 'next-auth/jwt'` is intentionally omitted.
+// next-auth/jwt re-exports from @auth/core/jwt which pnpm does not hoist to
+// node_modules/@auth/core, making TypeScript's module augmentation fail at
+// compile time (TS2664). We use explicit casts in the session callback instead.
 
 const API_URL = process.env['API_URL'] ?? 'http://localhost:3001'
 
@@ -146,9 +143,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      */
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id
-        session.user.role = token.role
-        session.user.accessToken = token.accessToken
+        session.user.id = token.id as string
+        session.user.role = (token.role as string) ?? 'CUSTOMER'
+        session.user.accessToken = token.accessToken as string | undefined
       }
       return session
     },

@@ -8,9 +8,9 @@
 import {
   prisma,
   Prisma,
-  type Order as PrismaOrder,
-  type OrderItem as PrismaItem,
-  type Payment as PrismaPayment,
+  type OrderModel as PrismaOrder,
+  type OrderItemModel as PrismaItem,
+  type PaymentModel as PrismaPayment,
 } from '@h2r/database'
 import {
   IOrderRepository,

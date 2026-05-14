@@ -1351,4 +1351,27 @@ Tipografía con `helvetica` (embebida en jsPDF). Colores tomados de la paleta Ta
 
 ---
 
+## 41. Sprint 4 — FIX 4.1: Eliminar `ignoreBuildErrors` y resolver errores TypeScript
+
+**Qué se hizo:**
+Se eliminó la opción `typescript: { ignoreBuildErrors: true }` de `apps/web/next.config.ts`, que silenciaba todos los errores de TypeScript en los builds de producción. Se ejecutó `pnpm --filter @h2r/web type-check` y se resolvieron los 11 errores encontrados:
+
+**Grupo 1 — Tipos de modelos Prisma 7 renombrados:**
+Prisma 7 genera los tipos de modelos con el sufijo `Model` (`OrderModel`, `OrderItemModel`, `PaymentModel`, `ProductModel`, `MotorcycleCompatibilityModel`, `UserModel`). Los tres repositorios en `apps/web/src/infrastructure/repositories/` importaban los nombres sin sufijo (e.g. `type Order as PrismaOrder`), que ya no existen en la API pública de `@h2r/database`. Se actualizaron todos los imports al nombre correcto.
+
+**Grupo 2 — Augmentación de módulo `next-auth/jwt` inválida:**
+`declare module 'next-auth/jwt'` fallaba con TS2664 porque `next-auth/jwt` re-exporta desde `@auth/core/jwt`, y pnpm no hoist `@auth/core` a `node_modules/@auth/core`. TypeScript no puede resolver la cadena de re-export, invalidando la augmentación. Se eliminó el bloque `declare module 'next-auth/jwt'` y se reemplazó con un comentario explicativo. En el `session` callback se usan casts explícitos (`token.id as string`, `token.role as string`, `token.accessToken as string | undefined`) que son safe dado que esos campos se asignan siempre en el `jwt` callback.
+
+**Archivos modificados:**
+
+- `apps/web/next.config.ts` — eliminada propiedad `typescript.ignoreBuildErrors`
+- `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts` — imports `OrderModel`, `OrderItemModel`, `PaymentModel`
+- `apps/web/src/infrastructure/repositories/PrismaProductRepository.ts` — imports `ProductModel`, `MotorcycleCompatibilityModel`
+- `apps/web/src/infrastructure/repositories/PrismaUserRepository.ts` — import `UserModel`
+- `apps/web/src/lib/auth.ts` — eliminado `declare module 'next-auth/jwt'`, casts en session callback
+
+**Resultado:** `pnpm --filter @h2r/web type-check` pasa sin errores (0 errores, 0 warnings).
+
+---
+
 *Última actualización: 2026-05-08*

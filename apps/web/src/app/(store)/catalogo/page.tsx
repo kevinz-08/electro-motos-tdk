@@ -227,37 +227,48 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   }
 
   // === VISTA LANDING ===
-  // Traer categorías padre con sus hijos (para agregar productos)
+  // Traer categorías padre con sus hijos
   const parentsRaw = await prisma.category.findMany({
     where: { parentId: null },
     include: { children: { select: { id: true } } },
     orderBy: { name: 'asc' },
   })
 
-  // Para cada padre, agregar productos de todas sus subcategorías
-  const categoriesRaw = await Promise.all(
-    parentsRaw.map(async (parent) => {
-      const allIds = [parent.id, ...parent.children.map((c) => c.id)]
-      const [products, productCount] = await Promise.all([
-        prisma.product.findMany({
-          where: { isActive: true, stock: { gt: 0 }, categoryId: { in: allIds } },
-          take: 8,
-          orderBy: { createdAt: 'desc' },
-        }) as Promise<PrismaProductRaw[]>,
-        prisma.product.count({
-          where: { isActive: true, categoryId: { in: allIds } },
-        }),
-      ])
-      return {
-        id: parent.id,
-        name: parent.name,
-        slug: parent.slug,
-        description: parent.description,
-        products,
-        productCount,
-      } as CategoryFull
-    })
-  )
+  // Recopilar todos los IDs de categoría para dos queries planas en lugar de N×2
+  const parentEntries = parentsRaw.map((p) => ({
+    parent: p,
+    ids: [p.id, ...p.children.map((c) => c.id)] as string[],
+  }))
+  const allCategoryIds = parentEntries.flatMap((e) => e.ids)
+
+  // 2 queries en paralelo reemplazan las N×2 por-categoría anteriores
+  const [allProducts, countRows] = await Promise.all([
+    prisma.product.findMany({
+      where: { isActive: true, stock: { gt: 0 }, categoryId: { in: allCategoryIds } },
+      orderBy: { createdAt: 'desc' },
+    }) as Promise<PrismaProductRaw[]>,
+    prisma.product.groupBy({
+      by: ['categoryId'],
+      where: { isActive: true, categoryId: { in: allCategoryIds } },
+      _count: true,
+    }),
+  ])
+
+  const countByCatId = new Map(countRows.map((r) => [r.categoryId, r._count]))
+
+  const categoriesRaw = parentEntries.map(({ parent, ids }) => {
+    const idSet = new Set(ids)
+    const products = allProducts.filter((p) => idSet.has(p.categoryId)).slice(0, 8)
+    const productCount = ids.reduce((sum, id) => sum + (countByCatId.get(id) ?? 0), 0)
+    return {
+      id: parent.id,
+      name: parent.name,
+      slug: parent.slug,
+      description: parent.description,
+      products,
+      productCount,
+    } as CategoryFull
+  })
 
   const categories = categoriesRaw.filter((c) => c.productCount > 0)
   const totalProducts = categoriesRaw.reduce((sum, c) => sum + c.productCount, 0)

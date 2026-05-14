@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { auth } from '@/lib/auth'
 import { getOrderConfirmation } from '@/lib/queries/getOrderConfirmation'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
 
@@ -62,11 +64,14 @@ function NotFound() {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default async function ConfirmacionPage({ searchParams }: PageProps) {
+  const session = await auth()
+  if (!session?.user?.id) redirect('/auth/login?callbackUrl=/checkout/confirmacion')
+
   const { orderId } = await searchParams
 
   if (!orderId) return <NotFound />
 
-  const order = await getOrderConfirmation(orderId)
+  const order = await getOrderConfirmation(orderId, session.user.id)
   if (!order) return <NotFound />
 
   const isPaid = order.status === 'PAID'

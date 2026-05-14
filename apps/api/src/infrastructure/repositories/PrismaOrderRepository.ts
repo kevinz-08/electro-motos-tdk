@@ -120,7 +120,12 @@ export class PrismaOrderRepository implements IOrderRepository {
 
   async transitionFromPending(
     orderId: string,
-    to: { orderStatus: OrderStatus; paymentStatus: PaymentStatus; externalId: string },
+    to: {
+      orderStatus: OrderStatus
+      paymentStatus: PaymentStatus
+      externalId: string
+      stockDecrements?: Array<{ productId: string; quantity: number }>
+    },
   ): Promise<PaymentTransitionResult> {
     return this.prisma.client.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({
@@ -128,10 +133,21 @@ export class PrismaOrderRepository implements IOrderRepository {
         data: { status: to.orderStatus },
       })
       if (updated.count === 0) return { applied: false }
+
       await tx.payment.update({
         where: { orderId },
         data: { status: to.paymentStatus, externalId: to.externalId },
       })
+
+      if (to.stockDecrements?.length) {
+        for (const { productId, quantity } of to.stockDecrements) {
+          await tx.product.update({
+            where: { id: productId },
+            data: { stock: { decrement: quantity } },
+          })
+        }
+      }
+
       return { applied: true }
     })
   }

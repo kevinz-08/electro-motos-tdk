@@ -1374,4 +1374,33 @@ Prisma 7 genera los tipos de modelos con el sufijo `Model` (`OrderModel`, `Order
 
 ---
 
-*Última actualización: 2026-05-08*
+## 42. Sprint 4 — FIX 4.2: Race condition en webhook Wompi (transacción atómica)
+
+**Qué se hizo:**
+Se resolvió la race condition y el gap de atomicidad en el flujo de confirmación de pago. Aunque `transitionFromPending()` ya usaba `$transaction` para el cambio de estado de Order y Payment, el descuento de stock ocurría DESPUÉS de esa transacción en un loop separado en `ConfirmPayment.ts`. Esto creaba una ventana donde un proceso podía fallar entre el cambio de estado y el descuento de stock, dejando la orden en PAID con stock sin descontar.
+
+**Diseño:**
+Se extendió `IOrderRepository.transitionFromPending()` con un parámetro opcional `stockDecrements`. Cuando se proporciona (solo para APPROVED), el descuento de stock ocurre DENTRO de la misma `$transaction` de Prisma que actualiza Order.status y Payment.status. Resultado: las tres operaciones son atómicas — o todas se aplican o ninguna.
+
+**Cambios clave:**
+
+- `IOrderRepository.transitionFromPending()` ahora acepta `stockDecrements?: Array<{ productId, quantity }>` en el parámetro `to`
+- `PrismaOrderRepository` (api): agrega loop de `tx.product.update({ data: { stock: { decrement: quantity } } })` dentro de la `$transaction` cuando `stockDecrements` está presente
+- `ConfirmPayment.ts`: elimina dependencia de `IProductRepository` y el loop separado de `decrementStock`; pasa `order.items` como `stockDecrements` cuando `status === 'APPROVED'`
+- `WompiController` y `MercadoPagoController`: eliminan `@Inject(PRODUCT_REPOSITORY)` y la inyección `productRepo` (ya no la necesitan)
+- `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts`: actualiza la firma de `transitionFromPending()` para coincidir con la interfaz (sin implementar stock decrement, ya que web no procesa webhooks)
+
+**Archivos modificados:**
+
+- `packages/domain/src/repositories/IOrderRepository.ts`
+- `packages/domain/src/use-cases/orders/ConfirmPayment.ts`
+- `apps/api/src/infrastructure/repositories/PrismaOrderRepository.ts`
+- `apps/api/src/payments/wompi.controller.ts`
+- `apps/api/src/payments/mercadopago.controller.ts`
+- `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts`
+
+**Resultado:** `pnpm --filter @h2r/web type-check` y `pnpm --filter @h2r/api type-check` pasan sin errores.
+
+---
+
+*Última actualización: 2026-05-14*

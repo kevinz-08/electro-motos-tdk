@@ -167,7 +167,12 @@ export class PrismaOrderRepository implements IOrderRepository {
    */
   async transitionFromPending(
     orderId: string,
-    to: { orderStatus: OrderStatus; paymentStatus: PaymentStatus; externalId: string },
+    to: {
+      orderStatus: OrderStatus
+      paymentStatus: PaymentStatus
+      externalId: string
+      stockDecrements?: Array<{ productId: string; quantity: number }>
+    },
   ): Promise<PaymentTransitionResult> {
     return prisma.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({

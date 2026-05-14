@@ -1403,4 +1403,20 @@ Se extendió `IOrderRepository.transitionFromPending()` con un parámetro opcion
 
 ---
 
+## 43. Sprint 4 — FIX 4.3: Resolver `PrismaAdapter(prisma as any)` y error TS6307 en @h2r/database
+
+**Qué se hizo:**
+Se eliminó el cast `as any` en `PrismaAdapter(prisma as any)` dentro de `apps/web/src/lib/auth.ts`. La investigación mostró que `@auth/prisma-adapter@2.11.2` y `@prisma/client@7.8.0` son estructuralmente compatibles — el cast fue agregado originalmente cuando la versión del adapter no matcheaba, pero con las versiones actuales no hay mismatch. TypeScript compila sin errores al pasar `prisma` directamente.
+
+Se corrigió también un error TS6307 pre-existente en `packages/database/tsconfig.json`: la entrada `exclude: ["src/generated/**/*"]` impedía que los archivos del cliente Prisma generado (que tienen `@ts-nocheck`) fueran reconocidos como parte del proyecto TypeScript compuesto, causando el error "File is not listed within the file list of project" cada vez que `src/index.ts` los importaba. La corrección fue agregar `src/generated/**/*.ts` al `include` y eliminar el `exclude`.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/auth.ts` — elimina `eslint-disable @typescript-eslint/no-explicit-any` + cast `as any`
+- `packages/database/tsconfig.json` — agrega `src/generated/**/*.ts` a `include`, elimina `exclude` de generated
+
+**Resultado:** `pnpm type-check` pasa 6/6 tareas en el monorepo sin errores.
+
+---
+
 *Última actualización: 2026-05-14*

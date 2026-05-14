@@ -1443,4 +1443,37 @@ Se auditaron todos los Server Components y query helpers de `apps/web/src/` que 
 
 ---
 
+## 45. Sprint 4 — FIX 4.5: Eliminar N+1 queries en la vista landing del catálogo
+
+**Qué se hizo:**
+Se auditaron todas las queries de productos en `apps/web/src/`. Se confirmó que `PrismaProductRepository` ya usaba `include: { compatible: true }` en todos sus métodos (sin N+1 en compatibilidad). El problema estaba en la **vista landing** de `catalogo/page.tsx`:
+
+**Antes** (1 + N×2 queries — con 5 categorías padre = 11 queries):
+
+```typescript
+prisma.category.findMany()                        // 1 query
+Promise.all(parents.map(() =>
+  Promise.all([
+    prisma.product.findMany({ categoryId: parent })  // 1 por padre
+    prisma.product.count({ categoryId: parent })     // 1 por padre
+  ])
+))
+```
+
+**Después** (3 queries totales):
+
+1. `prisma.category.findMany` con hijos (sin cambio)
+2. `prisma.product.findMany` con **todos** los categoryIds a la vez
+3. `prisma.product.groupBy({ by: ['categoryId'], _count: true })` para contar por categoría en un solo round-trip
+
+El ensamblado en memoria usa `new Map(countRows.map(...))` y `allProducts.filter().slice(0, 8)` por cada padre. El orden `createdAt desc` se preserva porque la query global ya está ordenada.
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/catalogo/page.tsx` — solo la sección de vista landing (lines ~231-270)
+
+**Resultado:** `pnpm type-check` pasa 6/6 tareas. La vista grid no fue modificada (usa `PrismaProductRepository.findAll()` que ya era eficiente).
+
+---
+
 *Última actualización: 2026-05-14*

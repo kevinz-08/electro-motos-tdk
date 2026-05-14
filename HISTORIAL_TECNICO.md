@@ -1419,4 +1419,28 @@ Se corrigió también un error TS6307 pre-existente en `packages/database/tsconf
 
 ---
 
+## 44. Sprint 4 — FIX 4.4: Filtro `userId` en confirmación de pedido
+
+**Qué se hizo:**
+Se auditaron todos los Server Components y query helpers de `apps/web/src/` que acceden a pedidos vía Prisma. Se encontró una brecha de autorización en `getOrderConfirmation`: la función buscaba por `id` únicamente, sin verificar que el pedido perteneciera al usuario autenticado. Cualquier usuario que conociera el `orderId` de otro podía ver su confirmación.
+
+**Cambios:**
+
+- `getOrderConfirmation(orderId, userId)`: agrega `userId` como segundo parámetro obligatorio y lo incluye en el `where` de Prisma (`where: { id: orderId, userId }`). Si el orderId existe pero pertenece a otro usuario, Prisma retorna `null` y la página muestra "Pedido no encontrado".
+- `ConfirmacionPage`: agrega `auth()` al inicio del componente. Si no hay sesión activa, redirige a `/auth/login`. Pasa `session.user.id` a `getOrderConfirmation`.
+
+**Rutas auditadas como seguras (sin cambios necesarios):**
+
+- `getOrderHistory`: ya filtraba por `userId` desde el inicio
+- `catalogo/page.tsx`, `home.tsx`: queries públicas sobre productos y categorías — no exponen datos de usuario
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/queries/getOrderConfirmation.ts`
+- `apps/web/src/app/(store)/checkout/confirmacion/page.tsx`
+
+**Resultado:** `tsc --noEmit` en `apps/web` pasa sin errores.
+
+---
+
 *Última actualización: 2026-05-14*

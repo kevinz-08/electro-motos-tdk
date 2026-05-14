@@ -8,6 +8,5 @@
     "composite": true,
     "lib": ["ES2022"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/generated/**/*"]
+  "include": ["src/**/*.ts", "src/generated/**/*.ts"]
 }

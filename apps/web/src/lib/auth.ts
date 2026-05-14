@@ -47,8 +47,7 @@ const API_URL = process.env['API_URL'] ?? 'http://localhost:3001'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // PrismaAdapter maneja la creación de usuarios y cuentas OAuth.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  adapter: PrismaAdapter(prisma as any),
+  adapter: PrismaAdapter(prisma),
 
   // JWT es requerido para que el Credentials provider funcione junto con el adapter.
   session: { strategy: 'jwt' },

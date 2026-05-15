@@ -1476,4 +1476,46 @@ El ensamblado en memoria usa `new Map(countRows.map(...))` y `allProducts.filter
 
 ---
 
+## 46. Sprint 5 — FEATURE 5.1: Tests unitarios para el flujo de pagos con Vitest
+
+**Qué se hizo:**
+Se instaló Vitest como framework de testing en `packages/domain` y `apps/api`. Se crearon 23 tests distribuidos en tres archivos cubriendo los casos críticos del flujo de pagos.
+
+**Archivos de test creados:**
+
+- `packages/domain/src/__tests__/CreateOrder.test.ts` (6 tests)
+  - Happy path: total calculado correctamente; `create()` llamado con ítems resueltos
+  - `err(STOCK_UNAVAILABLE)` cuando cantidad supera stock
+  - `err(NOT_FOUND)` cuando producto no existe
+  - `err(VALIDATION_ERROR)` cuando cantidad = 0 o producto inactivo
+
+- `packages/domain/src/__tests__/ConfirmPayment.test.ts` (8 tests)
+  - `ok({ stateChanged: true, finalStatus: PAID })` cuando pago APPROVED
+  - `stockDecrements` pasa correctamente dentro de `transitionFromPending`
+  - Idempotencia: `stateChanged: false` si orden ya no es PENDING
+  - Idempotencia: `stateChanged: false` si `transition.applied = false` (webhook duplicado)
+  - No llama a `transitionFromPending` cuando webhook reporta PENDING
+  - `CANCELLED` + sin `stockDecrements` cuando pago es DECLINED
+  - `err(VALIDATION_ERROR)` cuando monto del webhook no coincide con `order.total`
+  - `err(NOT_FOUND)` cuando el pedido no existe
+
+- `apps/api/src/__tests__/WompiService.test.ts` (9 tests)
+  - Acepta payload con firma SHA-256 correcta y timestamp dentro de ventana
+  - Rechaza checksum alterado; rechaza timestamp >600 s en el pasado/futuro
+  - Rechaza payload sin `signature`; rechaza cuando `WOMPI_EVENTS_SECRET` no está configurado
+  - `computeIntegritySignature`: determinismo, sensibilidad a parámetros, formato hex 64 chars
+
+**Configuración:**
+
+- `packages/domain/vitest.config.ts`: alias `@/domain → ./src`
+- `apps/api/vitest.config.ts`: `setupFiles: ['reflect-metadata']` para decoradores NestJS
+- Script `"test": "vitest run"` agregado en ambos `package.json`
+
+**Hallazgo adicional corregido:**
+Archivos `.js` compilados stale en `packages/domain/src/` (debían estar en `dist/`) hacían que Vitest cargara código previo a FIX 4.2. Se eliminaron.
+
+**Resultado:** `pnpm --filter @h2r/domain test` pasa 14/14. `pnpm --filter @h2r/api test` pasa 9/9. `pnpm type-check` 6/6.
+
+---
+
 *Última actualización: 2026-05-14*

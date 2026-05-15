@@ -15,7 +15,7 @@
  */
 import { useState, useCallback } from 'react'
 import Image from 'next/image'
-import { cloudinaryUrl } from '@/lib/cloudinary'
+import { cloudinaryUrl, IMAGE_BLUR_PLACEHOLDER } from '@/lib/cloudinary'
 
 interface Props {
   images: string[]
@@ -72,6 +72,8 @@ export function ProductImageGallery({ images, productName }: Props) {
           className="object-contain p-6 animate-fadeIn"
           sizes="(max-width: 768px) 100vw, 50vw"
           priority={current === 0}
+          placeholder="blur"
+          blurDataURL={IMAGE_BLUR_PLACEHOLDER}
         />
 
         {/* Botones de navegación (solo con >1 imagen) */}

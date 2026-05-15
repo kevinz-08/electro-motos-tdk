@@ -22,10 +22,12 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Product } from '@h2r/domain'
 import { useCart } from '@/lib/cart'
-import { cloudinaryUrl } from '@/lib/cloudinary'
+import { cloudinaryUrl, IMAGE_BLUR_PLACEHOLDER } from '@/lib/cloudinary'
 
 interface ProductCardProps {
   product: Product
+  /** true para cards en la primera fila (above the fold) — carga eager */
+  priority?: boolean
 }
 
 function formatCOP(cents: number): string {
@@ -95,7 +97,7 @@ function CartHoverButton({ product }: { product: Product }) {
   )
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, priority = false }: ProductCardProps) {
   // Máximo 4 imágenes; la segunda se muestra en hover (crossfade CSS puro)
   const images       = product.images.slice(0, 4)
   const firstImage   = images[0] ? cloudinaryUrl(images[0], 'card') : null
@@ -122,6 +124,9 @@ export function ProductCard({ product }: ProductCardProps) {
               fill
               className={`object-contain p-4 transition-all duration-500 ${hasSecond ? 'group-hover:opacity-0' : 'group-hover:scale-105'}`}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              priority={priority}
+              placeholder="blur"
+              blurDataURL={IMAGE_BLUR_PLACEHOLDER}
             />
 
             {/* Segunda imagen: crossfade en hover */}
@@ -133,6 +138,8 @@ export function ProductCard({ product }: ProductCardProps) {
                 className="object-contain p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 loading="lazy"
+                placeholder="blur"
+                blurDataURL={IMAGE_BLUR_PLACEHOLDER}
               />
             )}
 

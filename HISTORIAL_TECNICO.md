@@ -1726,4 +1726,28 @@ La app ya usaba `<Image>` de Next.js en todos los componentes de producto (no ha
 
 ---
 
+## 53. Sprint 6 — FEATURE 6.4: Connection pooling explícito para Neon
+
+**Problema:** `createPrismaClient()` pasaba `{ connectionString }` directamente a `PrismaPg`, lo que crea un pool interno con los defaults de `pg` (max 10 conexiones por proceso). En producción serverless (Vercel), múltiples invocaciones concurrentes pueden cada una abrir su propio pool de 10 conexiones, saturando el límite de Neon (5-10 en tier gratuito).
+
+**Archivos modificados:**
+
+- `packages/database/src/index.ts`
+  - Importa `Pool` de `pg`.
+  - Lee `DATABASE_POOL_MAX` del entorno (default `5`) — configurable sin cambiar código.
+  - Crea `new Pool({ connectionString, max: POOL_MAX })` y lo pasa a `new PrismaPg(pool)`, reemplazando el `PrismaPg({ connectionString })` anterior.
+  - Agrega `process.once('SIGINT', shutdown)` y `process.once('SIGTERM', shutdown)` que llaman `prisma.$disconnect()` antes de salir. `once` evita registrar el handler múltiples veces en HMR de desarrollo.
+
+- `apps/api/.env.example`
+  - Documenta `DATABASE_POOL_MAX=5` con nota sobre Railway y el pooler nativo de Neon.
+
+- `apps/web/.env.example`
+  - Documenta `DATABASE_POOL_MAX=5` con nota sobre Vercel serverless y el pooler nativo de Neon.
+
+**Nota operacional:** Si en el futuro se activa el pooler nativo de Neon (PgBouncer), añadir `?pgbouncer=true&connection_limit=1` a `DATABASE_URL` y bajar `DATABASE_POOL_MAX=1` para evitar incompatibilidades con prepared statements.
+
+**Resultado:** `pnpm type-check` 6/6.
+
+---
+
 *Última actualización: 2026-05-15*

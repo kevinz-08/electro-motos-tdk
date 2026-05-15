@@ -35,7 +35,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (exception instanceof AppError) {
       const status = DOMAIN_ERROR_STATUS[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR
       if (status >= 500) {
-        this.logger.error(`[${exception.code}] ${exception.message}`, exception.stack)
+        this.logger.error(
+          `${request.method} ${request.url} → [${exception.code}] ${exception.message}`,
+          exception.stack,
+        )
       }
       return response.status(status).json({
         statusCode: status,
@@ -59,7 +62,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     // Error inesperado: no exponer stack en producción
-    this.logger.error('Error no manejado', exception instanceof Error ? exception.stack : String(exception))
+    this.logger.error(
+      `${request.method} ${request.url} → Error no manejado`,
+      exception instanceof Error ? exception.stack : String(exception),
+    )
     return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       code: 'INTERNAL_ERROR',

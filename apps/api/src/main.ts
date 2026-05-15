@@ -7,11 +7,13 @@ import helmet from 'helmet'
 import compression = require('compression')
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter'
+import { StructuredLogger } from './shared/logger/StructuredLogger'
+import { LoggingInterceptor } from './shared/interceptors/logging.interceptor'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug'],
-  })
+  const structuredLogger = new StructuredLogger()
+  const app = await NestFactory.create(AppModule, { bufferLogs: true })
+  app.useLogger(structuredLogger)
 
   // Seguridad y compresión
   // En desarrollo, Swagger UI requiere scripts/estilos inline — relajamos CSP solo ahí
@@ -57,6 +59,9 @@ async function bootstrap() {
 
   // Filtro global: mapea AppError del dominio a códigos HTTP correctos
   app.useGlobalFilters(new HttpExceptionFilter())
+
+  // Interceptor global: loguea cada request HTTP completado con método, URL, status y latencia
+  app.useGlobalInterceptors(new LoggingInterceptor())
 
   // Swagger solo en desarrollo
   if (process.env['NODE_ENV'] !== 'production') {

@@ -1594,4 +1594,31 @@ Se poblaron los 6 archivos del paquete `@h2r/types` con interfaces TypeScript pu
 
 ---
 
+## 49. Sprint 5 — FIX 5.4: Optimizar imágenes de producto con `priority` y `placeholder="blur"`
+
+**Diagnóstico previo:**
+La app ya usaba `<Image>` de Next.js en todos los componentes de producto (no había `<img>` nativas que migrar), `res.cloudinary.com` ya estaba en `remotePatterns`, y el helper `cloudinaryUrl()` ya aplicaba `f_auto,q_auto,w_N,c_limit` (WebP/AVIF). Las brechas reales eran: (1) ninguna card de catálogo/home pasaba `priority`, haciendo que imágenes above the fold cargaran lazy; (2) sin `placeholder="blur"`, el usuario veía un fondo vacío durante la carga.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/cloudinary.ts`
+  - Exporta `IMAGE_BLUR_PLACEHOLDER`: un SVG de 1×1 px gris claro codificado como data URI. Se usa como `blurDataURL` en todas las imágenes de producto — el navegador muestra este placeholder mientras descarga la imagen real, eliminando el destello en blanco.
+
+- `apps/web/src/components/store/ProductCard.tsx`
+  - Nueva prop `priority?: boolean` (default `false`). Se pasa al primer `<Image>` (imagen principal) y activa carga eager cuando es `true`.
+  - Ambas imágenes (principal y crossfade) usan `placeholder="blur" blurDataURL={IMAGE_BLUR_PLACEHOLDER}`.
+
+- `apps/web/src/components/store/ProductImageGallery.tsx`
+  - La imagen principal del detalle de producto (el LCP de la página) ahora usa `placeholder="blur" blurDataURL={IMAGE_BLUR_PLACEHOLDER}`.
+
+- `apps/web/src/app/(store)/catalogo/page.tsx`
+  - Pasa `priority={index < 4}` a `<ProductCard>`: los primeros 4 resultados (primera fila del grid `lg:grid-cols-4`) cargan eager.
+
+- `apps/web/src/app/(store)/home.tsx`
+  - Pasa `priority={index < 4}` a `<ProductCard>` en la sección de productos destacados.
+
+**Resultado:** `pnpm type-check` 6/6. Commit `8d2cbe5`.
+
+---
+
 *Última actualización: 2026-05-15*

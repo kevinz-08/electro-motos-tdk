@@ -29,10 +29,9 @@
  */
 import Link from 'next/link'
 import Image from 'next/image'
-import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
-import { prisma } from '@/infrastructure/database/prisma-client'
 import { ProductCard } from '@/components/store/ProductCard'
 import { HeroBannerCarousel } from '@/components/store/HeroBannerCarousel'
+import { getCachedFeaturedProducts, getCachedHomeCategories } from '@/lib/cache'
 
 const CAT_ICONS: Record<string, string> = {
   'sistema-electrico': '⚡',
@@ -74,20 +73,10 @@ const HERO_BANNERS = [
 ]
 
 export default async function HomePage() {
-  const repo = new PrismaProductRepository()
-
-  // Selecciona 4 productos aleatorios con stock usando ORDER BY RANDOM() de PostgreSQL
-  const randomRows = await prisma.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Product" WHERE stock > 0 ORDER BY RANDOM() LIMIT 4
-  `
-  const featuredProducts = randomRows.length > 0
-    ? await Promise.all(randomRows.map((r) => repo.findById(r.id).then((p) => p!)))
-    : []
-  // Solo categorías padre (parentId null), ordenadas por nombre — resultado determinista
-  const categories = await prisma.category.findMany({
-    where: { parentId: null },
-    orderBy: { name: 'asc' },
-  })
+  const [featuredProducts, categories] = await Promise.all([
+    getCachedFeaturedProducts(),
+    getCachedHomeCategories(),
+  ])
 
   return (
     <>

@@ -25,6 +25,8 @@ import Image from 'next/image'
 import { Product } from '@h2r/domain'
 import { X, ImagePlus, Loader2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { revalidateAdminCache } from '@/lib/revalidate'
+import { CACHE_TAGS } from '@/lib/cache'
 
 interface Category {
   id: string
@@ -82,6 +84,7 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
         throw new Error(data.message ?? data.error ?? 'Error al guardar el producto')
       }
 
+      await revalidateAdminCache([CACHE_TAGS.products])
       router.push('/admin/productos')
       router.refresh()
     } catch (e) {

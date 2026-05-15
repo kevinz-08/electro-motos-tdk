@@ -29,6 +29,8 @@
 import { useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { apiClient } from '@/lib/api-client'
+import { revalidateAdminCache } from '@/lib/revalidate'
+import { CACHE_TAGS } from '@/lib/cache'
 
 export function CsvStockImport() {
 
@@ -66,6 +68,7 @@ export function CsvStockImport() {
       const res = await apiClient(session?.user?.accessToken).patch('/admin/stock/bulk', { updates })
       const data = (await res.json()) as { updated: number }
       setResult({ updated: data.updated, errors })
+      await revalidateAdminCache([CACHE_TAGS.products])
     } else {
       setResult({ updated: 0, errors: errors.length > 0 ? errors : ['El archivo está vacío o tiene formato incorrecto'] })
     }

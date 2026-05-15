@@ -1621,4 +1621,60 @@ La app ya usaba `<Image>` de Next.js en todos los componentes de producto (no ha
 
 ---
 
+## 50. Sprint 6 — FEATURE 6.1: Caché de home y catálogo con `unstable_cache`
+
+**Objetivo:** Eliminar queries Prisma en cada request en las rutas públicas de mayor tráfico (home, catálogo, detalle de producto) y garantizar invalidación on-demand cuando el admin modifica datos.
+
+**Problema previo:** Home y catálogo hacían queries Prisma directas en cada request de SSR. Con 1.000 visitas concurrentes, el catálogo consultaba PostgreSQL (Neon serverless) 1.000 veces por segundo.
+
+**Archivos creados:**
+
+- `apps/web/src/lib/cache.ts` *(nuevo)*
+  - `CACHE_TAGS` — constantes para los tags de invalidación: `products`, `categories`, `home`, `catalog`.
+  - `getCachedHomeCategories()` — categorías raíz para la home; TTL 3600 s, tag `categories`.
+  - `getCachedFeaturedProducts()` — 4 productos aleatorios con stock (ORDER BY RANDOM()); TTL 300 s, tags `products` + `home`.
+  - `getCachedCatalogLanding()` — las 3 queries de la vista landing del catálogo (sin filtros) devueltas como datos crudos; TTL 300 s, tags `products` + `catalog` + `categories`. Fechas serializadas como ISO string.
+  - `getCachedCatalogGrid(params)` — grid del catálogo con filtros activos; cada combinación de filtros tiene su propio entry de caché; TTL 180 s.
+  - `getCachedProductBySlug(slug)` — detalle de producto por slug; TTL 300 s, tag `products`.
+
+- `apps/web/src/lib/revalidate.ts` *(nuevo)*
+  - `revalidateAdminCache(tags)` — helper cliente que llama a `/api/admin/revalidate` con los tags. No-blocking: errores silenciados para no impedir la UX del admin.
+
+- `apps/web/src/app/api/admin/revalidate/route.ts` *(nuevo)*
+  - Endpoint `POST` protegido por sesión ADMIN. Acepta `{ tags: string[] }` y llama `revalidateTag(tag, {})` por cada tag. El `{}` cumple la firma de Next.js 16 que exige el segundo argumento `profile`.
+
+- `apps/web/src/app/api/admin/products/[id]/stock/route.ts` *(nuevo)*
+  - Proxy PATCH al NestJS para actualizar stock de un producto. Llama `revalidateTag(CACHE_TAGS.products, {})` en éxito. Corrige bug pre-existente: `StockUpdateForm` llamaba a esta ruta pero el handler no existía (404 silencioso).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/home.tsx`
+  - Elimina imports de `PrismaProductRepository` y `prisma`. Reemplaza las dos queries directas con `Promise.all([getCachedFeaturedProducts(), getCachedHomeCategories()])`.
+
+- `apps/web/src/app/(store)/catalogo/page.tsx`
+  - Elimina `PrismaProductRepository`, `ListProducts`. Añade imports de `getCachedCatalogLanding` y `getCachedCatalogGrid`.
+  - `PrismaProductRaw.createdAt/updatedAt` tipado como `Date | string` para admitir valores cacheados (JSON serializa `Date` → `string`).
+  - `toDomain()` usa `new Date(p.createdAt)` para manejar ambos tipos.
+  - Vista landing: reemplaza las 3 queries Prisma con `getCachedCatalogLanding()`.
+  - Vista grid: reemplaza `ListProducts` + `prisma.category.findMany` con `getCachedCatalogGrid(params)`.
+
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx`
+  - Elimina `PrismaProductRepository` y `GetProductBySlug`. Reemplaza ambas llamadas (en `generateMetadata` y en el componente) con `getCachedProductBySlug(slug)`.
+
+- `apps/web/src/components/admin/ProductEditForm.tsx`
+  - Llama `await revalidateAdminCache([CACHE_TAGS.products])` antes del `router.push('/admin/productos')` en éxito.
+
+- `apps/web/src/components/admin/CsvStockImport.tsx`
+  - Llama `await revalidateAdminCache([CACHE_TAGS.products])` después de un bulk import exitoso.
+
+- `apps/web/src/components/admin/CategoryManager.tsx`
+  - `CategoryForm.handleSubmit`: llama `await revalidateAdminCache([CACHE_TAGS.categories, CACHE_TAGS.catalog])` en éxito.
+  - `handleDelete`: llama `await revalidateAdminCache([CACHE_TAGS.categories, CACHE_TAGS.catalog])` antes del `router.refresh()`.
+
+**Nota de Next.js 16:** `revalidateTag(tag, {})` — en esta versión la firma requiere un segundo argumento `profile: string | CacheLifeConfig`. Se pasa `{}` (CacheLifeConfig vacío) para usar el comportamiento por defecto.
+
+**Resultado:** `pnpm type-check` 6/6.
+
+---
+
 *Última actualización: 2026-05-15*

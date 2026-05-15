@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { z } from 'zod'
 import { apiClient } from '@/lib/api-client'
+import { revalidateAdminCache } from '@/lib/revalidate'
+import { CACHE_TAGS } from '@/lib/cache'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,6 +121,7 @@ function CategoryForm({ initial, rootCategories, onSuccess, onCancel, token }: C
         return
       }
 
+      await revalidateAdminCache([CACHE_TAGS.categories, CACHE_TAGS.catalog])
       onSuccess()
     } catch {
       setServerError('Error de red. Verifica tu conexión.')
@@ -329,6 +332,7 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
         setDeleteError((prev) => ({ ...prev, [id]: data.message ?? 'Error al eliminar' }))
         return
       }
+      await revalidateAdminCache([CACHE_TAGS.categories, CACHE_TAGS.catalog])
       setDeletingId(null)
       router.refresh()
     } catch {

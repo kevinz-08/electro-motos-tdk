@@ -1518,4 +1518,47 @@ Archivos `.js` compilados stale en `packages/domain/src/` (debían estar en `dis
 
 ---
 
-*Última actualización: 2026-05-14*
+## 47. Sprint 5 — FEATURE 5.2: Logging estructurado JSON + error boundaries
+
+**Qué se hizo:**
+Se implementó una capa completa de observabilidad estructurada para la API y el frontend, dado que Sentry no estaba disponible en el proyecto.
+
+**Archivos nuevos:**
+
+- `apps/api/src/shared/logger/StructuredLogger.ts`
+  - Implementa `LoggerService` de NestJS.
+  - Emite cada línea como JSON a stdout (info/warn/debug/verbose) o stderr (error/fatal).
+  - Formato: `{ timestamp, level, context?, message, stack? }`.
+  - Compatible con cualquier agregador que parsee JSON por línea (Railway logs, Datadog, Logtail).
+
+- `apps/api/src/shared/interceptors/logging.interceptor.ts`
+  - Implementa `NestInterceptor`, registrado globalmente.
+  - Usa RxJS `tap.next` para loguear en el camino de respuesta exitosa.
+  - Formato: `GET /catalogo 200 +45ms uid=abc123`.
+  - Errores no se loguean aquí para evitar duplicados con `HttpExceptionFilter`.
+
+- `apps/web/src/app/error.tsx`
+  - Error boundary de ruta para Next.js App Router (`'use client'`).
+  - Muestra mensaje de error, botones "Intentar de nuevo" y "Ir al inicio".
+  - En desarrollo muestra el mensaje de error; en producción solo el mensaje genérico.
+
+- `apps/web/src/app/global-error.tsx`
+  - Captura errores en el root layout (necesita su propio `<html><body>`).
+  - Usa estilos inline para no depender de Tailwind (que puede no cargarse si el layout falla).
+
+**Archivos modificados:**
+
+- `apps/api/src/shared/filters/http-exception.filter.ts`
+  - Logs de error enriquecidos con método y URL: `POST /orders → [VALIDATION_ERROR] ...`
+  - Aplica a `AppError` (5xx) y a errores inesperados no manejados.
+
+- `apps/api/src/main.ts`
+  - Reemplaza el logger por defecto por `StructuredLogger` via `app.useLogger()`.
+  - `bufferLogs: true` asegura que los logs durante el bootstrap usen el logger estructurado.
+  - Registra `LoggingInterceptor` globalmente via `app.useGlobalInterceptors()`.
+
+**Resultado:** `pnpm type-check` 6/6. Commit `40db638`.
+
+---
+
+*Última actualización: 2026-05-15*

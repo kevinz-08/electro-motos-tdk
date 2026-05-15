@@ -1561,4 +1561,37 @@ Se implementó una capa completa de observabilidad estructurada para la API y el
 
 ---
 
+## 48. Sprint 5 — FEATURE 5.3: Poblar `packages/types` con DTOs compartidos
+
+**Qué se hizo:**
+Se poblaron los 6 archivos del paquete `@h2r/types` con interfaces TypeScript puras (sin decoradores de `class-validator`) que espejean todos los DTOs de request y response de la API NestJS. El objetivo es que tanto `apps/api` como `apps/web` importen tipos del mismo contrato, y que el compilador detecte cambios de contrato en build-time en lugar de en runtime.
+
+**Archivos nuevos en `packages/types/src/`:**
+
+- `common.types.ts`: `ApiError` (forma del error HTTP estándar del `HttpExceptionFilter`), `Paginated<T>` (wrapper genérico para listas paginadas).
+
+- `auth.types.ts`: `LoginRequest`, `RegisterRequest`, `ForgotPasswordRequest`, `ResetPasswordRequest` y sus correspondientes Response (`accessToken`, `message`).
+
+- `product.types.ts`: `PaymentProvider` (unión `WOMPI | MERCADO_PAGO`), `ListProductsQuery`, `CategoryResponse`, `ProductResponse`.
+
+- `order.types.ts`: `OrderStatus`, `PaymentStatus`, `ShippingAddress`, `OrderItemRequest`, `CreateOrderRequest`, `UpdateOrderStatusRequest`, `OrderItemResponse`, `OrderResponse`, `PaymentInitResponse`, `CreateOrderResponse`, `UpdateOrderStatusResponse`.
+
+- `payment.types.ts`: `WompiIntegrityRequest/Response`, `MpPreferenceRequest/Response`, `WebhookAckResponse`.
+
+- `admin.types.ts`: `CreateProductRequest`, `UpdateProductRequest`, `UpdateStockRequest`, `BulkStockUpdateRequest`, `CreateCategoryRequest`, `UpdateCategoryRequest`, `ToggleSettingRequest`.
+
+**Archivos modificados:**
+
+- `packages/types/src/index.ts`: exporta todos los módulos con `export *`.
+
+- `apps/web/src/components/checkout/CheckoutForm.tsx`:
+  - Reemplaza inline type cast `as { order: ...; payment: ... }` por `as CreateOrderResponse`.
+  - Reemplaza inline type cast `as { error?: string; message?: string }` por `as ApiError`.
+  - El estado `wompiParams` usa `CreateOrderResponse['payment']` en lugar de una interfaz local redundante.
+  - La guarda `wompiParams.publicKey && wompiParams.integritySignature` antes del `<WompiWidget>` satisface TypeScript sin `!`.
+
+**Resultado:** `pnpm type-check` 6/6. Commit `4a8b3f0`.
+
+---
+
 *Última actualización: 2026-05-15*

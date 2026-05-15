@@ -35,7 +35,7 @@ export function MercadoPagoToggle({ enabled: initial }: MercadoPagoToggleProps) 
   const toggle = async () => {
     setLoading(true)
     try {
-      const res = await apiClient(session?.user?.accessToken).patch(
+      const res = await apiClient(session?.user?.accessToken).patch<void>(
         '/admin/settings/mercadopago',
         { enabled: !enabled },
       )

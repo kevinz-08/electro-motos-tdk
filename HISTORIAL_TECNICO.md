@@ -1693,4 +1693,37 @@ La app ya usaba `<Image>` de Next.js en todos los componentes de producto (no ha
 
 ---
 
+## 52. Sprint 6 — FIX 6.3: Refactorizar `api-client.ts` con cliente tipado
+
+**Problema:** Todos los callers de `apiClient` hacían `await res.json() as AlgúnTipo` manualmente. `CheckoutForm` tenía un bug latente: llamaba `.json()` dos veces sobre el mismo `Response` (el body es un stream que solo puede leerse una vez). Además, los casteos manuales con `as` no dan error si el tipo de respuesta del servidor cambia.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/api-client.ts`
+  - Exporta `ApiOk<T>`, `ApiErr` y `ApiResponse<T> = ApiOk<T> | ApiErr`.
+  - Función interna `parseResponse<T>`: lee el body como texto una sola vez, parsea JSON, y retorna el discriminated union. Los errores extraen `message` o `error` del body de NestJS automáticamente.
+  - Todos los métodos (`get`, `post`, `put`, `patch`, `delete`, `postForm`) son ahora genéricos y retornan `Promise<ApiResponse<T>>` en vez de `Promise<Response>`.
+
+- `apps/web/src/components/checkout/CheckoutForm.tsx`
+  - `client.post<CreateOrderResponse>('/orders', body)` → `res.data` directamente.
+  - Elimina import de `ApiError` (ya no necesario — el error queda en `res.error`).
+  - Corrige el bug de doble `.json()` sobre el mismo stream.
+
+- `apps/web/src/components/admin/ProductEditForm.tsx`
+  - `client.put<void>` / `client.post<void>` → `res.error` en error path.
+  - `postForm<{ url: string }>` → `res.data.url` en éxito, `res.error` en error.
+
+- `apps/web/src/components/admin/CsvStockImport.tsx`
+  - `patch<{ updated: number }>` → `res.data.updated`; añade manejo de error que antes faltaba.
+
+- `apps/web/src/components/admin/CategoryManager.tsx`
+  - `put<void>` / `post<void>` / `delete<void>` → `res.error` en todos los error paths.
+
+- `apps/web/src/components/admin/MercadoPagoToggle.tsx`
+  - `patch<void>` — solo cambia el tipo genérico, comportamiento idéntico.
+
+**Resultado:** `pnpm type-check` 6/6. Cero casteos `as Type` en callers de `apiClient`.
+
+---
+
 *Última actualización: 2026-05-15*

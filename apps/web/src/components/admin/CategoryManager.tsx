@@ -112,12 +112,11 @@ function CategoryForm({ initial, rootCategories, onSuccess, onCancel, token }: C
 
       const client = apiClient(token)
       const res = isEdit
-        ? await client.put(`/admin/categories/${initial.id}`, payload)
-        : await client.post('/admin/categories', payload)
+        ? await client.put<void>(`/admin/categories/${initial.id}`, payload)
+        : await client.post<void>('/admin/categories', payload)
 
       if (!res.ok) {
-        const data = (await res.json()) as { message?: string }
-        setServerError(data.message ?? 'Error inesperado')
+        setServerError(res.error ?? 'Error inesperado')
         return
       }
 
@@ -326,10 +325,9 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
     setDeleteLoading(true)
     setDeleteError((prev) => ({ ...prev, [id]: '' }))
     try {
-      const res = await apiClient(token).delete(`/admin/categories/${id}`)
+      const res = await apiClient(token).delete<void>(`/admin/categories/${id}`)
       if (!res.ok) {
-        const data = (await res.json()) as { message?: string }
-        setDeleteError((prev) => ({ ...prev, [id]: data.message ?? 'Error al eliminar' }))
+        setDeleteError((prev) => ({ ...prev, [id]: res.error ?? 'Error al eliminar' }))
         return
       }
       await revalidateAdminCache([CACHE_TAGS.categories, CACHE_TAGS.catalog])

@@ -65,9 +65,8 @@ export function CsvStockImport() {
     }
 
     if (updates.length > 0) {
-      const res = await apiClient(session?.user?.accessToken).patch('/admin/stock/bulk', { updates })
-      const data = (await res.json()) as { updated: number }
-      setResult({ updated: data.updated, errors })
+      const res = await apiClient(session?.user?.accessToken).patch<{ updated: number }>('/admin/stock/bulk', { updates })
+      setResult({ updated: res.ok ? res.data.updated : 0, errors })
       await revalidateAdminCache([CACHE_TAGS.products])
     } else {
       setResult({ updated: 0, errors: errors.length > 0 ? errors : ['El archivo está vacío o tiene formato incorrecto'] })

@@ -76,12 +76,11 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
 
     try {
       const res = product
-        ? await client.put(`/admin/products/${product.id}`, payload)
-        : await client.post('/admin/products', payload)
+        ? await client.put<void>(`/admin/products/${product.id}`, payload)
+        : await client.post<void>('/admin/products', payload)
 
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string; message?: string }
-        throw new Error(data.message ?? data.error ?? 'Error al guardar el producto')
+        throw new Error(res.error ?? 'Error al guardar el producto')
       }
 
       await revalidateAdminCache([CACHE_TAGS.products])
@@ -116,18 +115,16 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
       formData.append('sku', form.sku || 'producto')
 
       try {
-        const res = await apiClient(session?.user?.accessToken).postForm(
+        const res = await apiClient(session?.user?.accessToken).postForm<{ url: string }>(
           '/admin/products/upload-image',
           formData,
         )
 
         if (!res.ok) {
-          const data = (await res.json()) as { error?: string; message?: string }
-          throw new Error(data.message ?? data.error ?? 'Error al subir la imagen')
+          throw new Error(res.error ?? 'Error al subir la imagen')
         }
 
-        const data = (await res.json()) as { url: string }
-        setImages((prev) => [...prev, data.url])
+        setImages((prev) => [...prev, res.data.url])
       } catch (e) {
         setUploadError(e instanceof Error ? e.message : 'Error al subir imagen')
       }

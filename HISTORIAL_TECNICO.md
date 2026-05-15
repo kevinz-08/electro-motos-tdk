@@ -1677,4 +1677,20 @@ La app ya usaba `<Image>` de Next.js en todos los componentes de producto (no ha
 
 ---
 
+## 51. Sprint 6 — FIX 6.2: Restringir CORS ngrok wildcard a entorno de desarrollo
+
+**Problema:** La configuración CORS en `apps/api/src/main.ts` tenía los wildcards `*.ngrok-free.app` y `*.ngrok-free.dev` mezclados inline con el resto de la lógica sin una separación clara por entorno. Aunque ya estaban dentro de checks `!== 'production'`, la legibilidad era baja y el riesgo de regresión alto.
+
+**Archivos modificados:**
+
+- `apps/api/src/main.ts`
+  - Extrae una función `getCorsOrigin(origin, callback)` tipada con `CorsOriginCallback`.
+  - **Producción:** solo acepta el origen exacto de `FRONTEND_URL`. Cualquier otro origin recibe error CORS.
+  - **Desarrollo:** acepta `FRONTEND_URL`, `localhost:3000` y subdominios `*.ngrok-free.app` / `*.ngrok-free.dev` (necesarios para testear webhooks de Wompi/MercadoPago contra servidor local).
+  - El bloque `app.enableCors` pasa directamente `getCorsOrigin` como handler — sin lógica inline.
+
+**Resultado:** `pnpm type-check` 6/6.
+
+---
+
 *Última actualización: 2026-05-15*

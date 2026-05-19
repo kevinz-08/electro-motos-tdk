@@ -2096,3 +2096,38 @@ Cola de emails persistente en PostgreSQL con reintentos automáticos y backoff e
 **Rama:** `sprint8/hardening-produccion`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 65. FEATURE 9.1 — Widget embebido de Wompi con fallback automático
+
+**Problema resuelto:**
+El checkout anterior redirigía directamente a `checkout.wompi.co/p/` abandonando la tienda. El widget embebido de Wompi permite mantener al usuario en el sitio durante el pago.
+
+**Limitación técnica encontrada (ya documentada en el codebase):**
+El `widget.js` de Wompi usa `document.currentScript` para localizar su form padre. En React, todos los scripts se añaden dinámicamente con `appendChild`, por lo que `document.currentScript` es null. La solución es crear el `<form data-render="button">` primero en el DOM y luego inyectar el script — el scanner de Wompi busca `[data-render="button"]` en el documento completo, no solo junto al script.
+
+**Solución implementada — estrategia dual en `WompiWidget.tsx`:**
+
+1. **Intento principal (widget embed):**
+   - `useEffect` crea el `<form>` con todos los `data-*` requeridos (public-key, currency, amount-in-cents, reference, signature:integrity, redirect-url)
+   - Inyecta el script `checkout.wompi.co/widget.js` dinámicamente después del form
+   - Si el script carga (`onload`), el widget se inicializa en el DOM
+   - Timeout de 5 s: si el script no carga (bloqueador de anuncios, red lenta), activa el fallback
+
+2. **Fallback automático (redirect):**
+   - Si `script.onerror` o el timeout de 5 s se activa, `useFallback` pasa a `true`
+   - Se muestra un enlace `<a>` directo a `checkout.wompi.co/p/` con los parámetros como query string
+   - Misma experiencia de pago, sin el widget embed
+
+3. **Limpieza de efectos:** el `cleanup` de `useEffect` vacía el container y cancela el timeout para evitar memory leaks al desmontar el componente.
+
+**No se requirió cambiar `next.config.ts`:** Next.js no tiene un header CSP configurado, por lo que el script externo de Wompi puede cargarse sin restricciones.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/checkout/WompiWidget.tsx` — reescrito
+
+**Rama:** `sprint9/ux-critico-pagos`
+
+*Última actualización: 2026-05-19*

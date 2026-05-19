@@ -1848,3 +1848,34 @@ La página ofrece dos acciones: "Volver a intentar" (→ `/auth/login`) e "Ir al
 **Rama:** `sprint7/bloqueantes-produccion`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 58. Sprint 7 — FIX 7.2: Reemplazar rate limiter en memoria por solución serverless
+
+**Qué se hizo:**
+Se aplicó la Opción A del backlog: la protección real ya existía en NestJS. Se reemplazó la implementación con `Map` en memoria de `apps/web/src/lib/rate-limit.ts` por un stub no-op documentado que siempre retorna `true`.
+
+**Hallazgos:**
+
+- `checkRateLimit` no tenía ningún caller en todo el proyecto (grep confirmado). Era dead code.
+- Todas las rutas de auth de Next.js (`/register`, `/forgot-password`, `/reset-password`) hacen `fetch()` directo a NestJS, que ya tiene `ThrottlerGuard` con límites estrictos por endpoint.
+- `ForgotPasswordForm.tsx:44` ya maneja el HTTP 429 explícitamente con mensaje al usuario.
+
+**Límites vigentes en NestJS (auth.controller.ts):**
+
+- `POST /auth/register` → 5 req / 60 s
+- `POST /auth/login` → 10 req / 60 s
+- `POST /auth/forgot-password` → 3 req / 900 s
+- `POST /auth/reset-password` → 5 req / 60 s
+
+**Problema resuelto:**
+El `Map` en módulo scope se resetea entre invocaciones serverless de Vercel, haciendo el rate limiter inoperativo en producción (bloqueante S-01 / A-02 de AUDITORIA.md). La protección real ahora es explícita y documentada en el código.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/rate-limit.ts` — reemplazado: Map eliminado, stub no-op documentado
+
+**Rama:** `sprint7/bloqueantes-produccion`
+
+*Última actualización: 2026-05-19*

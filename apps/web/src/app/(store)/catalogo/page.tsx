@@ -27,6 +27,7 @@ import { prisma } from '@/infrastructure/database/prisma-client'
 import { WHATSAPP_URL } from '@/lib/contact'
 import type { Product } from '@h2r/domain'
 import { getCachedCatalogLanding, getCachedCatalogGrid } from '@/lib/cache'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -527,14 +528,12 @@ function GridView({
 
         {/* ── Grid de productos ── */}
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="text-5xl mb-4">🔍</div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Sin resultados</h2>
-            <p className="text-sm text-gray-400 mb-6 max-w-xs">No encontramos productos con esos filtros.</p>
-            <Link href="/catalogo" className="bg-sky-400 text-black px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-sky-500 hover:text-white transition-colors">
-              Ver todo el catálogo
-            </Link>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title="Sin resultados"
+            description="No encontramos productos con esos filtros."
+            action={{ label: 'Ver todo el catálogo', href: '/catalogo' }}
+          />
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">

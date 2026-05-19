@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth'
 import { getOrderHistory } from '@/lib/queries/getOrderHistory'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
 import { InvoiceDownloadButton } from '@/components/store/InvoiceDownloadButton'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 export const metadata: Metadata = {
   title: 'Mis pedidos',
@@ -58,19 +59,12 @@ export default async function PedidosPage({ searchParams }: PageProps) {
 
         {/* Empty state */}
         {orders.length === 0 && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-16 text-center">
-            <div className="text-5xl mb-4">📦</div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Aún no tienes pedidos</h2>
-            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-              Cuando realices una compra, podrás seguir el estado de tu pedido desde aquí.
-            </p>
-            <Link
-              href="/catalogo"
-              className="inline-block bg-sky-400 text-black px-8 py-3 rounded-xl font-bold hover:bg-sky-500 hover:text-white transition-colors"
-            >
-              Ver catálogo
-            </Link>
-          </div>
+          <EmptyState
+            icon="📦"
+            title="Aún no tienes pedidos"
+            description="Cuando realices una compra, podrás seguir el estado de tu pedido desde aquí."
+            action={{ label: 'Ver catálogo', href: '/catalogo' }}
+          />
         )}
 
         {/* Orders list */}

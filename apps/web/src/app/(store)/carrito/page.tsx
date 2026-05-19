@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useCart } from '@/lib/cart'
 import { Trash2 } from 'lucide-react'
 import { cloudinaryUrl } from '@/lib/cloudinary'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -25,21 +26,13 @@ export default function CartPage() {
   // ── Carrito vacío ─────────────────────────────────────────────────────────
   if (items.length === 0) {
     return (
-      <div className="min-h-[70vh] bg-white flex flex-col items-center justify-center px-4 text-center">
-        <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-6">
-          <svg className="w-9 h-9 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.5 6h13M7 13L5.4 5M10 21a1 1 0 100-2 1 1 0 000 2zm7 0a1 1 0 100-2 1 1 0 000 2z" />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Tu carrito está vacío</h1>
-        <p className="text-gray-400 mb-8 max-w-xs">Agrega productos desde el catálogo para continuar con tu compra.</p>
-        <Link
-          href="/catalogo?showAll=true"
-          className="bg-sky-400 text-black px-8 py-3 rounded-xl font-bold hover:bg-sky-500 hover:text-white active:scale-95 transition-all"
-        >
-          Ver catálogo
-        </Link>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <EmptyState
+          icon="🛒"
+          title="Tu carrito está vacío"
+          description="Agrega productos desde el catálogo para continuar con tu compra."
+          action={{ label: 'Ver catálogo', href: '/catalogo?showAll=true' }}
+        />
       </div>
     )
   }

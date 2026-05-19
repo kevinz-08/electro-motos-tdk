@@ -2131,3 +2131,30 @@ El `widget.js` de Wompi usa `document.currentScript` para localizar su form padr
 **Rama:** `sprint9/ux-critico-pagos`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 66. FEATURE 9.2 — Componente EmptyState reutilizable
+
+**Problema resuelto:**
+Cada vista con estado vacío tenía su propio markup inline inconsistente (carrito, catálogo, pedidos). Cambiar el estilo requería editar tres archivos distintos.
+
+**Solución implementada:**
+
+1. **`apps/web/src/components/ui/EmptyState.tsx`** — NUEVO: componente Server Component con props `icon`, `title`, `description?`, `action?: { label, href }`. Sigue el estilo visual de `pedidos/page.tsx` (fondo blanco, borde gris, padding p-16, botón sky-400).
+
+2. **Refactorizaciones:**
+   - `apps/web/src/app/(store)/pedidos/page.tsx` — empty state inline reemplazado por `<EmptyState icon="📦" title="Aún no tienes pedidos" ... />`
+   - `apps/web/src/app/(store)/catalogo/page.tsx` — empty state "Sin resultados" reemplazado por `<EmptyState icon="🔍" title="Sin resultados" ... />`
+   - `apps/web/src/app/(store)/carrito/page.tsx` — empty state custom (SVG de carrito, fondo centrado) reemplazado por `<EmptyState icon="🛒" title="Tu carrito está vacío" ... />` dentro de un contenedor con padding
+
+**Archivos modificados:**
+
+- `apps/web/src/components/ui/EmptyState.tsx` — NUEVO
+- `apps/web/src/app/(store)/pedidos/page.tsx`
+- `apps/web/src/app/(store)/catalogo/page.tsx`
+- `apps/web/src/app/(store)/carrito/page.tsx`
+
+**Rama:** `sprint9/ux-critico-pagos`
+
+*Última actualización: 2026-05-19*

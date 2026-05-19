@@ -32,6 +32,7 @@ import Image from 'next/image'
 import { ProductCard } from '@/components/store/ProductCard'
 import { HeroBannerCarousel } from '@/components/store/HeroBannerCarousel'
 import { getCachedFeaturedProducts, getCachedHomeCategories } from '@/lib/cache'
+import { WHATSAPP_URL } from '@/lib/contact'
 
 const CAT_ICONS: Record<string, string> = {
   'sistema-electrico': '⚡',
@@ -161,7 +162,7 @@ export default async function HomePage() {
             Cotiza directamente con nosotros. Conseguimos cualquier repuesto.
           </p>
           <a
-            href="https://wa.me/573000000000?text=Hola,%20necesito%20un%20repuesto%20para%20mi%20moto"
+            href={WHATSAPP_URL('Hola, necesito un repuesto para mi moto')}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-sky-400 text-black px-8 py-3 rounded-lg font-bold text-lg hover:bg-sky-500 hover:text-white transition-colors"

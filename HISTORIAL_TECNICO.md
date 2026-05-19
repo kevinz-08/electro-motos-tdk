@@ -1879,3 +1879,26 @@ El `Map` en módulo scope se resetea entre invocaciones serverless de Vercel, ha
 **Rama:** `sprint7/bloqueantes-produccion`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 59. Sprint 7 — FIX 7.3: Extraer número de WhatsApp a variable de entorno
+
+**Qué se hizo:**
+Se creó `apps/web/src/lib/contact.ts` con `WHATSAPP_NUMBER` y `WHATSAPP_URL()`. Se reemplazaron todas las ocurrencias del número hardcodeado `573000000000` en 4 archivos. Se documentó ` en `.env.local`.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/contact.ts` — NUEVO: exporta `WHATSAPP_NUMBER` y `WHATSAPP_URL(message?)`
+- `apps/web/src/app/(store)/home.tsx` — import + `href={WHATSAPP_URL('Hola, necesito un repuesto para mi moto')}`
+- `apps/web/src/app/(store)/catalogo/page.tsx` — import + `href={WHATSAPP_URL()}`
+- `apps/web/src/components/nav/ProfileModal.tsx` — eliminada constante local, import + `WHATSAPP_URL(...)`
+- `apps/web/src/components/ui/WhatsAppButton.tsx` — import + `href={WHATSAPP_URL()}`
+- `apps/web/.env.local` — añadida
+
+**Problema resuelto:**
+El número `573000000000` (placeholder) estaba hardcodeado en 4 archivos distintos. En producción redirigía a un número inexistente. Hallazgo S-04 de AUDITORIA.md resuelto.
+
+**Rama:** `sprint7/bloqueantes-produccion`
+
+*Última actualización: 2026-05-19*

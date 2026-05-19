@@ -16,6 +16,7 @@
  */
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { WHATSAPP_URL } from '@/lib/contact'
 
 interface UserInfo {
   name?:  string | null
@@ -29,7 +30,6 @@ interface Props {
   user: UserInfo | undefined
 }
 
-const WHATSAPP_NUMBER = '573000000000' // TODO: reemplazar con el número real
 
 export function ProfileModal({ isOpen, onClose, user }: Props) {
   const [phone, setPhone]       = useState('')
@@ -78,9 +78,7 @@ export function ProfileModal({ isOpen, onClose, user }: Props) {
     saveTimer.current = setTimeout(() => setSaved(false), 2000)
   }
 
-  const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-    `Hola, soy ${user?.name ?? 'un cliente'} y necesito soporte.`
-  )}`
+  const whatsappUrl = WHATSAPP_URL(`Hola, soy ${user?.name ?? 'un cliente'} y necesito soporte.`)
 
   if (!isOpen) return null
 

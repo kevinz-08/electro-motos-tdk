@@ -24,6 +24,7 @@ import { CategoryHeroBanner } from '@/components/store/CategoryHeroBanner'
 import { ProductCarousel } from '@/components/store/ProductCarousel'
 import { FilterDrawer } from '@/components/store/FilterDrawer'
 import { prisma } from '@/infrastructure/database/prisma-client'
+import { WHATSAPP_URL } from '@/lib/contact'
 import type { Product } from '@h2r/domain'
 import { getCachedCatalogLanding, getCachedCatalogGrid } from '@/lib/cache'
 
@@ -388,7 +389,7 @@ function LandingView({
               </p>
             </div>
             <a
-              href="https://wa.me/573000000000"
+              href={WHATSAPP_URL()}
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 flex items-center gap-2.5 bg-sky-400 text-black px-6 py-3 rounded-xl font-bold hover:bg-sky-500 hover:text-white active:scale-95 transition-all"

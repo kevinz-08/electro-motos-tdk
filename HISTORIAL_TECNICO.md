@@ -1980,3 +1980,33 @@ El endpoint mantiene `@Public()` (excluido del JWT guard) y `@SkipThrottle()` (e
 **Rama:** `sprint8/hardening-produccion`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 62. Sprint 8 — FIX 8.3: Pinar NextAuth + validación de env vars al arranque
+
+**Qué se hizo:**
+Dos fixes de estabilidad independientes aplicados en un solo commit.
+
+**Fix A — Pinar NextAuth:**
+Se cambió `"next-auth": "^5.0.0-beta.30"` a `"5.0.0-beta.30"` (sin `^`) en `apps/web/package.json`. El `^` permitía actualizaciones automáticas a beta.31, beta.32, etc., que en una versión beta pueden tener breaking changes. Se ejecutó `pnpm install` para actualizar el lockfile.
+
+**Fix B — Validación de env vars al arranque:**
+Se añadió `assertEnvVars()` en `apps/api/src/main.ts`, llamada al inicio de `bootstrap()` antes de crear la app NestJS. Si alguna variable crítica está ausente, el proceso imprime las variables faltantes y llama `process.exit(1)`, evitando que el servidor arranque con configuración incompleta y falle silenciosamente en runtime.
+
+Variables validadas:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `INTERNAL_API_SECRET`
+- `WOMPI_EVENTS_SECRET`
+- `WOMPI_INTEGRITY_SECRET`
+
+**Archivos modificados:**
+
+- `apps/web/package.json` — `"^5.0.0-beta.30"` → `"5.0.0-beta.30"`
+- `apps/api/src/main.ts` — función `assertEnvVars()` antes de `bootstrap()`
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*

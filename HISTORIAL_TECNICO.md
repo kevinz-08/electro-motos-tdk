@@ -1902,3 +1902,52 @@ El número `573000000000` (placeholder) estaba hardcodeado en 4 archivos distint
 **Rama:** `sprint7/bloqueantes-produccion`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 60. Sprint 8 — FEATURE 8.1: Integración de Sentry para monitoreo de errores
+
+**Qué se hizo:**
+Se instaló y configuró Sentry v10.53.1 en `apps/api` (`@sentry/nestjs` + `@sentry/profiling-node`) y `apps/web` (`@sentry/nextjs`). La integración captura automáticamente todos los errores >= 500 con stack trace completo, los envía al dashboard de Sentry y los loguea en Railway con un `errorId` para correlacionar ambos sistemas.
+
+**Decisión arquitectónica:** Se optó por Sentry sobre solo logging en Railway porque en un e-commerce con pagos reales se necesita monitoreo proactivo (alertas inmediatas) en lugar de reactivo (buscar en logs cuando un usuario reporta). El free tier de Sentry (5 000 errores/mes) cubre el lanzamiento inicial. Ver análisis completo en el historial de conversación.
+
+**Configuración API (`apps/api`):**
+
+- `src/instrument.ts` — init de Sentry con `nodeProfilingIntegration`. Debe ser el primer import de `main.ts`. `enabled: !!SENTRY_DSN` garantiza modo no-op si la variable no está configurada.
+- `src/main.ts` — `import './instrument'` como primera línea.
+- `src/app.module.ts` — `SentryModule.forRoot()` para tracking de requests y contexto por usuario.
+- `src/shared/filters/http-exception.filter.ts` — `Sentry.captureException(exception, { tags: { errorId } })` en los tres caminos de error >= 500. El `errorId` se incluye tanto en la respuesta JSON como en el tag de Sentry para correlación.
+- `src/shared/logger/StructuredLogger.ts` — fix de bug previo: stack trace ahora va al campo `stack`, no a `context`.
+
+**Configuración Web (`apps/web`):**
+
+- `sentry.server.config.ts` — init servidor (Node.js runtime).
+- `sentry.client.config.ts` — init cliente con `replaysOnErrorSampleRate: 1.0` (graba la sesión del usuario al momento del error en checkout).
+- `sentry.edge.config.ts` — init edge runtime.
+- `src/instrumentation.ts` — hook de Next.js que carga la config según el runtime (`nodejs` / `edge`).
+- `next.config.ts` — envuelto con `withSentryConfig`. Source maps deshabilitados por ahora (`sourcemaps: { disable: true }`); activar cuando se configuren `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` en Vercel.
+
+**Variables de entorno requeridas para activar:**
+
+- `apps/api`: `SENTRY_DSN` en Railway
+- `apps/web`: `NEXT_PUBLIC_SENTRY_DSN` en Vercel
+
+**Archivos modificados:**
+
+- `apps/api/src/instrument.ts` — NUEVO
+- `apps/api/src/main.ts` — import instrument
+- `apps/api/src/app.module.ts` — SentryModule.forRoot()
+- `apps/api/src/shared/filters/http-exception.filter.ts` — Sentry.captureException en 5xx
+- `apps/api/src/shared/logger/StructuredLogger.ts` — fix bug stack/context
+- `apps/api/.env.example` — sección SENTRY_DSN
+- `apps/web/sentry.server.config.ts` — NUEVO
+- `apps/web/sentry.client.config.ts` — NUEVO
+- `apps/web/sentry.edge.config.ts` — NUEVO
+- `apps/web/src/instrumentation.ts` — NUEVO
+- `apps/web/next.config.ts` — withSentryConfig
+- `apps/web/.env.example` — secciones NEXT_PUBLIC_WHATSAPP_NUMBER y NEXT_PUBLIC_SENTRY_DSN
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*

@@ -1,5 +1,6 @@
 import path from 'path'
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
+import { withSentryConfig } from '@sentry/nextjs'
 
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -15,7 +16,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     // En monorepo, apuntamos a la raíz del workspace para que Turbopack
     // pueda compilar archivos en packages/* que están fuera de apps/web.
-    // __dirname es siempre apps/web (directorio de este config file).
     root: path.resolve(__dirname, '../..'),
   },
   images: {
@@ -29,6 +29,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
   },
-};
+}
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Suppress Sentry CLI output outside of CI
+  silent: !process.env['CI'],
+  // Source map upload requires SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT.
+  // Without them this is a no-op — add them in Vercel env vars when ready.
+  sourcemaps: { disable: true },
+  disableLogger: true,
+  widenClientFileUpload: true,
+})

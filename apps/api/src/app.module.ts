@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
+import { SentryModule } from '@sentry/nestjs/setup'
 import { AppController } from './app.controller'
 import { ConfigModule } from '@nestjs/config'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
@@ -23,6 +24,7 @@ import { RolesGuard } from './auth/guards/roles.guard'
 @Module({
   controllers: [AppController],
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 100 }] }),
     InfrastructureModule,

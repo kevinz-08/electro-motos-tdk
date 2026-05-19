@@ -32,9 +32,10 @@ export class StructuredLogger implements LoggerService {
       message: String(message),
     }
 
-    if (isError && context) {
-      entry['context'] = context
-      entry['stack'] = contextOrTrace
+    if (isError) {
+      // error(msg, stack, context) — stack and context are independent fields
+      if (context) entry['context'] = context
+      if (contextOrTrace) entry['stack'] = contextOrTrace
     } else if (contextOrTrace) {
       entry['context'] = contextOrTrace
     }

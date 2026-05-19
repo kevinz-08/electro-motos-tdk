@@ -1750,4 +1750,51 @@ La app ya usaba `<Image>` de Next.js en todos los componentes de producto (no ha
 
 ---
 
-*Última actualización: 2026-05-15*
+---
+
+## 54. Auditoría Técnica v2.0 — AUDITORIA.md actualizado
+
+**Qué se hizo:**
+Se realizó una segunda auditoría técnica exhaustiva del proyecto post-Sprints 4–6, con revisión directa del código fuente de todos los módulos críticos. Se actualizó `AUDITORIA.md` con la estructura de auditoría v2.0.
+
+**Alcance de la revisión:**
+- Verificación de todos los hallazgos críticos de la auditoría v1.0 (5/5 resueltos correctamente).
+- Análisis de nuevos hallazgos no presentes en v1.0 (3 bloqueantes de producción identificados).
+- Matriz de impacto actualizada con 18 hallazgos clasificados por área y severidad.
+- Score actualizado: 6.4/10 → 7.3/10.
+- Porcentaje de completitud actualizado: 72 % → 82 %.
+
+**Hallazgos nuevos identificados (no estaban en v1.0):**
+
+- **CRÍTICO:** `/auth/error` page no existe — NextAuth dirige errores OAuth a una ruta 404.
+- **CRÍTICO:** Rate limiter en memoria (`rate-limit.ts`) inoperativo en entorno serverless (Vercel).
+- **ALTO:** `WOMPI_EVENTS_SECRET` vacío no lanza error al arrancar — servidor acepta webhooks sin secreto configurado.
+- **ALTO:** Número de WhatsApp hardcodeado como placeholder (`573000000000`) en home y catálogo.
+- **ALTO:** Sin health check endpoint en NestJS — Railway no puede verificar salud real del proceso.
+- **ALTO:** NextAuth `"^5.0.0-beta.30"` sin pinar exacto — riesgo de breaking changes automáticos.
+- **ALTO:** Sin CI/CD pipeline — ninguna gate de calidad automática en merges a main.
+
+**Archivos modificados:**
+- `AUDITORIA.md` — reescritura completa v2.0 con métricas, matriz de impacto y roadmap actualizado.
+
+---
+
+## 55. BACKLOG.md reorganizado post-Sprint 6
+
+**Qué se hizo:**
+Se reescribió `BACKLOG.md` eliminando los sprints completados (4, 5, 6) y reorganizando el resto en base a los nuevos hallazgos de la Auditoría Técnica v2.0. Se añadieron 7 tareas nuevas no presentes en la versión anterior (3 bloqueantes críticos de producción identificados en la auditoría + 4 tareas de hardening).
+
+**Cambios estructurales:**
+- Eliminados: Sprint 4 (5 FIX completados), Sprint 5 (3/4 completados), Sprint 6 (4 FEATURE completados)
+- **Sprint 7 (nuevo):** 3 FIX críticos — `/auth/error` page, rate limiter serverless, WhatsApp env var
+- **Sprint 8 (nuevo):** 5 tareas de hardening — Sentry, health check, NextAuth pinado + env validation, CI/CD, email queue
+- **Sprint 9 (reorganizado de ex-Sprint 7):** Widget Wompi, empty states, paginación con ventana
+- **Sprint 10 (nuevo + ex-Sprint 7/8):** Sitemap, OG images, generateStaticParams, tipos Swagger
+- **Sprint 11 (ex-Sprint 8 expandido):** Server/Client audit, a11y, E2E Playwright, coverage threshold
+
+**Score actualizado:** 6.4/10 → 7.3/10 (actual). Objetivo: 8.5/10 al completar Sprint 11.
+
+**Archivos modificados:**
+- `BACKLOG.md` — reescritura completa con 19 tareas en 5 sprints, cada una con prompt ejecutable
+
+*Última actualización: 2026-05-19*

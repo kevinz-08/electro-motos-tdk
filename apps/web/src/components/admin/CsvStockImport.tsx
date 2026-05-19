@@ -30,7 +30,7 @@ import { useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
-import { CACHE_TAGS } from '@/lib/cache'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 export function CsvStockImport() {
 

@@ -1798,3 +1798,24 @@ Se reescribió `BACKLOG.md` eliminando los sprints completados (4, 5, 6) y reorg
 - `BACKLOG.md` — reescritura completa con 19 tareas en 5 sprints, cada una con prompt ejecutable
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 56. Hotfix — Extraer CACHE_TAGS a cache-tags.ts (fix Vercel build)
+
+**Qué se hizo:**
+Se extrajo la constante `CACHE_TAGS` de `apps/web/src/lib/cache.ts` a un archivo independiente `apps/web/src/lib/cache-tags.ts` sin ninguna dependencia server-only. Se actualizaron los tres `'use client'` components que la importaban para apuntar al nuevo archivo.
+
+**Problema resuelto:**
+El build de Vercel fallaba con `module-not-found` porque `CsvStockImport.tsx`, `CategoryManager.tsx` y `ProductEditForm.tsx` (todos `'use client'`) importaban `CACHE_TAGS` desde `@/lib/cache`, que a su vez importa `unstable_cache` (next/cache) y el cliente Prisma — ambos server-only. El bundler de Next.js intentó incluirlos en el bundle del cliente y falló.
+
+**Archivos modificados:**
+- `apps/web/src/lib/cache-tags.ts` — NUEVO: exporta `CACHE_TAGS` sin deps
+- `apps/web/src/lib/cache.ts` — importa y re-exporta `CACHE_TAGS` desde `./cache-tags`
+- `apps/web/src/components/admin/CsvStockImport.tsx` — import desde `@/lib/cache-tags`
+- `apps/web/src/components/admin/CategoryManager.tsx` — import desde `@/lib/cache-tags`
+- `apps/web/src/components/admin/ProductEditForm.tsx` — import desde `@/lib/cache-tags`
+
+**Rama:** `hotfix/cache-tags-client-bundle` → `main`
+
+*Última actualización: 2026-05-19*

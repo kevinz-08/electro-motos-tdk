@@ -55,19 +55,27 @@ export interface IOrderRepository {
    */
   updatePaymentExternalId(orderId: string, externalId: string): Promise<void>
   /**
-   * Transición atómica desde PENDING que actualiza Order.status, Payment.status y
-   * Payment.externalId en una sola transacción de BD.
+   * Transición atómica desde PENDING que actualiza Order.status, Payment.status,
+   * Payment.externalId y, opcionalmente, el stock de los productos — todo en una
+   * sola transacción de BD.
    *
    * Atomicidad garantiza:
    *   - Idempotencia correcta ante reintentos del webhook: solo el primero aplica.
    *   - Order.status y Payment.status quedan siempre consistentes.
+   *   - Si se proveen `stockDecrements`, el descuento de stock y el cambio de estado
+   *     son atómicos: o ambos ocurren o ninguno (no hay ventana entre ambas operaciones).
    *
-   * El caller debe verificar `applied` para decidir efectos secundarios
-   * (ej: enviar email, descontar stock).
+   * El caller debe verificar `applied` para decidir efectos secundarios (ej: enviar email).
    */
   transitionFromPending(
     orderId: string,
-    to: { orderStatus: OrderStatus; paymentStatus: PaymentStatus; externalId: string },
+    to: {
+      orderStatus: OrderStatus
+      paymentStatus: PaymentStatus
+      externalId: string
+      /** Items a descontar de stock dentro de la misma transacción (solo para APPROVED). */
+      stockDecrements?: Array<{ productId: string; quantity: number }>
+    },
   ): Promise<PaymentTransitionResult>
   /** Calcula los ingresos del día (pedidos PAID creados hoy). Retorna centavos COP. */
   getTodayRevenue(): Promise<number>

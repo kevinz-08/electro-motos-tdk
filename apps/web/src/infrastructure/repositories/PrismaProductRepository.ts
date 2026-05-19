@@ -7,8 +7,8 @@
  */
 import {
   prisma,
-  type Product as PrismaProduct,
-  type MotorcycleCompatibility as PrismaCompat,
+  type ProductModel as PrismaProduct,
+  type MotorcycleCompatibilityModel as PrismaCompat,
 } from '@h2r/database'
 import {
   IProductRepository,

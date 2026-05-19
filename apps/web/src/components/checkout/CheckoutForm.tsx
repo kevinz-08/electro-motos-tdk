@@ -16,6 +16,7 @@
  */
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import type { CreateOrderResponse } from '@h2r/types'
 import { useCart } from '@/lib/cart'
 import { WompiWidget } from './WompiWidget'
 import { apiClient } from '@/lib/api-client'
@@ -46,12 +47,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
   const { items, total, clearCart } = useCart()
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping')
   const [orderId, setOrderId] = useState<string | null>(null)
-  const [wompiParams, setWompiParams] = useState<{
-    reference: string
-    integritySignature: string
-    publicKey: string
-    amountInCents: number
-  } | null>(null)
+  const [wompiParams, setWompiParams] = useState<CreateOrderResponse['payment'] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,7 +71,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
       const client = apiClient(session?.user?.accessToken)
 
       // Crear el pedido — la respuesta ya incluye la firma de integridad Wompi
-      const orderRes = await client.post('/orders', {
+      const orderRes = await client.post<CreateOrderResponse>('/orders', {
         items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
         shippingAddress: {
           fullName: form.fullName,
@@ -89,19 +85,10 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
       })
 
       if (!orderRes.ok) {
-        const data = (await orderRes.json()) as { error?: string; message?: string }
-        throw new Error(data.message ?? data.error ?? 'Error al crear el pedido')
+        throw new Error(orderRes.error ?? 'Error al crear el pedido')
       }
 
-      const { order, payment } = (await orderRes.json()) as {
-        order: { id: string }
-        payment: {
-          reference: string
-          integritySignature: string
-          publicKey: string
-          amountInCents: number
-        }
-      }
+      const { order, payment } = orderRes.data
 
       if (!payment?.publicKey) {
         throw new Error('Configuración de pago incompleta. Contacta al administrador.')
@@ -255,9 +242,11 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
             <p className="text-sm text-gray-500 mb-6">
               Completa tu pago. Aceptamos Tarjeta, Nequi, PSE y Bancolombia.
             </p>
-            {wompiParams && (
+            {wompiParams && wompiParams.publicKey && wompiParams.integritySignature && (
               <WompiWidget
                 {...wompiParams}
+                publicKey={wompiParams.publicKey}
+                integritySignature={wompiParams.integritySignature}
                 redirectUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/checkout/confirmacion?orderId=${orderId}`}
                 onSuccess={() => clearCart()}
               />

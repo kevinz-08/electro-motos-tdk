@@ -7,11 +7,42 @@ import helmet from 'helmet'
 import compression = require('compression')
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter'
+import { StructuredLogger } from './shared/logger/StructuredLogger'
+import { LoggingInterceptor } from './shared/interceptors/logging.interceptor'
+
+type CorsOriginCallback = (err: Error | null, allow?: boolean) => void
+
+function getCorsOrigin(origin: string | undefined, callback: CorsOriginCallback): void {
+  // Peticiones sin origin: server-side, Swagger, curl
+  if (!origin) return callback(null, true)
+
+  const isProd = process.env['NODE_ENV'] === 'production'
+  const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000'
+
+  if (isProd) {
+    // Producción: solo el frontend declarado en FRONTEND_URL
+    return origin === frontendUrl
+      ? callback(null, true)
+      : callback(new Error(`CORS bloqueado para origin: ${origin}`))
+  }
+
+  // Desarrollo: frontend, localhost y subdominios ngrok (para webhooks locales)
+  const devAllowed = [frontendUrl, 'http://localhost:3000']
+  if (
+    devAllowed.includes(origin) ||
+    origin.endsWith('.ngrok-free.app') ||
+    origin.endsWith('.ngrok-free.dev')
+  ) {
+    return callback(null, true)
+  }
+
+  callback(new Error(`CORS bloqueado para origin: ${origin}`))
+}
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug'],
-  })
+  const structuredLogger = new StructuredLogger()
+  const app = await NestFactory.create(AppModule, { bufferLogs: true })
+  app.useLogger(structuredLogger)
 
   // Seguridad y compresión
   // En desarrollo, Swagger UI requiere scripts/estilos inline — relajamos CSP solo ahí
@@ -22,25 +53,9 @@ async function bootstrap() {
   )
   app.use(compression())
 
-  // CORS — acepta el frontend declarado en FRONTEND_URL más localhost en desarrollo
-  const allowedOrigins = [
-    process.env['FRONTEND_URL'] ?? 'http://localhost:3000',
-    'http://localhost:3000',
-  ].filter(Boolean)
+  // CORS — producción: solo FRONTEND_URL; desarrollo: + localhost + wildcards ngrok
   app.enableCors({
-    origin: (origin, callback) => {
-      // Permitir peticiones sin origin (server-side, Swagger, curl)
-      if (!origin) return callback(null, true)
-      // Permitir cualquier subdominio de ngrok en desarrollo
-      if (process.env['NODE_ENV'] !== 'production' && origin.endsWith('.ngrok-free.app')) {
-        return callback(null, true)
-      }
-      if (process.env['NODE_ENV'] !== 'production' && origin.endsWith('.ngrok-free.dev')) {
-        return callback(null, true)
-      }
-      if (allowedOrigins.includes(origin)) return callback(null, true)
-      callback(new Error(`CORS bloqueado para origin: ${origin}`))
-    },
+    origin: getCorsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
@@ -57,6 +72,9 @@ async function bootstrap() {
 
   // Filtro global: mapea AppError del dominio a códigos HTTP correctos
   app.useGlobalFilters(new HttpExceptionFilter())
+
+  // Interceptor global: loguea cada request HTTP completado con método, URL, status y latencia
+  app.useGlobalInterceptors(new LoggingInterceptor())
 
   // Swagger solo en desarrollo
   if (process.env['NODE_ENV'] !== 'production') {

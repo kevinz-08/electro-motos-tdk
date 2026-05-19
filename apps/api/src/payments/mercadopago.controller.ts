@@ -3,8 +3,8 @@ import {
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
-import { ConfirmPayment, IOrderRepository, IProductRepository, PaymentStatus } from '@h2r/domain'
-import { ORDER_REPOSITORY, PRODUCT_REPOSITORY } from '../infrastructure/injection-tokens'
+import { ConfirmPayment, IOrderRepository, PaymentStatus } from '@h2r/domain'
+import { ORDER_REPOSITORY } from '../infrastructure/injection-tokens'
 import { MercadoPagoService } from '../infrastructure/services/MercadoPagoService'
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
@@ -19,7 +19,6 @@ export class MercadoPagoController {
 
   constructor(
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: IOrderRepository,
-    @Inject(PRODUCT_REPOSITORY) private readonly productRepo: IProductRepository,
     private readonly mpService: MercadoPagoService,
     private readonly emailService: ResendEmailService,
     private readonly prisma: PrismaService,
@@ -79,7 +78,7 @@ export class MercadoPagoController {
     }
     const orderId = parts[1]
 
-    const confirmPayment = new ConfirmPayment(this.orderRepo, this.productRepo)
+    const confirmPayment = new ConfirmPayment(this.orderRepo)
     const result = await confirmPayment.execute({ orderId, externalId, status: paymentStatus })
 
     if (!result.ok) {

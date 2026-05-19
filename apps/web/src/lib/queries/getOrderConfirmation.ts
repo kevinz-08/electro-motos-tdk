@@ -27,9 +27,9 @@ export type OrderConfirmation = {
   items: OrderConfirmationItem[]
 }
 
-export async function getOrderConfirmation(orderId: string): Promise<OrderConfirmation | null> {
+export async function getOrderConfirmation(orderId: string, userId: string): Promise<OrderConfirmation | null> {
   const order = await prisma.order.findUnique({
-    where: { id: orderId },
+    where: { id: orderId, userId },
     include: {
       items: {
         include: {

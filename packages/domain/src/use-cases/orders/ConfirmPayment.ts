@@ -1,5 +1,4 @@
 import { IOrderRepository } from '@/domain/repositories/IOrderRepository'
-import { IProductRepository } from '@/domain/repositories/IProductRepository'
 import { PaymentStatus, OrderStatus } from '@/domain/entities/Order'
 import { Result, ok, err, AppError } from '@/domain/shared/Result'
 
@@ -34,12 +33,11 @@ export interface ConfirmPaymentOutput {
  *   - **Idempotencia atómica**: la transición PENDING → X ocurre con un
  *     `updateMany WHERE status = 'PENDING'`. Dos webhooks concurrentes no
  *     pueden aplicar el mismo cambio; solo el primero entra.
- *   - **Payment.status consistente**: Order.status y Payment.status se actualizan
- *     en la misma transacción de BD (prisma.$transaction).
+ *   - **Atomicidad completa**: Order.status, Payment.status y stock de productos
+ *     se actualizan en la misma transacción de BD. No hay ventana entre el cambio
+ *     de estado y el descuento de stock.
  *   - **Validación de monto**: si el webhook reporta un monto distinto al del pedido,
  *     se rechaza con VALIDATION_ERROR y se loguea.
- *   - **Descuento de stock atómico**: `decrementStock` hace `stock = stock - qty` en
- *     la BD, no read-modify-write, evitando races.
  *
  * Transiciones:
  *   APPROVED             → Order: PAID      + descuenta stock de cada ítem
@@ -49,7 +47,6 @@ export interface ConfirmPaymentOutput {
 export class ConfirmPayment {
   constructor(
     private readonly orderRepo: IOrderRepository,
-    private readonly productRepo: IProductRepository,
   ) {}
 
   async execute(input: ConfirmPaymentInput): Promise<Result<ConfirmPaymentOutput>> {
@@ -91,24 +88,14 @@ export class ConfirmPayment {
         orderStatus: targetOrderStatus,
         paymentStatus: input.status,
         externalId: input.externalId,
+        stockDecrements:
+          input.status === 'APPROVED' && order.items
+            ? order.items.map(({ productId, quantity }) => ({ productId, quantity }))
+            : undefined,
       })
 
       if (!transition.applied) {
         return ok({ stateChanged: false, finalStatus: order.status })
-      }
-
-      if (input.status === 'APPROVED' && order.items) {
-        for (const item of order.items) {
-          try {
-            await this.productRepo.decrementStock(item.productId, item.quantity)
-          } catch (e) {
-            console.error(
-              `[ConfirmPayment] Error descontando stock de producto ${item.productId} ` +
-                `en pedido ${order.id}:`,
-              e,
-            )
-          }
-        }
       }
 
       return ok({ stateChanged: true, finalStatus: targetOrderStatus })

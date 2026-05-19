@@ -37,6 +37,13 @@ const WIDTH: Record<ImageContext, number> = {
 }
 
 /**
+ * Placeholder de un píxel gris claro usado como blurDataURL mientras carga
+ * la imagen real. Evita un destello blanco/vacío en el LCP.
+ */
+export const IMAGE_BLUR_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23f3f4f6'/%3E%3C/svg%3E"
+
+/**
  * Construye una URL de Cloudinary optimizada para el contexto dado.
  * Acepta dos formatos:
  *   - URL completa:  "https://res.cloudinary.com/cloud/image/upload/..."

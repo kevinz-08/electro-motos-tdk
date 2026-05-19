@@ -1351,4 +1351,450 @@ Tipografía con `helvetica` (embebida en jsPDF). Colores tomados de la paleta Ta
 
 ---
 
-*Última actualización: 2026-05-08*
+## 41. Sprint 4 — FIX 4.1: Eliminar `ignoreBuildErrors` y resolver errores TypeScript
+
+**Qué se hizo:**
+Se eliminó la opción `typescript: { ignoreBuildErrors: true }` de `apps/web/next.config.ts`, que silenciaba todos los errores de TypeScript en los builds de producción. Se ejecutó `pnpm --filter @h2r/web type-check` y se resolvieron los 11 errores encontrados:
+
+**Grupo 1 — Tipos de modelos Prisma 7 renombrados:**
+Prisma 7 genera los tipos de modelos con el sufijo `Model` (`OrderModel`, `OrderItemModel`, `PaymentModel`, `ProductModel`, `MotorcycleCompatibilityModel`, `UserModel`). Los tres repositorios en `apps/web/src/infrastructure/repositories/` importaban los nombres sin sufijo (e.g. `type Order as PrismaOrder`), que ya no existen en la API pública de `@h2r/database`. Se actualizaron todos los imports al nombre correcto.
+
+**Grupo 2 — Augmentación de módulo `next-auth/jwt` inválida:**
+`declare module 'next-auth/jwt'` fallaba con TS2664 porque `next-auth/jwt` re-exporta desde `@auth/core/jwt`, y pnpm no hoist `@auth/core` a `node_modules/@auth/core`. TypeScript no puede resolver la cadena de re-export, invalidando la augmentación. Se eliminó el bloque `declare module 'next-auth/jwt'` y se reemplazó con un comentario explicativo. En el `session` callback se usan casts explícitos (`token.id as string`, `token.role as string`, `token.accessToken as string | undefined`) que son safe dado que esos campos se asignan siempre en el `jwt` callback.
+
+**Archivos modificados:**
+
+- `apps/web/next.config.ts` — eliminada propiedad `typescript.ignoreBuildErrors`
+- `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts` — imports `OrderModel`, `OrderItemModel`, `PaymentModel`
+- `apps/web/src/infrastructure/repositories/PrismaProductRepository.ts` — imports `ProductModel`, `MotorcycleCompatibilityModel`
+- `apps/web/src/infrastructure/repositories/PrismaUserRepository.ts` — import `UserModel`
+- `apps/web/src/lib/auth.ts` — eliminado `declare module 'next-auth/jwt'`, casts en session callback
+
+**Resultado:** `pnpm --filter @h2r/web type-check` pasa sin errores (0 errores, 0 warnings).
+
+---
+
+## 42. Sprint 4 — FIX 4.2: Race condition en webhook Wompi (transacción atómica)
+
+**Qué se hizo:**
+Se resolvió la race condition y el gap de atomicidad en el flujo de confirmación de pago. Aunque `transitionFromPending()` ya usaba `$transaction` para el cambio de estado de Order y Payment, el descuento de stock ocurría DESPUÉS de esa transacción en un loop separado en `ConfirmPayment.ts`. Esto creaba una ventana donde un proceso podía fallar entre el cambio de estado y el descuento de stock, dejando la orden en PAID con stock sin descontar.
+
+**Diseño:**
+Se extendió `IOrderRepository.transitionFromPending()` con un parámetro opcional `stockDecrements`. Cuando se proporciona (solo para APPROVED), el descuento de stock ocurre DENTRO de la misma `$transaction` de Prisma que actualiza Order.status y Payment.status. Resultado: las tres operaciones son atómicas — o todas se aplican o ninguna.
+
+**Cambios clave:**
+
+- `IOrderRepository.transitionFromPending()` ahora acepta `stockDecrements?: Array<{ productId, quantity }>` en el parámetro `to`
+- `PrismaOrderRepository` (api): agrega loop de `tx.product.update({ data: { stock: { decrement: quantity } } })` dentro de la `$transaction` cuando `stockDecrements` está presente
+- `ConfirmPayment.ts`: elimina dependencia de `IProductRepository` y el loop separado de `decrementStock`; pasa `order.items` como `stockDecrements` cuando `status === 'APPROVED'`
+- `WompiController` y `MercadoPagoController`: eliminan `@Inject(PRODUCT_REPOSITORY)` y la inyección `productRepo` (ya no la necesitan)
+- `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts`: actualiza la firma de `transitionFromPending()` para coincidir con la interfaz (sin implementar stock decrement, ya que web no procesa webhooks)
+
+**Archivos modificados:**
+
+- `packages/domain/src/repositories/IOrderRepository.ts`
+- `packages/domain/src/use-cases/orders/ConfirmPayment.ts`
+- `apps/api/src/infrastructure/repositories/PrismaOrderRepository.ts`
+- `apps/api/src/payments/wompi.controller.ts`
+- `apps/api/src/payments/mercadopago.controller.ts`
+- `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts`
+
+**Resultado:** `pnpm --filter @h2r/web type-check` y `pnpm --filter @h2r/api type-check` pasan sin errores.
+
+---
+
+## 43. Sprint 4 — FIX 4.3: Resolver `PrismaAdapter(prisma as any)` y error TS6307 en @h2r/database
+
+**Qué se hizo:**
+Se eliminó el cast `as any` en `PrismaAdapter(prisma as any)` dentro de `apps/web/src/lib/auth.ts`. La investigación mostró que `@auth/prisma-adapter@2.11.2` y `@prisma/client@7.8.0` son estructuralmente compatibles — el cast fue agregado originalmente cuando la versión del adapter no matcheaba, pero con las versiones actuales no hay mismatch. TypeScript compila sin errores al pasar `prisma` directamente.
+
+Se corrigió también un error TS6307 pre-existente en `packages/database/tsconfig.json`: la entrada `exclude: ["src/generated/**/*"]` impedía que los archivos del cliente Prisma generado (que tienen `@ts-nocheck`) fueran reconocidos como parte del proyecto TypeScript compuesto, causando el error "File is not listed within the file list of project" cada vez que `src/index.ts` los importaba. La corrección fue agregar `src/generated/**/*.ts` al `include` y eliminar el `exclude`.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/auth.ts` — elimina `eslint-disable @typescript-eslint/no-explicit-any` + cast `as any`
+- `packages/database/tsconfig.json` — agrega `src/generated/**/*.ts` a `include`, elimina `exclude` de generated
+
+**Resultado:** `pnpm type-check` pasa 6/6 tareas en el monorepo sin errores.
+
+---
+
+## 44. Sprint 4 — FIX 4.4: Filtro `userId` en confirmación de pedido
+
+**Qué se hizo:**
+Se auditaron todos los Server Components y query helpers de `apps/web/src/` que acceden a pedidos vía Prisma. Se encontró una brecha de autorización en `getOrderConfirmation`: la función buscaba por `id` únicamente, sin verificar que el pedido perteneciera al usuario autenticado. Cualquier usuario que conociera el `orderId` de otro podía ver su confirmación.
+
+**Cambios:**
+
+- `getOrderConfirmation(orderId, userId)`: agrega `userId` como segundo parámetro obligatorio y lo incluye en el `where` de Prisma (`where: { id: orderId, userId }`). Si el orderId existe pero pertenece a otro usuario, Prisma retorna `null` y la página muestra "Pedido no encontrado".
+- `ConfirmacionPage`: agrega `auth()` al inicio del componente. Si no hay sesión activa, redirige a `/auth/login`. Pasa `session.user.id` a `getOrderConfirmation`.
+
+**Rutas auditadas como seguras (sin cambios necesarios):**
+
+- `getOrderHistory`: ya filtraba por `userId` desde el inicio
+- `catalogo/page.tsx`, `home.tsx`: queries públicas sobre productos y categorías — no exponen datos de usuario
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/queries/getOrderConfirmation.ts`
+- `apps/web/src/app/(store)/checkout/confirmacion/page.tsx`
+
+**Resultado:** `tsc --noEmit` en `apps/web` pasa sin errores.
+
+---
+
+## 45. Sprint 4 — FIX 4.5: Eliminar N+1 queries en la vista landing del catálogo
+
+**Qué se hizo:**
+Se auditaron todas las queries de productos en `apps/web/src/`. Se confirmó que `PrismaProductRepository` ya usaba `include: { compatible: true }` en todos sus métodos (sin N+1 en compatibilidad). El problema estaba en la **vista landing** de `catalogo/page.tsx`:
+
+**Antes** (1 + N×2 queries — con 5 categorías padre = 11 queries):
+
+```typescript
+prisma.category.findMany()                        // 1 query
+Promise.all(parents.map(() =>
+  Promise.all([
+    prisma.product.findMany({ categoryId: parent })  // 1 por padre
+    prisma.product.count({ categoryId: parent })     // 1 por padre
+  ])
+))
+```
+
+**Después** (3 queries totales):
+
+1. `prisma.category.findMany` con hijos (sin cambio)
+2. `prisma.product.findMany` con **todos** los categoryIds a la vez
+3. `prisma.product.groupBy({ by: ['categoryId'], _count: true })` para contar por categoría en un solo round-trip
+
+El ensamblado en memoria usa `new Map(countRows.map(...))` y `allProducts.filter().slice(0, 8)` por cada padre. El orden `createdAt desc` se preserva porque la query global ya está ordenada.
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/catalogo/page.tsx` — solo la sección de vista landing (lines ~231-270)
+
+**Resultado:** `pnpm type-check` pasa 6/6 tareas. La vista grid no fue modificada (usa `PrismaProductRepository.findAll()` que ya era eficiente).
+
+---
+
+## 46. Sprint 5 — FEATURE 5.1: Tests unitarios para el flujo de pagos con Vitest
+
+**Qué se hizo:**
+Se instaló Vitest como framework de testing en `packages/domain` y `apps/api`. Se crearon 23 tests distribuidos en tres archivos cubriendo los casos críticos del flujo de pagos.
+
+**Archivos de test creados:**
+
+- `packages/domain/src/__tests__/CreateOrder.test.ts` (6 tests)
+  - Happy path: total calculado correctamente; `create()` llamado con ítems resueltos
+  - `err(STOCK_UNAVAILABLE)` cuando cantidad supera stock
+  - `err(NOT_FOUND)` cuando producto no existe
+  - `err(VALIDATION_ERROR)` cuando cantidad = 0 o producto inactivo
+
+- `packages/domain/src/__tests__/ConfirmPayment.test.ts` (8 tests)
+  - `ok({ stateChanged: true, finalStatus: PAID })` cuando pago APPROVED
+  - `stockDecrements` pasa correctamente dentro de `transitionFromPending`
+  - Idempotencia: `stateChanged: false` si orden ya no es PENDING
+  - Idempotencia: `stateChanged: false` si `transition.applied = false` (webhook duplicado)
+  - No llama a `transitionFromPending` cuando webhook reporta PENDING
+  - `CANCELLED` + sin `stockDecrements` cuando pago es DECLINED
+  - `err(VALIDATION_ERROR)` cuando monto del webhook no coincide con `order.total`
+  - `err(NOT_FOUND)` cuando el pedido no existe
+
+- `apps/api/src/__tests__/WompiService.test.ts` (9 tests)
+  - Acepta payload con firma SHA-256 correcta y timestamp dentro de ventana
+  - Rechaza checksum alterado; rechaza timestamp >600 s en el pasado/futuro
+  - Rechaza payload sin `signature`; rechaza cuando `WOMPI_EVENTS_SECRET` no está configurado
+  - `computeIntegritySignature`: determinismo, sensibilidad a parámetros, formato hex 64 chars
+
+**Configuración:**
+
+- `packages/domain/vitest.config.ts`: alias `@/domain → ./src`
+- `apps/api/vitest.config.ts`: `setupFiles: ['reflect-metadata']` para decoradores NestJS
+- Script `"test": "vitest run"` agregado en ambos `package.json`
+
+**Hallazgo adicional corregido:**
+Archivos `.js` compilados stale en `packages/domain/src/` (debían estar en `dist/`) hacían que Vitest cargara código previo a FIX 4.2. Se eliminaron.
+
+**Resultado:** `pnpm --filter @h2r/domain test` pasa 14/14. `pnpm --filter @h2r/api test` pasa 9/9. `pnpm type-check` 6/6.
+
+---
+
+## 47. Sprint 5 — FEATURE 5.2: Logging estructurado JSON + error boundaries
+
+**Qué se hizo:**
+Se implementó una capa completa de observabilidad estructurada para la API y el frontend, dado que Sentry no estaba disponible en el proyecto.
+
+**Archivos nuevos:**
+
+- `apps/api/src/shared/logger/StructuredLogger.ts`
+  - Implementa `LoggerService` de NestJS.
+  - Emite cada línea como JSON a stdout (info/warn/debug/verbose) o stderr (error/fatal).
+  - Formato: `{ timestamp, level, context?, message, stack? }`.
+  - Compatible con cualquier agregador que parsee JSON por línea (Railway logs, Datadog, Logtail).
+
+- `apps/api/src/shared/interceptors/logging.interceptor.ts`
+  - Implementa `NestInterceptor`, registrado globalmente.
+  - Usa RxJS `tap.next` para loguear en el camino de respuesta exitosa.
+  - Formato: `GET /catalogo 200 +45ms uid=abc123`.
+  - Errores no se loguean aquí para evitar duplicados con `HttpExceptionFilter`.
+
+- `apps/web/src/app/error.tsx`
+  - Error boundary de ruta para Next.js App Router (`'use client'`).
+  - Muestra mensaje de error, botones "Intentar de nuevo" y "Ir al inicio".
+  - En desarrollo muestra el mensaje de error; en producción solo el mensaje genérico.
+
+- `apps/web/src/app/global-error.tsx`
+  - Captura errores en el root layout (necesita su propio `<html><body>`).
+  - Usa estilos inline para no depender de Tailwind (que puede no cargarse si el layout falla).
+
+**Archivos modificados:**
+
+- `apps/api/src/shared/filters/http-exception.filter.ts`
+  - Logs de error enriquecidos con método y URL: `POST /orders → [VALIDATION_ERROR] ...`
+  - Aplica a `AppError` (5xx) y a errores inesperados no manejados.
+
+- `apps/api/src/main.ts`
+  - Reemplaza el logger por defecto por `StructuredLogger` via `app.useLogger()`.
+  - `bufferLogs: true` asegura que los logs durante el bootstrap usen el logger estructurado.
+  - Registra `LoggingInterceptor` globalmente via `app.useGlobalInterceptors()`.
+
+**Resultado:** `pnpm type-check` 6/6. Commit `40db638`.
+
+---
+
+## 48. Sprint 5 — FEATURE 5.3: Poblar `packages/types` con DTOs compartidos
+
+**Qué se hizo:**
+Se poblaron los 6 archivos del paquete `@h2r/types` con interfaces TypeScript puras (sin decoradores de `class-validator`) que espejean todos los DTOs de request y response de la API NestJS. El objetivo es que tanto `apps/api` como `apps/web` importen tipos del mismo contrato, y que el compilador detecte cambios de contrato en build-time en lugar de en runtime.
+
+**Archivos nuevos en `packages/types/src/`:**
+
+- `common.types.ts`: `ApiError` (forma del error HTTP estándar del `HttpExceptionFilter`), `Paginated<T>` (wrapper genérico para listas paginadas).
+
+- `auth.types.ts`: `LoginRequest`, `RegisterRequest`, `ForgotPasswordRequest`, `ResetPasswordRequest` y sus correspondientes Response (`accessToken`, `message`).
+
+- `product.types.ts`: `PaymentProvider` (unión `WOMPI | MERCADO_PAGO`), `ListProductsQuery`, `CategoryResponse`, `ProductResponse`.
+
+- `order.types.ts`: `OrderStatus`, `PaymentStatus`, `ShippingAddress`, `OrderItemRequest`, `CreateOrderRequest`, `UpdateOrderStatusRequest`, `OrderItemResponse`, `OrderResponse`, `PaymentInitResponse`, `CreateOrderResponse`, `UpdateOrderStatusResponse`.
+
+- `payment.types.ts`: `WompiIntegrityRequest/Response`, `MpPreferenceRequest/Response`, `WebhookAckResponse`.
+
+- `admin.types.ts`: `CreateProductRequest`, `UpdateProductRequest`, `UpdateStockRequest`, `BulkStockUpdateRequest`, `CreateCategoryRequest`, `UpdateCategoryRequest`, `ToggleSettingRequest`.
+
+**Archivos modificados:**
+
+- `packages/types/src/index.ts`: exporta todos los módulos con `export *`.
+
+- `apps/web/src/components/checkout/CheckoutForm.tsx`:
+  - Reemplaza inline type cast `as { order: ...; payment: ... }` por `as CreateOrderResponse`.
+  - Reemplaza inline type cast `as { error?: string; message?: string }` por `as ApiError`.
+  - El estado `wompiParams` usa `CreateOrderResponse['payment']` en lugar de una interfaz local redundante.
+  - La guarda `wompiParams.publicKey && wompiParams.integritySignature` antes del `<WompiWidget>` satisface TypeScript sin `!`.
+
+**Resultado:** `pnpm type-check` 6/6. Commit `4a8b3f0`.
+
+---
+
+## 49. Sprint 5 — FIX 5.4: Optimizar imágenes de producto con `priority` y `placeholder="blur"`
+
+**Diagnóstico previo:**
+La app ya usaba `<Image>` de Next.js en todos los componentes de producto (no había `<img>` nativas que migrar), `res.cloudinary.com` ya estaba en `remotePatterns`, y el helper `cloudinaryUrl()` ya aplicaba `f_auto,q_auto,w_N,c_limit` (WebP/AVIF). Las brechas reales eran: (1) ninguna card de catálogo/home pasaba `priority`, haciendo que imágenes above the fold cargaran lazy; (2) sin `placeholder="blur"`, el usuario veía un fondo vacío durante la carga.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/cloudinary.ts`
+  - Exporta `IMAGE_BLUR_PLACEHOLDER`: un SVG de 1×1 px gris claro codificado como data URI. Se usa como `blurDataURL` en todas las imágenes de producto — el navegador muestra este placeholder mientras descarga la imagen real, eliminando el destello en blanco.
+
+- `apps/web/src/components/store/ProductCard.tsx`
+  - Nueva prop `priority?: boolean` (default `false`). Se pasa al primer `<Image>` (imagen principal) y activa carga eager cuando es `true`.
+  - Ambas imágenes (principal y crossfade) usan `placeholder="blur" blurDataURL={IMAGE_BLUR_PLACEHOLDER}`.
+
+- `apps/web/src/components/store/ProductImageGallery.tsx`
+  - La imagen principal del detalle de producto (el LCP de la página) ahora usa `placeholder="blur" blurDataURL={IMAGE_BLUR_PLACEHOLDER}`.
+
+- `apps/web/src/app/(store)/catalogo/page.tsx`
+  - Pasa `priority={index < 4}` a `<ProductCard>`: los primeros 4 resultados (primera fila del grid `lg:grid-cols-4`) cargan eager.
+
+- `apps/web/src/app/(store)/home.tsx`
+  - Pasa `priority={index < 4}` a `<ProductCard>` en la sección de productos destacados.
+
+**Resultado:** `pnpm type-check` 6/6. Commit `8d2cbe5`.
+
+---
+
+## 50. Sprint 6 — FEATURE 6.1: Caché de home y catálogo con `unstable_cache`
+
+**Objetivo:** Eliminar queries Prisma en cada request en las rutas públicas de mayor tráfico (home, catálogo, detalle de producto) y garantizar invalidación on-demand cuando el admin modifica datos.
+
+**Problema previo:** Home y catálogo hacían queries Prisma directas en cada request de SSR. Con 1.000 visitas concurrentes, el catálogo consultaba PostgreSQL (Neon serverless) 1.000 veces por segundo.
+
+**Archivos creados:**
+
+- `apps/web/src/lib/cache.ts` *(nuevo)*
+  - `CACHE_TAGS` — constantes para los tags de invalidación: `products`, `categories`, `home`, `catalog`.
+  - `getCachedHomeCategories()` — categorías raíz para la home; TTL 3600 s, tag `categories`.
+  - `getCachedFeaturedProducts()` — 4 productos aleatorios con stock (ORDER BY RANDOM()); TTL 300 s, tags `products` + `home`.
+  - `getCachedCatalogLanding()` — las 3 queries de la vista landing del catálogo (sin filtros) devueltas como datos crudos; TTL 300 s, tags `products` + `catalog` + `categories`. Fechas serializadas como ISO string.
+  - `getCachedCatalogGrid(params)` — grid del catálogo con filtros activos; cada combinación de filtros tiene su propio entry de caché; TTL 180 s.
+  - `getCachedProductBySlug(slug)` — detalle de producto por slug; TTL 300 s, tag `products`.
+
+- `apps/web/src/lib/revalidate.ts` *(nuevo)*
+  - `revalidateAdminCache(tags)` — helper cliente que llama a `/api/admin/revalidate` con los tags. No-blocking: errores silenciados para no impedir la UX del admin.
+
+- `apps/web/src/app/api/admin/revalidate/route.ts` *(nuevo)*
+  - Endpoint `POST` protegido por sesión ADMIN. Acepta `{ tags: string[] }` y llama `revalidateTag(tag, {})` por cada tag. El `{}` cumple la firma de Next.js 16 que exige el segundo argumento `profile`.
+
+- `apps/web/src/app/api/admin/products/[id]/stock/route.ts` *(nuevo)*
+  - Proxy PATCH al NestJS para actualizar stock de un producto. Llama `revalidateTag(CACHE_TAGS.products, {})` en éxito. Corrige bug pre-existente: `StockUpdateForm` llamaba a esta ruta pero el handler no existía (404 silencioso).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/home.tsx`
+  - Elimina imports de `PrismaProductRepository` y `prisma`. Reemplaza las dos queries directas con `Promise.all([getCachedFeaturedProducts(), getCachedHomeCategories()])`.
+
+- `apps/web/src/app/(store)/catalogo/page.tsx`
+  - Elimina `PrismaProductRepository`, `ListProducts`. Añade imports de `getCachedCatalogLanding` y `getCachedCatalogGrid`.
+  - `PrismaProductRaw.createdAt/updatedAt` tipado como `Date | string` para admitir valores cacheados (JSON serializa `Date` → `string`).
+  - `toDomain()` usa `new Date(p.createdAt)` para manejar ambos tipos.
+  - Vista landing: reemplaza las 3 queries Prisma con `getCachedCatalogLanding()`.
+  - Vista grid: reemplaza `ListProducts` + `prisma.category.findMany` con `getCachedCatalogGrid(params)`.
+
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx`
+  - Elimina `PrismaProductRepository` y `GetProductBySlug`. Reemplaza ambas llamadas (en `generateMetadata` y en el componente) con `getCachedProductBySlug(slug)`.
+
+- `apps/web/src/components/admin/ProductEditForm.tsx`
+  - Llama `await revalidateAdminCache([CACHE_TAGS.products])` antes del `router.push('/admin/productos')` en éxito.
+
+- `apps/web/src/components/admin/CsvStockImport.tsx`
+  - Llama `await revalidateAdminCache([CACHE_TAGS.products])` después de un bulk import exitoso.
+
+- `apps/web/src/components/admin/CategoryManager.tsx`
+  - `CategoryForm.handleSubmit`: llama `await revalidateAdminCache([CACHE_TAGS.categories, CACHE_TAGS.catalog])` en éxito.
+  - `handleDelete`: llama `await revalidateAdminCache([CACHE_TAGS.categories, CACHE_TAGS.catalog])` antes del `router.refresh()`.
+
+**Nota de Next.js 16:** `revalidateTag(tag, {})` — en esta versión la firma requiere un segundo argumento `profile: string | CacheLifeConfig`. Se pasa `{}` (CacheLifeConfig vacío) para usar el comportamiento por defecto.
+
+**Resultado:** `pnpm type-check` 6/6.
+
+---
+
+## 51. Sprint 6 — FIX 6.2: Restringir CORS ngrok wildcard a entorno de desarrollo
+
+**Problema:** La configuración CORS en `apps/api/src/main.ts` tenía los wildcards `*.ngrok-free.app` y `*.ngrok-free.dev` mezclados inline con el resto de la lógica sin una separación clara por entorno. Aunque ya estaban dentro de checks `!== 'production'`, la legibilidad era baja y el riesgo de regresión alto.
+
+**Archivos modificados:**
+
+- `apps/api/src/main.ts`
+  - Extrae una función `getCorsOrigin(origin, callback)` tipada con `CorsOriginCallback`.
+  - **Producción:** solo acepta el origen exacto de `FRONTEND_URL`. Cualquier otro origin recibe error CORS.
+  - **Desarrollo:** acepta `FRONTEND_URL`, `localhost:3000` y subdominios `*.ngrok-free.app` / `*.ngrok-free.dev` (necesarios para testear webhooks de Wompi/MercadoPago contra servidor local).
+  - El bloque `app.enableCors` pasa directamente `getCorsOrigin` como handler — sin lógica inline.
+
+**Resultado:** `pnpm type-check` 6/6.
+
+---
+
+## 52. Sprint 6 — FIX 6.3: Refactorizar `api-client.ts` con cliente tipado
+
+**Problema:** Todos los callers de `apiClient` hacían `await res.json() as AlgúnTipo` manualmente. `CheckoutForm` tenía un bug latente: llamaba `.json()` dos veces sobre el mismo `Response` (el body es un stream que solo puede leerse una vez). Además, los casteos manuales con `as` no dan error si el tipo de respuesta del servidor cambia.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/api-client.ts`
+  - Exporta `ApiOk<T>`, `ApiErr` y `ApiResponse<T> = ApiOk<T> | ApiErr`.
+  - Función interna `parseResponse<T>`: lee el body como texto una sola vez, parsea JSON, y retorna el discriminated union. Los errores extraen `message` o `error` del body de NestJS automáticamente.
+  - Todos los métodos (`get`, `post`, `put`, `patch`, `delete`, `postForm`) son ahora genéricos y retornan `Promise<ApiResponse<T>>` en vez de `Promise<Response>`.
+
+- `apps/web/src/components/checkout/CheckoutForm.tsx`
+  - `client.post<CreateOrderResponse>('/orders', body)` → `res.data` directamente.
+  - Elimina import de `ApiError` (ya no necesario — el error queda en `res.error`).
+  - Corrige el bug de doble `.json()` sobre el mismo stream.
+
+- `apps/web/src/components/admin/ProductEditForm.tsx`
+  - `client.put<void>` / `client.post<void>` → `res.error` en error path.
+  - `postForm<{ url: string }>` → `res.data.url` en éxito, `res.error` en error.
+
+- `apps/web/src/components/admin/CsvStockImport.tsx`
+  - `patch<{ updated: number }>` → `res.data.updated`; añade manejo de error que antes faltaba.
+
+- `apps/web/src/components/admin/CategoryManager.tsx`
+  - `put<void>` / `post<void>` / `delete<void>` → `res.error` en todos los error paths.
+
+- `apps/web/src/components/admin/MercadoPagoToggle.tsx`
+  - `patch<void>` — solo cambia el tipo genérico, comportamiento idéntico.
+
+**Resultado:** `pnpm type-check` 6/6. Cero casteos `as Type` en callers de `apiClient`.
+
+---
+
+## 53. Sprint 6 — FEATURE 6.4: Connection pooling explícito para Neon
+
+**Problema:** `createPrismaClient()` pasaba `{ connectionString }` directamente a `PrismaPg`, lo que crea un pool interno con los defaults de `pg` (max 10 conexiones por proceso). En producción serverless (Vercel), múltiples invocaciones concurrentes pueden cada una abrir su propio pool de 10 conexiones, saturando el límite de Neon (5-10 en tier gratuito).
+
+**Archivos modificados:**
+
+- `packages/database/src/index.ts`
+  - Importa `Pool` de `pg`.
+  - Lee `DATABASE_POOL_MAX` del entorno (default `5`) — configurable sin cambiar código.
+  - Crea `new Pool({ connectionString, max: POOL_MAX })` y lo pasa a `new PrismaPg(pool)`, reemplazando el `PrismaPg({ connectionString })` anterior.
+  - Agrega `process.once('SIGINT', shutdown)` y `process.once('SIGTERM', shutdown)` que llaman `prisma.$disconnect()` antes de salir. `once` evita registrar el handler múltiples veces en HMR de desarrollo.
+
+- `apps/api/.env.example`
+  - Documenta `DATABASE_POOL_MAX=5` con nota sobre Railway y el pooler nativo de Neon.
+
+- `apps/web/.env.example`
+  - Documenta `DATABASE_POOL_MAX=5` con nota sobre Vercel serverless y el pooler nativo de Neon.
+
+**Nota operacional:** Si en el futuro se activa el pooler nativo de Neon (PgBouncer), añadir `?pgbouncer=true&connection_limit=1` a `DATABASE_URL` y bajar `DATABASE_POOL_MAX=1` para evitar incompatibilidades con prepared statements.
+
+**Resultado:** `pnpm type-check` 6/6.
+
+---
+
+---
+
+## 54. Auditoría Técnica v2.0 — AUDITORIA.md actualizado
+
+**Qué se hizo:**
+Se realizó una segunda auditoría técnica exhaustiva del proyecto post-Sprints 4–6, con revisión directa del código fuente de todos los módulos críticos. Se actualizó `AUDITORIA.md` con la estructura de auditoría v2.0.
+
+**Alcance de la revisión:**
+- Verificación de todos los hallazgos críticos de la auditoría v1.0 (5/5 resueltos correctamente).
+- Análisis de nuevos hallazgos no presentes en v1.0 (3 bloqueantes de producción identificados).
+- Matriz de impacto actualizada con 18 hallazgos clasificados por área y severidad.
+- Score actualizado: 6.4/10 → 7.3/10.
+- Porcentaje de completitud actualizado: 72 % → 82 %.
+
+**Hallazgos nuevos identificados (no estaban en v1.0):**
+
+- **CRÍTICO:** `/auth/error` page no existe — NextAuth dirige errores OAuth a una ruta 404.
+- **CRÍTICO:** Rate limiter en memoria (`rate-limit.ts`) inoperativo en entorno serverless (Vercel).
+- **ALTO:** `WOMPI_EVENTS_SECRET` vacío no lanza error al arrancar — servidor acepta webhooks sin secreto configurado.
+- **ALTO:** Número de WhatsApp hardcodeado como placeholder (`573000000000`) en home y catálogo.
+- **ALTO:** Sin health check endpoint en NestJS — Railway no puede verificar salud real del proceso.
+- **ALTO:** NextAuth `"^5.0.0-beta.30"` sin pinar exacto — riesgo de breaking changes automáticos.
+- **ALTO:** Sin CI/CD pipeline — ninguna gate de calidad automática en merges a main.
+
+**Archivos modificados:**
+- `AUDITORIA.md` — reescritura completa v2.0 con métricas, matriz de impacto y roadmap actualizado.
+
+---
+
+## 55. BACKLOG.md reorganizado post-Sprint 6
+
+**Qué se hizo:**
+Se reescribió `BACKLOG.md` eliminando los sprints completados (4, 5, 6) y reorganizando el resto en base a los nuevos hallazgos de la Auditoría Técnica v2.0. Se añadieron 7 tareas nuevas no presentes en la versión anterior (3 bloqueantes críticos de producción identificados en la auditoría + 4 tareas de hardening).
+
+**Cambios estructurales:**
+- Eliminados: Sprint 4 (5 FIX completados), Sprint 5 (3/4 completados), Sprint 6 (4 FEATURE completados)
+- **Sprint 7 (nuevo):** 3 FIX críticos — `/auth/error` page, rate limiter serverless, WhatsApp env var
+- **Sprint 8 (nuevo):** 5 tareas de hardening — Sentry, health check, NextAuth pinado + env validation, CI/CD, email queue
+- **Sprint 9 (reorganizado de ex-Sprint 7):** Widget Wompi, empty states, paginación con ventana
+- **Sprint 10 (nuevo + ex-Sprint 7/8):** Sitemap, OG images, generateStaticParams, tipos Swagger
+- **Sprint 11 (ex-Sprint 8 expandido):** Server/Client audit, a11y, E2E Playwright, coverage threshold
+
+**Score actualizado:** 6.4/10 → 7.3/10 (actual). Objetivo: 8.5/10 al completar Sprint 11.
+
+**Archivos modificados:**
+- `BACKLOG.md` — reescritura completa con 19 tareas en 5 sprints, cada una con prompt ejecutable
+
+*Última actualización: 2026-05-19*

@@ -16,8 +16,6 @@
  */
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
-import { ListProducts } from '@h2r/domain'
 import { ProductCard } from '@/components/store/ProductCard'
 import { CatalogThemeWrapper } from '@/components/store/CatalogThemeWrapper'
 import { CatalogHero } from '@/components/store/CatalogHero'
@@ -27,6 +25,7 @@ import { ProductCarousel } from '@/components/store/ProductCarousel'
 import { FilterDrawer } from '@/components/store/FilterDrawer'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import type { Product } from '@h2r/domain'
+import { getCachedCatalogLanding, getCachedCatalogGrid } from '@/lib/cache'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -45,7 +44,7 @@ interface PageProps {
 type PrismaProductRaw = {
   id: string; name: string; slug: string; description: string
   price: number; stock: number; sku: string; images: string[]
-  isActive: boolean; categoryId: string; createdAt: Date; updatedAt: Date
+  isActive: boolean; categoryId: string; createdAt: Date | string; updatedAt: Date | string
 }
 
 type ChildCatRef = { id: string; name: string; slug: string }
@@ -70,7 +69,7 @@ function toDomain(p: PrismaProductRaw): Product {
     id: p.id, name: p.name, slug: p.slug, description: p.description,
     price: p.price, stock: p.stock, sku: p.sku, images: p.images,
     isActive: p.isActive, categoryId: p.categoryId,
-    createdAt: p.createdAt, updatedAt: p.updatedAt,
+    createdAt: new Date(p.createdAt), updatedAt: new Date(p.updatedAt),
   }
 }
 
@@ -168,28 +167,18 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   const params = await searchParams
   const isGridView = !!(params.category || params.search || params.inStock || params.minPrice || params.maxPrice || params.showAll)
 
-  const repo = new PrismaProductRepository()
-
   if (isGridView) {
     // === VISTA GRID ===
     const page = Number(params.page ?? 1)
 
-    const [result, parentCategories] = await Promise.all([
-      new ListProducts(repo).execute({
-        categorySlug: params.category,
-        search: params.search,
-        page,
-        limit: 12,
-        inStock: params.inStock === 'true' ? true : undefined,
-        minPrice: params.minPrice ? Number(params.minPrice) : undefined,
-        maxPrice: params.maxPrice ? Number(params.maxPrice) : undefined,
-      }),
-      prisma.category.findMany({
-        where: { parentId: null },
-        include: { children: { select: { id: true, name: true, slug: true } } },
-        orderBy: { name: 'asc' },
-      }) as Promise<ParentCategorySlim[]>,
-    ])
+    const { result, parentCategories } = await getCachedCatalogGrid({
+      categorySlug: params.category,
+      search: params.search,
+      page,
+      inStock: params.inStock === 'true' ? true : undefined,
+      minPrice: params.minPrice ? Number(params.minPrice) : undefined,
+      maxPrice: params.maxPrice ? Number(params.maxPrice) : undefined,
+    })
 
     const { items, total, limit } = result.ok
       ? result.value
@@ -227,37 +216,28 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   }
 
   // === VISTA LANDING ===
-  // Traer categorías padre con sus hijos (para agregar productos)
-  const parentsRaw = await prisma.category.findMany({
-    where: { parentId: null },
-    include: { children: { select: { id: true } } },
-    orderBy: { name: 'asc' },
-  })
+  const { parentsRaw, allProducts, countRows } = await getCachedCatalogLanding()
 
-  // Para cada padre, agregar productos de todas sus subcategorías
-  const categoriesRaw = await Promise.all(
-    parentsRaw.map(async (parent) => {
-      const allIds = [parent.id, ...parent.children.map((c) => c.id)]
-      const [products, productCount] = await Promise.all([
-        prisma.product.findMany({
-          where: { isActive: true, stock: { gt: 0 }, categoryId: { in: allIds } },
-          take: 8,
-          orderBy: { createdAt: 'desc' },
-        }) as Promise<PrismaProductRaw[]>,
-        prisma.product.count({
-          where: { isActive: true, categoryId: { in: allIds } },
-        }),
-      ])
-      return {
-        id: parent.id,
-        name: parent.name,
-        slug: parent.slug,
-        description: parent.description,
-        products,
-        productCount,
-      } as CategoryFull
-    })
-  )
+  const parentEntries = parentsRaw.map((p) => ({
+    parent: p,
+    ids: [p.id, ...p.children.map((c) => c.id)] as string[],
+  }))
+
+  const countByCatId = new Map(countRows.map((r) => [r.categoryId, r._count]))
+
+  const categoriesRaw = parentEntries.map(({ parent, ids }) => {
+    const idSet = new Set(ids)
+    const products = allProducts.filter((p) => idSet.has(p.categoryId)).slice(0, 8)
+    const productCount = ids.reduce((sum, id) => sum + (countByCatId.get(id) ?? 0), 0)
+    return {
+      id: parent.id,
+      name: parent.name,
+      slug: parent.slug,
+      description: parent.description,
+      products,
+      productCount,
+    } as CategoryFull
+  })
 
   const categories = categoriesRaw.filter((c) => c.productCount > 0)
   const totalProducts = categoriesRaw.reduce((sum, c) => sum + c.productCount, 0)
@@ -557,8 +537,8 @@ function GridView({
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-              {items.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {items.map((product, index) => (
+                <ProductCard key={product.id} product={product} priority={index < 4} />
               ))}
             </div>
 

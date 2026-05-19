@@ -11,7 +11,6 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  typescript: { ignoreBuildErrors: true },
   reactCompiler: true,
   turbopack: {
     // En monorepo, apuntamos a la raíz del workspace para que Turbopack

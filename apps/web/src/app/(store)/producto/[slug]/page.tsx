@@ -28,8 +28,7 @@
  *   6+ unidades   → "En stock (N unidades)" (verde)
  */
 import { notFound } from 'next/navigation'
-import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
-import { GetProductBySlug } from '@h2r/domain'
+import { getCachedProductBySlug } from '@/lib/cache'
 import { AddToCartButton } from '@/components/store/AddToCartButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
 import type { Metadata } from 'next'
@@ -40,8 +39,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  const repo = new PrismaProductRepository()
-  const result = await new GetProductBySlug(repo).execute(slug)
+  const result = await getCachedProductBySlug(slug)
   if (!result.ok) return { title: 'Producto no encontrado' }
   return {
     title: result.value.name,
@@ -59,8 +57,7 @@ function formatCOP(cents: number): string {
 
 export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params
-  const repo = new PrismaProductRepository()
-  const result = await new GetProductBySlug(repo).execute(slug)
+  const result = await getCachedProductBySlug(slug)
 
   if (!result.ok) notFound()
 

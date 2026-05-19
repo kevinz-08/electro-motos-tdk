@@ -5,7 +5,7 @@
  * Este repositorio solo expone operaciones de lectura que los use cases necesitan.
  * Si en el futuro se necesita crear usuarios manualmente (ej: importación), se agrega save() aquí.
  */
-import { prisma, type User as PrismaUser } from '@h2r/database'
+import { prisma, type UserModel as PrismaUser } from '@h2r/database'
 import { IUserRepository, User, UserRole } from '@h2r/domain'
 
 /** Mapea un registro de usuario de Prisma a la entidad de dominio User */

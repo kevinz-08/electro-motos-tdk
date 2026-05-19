@@ -184,3 +184,17 @@ model Settings {
   key   String @unique
   value String
 }
+
+model EmailQueue {
+  id        String   @id @default(cuid())
+  to        String
+  orderId   String
+  attempts  Int      @default(0)
+  lastError String?
+  /// PENDING | SENT | FAILED
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  nextRetry DateTime @default(now())
+
+  @@index([status, nextRetry])
+}

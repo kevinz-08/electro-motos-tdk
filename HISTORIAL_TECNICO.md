@@ -2048,3 +2048,51 @@ Los tres primeros corren en paralelo. `build-api` tiene `needs: [lint, type-chec
 **Rama:** `sprint8/hardening-produccion`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 64. FEATURE 8.5 — Cola de emails con retry sin Redis
+
+**Problema resuelto:**
+El envío de emails de confirmación de pago en los webhooks de Wompi y Mercado Pago era fire-and-forget: si `ResendEmailService.sendOrderConfirmation()` fallaba, el cliente pagaba pero nunca recibía el email. Sin retry ni Dead Letter Queue, el error era invisible.
+
+**Solución implementada:**
+Cola de emails persistente en PostgreSQL con reintentos automáticos y backoff exponencial, sin dependencias externas adicionales.
+
+**Cambios principales:**
+
+1. **`packages/database/prisma/schema.prisma`** — nuevo modelo `EmailQueue`:
+   - Campos: `id`, `to`, `orderId`, `attempts`, `lastError`, `status` (PENDING/SENT/FAILED), `createdAt`, `nextRetry`
+   - Índice compuesto `[status, nextRetry]` para eficiencia en las consultas del procesador
+   - Migración aplicada: `20260519232204_add_email_queue`
+
+2. **`apps/api/src/infrastructure/services/EmailQueueService.ts`** — NUEVO:
+   - `enqueue(to, orderId)`: crea un registro PENDING en la cola
+   - `processNext()`: procesa hasta 10 emails PENDING con `nextRetry <= now()`, actualiza `attempts` y `nextRetry` con backoff (5 s → 30 s → 120 s), marca FAILED después de 3 intentos
+   - `findFailed(limit)`: retorna los últimos N registros FAILED para el endpoint admin
+   - Usa `setInterval` en `onModuleInit()` (cada 2 min) — `@nestjs/schedule` no está en las dependencias
+   - Limpieza en `onModuleDestroy()` con `clearInterval`
+
+3. **`apps/api/src/infrastructure/infrastructure.module.ts`** — añadido `EmailQueueService` a providers y exports
+
+4. **`apps/api/src/payments/wompi.controller.ts`** — inyectado `EmailQueueService`; reemplazado `.catch()` fire-and-forget por `await this.emailQueue.enqueue(user.email, orderId)`
+
+5. **`apps/api/src/payments/mercadopago.controller.ts`** — idem; reemplazado `this.emailService.sendOrderConfirmation(...).catch(console.error)` por `await this.emailQueue.enqueue(user.email, orderId)`
+
+6. **`apps/api/src/admin/admin-emails.controller.ts`** — NUEVO: `GET /admin/emails/failed` con `@Roles('ADMIN')`, soporta query param `?limit=N` (máx 200)
+
+7. **`apps/api/src/admin/admin.module.ts`** — registrado `AdminEmailsController`
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma`
+- `apps/api/src/infrastructure/services/EmailQueueService.ts` — NUEVO
+- `apps/api/src/infrastructure/infrastructure.module.ts`
+- `apps/api/src/payments/wompi.controller.ts`
+- `apps/api/src/payments/mercadopago.controller.ts`
+- `apps/api/src/admin/admin-emails.controller.ts` — NUEVO
+- `apps/api/src/admin/admin.module.ts`
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*

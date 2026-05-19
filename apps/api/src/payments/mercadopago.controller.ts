@@ -9,6 +9,7 @@ import { MercadoPagoService } from '../infrastructure/services/MercadoPagoServic
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Public } from '../auth/decorators/public.decorator'
+import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
 import { MpPreferenceDto } from './dto/mp-preference.dto'
 
 @ApiTags('payments')
@@ -21,6 +22,7 @@ export class MercadoPagoController {
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: IOrderRepository,
     private readonly mpService: MercadoPagoService,
     private readonly emailService: ResendEmailService,
+    private readonly emailQueue: EmailQueueService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -94,7 +96,7 @@ export class MercadoPagoController {
           select: { email: true },
         })
         if (user?.email) {
-          this.emailService.sendOrderConfirmation(order, user.email).catch(console.error)
+          await this.emailQueue.enqueue(user.email, orderId)
         }
       }
     }

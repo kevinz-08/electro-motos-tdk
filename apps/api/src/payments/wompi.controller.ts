@@ -9,6 +9,7 @@ import { WompiService } from '../infrastructure/services/WompiService'
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Public } from '../auth/decorators/public.decorator'
+import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
 import { WompiIntegrityDto } from './dto/wompi-integrity.dto'
 
 @ApiTags('payments')
@@ -20,6 +21,7 @@ export class WompiController {
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: IOrderRepository,
     private readonly wompiService: WompiService,
     private readonly emailService: ResendEmailService,
+    private readonly emailQueue: EmailQueueService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -116,9 +118,7 @@ export class WompiController {
           select: { email: true },
         })
         if (user?.email) {
-          this.emailService
-            .sendOrderConfirmation(order, user.email)
-            .catch((e) => this.logger.error(`[Wompi webhook] Error email: ${e}`))
+          await this.emailQueue.enqueue(user.email, orderId)
         }
       }
     }

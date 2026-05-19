@@ -5,6 +5,7 @@ import { AdminStockController } from './admin-stock.controller'
 import { AdminSettingsController } from './admin-settings.controller'
 import { AdminDashboardController } from './admin-dashboard.controller'
 import { AdminCategoriesController } from './admin-categories.controller'
+import { AdminEmailsController } from './admin-emails.controller'
 
 @Module({
   imports: [InfrastructureModule],
@@ -14,6 +15,7 @@ import { AdminCategoriesController } from './admin-categories.controller'
     AdminCategoriesController,
     AdminStockController,
     AdminSettingsController,
+    AdminEmailsController,
   ],
 })
 export class AdminModule {}

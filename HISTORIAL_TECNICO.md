@@ -1951,3 +1951,32 @@ Se instaló y configuró Sentry v10.53.1 en `apps/api` (`@sentry/nestjs` + `@sen
 **Rama:** `sprint8/hardening-produccion`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 61. Sprint 8 — FEATURE 8.2: Health check endpoint en NestJS
+
+**Qué se hizo:**
+Se actualizó `AppController` para exponer `GET /health` con una verificación real de la base de datos. Railway puede apuntar su health check a esta ruta para detectar procesos zombie (proceso vivo pero DB inaccesible).
+
+**Cambios:**
+
+El endpoint anterior `GET /` retornaba `{ status: 'ok' }` sin verificar la DB. Se renombró a `GET /health` y se inyectó `PrismaService` (ya global via `@Global()` en `PrismaModule`) para ejecutar `$queryRaw\`SELECT 1\``.
+
+Si el `$queryRaw` lanza (DB caída o timeout), la excepción burbujea al `HttpExceptionFilter` → responde 500, lo que Railway interpreta como proceso no saludable.
+
+**Respuesta en condiciones normales:**
+
+```json
+{ "status": "ok", "db": "ok", "uptime": 3847.2 }
+```
+
+El endpoint mantiene `@Public()` (excluido del JWT guard) y `@SkipThrottle()` (excluido del rate limiter) para que Railway pueda consultarlo sin autenticación y sin consumir cuota.
+
+**Archivos modificados:**
+
+- `apps/api/src/app.controller.ts` — `GET /` → `GET /health` con `PrismaService.$queryRaw`
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*

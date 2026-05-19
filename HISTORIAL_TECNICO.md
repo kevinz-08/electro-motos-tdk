@@ -1819,3 +1819,32 @@ El build de Vercel fallaba con `module-not-found` porque `CsvStockImport.tsx`, `
 **Rama:** `hotfix/cache-tags-client-bundle` → `main`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 57. Sprint 7 — FIX 7.1: Crear página `/auth/error`
+
+**Qué se hizo:**
+Se creó `apps/web/src/app/auth/error/page.tsx` como Server Component. La página recibe el `searchParams.error` que NextAuth añade automáticamente en cada redirección de error OAuth y lo mapea a mensajes en español.
+
+**Códigos de error mapeados:**
+
+- `OAuthAccountNotLinked` → "Ya existe una cuenta con este email usando otro método de inicio de sesión."
+- `OAuthCallbackError` → "No se pudo completar el inicio de sesión con Google."
+- `CredentialsSignin` → "Email o contraseña incorrectos."
+- `AccessDenied` → "No tienes permiso para acceder a esta cuenta."
+- `Verification` → "El enlace de verificación expiró o ya fue usado."
+- Default → "Ocurrió un error al iniciar sesión."
+
+La página ofrece dos acciones: "Volver a intentar" (→ `/auth/login`) e "Ir al inicio" (→ `/`). Sigue el mismo sistema de diseño que `auth/login/page.tsx` (fondo negro, card `bg-white/5`, error en rojo). Metadata exportada con `robots: { index: false }`.
+
+**Problema resuelto:**
+`apps/web/src/lib/auth.ts:155` configura `pages: { error: '/auth/error' }` pero la ruta no existía, causando un 404 para el 100 % de los errores OAuth en producción (bloqueante de producción A-01 de AUDITORIA.md).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/auth/error/page.tsx` — NUEVO
+
+**Rama:** `sprint7/bloqueantes-produccion`
+
+*Última actualización: 2026-05-19*

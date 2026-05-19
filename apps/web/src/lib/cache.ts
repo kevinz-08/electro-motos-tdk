@@ -20,15 +20,9 @@ import { unstable_cache } from 'next/cache'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { ListProducts, GetProductBySlug } from '@h2r/domain'
+import { CACHE_TAGS } from './cache-tags'
 
-// ── Tag constants ─────────────────────────────────────────────────────────────
-
-export const CACHE_TAGS = {
-  products: 'products',
-  categories: 'categories',
-  home: 'home',
-  catalog: 'catalog',
-} as const
+export { CACHE_TAGS }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 

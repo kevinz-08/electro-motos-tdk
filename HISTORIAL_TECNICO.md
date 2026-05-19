@@ -2191,3 +2191,32 @@ Cada vista con estado vacío tenía su propio markup inline inconsistente (carri
 **Rama:** `sprint9/ux-critico-pagos`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 68. FEATURE 10.1 — Sitemap dinámico
+
+**Qué se hizo:**
+Se creó `apps/web/src/app/sitemap.ts` que exporta la función `sitemap()` requerida por Next.js para generar automáticamente el archivo `/sitemap.xml`. Combina rutas estáticas con las páginas de producto generadas dinámicamente desde la base de datos.
+
+**Rutas incluidas:**
+
+- `/` — prioridad 1.0, cambio diario
+- `/catalogo` — prioridad 0.9, cambio diario
+- `/auth/login` y `/auth/register` — prioridad 0.3, cambio mensual
+- `/producto/[slug]` para cada producto con `isActive = true` y `stock > 0` — prioridad 0.7, cambio semanal, con `lastModified` real del campo `updatedAt`
+
+**Archivos creados:**
+
+- `apps/web/src/app/sitemap.ts` *(nuevo)*
+
+**Decisiones técnicas:**
+
+- Usa `prisma.product.findMany()` directamente (patrón SSR de reads sin HTTP a NestJS).
+- Sin caché: Next.js regenera el sitemap en cada build de Vercel, que es el momento correcto para reflejar el catálogo actualizado.
+- La URL base se lee de `NEXT_PUBLIC_SITE_URL`; si no está definida cae al dominio de Vercel del proyecto.
+- Los productos sin stock o inactivos se excluyen deliberadamente para evitar que Google indexe páginas sin contenido comprable.
+
+**Rama:** `sprint10/seo-rendimiento`
+
+*Última actualización: 2026-05-19*

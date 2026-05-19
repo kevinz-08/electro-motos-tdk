@@ -2010,3 +2010,41 @@ Variables validadas:
 **Rama:** `sprint8/hardening-produccion`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 63. Sprint 8 — FEATURE 8.4: CI/CD pipeline con GitHub Actions
+
+**Qué se hizo:**
+Se creó `.github/workflows/ci.yml` con cuatro jobs que corren en cada push y pull request hacia `main`.
+
+**Estructura de jobs:**
+
+- `lint` — `pnpm lint` (Turbo en todos los paquetes)
+- `type-check` — `pnpm type-check` (Turbo en todos los paquetes)
+- `test` — `pnpm --filter @h2r/domain test` + `pnpm --filter @h2r/api test`
+- `build-api` — `pnpm --filter @h2r/api build` (solo tras pasar los 3 anteriores)
+
+Los tres primeros corren en paralelo. `build-api` tiene `needs: [lint, type-check, test]` y valida que el build de NestJS no rompa. El build de Next.js se delega a Vercel (tiene acceso a las variables reales) dado que el SSR requiere `DATABASE_URL` válida.
+
+**Decisiones de diseño:**
+
+- `DATABASE_URL=postgresql://ci:ci@localhost:5432/ci` en `env` global — Prisma generate solo lee el schema, no conecta. Valor dummy suficiente.
+- `pnpm/action-setup@v4` + `actions/setup-node@v4` con `cache: 'pnpm'` — el store de pnpm se cachea entre runs para acelerar `pnpm install`.
+- El job `build-api` define las vars de entorno requeridas por `assertEnvVars()` con valores placeholder para que el proceso no aborte en CI.
+- `on.push.branches` incluye `sprint*`, `hotfix*`, `fix*`, `feat*` para que el CI corra en todas las ramas de trabajo activas.
+
+**Badge añadido al README.md:**
+
+```markdown
+[![CI](https://github.com/kevinz-08/electro-motos-tdk/actions/workflows/ci.yml/badge.svg)](...)
+```
+
+**Archivos modificados:**
+
+- `.github/workflows/ci.yml` — NUEVO
+- `README.md` — badge de CI
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*

@@ -64,5 +64,5 @@ tmp-productos/
 apps/web/tmp-productos/
 
 # .md para opencode y claude code
-BACKLOG.md
-AUDITORIA.md
+BACKLOG.md*
+AUDITORIA.md*

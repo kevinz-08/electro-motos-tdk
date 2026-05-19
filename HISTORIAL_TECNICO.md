@@ -2158,3 +2158,36 @@ Cada vista con estado vacío tenía su propio markup inline inconsistente (carri
 **Rama:** `sprint9/ux-critico-pagos`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 67. FIX 9.3 — Paginación con ventana deslizante en catálogo y pedidos
+
+**Problema resuelto:**
+`catalogo/page.tsx` generaba un `<Link>` por cada página con `Array.from({ length: totalPages })`. Con 50+ páginas resultaban 50+ elementos DOM innecesarios. `pedidos/page.tsx` solo mostraba Anterior/Siguiente sin números de página, lo que hacía imposible saltar a páginas específicas.
+
+**Solución implementada:**
+
+1. **`apps/web/src/lib/pagination.ts`** — NUEVO: función pura `getPaginationPages(current, total): (number | '...')[]`:
+   - Siempre incluye página 1 y última
+   - Muestra hasta 2 páginas antes y después de la actual (delta = 2)
+   - Reemplaza saltos con `'...'`
+   - Ejemplos: `(5, 20)` → `[1, '...', 3, 4, 5, 6, 7, '...', 20]` / `(1, 3)` → `[1, 2, 3]`
+
+2. **`apps/web/src/app/(store)/catalogo/page.tsx`**:
+   - `Array.from({ length: totalPages })` → `getPaginationPages(page, totalPages).map(...)`
+   - El elemento `'...'` se renderiza como `<span>…</span>` no clicable con el mismo estilo de los números
+
+3. **`apps/web/src/app/(store)/pedidos/page.tsx`**:
+   - Se añaden números de página con ventana (mismo patrón y clases que el catálogo)
+   - Se mantienen los botones Anterior / Siguiente con el mismo estilo visual
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/pagination.ts` — NUEVO
+- `apps/web/src/app/(store)/catalogo/page.tsx`
+- `apps/web/src/app/(store)/pedidos/page.tsx`
+
+**Rama:** `sprint9/ux-critico-pagos`
+
+*Última actualización: 2026-05-19*

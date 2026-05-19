@@ -7,6 +7,7 @@ import { getOrderHistory } from '@/lib/queries/getOrderHistory'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
 import { InvoiceDownloadButton } from '@/components/store/InvoiceDownloadButton'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { getPaginationPages } from '@/lib/pagination'
 
 export const metadata: Metadata = {
   title: 'Mis pedidos',
@@ -155,24 +156,36 @@ export default async function PedidosPage({ searchParams }: PageProps) {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <nav className="flex items-center justify-center gap-2 mt-8" aria-label="Paginación">
+          <nav className="flex items-center justify-center gap-1.5 mt-8 flex-wrap" aria-label="Paginación">
             {page > 1 && (
               <Link
                 href={`/pedidos?page=${page - 1}`}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-colors"
               >
                 ← Anterior
               </Link>
             )}
 
-            <span className="px-4 py-2 text-sm text-gray-500">
-              Página {page} de {totalPages}
-            </span>
+            {getPaginationPages(page, totalPages).map((p, i) =>
+              p === '...' ? (
+                <span key={`ellipsis-${i}`} className="w-10 h-10 flex items-center justify-center text-sm text-gray-400 select-none">
+                  …
+                </span>
+              ) : (
+                <Link
+                  key={p}
+                  href={`/pedidos?page=${p}`}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-semibold transition-colors ${p === page ? 'bg-sky-500 text-white' : 'border border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300'}`}
+                >
+                  {p}
+                </Link>
+              )
+            )}
 
             {page < totalPages && (
               <Link
                 href={`/pedidos?page=${page + 1}`}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-colors"
               >
                 Siguiente →
               </Link>

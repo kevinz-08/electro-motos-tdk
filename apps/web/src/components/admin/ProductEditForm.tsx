@@ -26,7 +26,7 @@ import { Product } from '@h2r/domain'
 import { X, ImagePlus, Loader2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
-import { CACHE_TAGS } from '@/lib/cache'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 interface Category {
   id: string

@@ -64,5 +64,11 @@ tmp-productos/
 apps/web/tmp-productos/
 
 # .md para opencode y claude code
-BACKLOG.md
-AUDITORIA.md
+BACKLOG.md*
+AUDITORIA.md*
+TODO_FINAL.md
+
+# Playwright
+apps/web/playwright/.auth/
+apps/web/playwright-report/
+apps/web/test-results/

@@ -1,3 +1,4 @@
+import { createHmac } from 'crypto'
 import { MercadoPagoConfig, Preference, Payment as MPPayment } from 'mercadopago'
 import { IPaymentService, PaymentResult } from '@h2r/domain'
 import { Order, PaymentStatus } from '@h2r/domain'
@@ -111,7 +112,6 @@ export class MercadoPagoService implements IPaymentService {
       // Construir el manifest: id:[data.id];request-id:[x-request-id];ts:[ts];
       const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
 
-      const { createHmac } = require('crypto') as typeof import('crypto')
       const expectedSignature = createHmac('sha256', this.webhookSecret)
         .update(manifest)
         .digest('hex')

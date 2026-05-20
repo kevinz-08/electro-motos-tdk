@@ -15,6 +15,12 @@ module.exports = function (options) {
   return {
     ...options,
     externals: [
+      // Externalizar binarios nativos .node (e.g. @sentry/profiling-node)
+      // webpack no puede procesar archivos ELF/Mach-O/PE.
+      ({ request }, callback) => {
+        if (request && request.endsWith('.node')) return callback(null, `commonjs ${request}`)
+        callback()
+      },
       nodeExternals({
         allowlist: [/^@h2r\//],
         modulesDir: resolve(__dirname, '../../node_modules'),

@@ -28,10 +28,21 @@
  *   6+ unidades   → "En stock (N unidades)" (verde)
  */
 import { notFound } from 'next/navigation'
+import { prisma } from '@h2r/database'
 import { getCachedProductBySlug } from '@/lib/cache'
 import { AddToCartButton } from '@/components/store/AddToCartButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
 import type { Metadata } from 'next'
+
+export const revalidate = 300
+
+export async function generateStaticParams() {
+  const products = await prisma.product.findMany({
+    where: { isActive: true, stock: { gt: 0 } },
+    select: { slug: true },
+  })
+  return products.map((p) => ({ slug: p.slug }))
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>

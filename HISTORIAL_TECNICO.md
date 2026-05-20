@@ -1819,3 +1819,639 @@ El build de Vercel fallaba con `module-not-found` porque `CsvStockImport.tsx`, `
 **Rama:** `hotfix/cache-tags-client-bundle` → `main`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 57. Sprint 7 — FIX 7.1: Crear página `/auth/error`
+
+**Qué se hizo:**
+Se creó `apps/web/src/app/auth/error/page.tsx` como Server Component. La página recibe el `searchParams.error` que NextAuth añade automáticamente en cada redirección de error OAuth y lo mapea a mensajes en español.
+
+**Códigos de error mapeados:**
+
+- `OAuthAccountNotLinked` → "Ya existe una cuenta con este email usando otro método de inicio de sesión."
+- `OAuthCallbackError` → "No se pudo completar el inicio de sesión con Google."
+- `CredentialsSignin` → "Email o contraseña incorrectos."
+- `AccessDenied` → "No tienes permiso para acceder a esta cuenta."
+- `Verification` → "El enlace de verificación expiró o ya fue usado."
+- Default → "Ocurrió un error al iniciar sesión."
+
+La página ofrece dos acciones: "Volver a intentar" (→ `/auth/login`) e "Ir al inicio" (→ `/`). Sigue el mismo sistema de diseño que `auth/login/page.tsx` (fondo negro, card `bg-white/5`, error en rojo). Metadata exportada con `robots: { index: false }`.
+
+**Problema resuelto:**
+`apps/web/src/lib/auth.ts:155` configura `pages: { error: '/auth/error' }` pero la ruta no existía, causando un 404 para el 100 % de los errores OAuth en producción (bloqueante de producción A-01 de AUDITORIA.md).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/auth/error/page.tsx` — NUEVO
+
+**Rama:** `sprint7/bloqueantes-produccion`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 58. Sprint 7 — FIX 7.2: Reemplazar rate limiter en memoria por solución serverless
+
+**Qué se hizo:**
+Se aplicó la Opción A del backlog: la protección real ya existía en NestJS. Se reemplazó la implementación con `Map` en memoria de `apps/web/src/lib/rate-limit.ts` por un stub no-op documentado que siempre retorna `true`.
+
+**Hallazgos:**
+
+- `checkRateLimit` no tenía ningún caller en todo el proyecto (grep confirmado). Era dead code.
+- Todas las rutas de auth de Next.js (`/register`, `/forgot-password`, `/reset-password`) hacen `fetch()` directo a NestJS, que ya tiene `ThrottlerGuard` con límites estrictos por endpoint.
+- `ForgotPasswordForm.tsx:44` ya maneja el HTTP 429 explícitamente con mensaje al usuario.
+
+**Límites vigentes en NestJS (auth.controller.ts):**
+
+- `POST /auth/register` → 5 req / 60 s
+- `POST /auth/login` → 10 req / 60 s
+- `POST /auth/forgot-password` → 3 req / 900 s
+- `POST /auth/reset-password` → 5 req / 60 s
+
+**Problema resuelto:**
+El `Map` en módulo scope se resetea entre invocaciones serverless de Vercel, haciendo el rate limiter inoperativo en producción (bloqueante S-01 / A-02 de AUDITORIA.md). La protección real ahora es explícita y documentada en el código.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/rate-limit.ts` — reemplazado: Map eliminado, stub no-op documentado
+
+**Rama:** `sprint7/bloqueantes-produccion`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 59. Sprint 7 — FIX 7.3: Extraer número de WhatsApp a variable de entorno
+
+**Qué se hizo:**
+Se creó `apps/web/src/lib/contact.ts` con `WHATSAPP_NUMBER` y `WHATSAPP_URL()`. Se reemplazaron todas las ocurrencias del número hardcodeado `573000000000` en 4 archivos. Se documentó ` en `.env.local`.
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/contact.ts` — NUEVO: exporta `WHATSAPP_NUMBER` y `WHATSAPP_URL(message?)`
+- `apps/web/src/app/(store)/home.tsx` — import + `href={WHATSAPP_URL('Hola, necesito un repuesto para mi moto')}`
+- `apps/web/src/app/(store)/catalogo/page.tsx` — import + `href={WHATSAPP_URL()}`
+- `apps/web/src/components/nav/ProfileModal.tsx` — eliminada constante local, import + `WHATSAPP_URL(...)`
+- `apps/web/src/components/ui/WhatsAppButton.tsx` — import + `href={WHATSAPP_URL()}`
+- `apps/web/.env.local` — añadida
+
+**Problema resuelto:**
+El número `573000000000` (placeholder) estaba hardcodeado en 4 archivos distintos. En producción redirigía a un número inexistente. Hallazgo S-04 de AUDITORIA.md resuelto.
+
+**Rama:** `sprint7/bloqueantes-produccion`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 60. Sprint 8 — FEATURE 8.1: Integración de Sentry para monitoreo de errores
+
+**Qué se hizo:**
+Se instaló y configuró Sentry v10.53.1 en `apps/api` (`@sentry/nestjs` + `@sentry/profiling-node`) y `apps/web` (`@sentry/nextjs`). La integración captura automáticamente todos los errores >= 500 con stack trace completo, los envía al dashboard de Sentry y los loguea en Railway con un `errorId` para correlacionar ambos sistemas.
+
+**Decisión arquitectónica:** Se optó por Sentry sobre solo logging en Railway porque en un e-commerce con pagos reales se necesita monitoreo proactivo (alertas inmediatas) en lugar de reactivo (buscar en logs cuando un usuario reporta). El free tier de Sentry (5 000 errores/mes) cubre el lanzamiento inicial. Ver análisis completo en el historial de conversación.
+
+**Configuración API (`apps/api`):**
+
+- `src/instrument.ts` — init de Sentry con `nodeProfilingIntegration`. Debe ser el primer import de `main.ts`. `enabled: !!SENTRY_DSN` garantiza modo no-op si la variable no está configurada.
+- `src/main.ts` — `import './instrument'` como primera línea.
+- `src/app.module.ts` — `SentryModule.forRoot()` para tracking de requests y contexto por usuario.
+- `src/shared/filters/http-exception.filter.ts` — `Sentry.captureException(exception, { tags: { errorId } })` en los tres caminos de error >= 500. El `errorId` se incluye tanto en la respuesta JSON como en el tag de Sentry para correlación.
+- `src/shared/logger/StructuredLogger.ts` — fix de bug previo: stack trace ahora va al campo `stack`, no a `context`.
+
+**Configuración Web (`apps/web`):**
+
+- `sentry.server.config.ts` — init servidor (Node.js runtime).
+- `sentry.client.config.ts` — init cliente con `replaysOnErrorSampleRate: 1.0` (graba la sesión del usuario al momento del error en checkout).
+- `sentry.edge.config.ts` — init edge runtime.
+- `src/instrumentation.ts` — hook de Next.js que carga la config según el runtime (`nodejs` / `edge`).
+- `next.config.ts` — envuelto con `withSentryConfig`. Source maps deshabilitados por ahora (`sourcemaps: { disable: true }`); activar cuando se configuren `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` en Vercel.
+
+**Variables de entorno requeridas para activar:**
+
+- `apps/api`: `SENTRY_DSN` en Railway
+- `apps/web`: `NEXT_PUBLIC_SENTRY_DSN` en Vercel
+
+**Archivos modificados:**
+
+- `apps/api/src/instrument.ts` — NUEVO
+- `apps/api/src/main.ts` — import instrument
+- `apps/api/src/app.module.ts` — SentryModule.forRoot()
+- `apps/api/src/shared/filters/http-exception.filter.ts` — Sentry.captureException en 5xx
+- `apps/api/src/shared/logger/StructuredLogger.ts` — fix bug stack/context
+- `apps/api/.env.example` — sección SENTRY_DSN
+- `apps/web/sentry.server.config.ts` — NUEVO
+- `apps/web/sentry.client.config.ts` — NUEVO
+- `apps/web/sentry.edge.config.ts` — NUEVO
+- `apps/web/src/instrumentation.ts` — NUEVO
+- `apps/web/next.config.ts` — withSentryConfig
+- `apps/web/.env.example` — secciones NEXT_PUBLIC_WHATSAPP_NUMBER y NEXT_PUBLIC_SENTRY_DSN
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 61. Sprint 8 — FEATURE 8.2: Health check endpoint en NestJS
+
+**Qué se hizo:**
+Se actualizó `AppController` para exponer `GET /health` con una verificación real de la base de datos. Railway puede apuntar su health check a esta ruta para detectar procesos zombie (proceso vivo pero DB inaccesible).
+
+**Cambios:**
+
+El endpoint anterior `GET /` retornaba `{ status: 'ok' }` sin verificar la DB. Se renombró a `GET /health` y se inyectó `PrismaService` (ya global via `@Global()` en `PrismaModule`) para ejecutar `$queryRaw\`SELECT 1\``.
+
+Si el `$queryRaw` lanza (DB caída o timeout), la excepción burbujea al `HttpExceptionFilter` → responde 500, lo que Railway interpreta como proceso no saludable.
+
+**Respuesta en condiciones normales:**
+
+```json
+{ "status": "ok", "db": "ok", "uptime": 3847.2 }
+```
+
+El endpoint mantiene `@Public()` (excluido del JWT guard) y `@SkipThrottle()` (excluido del rate limiter) para que Railway pueda consultarlo sin autenticación y sin consumir cuota.
+
+**Archivos modificados:**
+
+- `apps/api/src/app.controller.ts` — `GET /` → `GET /health` con `PrismaService.$queryRaw`
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 62. Sprint 8 — FIX 8.3: Pinar NextAuth + validación de env vars al arranque
+
+**Qué se hizo:**
+Dos fixes de estabilidad independientes aplicados en un solo commit.
+
+**Fix A — Pinar NextAuth:**
+Se cambió `"next-auth": "^5.0.0-beta.30"` a `"5.0.0-beta.30"` (sin `^`) en `apps/web/package.json`. El `^` permitía actualizaciones automáticas a beta.31, beta.32, etc., que en una versión beta pueden tener breaking changes. Se ejecutó `pnpm install` para actualizar el lockfile.
+
+**Fix B — Validación de env vars al arranque:**
+Se añadió `assertEnvVars()` en `apps/api/src/main.ts`, llamada al inicio de `bootstrap()` antes de crear la app NestJS. Si alguna variable crítica está ausente, el proceso imprime las variables faltantes y llama `process.exit(1)`, evitando que el servidor arranque con configuración incompleta y falle silenciosamente en runtime.
+
+Variables validadas:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `INTERNAL_API_SECRET`
+- `WOMPI_EVENTS_SECRET`
+- `WOMPI_INTEGRITY_SECRET`
+
+**Archivos modificados:**
+
+- `apps/web/package.json` — `"^5.0.0-beta.30"` → `"5.0.0-beta.30"`
+- `apps/api/src/main.ts` — función `assertEnvVars()` antes de `bootstrap()`
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 63. Sprint 8 — FEATURE 8.4: CI/CD pipeline con GitHub Actions
+
+**Qué se hizo:**
+Se creó `.github/workflows/ci.yml` con cuatro jobs que corren en cada push y pull request hacia `main`.
+
+**Estructura de jobs:**
+
+- `lint` — `pnpm lint` (Turbo en todos los paquetes)
+- `type-check` — `pnpm type-check` (Turbo en todos los paquetes)
+- `test` — `pnpm --filter @h2r/domain test` + `pnpm --filter @h2r/api test`
+- `build-api` — `pnpm --filter @h2r/api build` (solo tras pasar los 3 anteriores)
+
+Los tres primeros corren en paralelo. `build-api` tiene `needs: [lint, type-check, test]` y valida que el build de NestJS no rompa. El build de Next.js se delega a Vercel (tiene acceso a las variables reales) dado que el SSR requiere `DATABASE_URL` válida.
+
+**Decisiones de diseño:**
+
+- `DATABASE_URL=postgresql://ci:ci@localhost:5432/ci` en `env` global — Prisma generate solo lee el schema, no conecta. Valor dummy suficiente.
+- `pnpm/action-setup@v4` + `actions/setup-node@v4` con `cache: 'pnpm'` — el store de pnpm se cachea entre runs para acelerar `pnpm install`.
+- El job `build-api` define las vars de entorno requeridas por `assertEnvVars()` con valores placeholder para que el proceso no aborte en CI.
+- `on.push.branches` incluye `sprint*`, `hotfix*`, `fix*`, `feat*` para que el CI corra en todas las ramas de trabajo activas.
+
+**Badge añadido al README.md:**
+
+```markdown
+[![CI](https://github.com/kevinz-08/electro-motos-tdk/actions/workflows/ci.yml/badge.svg)](...)
+```
+
+**Archivos modificados:**
+
+- `.github/workflows/ci.yml` — NUEVO
+- `README.md` — badge de CI
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 64. FEATURE 8.5 — Cola de emails con retry sin Redis
+
+**Problema resuelto:**
+El envío de emails de confirmación de pago en los webhooks de Wompi y Mercado Pago era fire-and-forget: si `ResendEmailService.sendOrderConfirmation()` fallaba, el cliente pagaba pero nunca recibía el email. Sin retry ni Dead Letter Queue, el error era invisible.
+
+**Solución implementada:**
+Cola de emails persistente en PostgreSQL con reintentos automáticos y backoff exponencial, sin dependencias externas adicionales.
+
+**Cambios principales:**
+
+1. **`packages/database/prisma/schema.prisma`** — nuevo modelo `EmailQueue`:
+   - Campos: `id`, `to`, `orderId`, `attempts`, `lastError`, `status` (PENDING/SENT/FAILED), `createdAt`, `nextRetry`
+   - Índice compuesto `[status, nextRetry]` para eficiencia en las consultas del procesador
+   - Migración aplicada: `20260519232204_add_email_queue`
+
+2. **`apps/api/src/infrastructure/services/EmailQueueService.ts`** — NUEVO:
+   - `enqueue(to, orderId)`: crea un registro PENDING en la cola
+   - `processNext()`: procesa hasta 10 emails PENDING con `nextRetry <= now()`, actualiza `attempts` y `nextRetry` con backoff (5 s → 30 s → 120 s), marca FAILED después de 3 intentos
+   - `findFailed(limit)`: retorna los últimos N registros FAILED para el endpoint admin
+   - Usa `setInterval` en `onModuleInit()` (cada 2 min) — `@nestjs/schedule` no está en las dependencias
+   - Limpieza en `onModuleDestroy()` con `clearInterval`
+
+3. **`apps/api/src/infrastructure/infrastructure.module.ts`** — añadido `EmailQueueService` a providers y exports
+
+4. **`apps/api/src/payments/wompi.controller.ts`** — inyectado `EmailQueueService`; reemplazado `.catch()` fire-and-forget por `await this.emailQueue.enqueue(user.email, orderId)`
+
+5. **`apps/api/src/payments/mercadopago.controller.ts`** — idem; reemplazado `this.emailService.sendOrderConfirmation(...).catch(console.error)` por `await this.emailQueue.enqueue(user.email, orderId)`
+
+6. **`apps/api/src/admin/admin-emails.controller.ts`** — NUEVO: `GET /admin/emails/failed` con `@Roles('ADMIN')`, soporta query param `?limit=N` (máx 200)
+
+7. **`apps/api/src/admin/admin.module.ts`** — registrado `AdminEmailsController`
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma`
+- `apps/api/src/infrastructure/services/EmailQueueService.ts` — NUEVO
+- `apps/api/src/infrastructure/infrastructure.module.ts`
+- `apps/api/src/payments/wompi.controller.ts`
+- `apps/api/src/payments/mercadopago.controller.ts`
+- `apps/api/src/admin/admin-emails.controller.ts` — NUEVO
+- `apps/api/src/admin/admin.module.ts`
+
+**Rama:** `sprint8/hardening-produccion`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 65. FEATURE 9.1 — Widget embebido de Wompi con fallback automático
+
+**Problema resuelto:**
+El checkout anterior redirigía directamente a `checkout.wompi.co/p/` abandonando la tienda. El widget embebido de Wompi permite mantener al usuario en el sitio durante el pago.
+
+**Limitación técnica encontrada (ya documentada en el codebase):**
+El `widget.js` de Wompi usa `document.currentScript` para localizar su form padre. En React, todos los scripts se añaden dinámicamente con `appendChild`, por lo que `document.currentScript` es null. La solución es crear el `<form data-render="button">` primero en el DOM y luego inyectar el script — el scanner de Wompi busca `[data-render="button"]` en el documento completo, no solo junto al script.
+
+**Solución implementada — estrategia dual en `WompiWidget.tsx`:**
+
+1. **Intento principal (widget embed):**
+   - `useEffect` crea el `<form>` con todos los `data-*` requeridos (public-key, currency, amount-in-cents, reference, signature:integrity, redirect-url)
+   - Inyecta el script `checkout.wompi.co/widget.js` dinámicamente después del form
+   - Si el script carga (`onload`), el widget se inicializa en el DOM
+   - Timeout de 5 s: si el script no carga (bloqueador de anuncios, red lenta), activa el fallback
+
+2. **Fallback automático (redirect):**
+   - Si `script.onerror` o el timeout de 5 s se activa, `useFallback` pasa a `true`
+   - Se muestra un enlace `<a>` directo a `checkout.wompi.co/p/` con los parámetros como query string
+   - Misma experiencia de pago, sin el widget embed
+
+3. **Limpieza de efectos:** el `cleanup` de `useEffect` vacía el container y cancela el timeout para evitar memory leaks al desmontar el componente.
+
+**No se requirió cambiar `next.config.ts`:** Next.js no tiene un header CSP configurado, por lo que el script externo de Wompi puede cargarse sin restricciones.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/checkout/WompiWidget.tsx` — reescrito
+
+**Rama:** `sprint9/ux-critico-pagos`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 66. FEATURE 9.2 — Componente EmptyState reutilizable
+
+**Problema resuelto:**
+Cada vista con estado vacío tenía su propio markup inline inconsistente (carrito, catálogo, pedidos). Cambiar el estilo requería editar tres archivos distintos.
+
+**Solución implementada:**
+
+1. **`apps/web/src/components/ui/EmptyState.tsx`** — NUEVO: componente Server Component con props `icon`, `title`, `description?`, `action?: { label, href }`. Sigue el estilo visual de `pedidos/page.tsx` (fondo blanco, borde gris, padding p-16, botón sky-400).
+
+2. **Refactorizaciones:**
+   - `apps/web/src/app/(store)/pedidos/page.tsx` — empty state inline reemplazado por `<EmptyState icon="📦" title="Aún no tienes pedidos" ... />`
+   - `apps/web/src/app/(store)/catalogo/page.tsx` — empty state "Sin resultados" reemplazado por `<EmptyState icon="🔍" title="Sin resultados" ... />`
+   - `apps/web/src/app/(store)/carrito/page.tsx` — empty state custom (SVG de carrito, fondo centrado) reemplazado por `<EmptyState icon="🛒" title="Tu carrito está vacío" ... />` dentro de un contenedor con padding
+
+**Archivos modificados:**
+
+- `apps/web/src/components/ui/EmptyState.tsx` — NUEVO
+- `apps/web/src/app/(store)/pedidos/page.tsx`
+- `apps/web/src/app/(store)/catalogo/page.tsx`
+- `apps/web/src/app/(store)/carrito/page.tsx`
+
+**Rama:** `sprint9/ux-critico-pagos`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 67. FIX 9.3 — Paginación con ventana deslizante en catálogo y pedidos
+
+**Problema resuelto:**
+`catalogo/page.tsx` generaba un `<Link>` por cada página con `Array.from({ length: totalPages })`. Con 50+ páginas resultaban 50+ elementos DOM innecesarios. `pedidos/page.tsx` solo mostraba Anterior/Siguiente sin números de página, lo que hacía imposible saltar a páginas específicas.
+
+**Solución implementada:**
+
+1. **`apps/web/src/lib/pagination.ts`** — NUEVO: función pura `getPaginationPages(current, total): (number | '...')[]`:
+   - Siempre incluye página 1 y última
+   - Muestra hasta 2 páginas antes y después de la actual (delta = 2)
+   - Reemplaza saltos con `'...'`
+   - Ejemplos: `(5, 20)` → `[1, '...', 3, 4, 5, 6, 7, '...', 20]` / `(1, 3)` → `[1, 2, 3]`
+
+2. **`apps/web/src/app/(store)/catalogo/page.tsx`**:
+   - `Array.from({ length: totalPages })` → `getPaginationPages(page, totalPages).map(...)`
+   - El elemento `'...'` se renderiza como `<span>…</span>` no clicable con el mismo estilo de los números
+
+3. **`apps/web/src/app/(store)/pedidos/page.tsx`**:
+   - Se añaden números de página con ventana (mismo patrón y clases que el catálogo)
+   - Se mantienen los botones Anterior / Siguiente con el mismo estilo visual
+
+**Archivos modificados:**
+
+- `apps/web/src/lib/pagination.ts` — NUEVO
+- `apps/web/src/app/(store)/catalogo/page.tsx`
+- `apps/web/src/app/(store)/pedidos/page.tsx`
+
+**Rama:** `sprint9/ux-critico-pagos`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 68. FEATURE 10.1 — Sitemap dinámico
+
+**Qué se hizo:**
+Se creó `apps/web/src/app/sitemap.ts` que exporta la función `sitemap()` requerida por Next.js para generar automáticamente el archivo `/sitemap.xml`. Combina rutas estáticas con las páginas de producto generadas dinámicamente desde la base de datos.
+
+**Rutas incluidas:**
+
+- `/` — prioridad 1.0, cambio diario
+- `/catalogo` — prioridad 0.9, cambio diario
+- `/auth/login` y `/auth/register` — prioridad 0.3, cambio mensual
+- `/producto/[slug]` para cada producto con `isActive = true` y `stock > 0` — prioridad 0.7, cambio semanal, con `lastModified` real del campo `updatedAt`
+
+**Archivos creados:**
+
+- `apps/web/src/app/sitemap.ts` *(nuevo)*
+
+**Decisiones técnicas:**
+
+- Usa `prisma.product.findMany()` directamente (patrón SSR de reads sin HTTP a NestJS).
+- Sin caché: Next.js regenera el sitemap en cada build de Vercel, que es el momento correcto para reflejar el catálogo actualizado.
+- La URL base se lee de `NEXT_PUBLIC_SITE_URL`; si no está definida cae al dominio de Vercel del proyecto.
+- Los productos sin stock o inactivos se excluyen deliberadamente para evitar que Google indexe páginas sin contenido comprable.
+
+**Rama:** `sprint10/seo-rendimiento`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 69. FEATURE 10.2 — OG images para home y productos
+
+**Qué se hizo:**
+Se crearon dos archivos `opengraph-image.tsx` que Next.js detecta automáticamente y sirve como imagen `og:image` al compartir links en redes sociales (Twitter/X, WhatsApp, Slack, etc.).
+
+**Archivos creados:**
+
+- `apps/web/src/app/opengraph-image.tsx` — OG image estática para la home (1200×630 px)
+- `apps/web/src/app/(store)/producto/[slug]/opengraph-image.tsx` — OG image dinámica por producto (1200×630 px)
+
+**Diseño home:**
+
+- Fondo oscuro `#0f172a`, barra accent sky-500, título blanco 76 px, tagline gris 30 px, badge de dominio en esquina inferior derecha.
+
+**Diseño producto:**
+
+- Layout split: panel izquierdo oscuro con nombre del producto (46 px), precio en sky-500 (38 px) y badge de stock (verde / rojo); panel derecho gris claro con la imagen del producto desde Cloudinary.
+- Nombre truncado a 55 caracteres para evitar overflow.
+- Fallback genérico si el producto no existe.
+
+**Decisiones técnicas:**
+
+- `export const runtime = 'nodejs'` en ambos archivos para evitar incompatibilidades de Edge con Prisma/pg.
+- `ImageResponse` de `next/og` — solo estilos inline, sin Tailwind (limitación de la API).
+- La OG de producto llama a `getCachedProductBySlug` (Prisma + `unstable_cache`): misma función que usa la página, sin round-trip extra.
+- Se suprimió el warning de `@next/next/no-img-element` con comentario eslint-disable-next-line en la etiqueta de imagen del panel derecho (necesario porque `<Image>` de Next.js no es compatible con `ImageResponse`).
+
+**Rama:** `sprint10/seo-rendimiento`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 70. FEATURE 10.3 — generateStaticParams con ISR para páginas de producto
+
+**Qué se hizo:**
+Se añadió `generateStaticParams` y `export const revalidate = 300` a la página de detalle de producto (`/producto/[slug]`), convirtiendo las páginas de producto de SSR puro a ISR (Incremental Static Regeneration).
+
+**Comportamiento en build:**
+
+- En cada deploy de Vercel, `generateStaticParams` consulta todos los productos con `isActive = true` y `stock > 0` y devuelve sus slugs.
+- Next.js pre-renderiza todas esas páginas en build time y las deposita en el CDN de Vercel.
+- El TTFB de un producto pre-renderizado pasa de ~200 ms (SSR cold) a ~0 ms (CDN hit).
+
+**Comportamiento en producción (ISR):**
+
+- Después de 300 segundos desde el último render, la próxima visita recibe la página cacheada (sin esperar) y dispara un re-render en background (`stale-while-revalidate`).
+- Productos nuevos o slugs no incluidos en `generateStaticParams` se renderizan on-demand la primera vez y quedan cacheados (`dynamicParams = true`, que es el default).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx`
+
+**Decisiones técnicas:**
+
+- `prisma.product.findMany` directo (sin `unstable_cache`) porque `generateStaticParams` solo corre en build time, no en runtime de usuario.
+- `revalidate = 300` (5 min) como balance entre frescura de precio/stock y eficiencia de CDN.
+- Se mantuvo `getCachedProductBySlug` dentro de `generateMetadata` y `ProductPage` porque en runtime sí necesita el caché de `unstable_cache`.
+
+**Rama:** `sprint10/seo-rendimiento`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 71. FIX 11.1 — Auditoría de fronteras Server/Client Component
+
+**Qué se hizo:**
+Se auditaron todos los archivos de `apps/web/src/app/` y `apps/web/src/components/` para detectar violaciones de fronteras Server/Client en Next.js App Router. Se corrigieron dos hallazgos concretos.
+
+**Resultado de la auditoría:**
+
+- 25 Client Components marcados con `'use client'` — todos justificados (hooks, browser APIs, next-auth/react).
+- Fronteras Server→Client correctas: `Navbar` dentro de `<Suspense>`, datos serializables en props.
+- Ningún Client Component importa Server Components directamente (patrón correcto de children).
+- `OrderStatusBadge` y `WhatsAppButton` son Server Components sin `'use client'` — correcto.
+
+**Hallazgo 1 — `metadataBase` ausente (corregido):**
+
+Sin `metadataBase` en el root layout, Next.js construye URLs relativas para las `opengraph-image.tsx`. Los scrapers de redes sociales (Twitter, WhatsApp, Slack) necesitan URLs absolutas para renderizar el preview. Se añadió `metadataBase` leyendo `NEXT_PUBLIC_SITE_URL` con fallback a `https://h2r-store.vercel.app`. También se corrigió `siteName` de `'H2r Online Store'` a `'H2R Online Store'`.
+
+**Hallazgo 2 — Nombre de tienda incorrecto en footer (corregido):**
+
+El footer del store layout tenía `alt="Electro Motos Tony"` en el logo y `© Electro Motos Tony` en el copyright. Corregido a `H2R Online Store` en ambos lugares.
+
+**Archivos modificados:**
+
+- `apps/web/src/app/layout.tsx` — añade `metadataBase`, corrige `siteName`
+- `apps/web/src/app/(store)/layout.tsx` — corrige `alt` del logo y texto del copyright
+
+**Rama:** `sprint11/pulido-final`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 72. FEATURE 11.2 — ARIA en formularios críticos
+
+**Qué se hizo:**
+Se auditaron y corrigieron los atributos ARIA en los tres formularios críticos de la tienda para cumplir con las pautas WCAG 2.1 AA: `CheckoutForm`, `LoginForm` y `ForgotPasswordForm`.
+
+**CheckoutForm (`apps/web/src/components/checkout/CheckoutForm.tsx`):**
+
+- Todos los `<input>` y `<textarea>` carecían de `id`, por lo que los `<label>` no estaban vinculados a ningún campo (rotura de accesibilidad fundamental). Se añadió `id` único con prefijo `checkout-` a cada campo y `htmlFor` correspondiente en cada `<label>`.
+- Campos obligatorios: añadido `aria-required="true"` (el HTML `required` es insuficiente para algunos lectores de pantalla).
+- Input de email deshabilitado: añadido `aria-disabled="true"`.
+- Div de error global: añadido `role="alert"` para que los lectores de pantalla anuncien el mensaje sin necesidad de enfocar el elemento.
+
+**LoginForm (`apps/web/src/app/auth/login/LoginForm.tsx`):**
+
+- Div de error: añadido `role="alert"`.
+- Inputs `email` y `password`: añadido `aria-required="true"` y `aria-invalid={!!error}` (comunica a los lectores el estado inválido tras un intento fallido).
+- Botón mostrar/ocultar contraseña: añadido `aria-label` descriptivo (`"Mostrar contraseña"` / `"Ocultar contraseña"`) y `aria-pressed` para comunicar el estado toggle.
+
+**ForgotPasswordForm (`apps/web/src/app/auth/forgot-password/ForgotPasswordForm.tsx`):**
+
+- `<label htmlFor>` actualizado de `"email"` a `"forgot-email"` para evitar colisión con el campo del LoginForm si ambos aparecieran en el mismo árbol DOM.
+- Error de campo: añadido `id="forgot-email-error"` y `role="alert"`.
+- Input: añadido `aria-invalid={!!fieldError}` y `aria-describedby="forgot-email-error"` (condicional) para que el lector anuncie el mensaje de error al enfocar el campo.
+- `aria-required="true"` en el input de email.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/checkout/CheckoutForm.tsx`
+- `apps/web/src/app/auth/login/LoginForm.tsx`
+- `apps/web/src/app/auth/forgot-password/ForgotPasswordForm.tsx`
+
+**Rama:** `sprint11/pulido-final`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 73. FEATURE 11.3 — Tests E2E con Playwright
+
+**Qué se hizo:**
+Se instaló `@playwright/test` y se creó la suite de tests E2E que cubre los flujos críticos: páginas públicas, formularios de auth, carrito y checkout completo.
+
+**Estructura de archivos creados:**
+
+- `apps/web/playwright.config.ts` — configuración con dos proyectos: `chromium` (público) y `chromium-auth` (autenticado, depende del setup).
+- `apps/web/e2e/global-setup.ts` — login previo vía UI; guarda cookies en `playwright/.auth/user.json` para reutilizar sesión entre tests. Usa `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` del entorno.
+- `apps/web/e2e/catalog.spec.ts` — 5 tests: home carga, link al catálogo, catálogo muestra productos, detalle de producto, 404 en slug inexistente.
+- `apps/web/e2e/auth.spec.ts` — 6 tests: login renderiza labels vinculados, error con credenciales malas, toggle de contraseña, redirección protegida, forgot-password ARIA, forgot-password confirmación (API mockeada).
+- `apps/web/e2e/cart.spec.ts` — 6 tests: empty state, producto inyectado vía localStorage, incremento/decremento de cantidad, eliminación, stock máximo deshabilita "+", link al checkout.
+- `apps/web/e2e/checkout.spec.ts` — 4 tests (autenticados): sanity redirect sin sesión, formulario visible con sesión, happy path con API NestJS mockeada (avanza al paso de pago), validación HTML5 bloquea envío vacío.
+
+**Decisiones técnicas:**
+
+- El carrito guest se inyecta directamente en `localStorage` (`electro-motos-cart-guest`) para evitar navegar por el catálogo en cada test, reduciendo tiempo de ejecución.
+- Las llamadas al API de NestJS se mockean con `page.route('**/orders', ...)` en los tests de checkout — los tests no dependen de que NestJS esté corriendo.
+- `webServer: { command: 'pnpm dev', reuseExistingServer: !CI }` — en local reutiliza el servidor si ya está corriendo; en CI levanta uno nuevo.
+- `playwright/.auth/` y `playwright-report/` añadidos al `.gitignore` raíz.
+
+**Comandos:**
+
+```bash
+pnpm --filter @h2r/web test:e2e          # headless
+pnpm --filter @h2r/web test:e2e:ui       # con UI interactiva de Playwright
+pnpm --filter @h2r/web test:e2e:headed   # navegador visible
+```
+
+**Variables de entorno requeridas para checkout tests:**
+
+- `TEST_USER_EMAIL` — email de un usuario real en la BD de desarrollo
+- `TEST_USER_PASSWORD` — su contraseña
+
+**Archivos creados:**
+
+- `apps/web/playwright.config.ts`
+- `apps/web/e2e/global-setup.ts`
+- `apps/web/e2e/catalog.spec.ts`
+- `apps/web/e2e/auth.spec.ts`
+- `apps/web/e2e/cart.spec.ts`
+- `apps/web/e2e/checkout.spec.ts`
+- `apps/web/playwright/.auth/user.json` *(vacío, gitignoreado)*
+
+**Rama:** `sprint11/pulido-final`
+
+*Última actualización: 2026-05-19*
+
+---
+
+## 74. FIX 11.4 — Umbrales de cobertura en dominio + tests de controladores NestJS
+
+**Qué se hizo:**
+Se completó la cobertura de tests del API en dos partes:
+
+**Parte 1 — Umbrales de cobertura en `packages/domain`:**
+
+- Configurada cobertura con `provider: 'v8'` en `packages/domain/vitest.config.ts`.
+- Umbrales mínimos: 80 % en líneas, funciones y declaraciones; 70 % en ramas.
+- Instalado `@vitest/coverage-v8` como devDependency en `packages/domain`.
+
+**Parte 2 — Tests unitarios de controladores NestJS:**
+
+- Creado `apps/api/src/__tests__/orders.controller.test.ts` con 4 tests para `OrdersController`: creación de pedido exitosa, error del use case, MERCADO_PAGO deshabilitado lanza `ForbiddenException`, y `updateStatus()` exitoso.
+- Creado `apps/api/src/__tests__/wompi.controller.test.ts` con 7 tests para `WompiController`: integrity signature con todos los campos, moneda COP por defecto, webhook con firma inválida lanza `UnauthorizedException`, evento no-transacción ignorado, pago APPROVED encola email, pago DECLINED no encola email, error de dominio retornado sin excepción.
+
+**Problemas resueltos durante la implementación:**
+
+1. **`Cannot find package '@/domain/shared/Result'`** — `apps/api/vitest.config.ts` no tenía el alias `@/domain`. Solucionado agregando `resolve.alias` apuntando a `../../packages/domain/src`.
+
+2. **`Cannot find module './internal/class'` (cliente Prisma en tests)** — El cliente Prisma generado no puede cargarse en el entorno vitest. Solucionado con `vi.mock('@h2r/database', () => ({ prisma: { client: {...} }, PrismaClient: vi.fn() }))` hoisted al tope de cada test.
+
+3. **`No "IOrderRepository" export defined on @h2r/domain mock`** — Las interfaces TypeScript no existen en runtime. vitest valida los exports del mock contra el módulo real. Solucionado agregando `IOrderRepository: undefined, IProductRepository: undefined, IPaymentService: undefined, OrderStatus: undefined, PaymentStatus: undefined` como placeholders en el mock de `@h2r/domain`.
+
+4. **`Cannot find module '../infrastructure/services/WompiService'` (require() en ESM)**— `require()` dinámico dentro de funciones no funciona en modo ESM de vitest. Solucionado reescribiendo los tests con imports estáticos al tope del archivo, permitiendo que `vi.mock` los intercepte via hoisting.
+
+5. **`MercadoPagoService at index [3] is not available`** — `OrdersController` inyecta `MercadoPagoService` en el constructor pero no estaba en los providers del módulo de test. Solucionado agregando `{ provide: MercadoPagoService, useValue: mockMercadoPagoService }`.
+
+6. **`() => ({...}) is not a constructor`** — `ConfirmPayment` y `CreateOrder` se instancian con `new` en los controladores. `vi.fn().mockImplementation(() => ({...}))` usa arrow functions que no son constructables. Solucionado cambiando a `vi.fn().mockImplementation(function () { return {...} })`.
+
+**Resultado final:**
+
+```text
+Test Files  3 passed (3)
+      Tests  20 passed (20)
+```
+
+Los 9 tests de `WompiService.test.ts` (existentes) más los 11 nuevos tests de controladores pasan sin errores.
+
+**Archivos modificados/creados:**
+
+- `packages/domain/vitest.config.ts` — cobertura v8 con umbrales
+- `apps/api/vitest.config.ts` — alias `@/domain` agregado
+- `apps/api/src/__tests__/orders.controller.test.ts` *(nuevo)*
+- `apps/api/src/__tests__/wompi.controller.test.ts` *(nuevo)*
+
+**Rama:** `sprint11/pulido-final`
+
+*Última actualización: 2026-05-19*

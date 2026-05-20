@@ -24,8 +24,11 @@ import { CategoryHeroBanner } from '@/components/store/CategoryHeroBanner'
 import { ProductCarousel } from '@/components/store/ProductCarousel'
 import { FilterDrawer } from '@/components/store/FilterDrawer'
 import { prisma } from '@/infrastructure/database/prisma-client'
+import { WHATSAPP_URL } from '@/lib/contact'
 import type { Product } from '@h2r/domain'
 import { getCachedCatalogLanding, getCachedCatalogGrid } from '@/lib/cache'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { getPaginationPages } from '@/lib/pagination'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -388,7 +391,7 @@ function LandingView({
               </p>
             </div>
             <a
-              href="https://wa.me/573000000000"
+              href={WHATSAPP_URL()}
               target="_blank"
               rel="noopener noreferrer"
               className="shrink-0 flex items-center gap-2.5 bg-sky-400 text-black px-6 py-3 rounded-xl font-bold hover:bg-sky-500 hover:text-white active:scale-95 transition-all"
@@ -526,14 +529,12 @@ function GridView({
 
         {/* ── Grid de productos ── */}
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="text-5xl mb-4">🔍</div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Sin resultados</h2>
-            <p className="text-sm text-gray-400 mb-6 max-w-xs">No encontramos productos con esos filtros.</p>
-            <Link href="/catalogo" className="bg-sky-400 text-black px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-sky-500 hover:text-white transition-colors">
-              Ver todo el catálogo
-            </Link>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title="Sin resultados"
+            description="No encontramos productos con esos filtros."
+            action={{ label: 'Ver todo el catálogo', href: '/catalogo' }}
+          />
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -551,12 +552,18 @@ function GridView({
                     Anterior
                   </Link>
                 )}
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <Link key={p} href={url({ page: String(p) })}
-                    className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-semibold transition-colors ${p === page ? 'bg-sky-500 text-white' : 'border border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300'}`}>
-                    {p}
-                  </Link>
-                ))}
+                {getPaginationPages(page, totalPages).map((p, i) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${i}`} className="w-10 h-10 flex items-center justify-center text-sm text-gray-400 select-none">
+                      …
+                    </span>
+                  ) : (
+                    <Link key={p} href={url({ page: String(p) })}
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-semibold transition-colors ${p === page ? 'bg-sky-500 text-white' : 'border border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300'}`}>
+                      {p}
+                    </Link>
+                  )
+                )}
                 {page < totalPages && (
                   <Link href={url({ page: String(page + 1) })}
                     className="flex items-center gap-1 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-colors">

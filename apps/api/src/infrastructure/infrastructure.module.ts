@@ -8,6 +8,7 @@ import { WompiService } from './services/WompiService'
 import { MercadoPagoService } from './services/MercadoPagoService'
 import { ResendEmailService } from './services/ResendEmailService'
 import { CloudinaryService } from './services/CloudinaryService'
+import { EmailQueueService } from './services/EmailQueueService'
 
 @Module({
   imports: [PrismaModule],
@@ -22,6 +23,7 @@ import { CloudinaryService } from './services/CloudinaryService'
     MercadoPagoService,
     ResendEmailService,
     CloudinaryService,
+    EmailQueueService,
   ],
   exports: [
     PrismaModule,
@@ -33,6 +35,7 @@ import { CloudinaryService } from './services/CloudinaryService'
     MercadoPagoService,
     ResendEmailService,
     CloudinaryService,
+    EmailQueueService,
   ],
 })
 export class InfrastructureModule {}

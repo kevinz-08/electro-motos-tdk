@@ -74,19 +74,22 @@ export function ForgotPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       {serverError && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+        <div role="alert" className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
           {serverError}
         </div>
       )}
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-white/70 mb-1">
+        <label htmlFor="forgot-email" className="block text-sm font-medium text-white/70 mb-1">
           Correo electrónico
         </label>
         <input
-          id="email"
+          id="forgot-email"
           type="email"
           required
+          aria-required="true"
+          aria-invalid={!!fieldError}
+          aria-describedby={fieldError ? 'forgot-email-error' : undefined}
           autoComplete="email"
           value={email}
           onChange={(e) => { setEmail(e.target.value); setFieldError(null) }}
@@ -96,7 +99,7 @@ export function ForgotPasswordForm() {
             ${fieldError ? 'border-red-500/60 focus:border-red-500' : 'border-white/10 focus:border-blue-500'}`}
         />
         {fieldError && (
-          <p className="text-red-400 text-xs mt-1">{fieldError}</p>
+          <p id="forgot-email-error" role="alert" className="text-red-400 text-xs mt-1">{fieldError}</p>
         )}
       </div>
 

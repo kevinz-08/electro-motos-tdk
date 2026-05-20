@@ -126,11 +126,13 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="checkout-fullName" className="block text-sm font-medium text-gray-700 mb-1">
                     Nombre completo *
                   </label>
                   <input
+                    id="checkout-fullName"
                     required
+                    aria-required="true"
                     type="text"
                     value={form.fullName}
                     onChange={(e) => setForm({ ...form, fullName: e.target.value })}
@@ -140,11 +142,13 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="checkout-address" className="block text-sm font-medium text-gray-700 mb-1">
                     Dirección *
                   </label>
                   <input
+                    id="checkout-address"
                     required
+                    aria-required="true"
                     type="text"
                     value={form.address}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
@@ -154,11 +158,13 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="checkout-city" className="block text-sm font-medium text-gray-700 mb-1">
                     Ciudad *
                   </label>
                   <input
+                    id="checkout-city"
                     required
+                    aria-required="true"
                     type="text"
                     value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
@@ -168,11 +174,13 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="checkout-department" className="block text-sm font-medium text-gray-700 mb-1">
                     Departamento *
                   </label>
                   <input
+                    id="checkout-department"
                     required
+                    aria-required="true"
                     type="text"
                     value={form.department}
                     onChange={(e) => setForm({ ...form, department: e.target.value })}
@@ -182,11 +190,13 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="checkout-phone" className="block text-sm font-medium text-gray-700 mb-1">
                     Teléfono *
                   </label>
                   <input
+                    id="checkout-phone"
                     required
+                    aria-required="true"
                     type="tel"
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -196,22 +206,25 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="checkout-email" className="block text-sm font-medium text-gray-700 mb-1">
                     Correo electrónico
                   </label>
                   <input
+                    id="checkout-email"
                     type="email"
                     disabled
+                    aria-disabled="true"
                     value={userEmail}
                     className="w-full border border-gray-200 bg-gray-50 rounded-lg px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="checkout-notes" className="block text-sm font-medium text-gray-700 mb-1">
                     Notas adicionales
                   </label>
                   <textarea
+                    id="checkout-notes"
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     rows={2}
@@ -223,7 +236,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+              <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
                 {error}
               </div>
             )}

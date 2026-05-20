@@ -53,7 +53,7 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Error inline */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+        <div role="alert" className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
@@ -67,6 +67,8 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
           id="email"
           type="email"
           required
+          aria-required="true"
+          aria-invalid={!!error}
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -83,6 +85,8 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
           </label>
           <button
             type="button"
+            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            aria-pressed={showPassword}
             onClick={() => setShowPassword((v) => !v)}
             className="text-xs text-white/30 hover:text-white/60 transition-colors"
           >
@@ -93,6 +97,8 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
           id="password"
           type={showPassword ? 'text' : 'password'}
           required
+          aria-required="true"
+          aria-invalid={!!error}
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

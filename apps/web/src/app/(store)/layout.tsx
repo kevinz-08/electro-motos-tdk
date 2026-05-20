@@ -19,7 +19,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={120} height={34} className="object-contain mb-3" style={{ height: 'auto' }} />
+              <Image src="/assets/LogoPage.png" alt="H2R Online Store" width={120} height={34} className="object-contain mb-3" style={{ height: 'auto' }} />
               <p className="text-sm">Taller especializado en repuestos y servicio técnico de motos en Colombia.</p>
             </div>
             <div>
@@ -40,7 +40,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
             </div>
           </div>
           <div className="border-t border-white/10 mt-8 pt-8 text-center text-sm text-gray-500">
-            <p>© {new Date().getFullYear()} Electro Motos Tony. Todos los derechos reservados.</p>
+            <p>© {new Date().getFullYear()} H2R Online Store. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

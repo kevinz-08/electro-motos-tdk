@@ -1,5 +1,7 @@
 # ⚡ H2R Online Store — E-commerce de Repuestos para Motos
 
+[![CI](https://github.com/kevinz-08/electro-motos-tdk/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinz-08/electro-motos-tdk/actions/workflows/ci.yml)
+
 E-commerce completo para una tienda de motos colombiana. Permite a los clientes comprar
 repuestos en línea con pago a través de **Wompi** (principal) o **Mercado Pago** (respaldo),
 mientras que los administradores gestionan productos, pedidos y stock desde un panel dedicado.

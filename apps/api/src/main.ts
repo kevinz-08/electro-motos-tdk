@@ -1,3 +1,4 @@
+import './instrument'
 import 'reflect-metadata'
 import 'dotenv/config'
 import { NestFactory } from '@nestjs/core'
@@ -39,7 +40,23 @@ function getCorsOrigin(origin: string | undefined, callback: CorsOriginCallback)
   callback(new Error(`CORS bloqueado para origin: ${origin}`))
 }
 
+function assertEnvVars(): void {
+  const required = [
+    'DATABASE_URL',
+    'JWT_SECRET',
+    'INTERNAL_API_SECRET',
+    'WOMPI_EVENTS_SECRET',
+    'WOMPI_INTEGRITY_SECRET',
+  ]
+  const missing = required.filter((k) => !process.env[k])
+  if (missing.length > 0) {
+    console.error(`[Bootstrap] Variables de entorno requeridas no configuradas: ${missing.join(', ')}`)
+    process.exit(1)
+  }
+}
+
 async function bootstrap() {
+  assertEnvVars()
   const structuredLogger = new StructuredLogger()
   const app = await NestFactory.create(AppModule, { bufferLogs: true })
   app.useLogger(structuredLogger)

@@ -1,11 +1,13 @@
+import { WHATSAPP_URL } from '@/lib/contact'
+
 /**
  * Botón flotante de WhatsApp — aparece en todas las páginas de la tienda.
- * Número configurado en el href: reemplaza el 573000000000 cuando tengas el número real.
+ * Número configurado via NEXT_PUBLIC_WHATSAPP_NUMBER en .env.local
  */
 export function WhatsAppButton() {
   return (
     <a
-      href="https://wa.me/573000000000"
+      href={WHATSAPP_URL()}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Contactar por WhatsApp"

@@ -2316,3 +2316,40 @@ El footer del store layout tenía `alt="Electro Motos Tony"` en el logo y `© El
 **Rama:** `sprint11/pulido-final`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 72. FEATURE 11.2 — ARIA en formularios críticos
+
+**Qué se hizo:**
+Se auditaron y corrigieron los atributos ARIA en los tres formularios críticos de la tienda para cumplir con las pautas WCAG 2.1 AA: `CheckoutForm`, `LoginForm` y `ForgotPasswordForm`.
+
+**CheckoutForm (`apps/web/src/components/checkout/CheckoutForm.tsx`):**
+
+- Todos los `<input>` y `<textarea>` carecían de `id`, por lo que los `<label>` no estaban vinculados a ningún campo (rotura de accesibilidad fundamental). Se añadió `id` único con prefijo `checkout-` a cada campo y `htmlFor` correspondiente en cada `<label>`.
+- Campos obligatorios: añadido `aria-required="true"` (el HTML `required` es insuficiente para algunos lectores de pantalla).
+- Input de email deshabilitado: añadido `aria-disabled="true"`.
+- Div de error global: añadido `role="alert"` para que los lectores de pantalla anuncien el mensaje sin necesidad de enfocar el elemento.
+
+**LoginForm (`apps/web/src/app/auth/login/LoginForm.tsx`):**
+
+- Div de error: añadido `role="alert"`.
+- Inputs `email` y `password`: añadido `aria-required="true"` y `aria-invalid={!!error}` (comunica a los lectores el estado inválido tras un intento fallido).
+- Botón mostrar/ocultar contraseña: añadido `aria-label` descriptivo (`"Mostrar contraseña"` / `"Ocultar contraseña"`) y `aria-pressed` para comunicar el estado toggle.
+
+**ForgotPasswordForm (`apps/web/src/app/auth/forgot-password/ForgotPasswordForm.tsx`):**
+
+- `<label htmlFor>` actualizado de `"email"` a `"forgot-email"` para evitar colisión con el campo del LoginForm si ambos aparecieran en el mismo árbol DOM.
+- Error de campo: añadido `id="forgot-email-error"` y `role="alert"`.
+- Input: añadido `aria-invalid={!!fieldError}` y `aria-describedby="forgot-email-error"` (condicional) para que el lector anuncie el mensaje de error al enfocar el campo.
+- `aria-required="true"` en el input de email.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/checkout/CheckoutForm.tsx`
+- `apps/web/src/app/auth/login/LoginForm.tsx`
+- `apps/web/src/app/auth/forgot-password/ForgotPasswordForm.tsx`
+
+**Rama:** `sprint11/pulido-final`
+
+*Última actualización: 2026-05-19*

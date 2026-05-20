@@ -2403,3 +2403,55 @@ pnpm --filter @h2r/web test:e2e:headed   # navegador visible
 **Rama:** `sprint11/pulido-final`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 74. FIX 11.4 — Umbrales de cobertura en dominio + tests de controladores NestJS
+
+**Qué se hizo:**
+Se completó la cobertura de tests del API en dos partes:
+
+**Parte 1 — Umbrales de cobertura en `packages/domain`:**
+
+- Configurada cobertura con `provider: 'v8'` en `packages/domain/vitest.config.ts`.
+- Umbrales mínimos: 80 % en líneas, funciones y declaraciones; 70 % en ramas.
+- Instalado `@vitest/coverage-v8` como devDependency en `packages/domain`.
+
+**Parte 2 — Tests unitarios de controladores NestJS:**
+
+- Creado `apps/api/src/__tests__/orders.controller.test.ts` con 4 tests para `OrdersController`: creación de pedido exitosa, error del use case, MERCADO_PAGO deshabilitado lanza `ForbiddenException`, y `updateStatus()` exitoso.
+- Creado `apps/api/src/__tests__/wompi.controller.test.ts` con 7 tests para `WompiController`: integrity signature con todos los campos, moneda COP por defecto, webhook con firma inválida lanza `UnauthorizedException`, evento no-transacción ignorado, pago APPROVED encola email, pago DECLINED no encola email, error de dominio retornado sin excepción.
+
+**Problemas resueltos durante la implementación:**
+
+1. **`Cannot find package '@/domain/shared/Result'`** — `apps/api/vitest.config.ts` no tenía el alias `@/domain`. Solucionado agregando `resolve.alias` apuntando a `../../packages/domain/src`.
+
+2. **`Cannot find module './internal/class'` (cliente Prisma en tests)** — El cliente Prisma generado no puede cargarse en el entorno vitest. Solucionado con `vi.mock('@h2r/database', () => ({ prisma: { client: {...} }, PrismaClient: vi.fn() }))` hoisted al tope de cada test.
+
+3. **`No "IOrderRepository" export defined on @h2r/domain mock`** — Las interfaces TypeScript no existen en runtime. vitest valida los exports del mock contra el módulo real. Solucionado agregando `IOrderRepository: undefined, IProductRepository: undefined, IPaymentService: undefined, OrderStatus: undefined, PaymentStatus: undefined` como placeholders en el mock de `@h2r/domain`.
+
+4. **`Cannot find module '../infrastructure/services/WompiService'` (require() en ESM)**— `require()` dinámico dentro de funciones no funciona en modo ESM de vitest. Solucionado reescribiendo los tests con imports estáticos al tope del archivo, permitiendo que `vi.mock` los intercepte via hoisting.
+
+5. **`MercadoPagoService at index [3] is not available`** — `OrdersController` inyecta `MercadoPagoService` en el constructor pero no estaba en los providers del módulo de test. Solucionado agregando `{ provide: MercadoPagoService, useValue: mockMercadoPagoService }`.
+
+6. **`() => ({...}) is not a constructor`** — `ConfirmPayment` y `CreateOrder` se instancian con `new` en los controladores. `vi.fn().mockImplementation(() => ({...}))` usa arrow functions que no son constructables. Solucionado cambiando a `vi.fn().mockImplementation(function () { return {...} })`.
+
+**Resultado final:**
+
+```text
+Test Files  3 passed (3)
+      Tests  20 passed (20)
+```
+
+Los 9 tests de `WompiService.test.ts` (existentes) más los 11 nuevos tests de controladores pasan sin errores.
+
+**Archivos modificados/creados:**
+
+- `packages/domain/vitest.config.ts` — cobertura v8 con umbrales
+- `apps/api/vitest.config.ts` — alias `@/domain` agregado
+- `apps/api/src/__tests__/orders.controller.test.ts` *(nuevo)*
+- `apps/api/src/__tests__/wompi.controller.test.ts` *(nuevo)*
+
+**Rama:** `sprint11/pulido-final`
+
+*Última actualización: 2026-05-19*

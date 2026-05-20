@@ -55,8 +55,10 @@ const CHILD_SLUG: Record<string, string> = {
   'CDI':            'cdi',
   'BATERIAS':       'baterias',
   'ESTATORES':      'estatores',
-  'BOBINAS':        'bobinas',
-  'SENSORES':       'sensores',
+  'BOBINAS':           'bobinas',
+  'BOBINAS DE ALTA':   'bobinas',
+  'SENSORES':          'sensores',
+  'MOTORES DE ARRANQUE': 'motores-de-arranque',
   // Repuestos
   'FILTRO DE AIRE': 'filtro-de-aire',
   'BUJIAS':         'bujias',
@@ -65,9 +67,12 @@ const CHILD_SLUG: Record<string, string> = {
   'REPUESTOS MOTOR':'repuestos-motor',
   // Aceites
   'LIQUIMOLY':      'liquimoly',
-  'SKY':            'sky',
+  'CASTROL':        'castrol',
   // Llantas (categoría padre sin subcategoría)
   'LLANTAS':        'llantas',
+  'KONTROL':        'kontrol',
+  'DUNLOP':         'dunlop',
+  'SKY':            'sky',
   // Accesorios
   'ESPEJOS':        'espejos',
   'EXPLORADORES':   'exploradores',
@@ -115,14 +120,17 @@ function parseCatFolder(name: string): { parent: string; child: string } | null 
 function parseProdFolder(name: string): {
   sku: string; name: string; stock: number; price: number
 } | null {
-  // Paso 1 — stock y precio al final
-  const tailMatch = name.match(/-\s*(\d{1,4})\s*-\s*(\d{4,7})\s*$/)
+  // Normalizar: quitar puntos de miles en el precio (ej: 52.000 → 52000)
+  const normalized = name.replace(/(\d)\.(\d{3})(?=\s*$|-\s*\d)/g, '$1$2')
+
+  // Paso 1 — stock y precio al final. Acepta espacios antes/después del guión
+  const tailMatch = normalized.match(/-\s*(\d{1,4})\s*-\s*(\d{4,7})\s*$/)
   if (!tailMatch) return null
 
   const stock = parseInt(tailMatch[1]!, 10)
   const price = parseInt(tailMatch[2]!, 10) * 100  // COP → centavos
 
-  const withoutTail = name.slice(0, name.lastIndexOf(tailMatch[0]!)).trim()
+  const withoutTail = normalized.slice(0, normalized.lastIndexOf(tailMatch[0]!)).trim()
 
   // Paso 2 — SKU al inicio (formato: número + guión + código alfanumérico)
   const skuMatch = withoutTail.match(/^(\d+-[A-Z0-9]+)-(.+)$/i)
@@ -136,7 +144,7 @@ function parseProdFolder(name: string): {
   }
 }
 
-/** Retorna archivos de imagen ordenados: primero numéricos, luego alfabéticos */
+/** Retorna máximo 5 archivos de imagen ordenados: primero numéricos, luego alfabéticos */
 function getImages(dir: string): string[] {
   return fs.readdirSync(dir)
     .filter(f => /\.(jpe?g|webp)$/i.test(f) && fs.statSync(path.join(dir, f)).isFile())
@@ -146,6 +154,7 @@ function getImages(dir: string): string[] {
       if (!isNaN(na) && !isNaN(nb)) return na - nb
       return a.localeCompare(b)
     })
+    .slice(0, 4)
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -283,7 +292,7 @@ ${entries}
 ]
 `
 
-  const outPath = path.resolve('./prisma/catalog-upload.ts')
+  const outPath = path.resolve('../../packages/database/prisma/catalog-upload.ts')
   fs.writeFileSync(outPath, output, 'utf-8')
 
   console.log(`\n✅  ${products.length} productos generados → prisma/catalog-upload.ts`)

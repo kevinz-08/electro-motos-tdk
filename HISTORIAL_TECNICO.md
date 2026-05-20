@@ -2285,3 +2285,34 @@ Se añadió `generateStaticParams` y `export const revalidate = 300` a la págin
 **Rama:** `sprint10/seo-rendimiento`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 71. FIX 11.1 — Auditoría de fronteras Server/Client Component
+
+**Qué se hizo:**
+Se auditaron todos los archivos de `apps/web/src/app/` y `apps/web/src/components/` para detectar violaciones de fronteras Server/Client en Next.js App Router. Se corrigieron dos hallazgos concretos.
+
+**Resultado de la auditoría:**
+
+- 25 Client Components marcados con `'use client'` — todos justificados (hooks, browser APIs, next-auth/react).
+- Fronteras Server→Client correctas: `Navbar` dentro de `<Suspense>`, datos serializables en props.
+- Ningún Client Component importa Server Components directamente (patrón correcto de children).
+- `OrderStatusBadge` y `WhatsAppButton` son Server Components sin `'use client'` — correcto.
+
+**Hallazgo 1 — `metadataBase` ausente (corregido):**
+
+Sin `metadataBase` en el root layout, Next.js construye URLs relativas para las `opengraph-image.tsx`. Los scrapers de redes sociales (Twitter, WhatsApp, Slack) necesitan URLs absolutas para renderizar el preview. Se añadió `metadataBase` leyendo `NEXT_PUBLIC_SITE_URL` con fallback a `https://h2r-store.vercel.app`. También se corrigió `siteName` de `'H2r Online Store'` a `'H2R Online Store'`.
+
+**Hallazgo 2 — Nombre de tienda incorrecto en footer (corregido):**
+
+El footer del store layout tenía `alt="Electro Motos Tony"` en el logo y `© Electro Motos Tony` en el copyright. Corregido a `H2R Online Store` en ambos lugares.
+
+**Archivos modificados:**
+
+- `apps/web/src/app/layout.tsx` — añade `metadataBase`, corrige `siteName`
+- `apps/web/src/app/(store)/layout.tsx` — corrige `alt` del logo y texto del copyright
+
+**Rama:** `sprint11/pulido-final`
+
+*Última actualización: 2026-05-19*

@@ -30,6 +30,7 @@ import './globals.css'
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://h2r-store.vercel.app'),
   title: {
     default: 'H2R Online Store — Repuestos y Servicios',
     template: '%s | H2R Online Store',
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'es_CO',
-    siteName: 'H2r Online Store',
+    siteName: 'H2R Online Store',
   },
 }
 

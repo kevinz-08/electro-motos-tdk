@@ -2353,3 +2353,53 @@ Se auditaron y corrigieron los atributos ARIA en los tres formularios críticos 
 **Rama:** `sprint11/pulido-final`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 73. FEATURE 11.3 — Tests E2E con Playwright
+
+**Qué se hizo:**
+Se instaló `@playwright/test` y se creó la suite de tests E2E que cubre los flujos críticos: páginas públicas, formularios de auth, carrito y checkout completo.
+
+**Estructura de archivos creados:**
+
+- `apps/web/playwright.config.ts` — configuración con dos proyectos: `chromium` (público) y `chromium-auth` (autenticado, depende del setup).
+- `apps/web/e2e/global-setup.ts` — login previo vía UI; guarda cookies en `playwright/.auth/user.json` para reutilizar sesión entre tests. Usa `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` del entorno.
+- `apps/web/e2e/catalog.spec.ts` — 5 tests: home carga, link al catálogo, catálogo muestra productos, detalle de producto, 404 en slug inexistente.
+- `apps/web/e2e/auth.spec.ts` — 6 tests: login renderiza labels vinculados, error con credenciales malas, toggle de contraseña, redirección protegida, forgot-password ARIA, forgot-password confirmación (API mockeada).
+- `apps/web/e2e/cart.spec.ts` — 6 tests: empty state, producto inyectado vía localStorage, incremento/decremento de cantidad, eliminación, stock máximo deshabilita "+", link al checkout.
+- `apps/web/e2e/checkout.spec.ts` — 4 tests (autenticados): sanity redirect sin sesión, formulario visible con sesión, happy path con API NestJS mockeada (avanza al paso de pago), validación HTML5 bloquea envío vacío.
+
+**Decisiones técnicas:**
+
+- El carrito guest se inyecta directamente en `localStorage` (`electro-motos-cart-guest`) para evitar navegar por el catálogo en cada test, reduciendo tiempo de ejecución.
+- Las llamadas al API de NestJS se mockean con `page.route('**/orders', ...)` en los tests de checkout — los tests no dependen de que NestJS esté corriendo.
+- `webServer: { command: 'pnpm dev', reuseExistingServer: !CI }` — en local reutiliza el servidor si ya está corriendo; en CI levanta uno nuevo.
+- `playwright/.auth/` y `playwright-report/` añadidos al `.gitignore` raíz.
+
+**Comandos:**
+
+```bash
+pnpm --filter @h2r/web test:e2e          # headless
+pnpm --filter @h2r/web test:e2e:ui       # con UI interactiva de Playwright
+pnpm --filter @h2r/web test:e2e:headed   # navegador visible
+```
+
+**Variables de entorno requeridas para checkout tests:**
+
+- `TEST_USER_EMAIL` — email de un usuario real en la BD de desarrollo
+- `TEST_USER_PASSWORD` — su contraseña
+
+**Archivos creados:**
+
+- `apps/web/playwright.config.ts`
+- `apps/web/e2e/global-setup.ts`
+- `apps/web/e2e/catalog.spec.ts`
+- `apps/web/e2e/auth.spec.ts`
+- `apps/web/e2e/cart.spec.ts`
+- `apps/web/e2e/checkout.spec.ts`
+- `apps/web/playwright/.auth/user.json` *(vacío, gitignoreado)*
+
+**Rama:** `sprint11/pulido-final`
+
+*Última actualización: 2026-05-19*

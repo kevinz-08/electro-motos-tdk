@@ -65,7 +65,7 @@ export interface Product {
  * Los filtros se combinan con AND lógico.
  */
 export interface ProductFilters {
-  /** Filtrar por slug de categoría. Ej: "frenos", "motores", "llantas" */
+  /** Filtrar por slug de categoría. Ej: "sistema-electrico", "repuestos", "llantas" */
   categorySlug?: string
   /** Búsqueda libre en nombre, descripción y SKU (case-insensitive) */
   search?: string

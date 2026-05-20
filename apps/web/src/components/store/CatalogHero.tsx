@@ -1,46 +1,15 @@
-'use client'
-
-/**
- * Hero principal del catálogo con video de fondo.
- *
- * El video se reproduce automáticamente, en loop, sin sonido y con
- * preload="auto" para que arranque lo antes posible. Se aplica un
- * efecto de parallax via JS (translateY al 25% del scroll) sobre el
- * elemento <video> — funciona en todos los browsers.
- *
- * Los children son server-rendered (composición pattern de App Router):
- * el Server Component pasa el contenido como JSX y este cliente solo
- * agrega el comportamiento de scroll.
- */
-import { useEffect, useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 interface CatalogHeroProps {
   children: ReactNode
 }
 
 export function CatalogHero({ children }: CatalogHeroProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-
-  useEffect(() => {
-    const onScroll = () => {
-      const el = videoRef.current
-      if (!el) return
-      const hero = el.parentElement
-      if (!hero) return
-      const rect = hero.getBoundingClientRect()
-      if (rect.bottom < 0) return
-      el.style.transform = `translateY(${window.scrollY * 0.25}px)`
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
   return (
     <div className="relative h-screen overflow-hidden">
 
-      {/* Video de fondo con parallax */}
+      {/* Video de fondo */}
       <video
-        ref={videoRef}
         src="/assets/video-hero-catalog.mp4"
         autoPlay
         loop
@@ -48,7 +17,7 @@ export function CatalogHero({ children }: CatalogHeroProps) {
         playsInline
         preload="auto"
         aria-hidden
-        className="absolute inset-0 -top-[10%] h-[120%] w-full object-cover will-change-transform"
+        className="absolute inset-0 h-full w-full object-cover"
       />
 
       {/* Capa oscura base */}

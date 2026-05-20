@@ -50,13 +50,24 @@ async function main() {
     },
   })
 
+  const sistemaElectrico = await prisma.category.upsert({
+    where: { slug: 'sistema-electrico' },
+    update: {},
+    create: {
+      name: 'Sistema Eléctrico',
+      slug: 'sistema-electrico',
+      description: 'Componentes eléctricos y electrónicos para motos',
+    },
+  })
+
   const motores = await prisma.category.upsert({
     where: { slug: 'motores' },
-    update: {},
+    update: { parentId: sistemaElectrico.id },
     create: {
       name: 'Motores',
       slug: 'motores',
       description: 'Repuestos de motor: pistones, anillos, cigüeñales',
+      parentId: sistemaElectrico.id,
     },
   })
 
@@ -123,7 +134,7 @@ async function main() {
         { brand: 'AKT', model: 'NKD125', year: 2021 },
       ],
     },
-    // Motores
+    // Motores (hijo de Sistema Eléctrico)
     {
       name: 'Pistón completo Yamaha YBR 125',
       slug: 'piston-completo-yamaha-ybr125',

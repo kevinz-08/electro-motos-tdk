@@ -58,12 +58,16 @@ const MEGA_MENU = [
     name: 'Aceites', slug: 'aceites',
     children: [
       { name: 'Liquimoly', slug: 'liquimoly' },
-      { name: 'SKY',       slug: 'sky' },
+      { name: 'Castrol',   slug: 'castrol' },
     ],
   },
   {
     name: 'Llantas', slug: 'llantas',
-    children: [],
+    children: [
+      { name: 'Kontrol', slug: 'kontrol' },
+      { name: 'Dunlop',  slug: 'dunlop' },
+      { name: 'SKY',     slug: 'sky' },
+    ],
   },
   {
     name: 'Accesorios', slug: 'accesorios',
@@ -301,7 +305,7 @@ export function Navbar() {
 
               {/* Logo */}
               <Link href="/" className="shrink-0">
-                <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={70} height={52} className="object-contain" style={{ height: 'auto' }} priority />
+                <Image src="/assets/logo.png" alt="Electro Motos Tony" width={70} height={52} className="object-contain" style={{ height: 'auto' }} priority />
               </Link>
 
               {/* Buscador central */}
@@ -367,7 +371,7 @@ export function Navbar() {
             {/* ── Col 1: Logo ── */}
             <div className="flex items-center">
               <Link href="/">
-                <Image src="/assets/LogoPage.png" alt="Electro Motos Tony" width={80} height={60} className="object-contain" style={{ height: 'auto' }} priority />
+                <Image src="/assets/logo.png" alt="Electro Motos Tony" width={80} height={60} className="object-contain" style={{ height: 'auto' }} priority />
               </Link>
             </div>
 

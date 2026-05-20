@@ -19,23 +19,25 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <Image src="/assets/LogoPage.png" alt="H2R Online Store" width={120} height={34} className="object-contain mb-3" style={{ height: 'auto' }} />
+              <Image src="/assets/logo.png" alt="H2R Online Store" width={120} height={34} className="object-contain mb-3" style={{ height: 'auto' }} />
               <p className="text-sm">Taller especializado en repuestos y servicio técnico de motos en Colombia.</p>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">Categorías</h4>
               <ul className="space-y-2 text-sm">
-                <li><Link href="/catalogo?category=frenos" className="hover:text-sky-400 transition-colors">Frenos</Link></li>
-                <li><Link href="/catalogo?category=motores" className="hover:text-sky-400 transition-colors">Motores</Link></li>
+                <li><Link href="/catalogo?category=sistema-electrico" className="hover:text-sky-400 transition-colors">Sistema Eléctrico</Link></li>
+                <li><Link href="/catalogo?category=repuestos" className="hover:text-sky-400 transition-colors">Repuestos</Link></li>
+                <li><Link href="/catalogo?category=aceites" className="hover:text-sky-400 transition-colors">Aceites</Link></li>
                 <li><Link href="/catalogo?category=llantas" className="hover:text-sky-400 transition-colors">Llantas</Link></li>
+                <li><Link href="/catalogo?category=accesorios" className="hover:text-sky-400 transition-colors">Accesorios</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">Contacto</h4>
               <ul className="space-y-2 text-sm">
-                <li>📍 Colombia</li>
-                <li>📞 +57 300 000 0000</li>
-                <li>✉️ soporte@electromotos-tony.co</li>
+                <li>📍 Bucaramanga, Colombia</li>
+                <li>📞 +57 315 292 6690</li>
+                <li>✉️ h2ronlinestore@gmail.com</li>
               </ul>
             </div>
           </div>

@@ -15,15 +15,7 @@ interface HeroBannerCarouselProps {
 export function HeroBannerCarousel({ banners }: HeroBannerCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0)
 
-  const canRender = useMemo(() => banners.length > 0, [banners.length])
-  if (!canRender) return null
-
-  const active = banners[activeIndex]!
-
-
-  const goPrev = () => setActiveIndex((prev) => (prev - 1 + banners.length) % banners.length)
-  const goNext = () => setActiveIndex((prev) => (prev + 1) % banners.length)
-
+  // useEffect debe ir antes de cualquier return condicional (regla de hooks)
   useEffect(() => {
     if (banners.length <= 1) return
     const timer = setInterval(() => {
@@ -31,6 +23,14 @@ export function HeroBannerCarousel({ banners }: HeroBannerCarouselProps) {
     }, 3000)
     return () => clearInterval(timer)
   }, [banners.length])
+
+  const canRender = useMemo(() => banners.length > 0, [banners.length])
+  if (!canRender) return null
+
+  const active = banners[activeIndex]!
+
+  const goPrev = () => setActiveIndex((prev) => (prev - 1 + banners.length) % banners.length)
+  const goNext = () => setActiveIndex((prev) => (prev + 1) % banners.length)
 
   return (
     <section className="relative h-[78vh] min-h-[520px] max-h-[860px] overflow-hidden bg-black text-white">

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { prisma } from '@h2r/database'
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://electromotos-tdk.vercel.app'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://h2r-store.vercel.app'
 
 const STATIC_ROUTES: MetadataRoute.Sitemap = [
   {

@@ -2220,3 +2220,36 @@ Se creó `apps/web/src/app/sitemap.ts` que exporta la función `sitemap()` reque
 **Rama:** `sprint10/seo-rendimiento`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 69. FEATURE 10.2 — OG images para home y productos
+
+**Qué se hizo:**
+Se crearon dos archivos `opengraph-image.tsx` que Next.js detecta automáticamente y sirve como imagen `og:image` al compartir links en redes sociales (Twitter/X, WhatsApp, Slack, etc.).
+
+**Archivos creados:**
+
+- `apps/web/src/app/opengraph-image.tsx` — OG image estática para la home (1200×630 px)
+- `apps/web/src/app/(store)/producto/[slug]/opengraph-image.tsx` — OG image dinámica por producto (1200×630 px)
+
+**Diseño home:**
+
+- Fondo oscuro `#0f172a`, barra accent sky-500, título blanco 76 px, tagline gris 30 px, badge de dominio en esquina inferior derecha.
+
+**Diseño producto:**
+
+- Layout split: panel izquierdo oscuro con nombre del producto (46 px), precio en sky-500 (38 px) y badge de stock (verde / rojo); panel derecho gris claro con la imagen del producto desde Cloudinary.
+- Nombre truncado a 55 caracteres para evitar overflow.
+- Fallback genérico si el producto no existe.
+
+**Decisiones técnicas:**
+
+- `export const runtime = 'nodejs'` en ambos archivos para evitar incompatibilidades de Edge con Prisma/pg.
+- `ImageResponse` de `next/og` — solo estilos inline, sin Tailwind (limitación de la API).
+- La OG de producto llama a `getCachedProductBySlug` (Prisma + `unstable_cache`): misma función que usa la página, sin round-trip extra.
+- Se suprimió el warning de `@next/next/no-img-element` con comentario eslint-disable-next-line en la etiqueta de imagen del panel derecho (necesario porque `<Image>` de Next.js no es compatible con `ImageResponse`).
+
+**Rama:** `sprint10/seo-rendimiento`
+
+*Última actualización: 2026-05-19*

@@ -2253,3 +2253,35 @@ Se crearon dos archivos `opengraph-image.tsx` que Next.js detecta automáticamen
 **Rama:** `sprint10/seo-rendimiento`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 70. FEATURE 10.3 — generateStaticParams con ISR para páginas de producto
+
+**Qué se hizo:**
+Se añadió `generateStaticParams` y `export const revalidate = 300` a la página de detalle de producto (`/producto/[slug]`), convirtiendo las páginas de producto de SSR puro a ISR (Incremental Static Regeneration).
+
+**Comportamiento en build:**
+
+- En cada deploy de Vercel, `generateStaticParams` consulta todos los productos con `isActive = true` y `stock > 0` y devuelve sus slugs.
+- Next.js pre-renderiza todas esas páginas en build time y las deposita en el CDN de Vercel.
+- El TTFB de un producto pre-renderizado pasa de ~200 ms (SSR cold) a ~0 ms (CDN hit).
+
+**Comportamiento en producción (ISR):**
+
+- Después de 300 segundos desde el último render, la próxima visita recibe la página cacheada (sin esperar) y dispara un re-render en background (`stale-while-revalidate`).
+- Productos nuevos o slugs no incluidos en `generateStaticParams` se renderizan on-demand la primera vez y quedan cacheados (`dynamicParams = true`, que es el default).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx`
+
+**Decisiones técnicas:**
+
+- `prisma.product.findMany` directo (sin `unstable_cache`) porque `generateStaticParams` solo corre en build time, no en runtime de usuario.
+- `revalidate = 300` (5 min) como balance entre frescura de precio/stock y eficiencia de CDN.
+- Se mantuvo `getCachedProductBySlug` dentro de `generateMetadata` y `ProductPage` porque en runtime sí necesita el caché de `unstable_cache`.
+
+**Rama:** `sprint10/seo-rendimiento`
+
+*Última actualización: 2026-05-19*

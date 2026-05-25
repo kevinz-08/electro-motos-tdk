@@ -27,11 +27,16 @@
  *   1-5 unidades  → "¡Solo N disponibles!" (amarillo) — urgencia de compra
  *   6+ unidades   → "En stock (N unidades)" (verde)
  */
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
 import { getCachedProductBySlug } from '@/lib/cache'
 import { AddToCartButton } from '@/components/store/AddToCartButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
+import {
+  RecommendedProducts,
+  RecommendedProductsSkeleton,
+} from '@/components/store/RecommendedProducts'
 import type { Metadata } from 'next'
 
 export const revalidate = 300
@@ -147,6 +152,13 @@ export default async function ProductPage({ params }: PageProps) {
           )}
         </div>
       </div>
+      {/* ── Productos relacionados ── */}
+      <Suspense fallback={<RecommendedProductsSkeleton />}>
+        <RecommendedProducts
+          categoryId={product.categoryId}
+          excludeSlug={product.slug}
+        />
+      </Suspense>
     </div>
     </div>
   )

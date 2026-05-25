@@ -67,6 +67,7 @@ apps/web/tmp-productos/
 BACKLOG.md*
 AUDITORIA.md*
 TODO_FINAL.md
+API_VENDELO_DOCUMENTACION.md
 
 # Playwright
 apps/web/playwright/.auth/

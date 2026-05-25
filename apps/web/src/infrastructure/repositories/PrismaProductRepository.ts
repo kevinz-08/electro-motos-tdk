@@ -222,4 +222,28 @@ export class PrismaProductRepository implements IProductRepository {
   async delete(id: string): Promise<void> {
     await prisma.product.delete({ where: { id } })
   }
+
+  /**
+   * Productos de la misma categoría excluyendo un slug dado.
+   * Usado en la sección "Relacionados" de la página de detalle.
+   * Una sola query con include — no N+1.
+   */
+  async findRelatedByCategory(
+    categoryId: string,
+    excludeSlug: string,
+    limit = 4,
+  ): Promise<Product[]> {
+    const items = await prisma.product.findMany({
+      where: {
+        categoryId,
+        isActive: true,
+        stock: { gt: 0 },
+        slug: { not: excludeSlug },
+      },
+      include: { compatible: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+    return items.map(toDomain)
+  }
 }

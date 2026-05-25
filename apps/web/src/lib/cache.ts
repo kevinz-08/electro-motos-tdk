@@ -174,3 +174,19 @@ export const getCachedProductBySlug = unstable_cache(
   ['product-by-slug'],
   { revalidate: 300, tags: [CACHE_TAGS.products] },
 )
+
+// ── Related products ──────────────────────────────────────────────────────────
+
+/**
+ * Hasta 4 productos de la misma categoría, excluyendo el producto actual.
+ * Usado en la sección "Productos relacionados" al pie de la página de detalle.
+ * Los argumentos (categoryId + excludeSlug) forman parte de la clave de caché.
+ */
+export const getCachedRelatedProducts = unstable_cache(
+  async (categoryId: string, excludeSlug: string) => {
+    const repo = new PrismaProductRepository()
+    return repo.findRelatedByCategory(categoryId, excludeSlug)
+  },
+  ['related-products'],
+  { revalidate: 300, tags: [CACHE_TAGS.products] },
+)

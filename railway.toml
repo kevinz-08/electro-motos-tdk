@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pnpm install --frozen-lockfile && pnpm --filter @h2r/database generate && pnpm --filter @h2r/api build"
+buildCommand = "NODE_ENV=development pnpm install --frozen-lockfile && pnpm --filter @h2r/database generate && pnpm --filter @h2r/api build"
 
 [deploy]
 startCommand = "node apps/api/dist/main.js"

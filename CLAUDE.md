@@ -5,6 +5,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 @AGENTS.md
 @AUDITORIA.md
 
+## Testing
+
+> **Note:** AGENTS.md says "No tests" — that is outdated. Tests now exist across three layers.
+
+| Layer | Runner | Command |
+|-------|--------|---------|
+| Domain unit tests | Vitest | `pnpm --filter @h2r/domain test` |
+| API unit tests | Vitest | `pnpm --filter @h2r/api test` |
+| E2E (web) | Playwright | `pnpm --filter @h2r/web exec playwright test` |
+| Single unit file | Vitest | `pnpm --filter @h2r/domain exec vitest run src/__tests__/ConfirmPayment.test.ts` |
+| Domain coverage | Vitest | `pnpm --filter @h2r/domain exec vitest run --coverage` |
+
+Coverage thresholds are enforced in `packages/domain/vitest.config.ts` (80 % lines/functions/statements, 70 % branches). The API vitest config has no coverage configured yet.
+
+E2E specs live in `apps/web/e2e/` (auth, cart, catalog, checkout). `checkout.spec.ts` depends on a `setup` project that writes auth state to `playwright/.auth/user.json`. Run `pnpm dev` before running Playwright locally; CI starts the server automatically via `webServer`.
+
 ## Architecture: Clean Architecture + DDD
 
 The project follows Clean Architecture strictly. Dependency direction: `apps/* → packages/domain ← packages/database`.
@@ -39,6 +55,14 @@ apps/web               Next.js 16 — SSR reads Prisma directly; mutations go th
 | Domain use cases | `packages/domain/src/use-cases/` |
 | Result<T,E> + AppError | `packages/domain/src/shared/Result.ts` |
 | Prisma schema | `packages/database/prisma/schema.prisma` |
+| Cache functions + TTLs | `apps/web/src/lib/cache.ts` |
+| Cache tag constants | `apps/web/src/lib/cache-tags.ts` |
+| Admin cache invalidation | `apps/web/src/app/api/admin/revalidate/route.ts` |
+| Email retry queue | `apps/api/src/infrastructure/services/EmailQueueService.ts` |
+| NestJS health check | `apps/api/src/app.controller.ts` (`GET /health`) |
+| Sitemap (dynamic) | `apps/web/src/app/sitemap.ts` |
+| Sentry config (web) | `apps/web/sentry.{client,server,edge}.config.ts` |
+| Sentry init (API) | `apps/api/src/instrument.ts` |
 
 ## Domain Layer Patterns
 
@@ -54,6 +78,26 @@ The NestJS `HttpExceptionFilter` maps these codes to HTTP status codes.
 ```ts
 constructor(@Inject(PRODUCT_REPOSITORY) private repo: IProductRepository) {}
 ```
+
+## Email Queue Pattern
+
+Confirmation emails are **never** sent inline. After a payment webhook succeeds, `EmailQueueService.enqueue(to, orderId)` writes a row to the `EmailQueue` Prisma table. A `setInterval` in `EmailQueueService` (every 2 min) polls for `PENDING` rows and calls `ResendEmailService`. Retries: max 3 attempts with backoff of 5 s → 30 s → 120 s. Failed entries reach status `FAILED` and stay in the DB.
+
+This pattern replaces the old fire-and-forget `.catch()` approach. Never revert to sending emails directly in a webhook handler.
+
+## Cache Invalidation Pattern
+
+Admin mutations in Next.js call `POST /api/admin/revalidate` with `{ tags: string[] }` (requires ADMIN session). This calls `revalidateTag` for each tag, invalidating all `unstable_cache` entries tagged with it.
+
+Use `CACHE_TAGS` constants from `apps/web/src/lib/cache-tags.ts`:
+```ts
+import { CACHE_TAGS } from '@/lib/cache'
+// Tags: products | categories | home | catalog
+```
+
+## Startup Validation
+
+`apps/api/src/main.ts` calls `assertEnvVars()` on bootstrap. If any of `DATABASE_URL`, `JWT_SECRET`, `INTERNAL_API_SECRET`, `WOMPI_EVENTS_SECRET`, or `WOMPI_INTEGRITY_SECRET` are missing, the process exits with code 1. Do not remove this check.
 
 ## Stock & Payment Patterns
 

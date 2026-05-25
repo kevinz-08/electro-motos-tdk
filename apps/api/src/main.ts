@@ -24,7 +24,7 @@ function getCorsOrigin(origin: string | undefined, callback: CorsOriginCallback)
     // Producción: solo el frontend declarado en FRONTEND_URL
     return origin === frontendUrl
       ? callback(null, true)
-      : callback(new Error(`CORS bloqueado para origin: ${origin}`))
+      : callback(null, false)
   }
 
   // Desarrollo: frontend, localhost y subdominios ngrok (para webhooks locales)

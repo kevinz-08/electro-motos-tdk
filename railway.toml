@@ -4,7 +4,7 @@ buildCommand = "pnpm install --frozen-lockfile && pnpm --filter @h2r/database ge
 
 [deploy]
 startCommand = "node apps/api/dist/main.js"
-healthcheckPath = "/"
+healthcheckPath = "/health"
 healthcheckTimeout = 60
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3

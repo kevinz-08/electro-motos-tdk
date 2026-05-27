@@ -2726,6 +2726,6 @@ Se creó la ruta `PATCH /api/orders/[id]/status` en Next.js para que el componen
 
 **Fin:**
 
-`OrderStatusSelect` usa `fetch('/api/orders/${orderId}/status', { method: 'PATCH' })` sin necesidad de obtener ni pasar el `accessToken` de NestJS. La actualización es inmediata en la UI con feedback de error si falla.
+`OrderStatusSelect` usa `fetch('/api/orders/${orderId}/status', { method: 'PATCH' })` sin necesidad de obtener ni pasar el `accessToken` de NestJS. La actualización es inmediata en la UI con feedback de error si falla. 
 
 *Última actualización: 2026-05-27*

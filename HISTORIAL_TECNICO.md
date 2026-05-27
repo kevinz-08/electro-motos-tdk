@@ -2455,3 +2455,277 @@ Los 9 tests de `WompiService.test.ts` (existentes) más los 11 nuevos tests de c
 **Rama:** `sprint11/pulido-final`
 
 *Última actualización: 2026-05-19*
+
+---
+
+## 75. Descripción estructurada de productos — capa de dominio
+
+**Qué se hizo:**
+
+Se modeló la descripción enriquecida de producto en la capa de dominio como una entidad separada de `Product`, siguiendo el principio de separación de responsabilidades.
+
+**Entidad `ProductDescription`** (`packages/domain/src/entities/ProductDescription.ts`):
+- `ProductBenefit`: `{ id, title?, body, order }` — un punto de venta individual con orden explícito
+- `ProductDescription`: `{ id, productId, generalDescription?, benefits[], createdAt, updatedAt }`
+- `UpsertDescriptionInput`: contrato de entrada para crear o reemplazar la descripción completa
+
+**Interfaz `IProductDescriptionRepository`** (`packages/domain/src/repositories/IProductDescriptionRepository.ts`):
+- `findByProductId(productId)` — retorna la descripción o `null`
+- `upsert(input)` — crea o reemplaza la descripción + beneficios en una transacción (los beneficios anteriores se eliminan y recrean)
+
+**Use case `UpsertProductDescription`** (`packages/domain/src/use-cases/products/UpsertProductDescription.ts`):
+- Valida que el producto exista (retorna `NOT_FOUND` si no)
+- Valida máximo 10 beneficios (`VALIDATION_ERROR`)
+- Valida que ningún beneficio tenga `body` vacío
+- Retorna `Result<ProductDescription>`
+
+Los tres símbolos se re-exportan desde `packages/domain/src/index.ts`.
+
+**Archivos creados:**
+
+- `packages/domain/src/entities/ProductDescription.ts`
+- `packages/domain/src/repositories/IProductDescriptionRepository.ts`
+- `packages/domain/src/use-cases/products/UpsertProductDescription.ts`
+
+**Archivos modificados:**
+
+- `packages/domain/src/index.ts` — re-exporta los 3 nuevos módulos
+
+**Fin:**
+
+El dominio expone el contrato completo de descripción enriquecida sin depender de Prisma ni de NestJS. Cualquier capa de infraestructura puede implementar `IProductDescriptionRepository` con cualquier ORM.
+
+---
+
+## 76. Descripción estructurada de productos — capa de base de datos
+
+**Qué se hizo:**
+
+Se añadieron dos modelos nuevos al schema de Prisma y se corrió la migración correspondiente.
+
+**Modelos nuevos en `packages/database/prisma/schema.prisma`:**
+
+```prisma
+model ProductDescription {
+  id                 String           @id @default(cuid())
+  productId          String           @unique
+  generalDescription String?          @db.Text
+  product            Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  benefits           ProductBenefit[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  @@index([productId])
+}
+
+model ProductBenefit {
+  id            String             @id @default(cuid())
+  descriptionId String
+  title         String?
+  body          String             @db.Text
+  order         Int                @default(0)
+  description   ProductDescription @relation(fields: [descriptionId], references: [id], onDelete: Cascade)
+  @@index([descriptionId, order])
+}
+```
+
+El modelo `Product` recibe la relación `structuredDescription ProductDescription?` (1-to-1 opcional).
+
+`onDelete: Cascade` en ambas relaciones garantiza que eliminar un producto limpia automáticamente su descripción y sus beneficios.
+
+**Archivos modificados/creados:**
+
+- `packages/database/prisma/schema.prisma`
+- `packages/database/prisma/migrations/20260527165602_add_product_structured_description/migration.sql` *(generado)*
+
+**Fin:**
+
+La migración se aplicó con `pnpm db:migrate`. El cliente Prisma regenerado expone `prisma.productDescription` y `prisma.productBenefit` con tipado completo.
+
+---
+
+## 77. Descripción estructurada de productos — capa de infraestructura API
+
+**Qué se hizo:**
+
+Se implementó la capa de infraestructura en `apps/api` para el repositorio de descripciones y se expuso vía dos endpoints REST en el controlador de admin.
+
+**`PrismaProductDescriptionRepository`** (`apps/api/src/infrastructure/repositories/PrismaProductDescriptionRepository.ts`):
+- `findByProductId()`: incluye `benefits` ordenados por `order` ascendente
+- `upsert()`: usa `$transaction` — delete de todos los beneficios anteriores + upsert de `ProductDescription` + createMany de los nuevos beneficios en una sola transacción atómica
+
+**Token de inyección** `PRODUCT_DESCRIPTION_REPOSITORY = Symbol('IProductDescriptionRepository')` añadido a `injection-tokens.ts` y registrado en `InfrastructureModule`.
+
+**Endpoints en `AdminProductsController`:**
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/admin/products/:id/description` | Retorna la descripción estructurada o 404 si no existe |
+| `PUT` | `/admin/products/:id/description` | Crea o reemplaza la descripción (llama `UpsertProductDescription`) |
+
+El mapeo `AppError.code → HTTP status` se extrae a la constante `ERROR_HTTP_STATUS` en el mismo controlador para no depender del `HttpExceptionFilter` global.
+
+**DTO** `UpsertProductDescriptionDto` (`apps/api/src/admin/dto/upsert-description.dto.ts`): valida `generalDescription?` y array de `benefits` con `class-validator`.
+
+**Archivos creados:**
+
+- `apps/api/src/infrastructure/repositories/PrismaProductDescriptionRepository.ts`
+- `apps/api/src/admin/dto/upsert-description.dto.ts`
+
+**Archivos modificados:**
+
+- `apps/api/src/infrastructure/injection-tokens.ts` — nuevo token
+- `apps/api/src/infrastructure/infrastructure.module.ts` — provider y export del repositorio
+- `apps/api/src/admin/admin-products.controller.ts` — inyección del repo + 2 endpoints
+
+**Fin:**
+
+La API expone gestión completa de descripciones enriquecidas. `PUT /admin/products/:id/description` es idempotente: llamarlo N veces con el mismo payload produce el mismo resultado.
+
+---
+
+## 78. Descripción estructurada de productos — UI admin y página de producto
+
+**Qué se hizo:**
+
+Se construyó el formulario de edición de beneficios en el panel admin y se habilitó la visualización de beneficios en la página pública de producto.
+
+### `ProductDescriptionEditor` (`apps/web/src/components/admin/ProductDescriptionEditor.tsx`)
+
+Componente cliente con estado local para gestionar la lista de beneficios:
+- Añadir beneficio (máx. 10)
+- Editar `title` y `body` inline
+- Eliminar con botón por ítem
+- Reordenar con botones ↑/↓
+- Guardar llama `PUT /admin/products/:id/description` vía `apiClient`
+- Feedback de guardado exitoso (icono ✓ con auto-dismiss a los 2s) y errores inline
+
+### `ProductEditForm` actualizado
+
+Se añadió el prop `initialBenefits?: Benefit[]` y se renderiza `ProductDescriptionEditor` al final del formulario cuando se está editando un producto existente.
+
+### Página `/admin/productos/[id]`
+
+Carga en paralelo (`Promise.all`) las categorías y la `productDescription` existente, extrae los beneficios y los pasa como `initialBenefits` al `ProductEditForm`.
+
+### Página de detalle `/producto/[slug]`
+
+Consulta `prisma.productDescription.findUnique` con `include: { benefits: { orderBy: { order: 'asc' } } }`. Si existe y tiene al menos un beneficio, renderiza una sección "Beneficios" con lista de checkmarks (ícono ✓ en círculo sky-100).
+
+**Archivos creados:**
+
+- `apps/web/src/components/admin/ProductDescriptionEditor.tsx`
+
+**Archivos modificados:**
+
+- `apps/web/src/components/admin/ProductEditForm.tsx` — prop `initialBenefits`, sección de editor
+- `apps/web/src/app/admin/productos/[id]/page.tsx` — carga paralela de descripción
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — sección de beneficios en detalle
+
+**Fin:**
+
+El admin puede crear y editar beneficios por producto desde la misma página de edición. Los beneficios se muestran inmediatamente en la página pública sin caché adicional (query directa a Prisma en SSR).
+
+---
+
+## 79. Rediseño completo del panel admin
+
+**Qué se hizo:**
+
+Se rediseñó visualmente todo el panel de administración adoptando un lenguaje visual oscuro, minimalista y consistente.
+
+### Sidebar y layout (`apps/web/src/app/admin/layout.tsx`)
+
+- Ancho reducido a 220 px con border sutil `white/[0.06]`
+- Etiqueta "Admin Panel" en mayúsculas con tracking amplio como cabecera
+- Footer con avatar de iniciales generado desde `session.user.name`, email truncado, link "Ver tienda" con `ArrowUpRight`, y botón "Salir" con `LogOut` de lucide-react
+- Importación de `AdminNav` como componente cliente independiente
+
+### `AdminNav` (`apps/web/src/components/admin/AdminNav.tsx`)
+
+Componente cliente que usa `usePathname()` para detectar la ruta activa y aplicar estilos diferenciados (`bg-white/[0.07]` + texto blanco para activo vs `text-white/40` para inactivo). Los emojis del sidebar anterior se reemplazaron por iconos de lucide-react: `LayoutDashboard`, `Package`, `Tag`, `ShoppingBag`, `AlertTriangle`, `Settings`.
+
+### Dashboard (`apps/web/src/app/admin/page.tsx`)
+
+Rediseño completo del dashboard con 4 KPI cards en lugar de 3:
+- Ingresos hoy
+- Ingresos del mes (nuevo — `getMonthRevenue()`)
+- Pedidos pendientes (con indicador de alerta cuando > 0)
+- Total de pedidos (nuevo — `getTotalCount()`)
+
+Cada card usa iconos de lucide-react en lugar de emojis. Se añade el `RevenueChart` debajo de los KPIs con los últimos 7 días de ingresos.
+
+### `RevenueChart` (`apps/web/src/components/admin/RevenueChart.tsx`)
+
+Componente cliente con Recharts (`AreaChart`):
+- Gradiente vertical blanco transparente para el área
+- Grid horizontal sutil (`white/0.04`)
+- Ejes con tipografía pequeña en `white/0.3`
+- Tooltip personalizado con fondo oscuro (`#111`) y formato COP compacto
+- `ResponsiveContainer` al 100 % de ancho × 180 px de alto
+
+### Lista de productos (`apps/web/src/app/admin/productos/page.tsx`)
+
+- Header con etiqueta "Catálogo" sobre el título
+- Botón "Nuevo producto" blanco con icono `Plus`
+- Barra de búsqueda con icono `Search` inline a la izquierda (sin botón separado — submit al presionar Enter)
+
+### `OrderStatusSelect` (`apps/web/src/components/admin/OrderStatusSelect.tsx`)
+
+- Tema oscuro: fondo `#111`, texto blanco, borde `white/10`
+- Estado de error con borde `red-500/60` y tooltip `title` descriptivo
+- Guard `|| loading` para evitar doble submit
+- Try/catch completo con reset de error a los 3 s
+
+**Nueva dependencia:** `recharts` añadida a `apps/web/package.json`.
+
+**Nuevos métodos en `PrismaOrderRepository` (web):**
+
+- `getMonthRevenue()` — agrega pedidos `PAID` desde el día 1 del mes actual
+- `getWeeklyRevenueSeries(days?)` — agrupa pedidos `PAID` de los últimos N días por día de la semana; la agrupación se hace en JS para evitar problemas de timezone en SQL
+- `getTotalCount()` — count global sin filtro de estado
+
+**Archivos creados:**
+
+- `apps/web/src/components/admin/AdminNav.tsx`
+- `apps/web/src/components/admin/AdminNavLink.tsx`
+- `apps/web/src/components/admin/RevenueChart.tsx`
+
+**Archivos modificados:**
+
+- `apps/web/src/app/admin/layout.tsx`
+- `apps/web/src/app/admin/page.tsx`
+- `apps/web/src/app/admin/productos/page.tsx`
+- `apps/web/src/components/admin/OrderStatusSelect.tsx`
+- `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts`
+- `apps/web/package.json`
+- `pnpm-lock.yaml`
+
+**Fin:**
+
+El panel admin tiene un diseño unificado, oscuro y limpio. La navegación activa es legible de un vistazo. El dashboard muestra métricas financieras reales con un gráfico de área de la semana.
+
+---
+
+## 80. Ruta Next.js para actualización de estado de pedidos desde admin
+
+**Qué se hizo:**
+
+Se creó la ruta `PATCH /api/orders/[id]/status` en Next.js para que el componente `OrderStatusSelect` del admin pueda cambiar el estado de un pedido directamente desde el navegador, sin pasar por NestJS.
+
+**Nota de arquitectura:** Esta ruta coexiste con `PATCH /orders/:id/status` en NestJS (Fase 3). Ambas son válidas: la ruta Next.js requiere sesión ADMIN de NextAuth (sin JWT), lo que la hace más simple de consumir desde Server Components y Client Components del panel admin que ya tienen sesión.
+
+**Validaciones en la ruta:**
+- Sesión ADMIN requerida (NextAuth) — retorna 403 si falta
+- `status` en body debe estar en `['PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED']` — retorna 400 si no
+- El pedido debe existir — retorna 404 si no
+- Actualización vía `prisma.order.update`
+
+**Archivos creados:**
+
+- `apps/web/src/app/api/orders/[id]/status/route.ts`
+
+**Fin:**
+
+`OrderStatusSelect` usa `fetch('/api/orders/${orderId}/status', { method: 'PATCH' })` sin necesidad de obtener ni pasar el `accessToken` de NestJS. La actualización es inmediata en la UI con feedback de error si falla. 
+
+*Última actualización: 2026-05-27*

@@ -1,16 +1,29 @@
 import {
-  Body, Controller, Delete, HttpCode, Inject, Param,
-  Patch, Post, Put, UploadedFile, UseInterceptors,
+  Body, Controller, Delete, Get, HttpCode, HttpException, Inject, NotFoundException,
+  Param, Patch, Post, Put, UploadedFile, UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { IProductRepository } from '@h2r/domain'
-import { PRODUCT_REPOSITORY } from '../infrastructure/injection-tokens'
+import {
+  IProductRepository,
+  IProductDescriptionRepository,
+  UpsertProductDescription,
+} from '@h2r/domain'
+import { PRODUCT_REPOSITORY, PRODUCT_DESCRIPTION_REPOSITORY } from '../infrastructure/injection-tokens'
 import { CloudinaryService } from '../infrastructure/services/CloudinaryService'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
 import { UpdateStockDto } from './dto/update-stock.dto'
+import { UpsertProductDescriptionDto } from './dto/upsert-description.dto'
+
+const ERROR_HTTP_STATUS: Record<string, number> = {
+  NOT_FOUND: 404,
+  VALIDATION_ERROR: 422,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  INTERNAL_ERROR: 500,
+}
 
 @ApiTags('admin / products')
 @ApiBearerAuth('access-token')
@@ -19,6 +32,7 @@ import { UpdateStockDto } from './dto/update-stock.dto'
 export class AdminProductsController {
   constructor(
     @Inject(PRODUCT_REPOSITORY) private readonly productRepo: IProductRepository,
+    @Inject(PRODUCT_DESCRIPTION_REPOSITORY) private readonly descRepo: IProductDescriptionRepository,
     private readonly cloudinary: CloudinaryService,
   ) {}
 
@@ -58,6 +72,31 @@ export class AdminProductsController {
   async updateStock(@Param('id') id: string, @Body() dto: UpdateStockDto) {
     await this.productRepo.updateStock(id, dto.stock)
     return { success: true }
+  }
+
+  @Get(':id/description')
+  @ApiOperation({ summary: 'Obtener descripción estructurada de un producto' })
+  async getDescription(@Param('id') id: string) {
+    const desc = await this.descRepo.findByProductId(id)
+    if (!desc) throw new NotFoundException('Este producto no tiene descripción estructurada')
+    return desc
+  }
+
+  @Put(':id/description')
+  @ApiOperation({ summary: 'Crear o actualizar descripción estructurada' })
+  async upsertDescription(
+    @Param('id') id: string,
+    @Body() dto: UpsertProductDescriptionDto,
+  ) {
+    const useCase = new UpsertProductDescription(this.productRepo, this.descRepo)
+    const result = await useCase.execute({ productId: id, ...dto })
+
+    if (!result.ok) {
+      const status = ERROR_HTTP_STATUS[result.error.code] ?? 500
+      throw new HttpException(result.error.message, status)
+    }
+
+    return result.value
   }
 
   @Post('upload-image')

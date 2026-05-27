@@ -212,4 +212,58 @@ export class PrismaOrderRepository implements IOrderRepository {
   async getPendingCount(): Promise<number> {
     return prisma.order.count({ where: { status: 'PENDING' } })
   }
+
+  /** Ingresos del mes en curso (pedidos PAID desde el día 1 del mes). */
+  async getMonthRevenue(): Promise<number> {
+    const firstDay = new Date()
+    firstDay.setDate(1)
+    firstDay.setHours(0, 0, 0, 0)
+
+    const result = await prisma.order.aggregate({
+      where: { status: 'PAID', createdAt: { gte: firstDay } },
+      _sum: { total: true },
+    })
+    return result._sum.total ?? 0
+  }
+
+  /**
+   * Revenue diario de los últimos N días (default 7).
+   * Retorna un array [{label: 'lun', total: number}] listo para Recharts.
+   * La agrupación por día se hace en JS para evitar dependencia de timezone en SQL.
+   */
+  async getWeeklyRevenueSeries(days = 7): Promise<Array<{ label: string; total: number }>> {
+    const since = new Date()
+    since.setDate(since.getDate() - (days - 1))
+    since.setHours(0, 0, 0, 0)
+
+    const orders = await prisma.order.findMany({
+      where: { status: 'PAID', createdAt: { gte: since } },
+      select: { total: true, createdAt: true },
+    })
+
+    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+    const buckets: Record<string, number> = {}
+
+    // Inicializar todos los días en 0
+    for (let i = 0; i < days; i++) {
+      const d = new Date()
+      d.setDate(d.getDate() - (days - 1 - i))
+      buckets[d.toDateString()] = 0
+    }
+
+    for (const order of orders) {
+      const key = order.createdAt.toDateString()
+      if (key in buckets) buckets[key] += order.total
+    }
+
+    return Object.entries(buckets).map(([dateStr, total]) => ({
+      label: dayNames[new Date(dateStr).getDay()],
+      total,
+    }))
+  }
+
+  /** Total de pedidos en la plataforma (todos los estados). */
+  async getTotalCount(): Promise<number> {
+    return prisma.order.count()
+  }
 }

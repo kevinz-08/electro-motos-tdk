@@ -17,6 +17,7 @@ import {
   ProductFilters,
   MotorcycleCompatibility,
 } from '@h2r/domain'
+import { detectCategorySlugs, extractSearchWords } from '@/lib/search'
 
 /**
  * Convierte un registro de Prisma (con `compatible` incluido) a la entidad de dominio Product.
@@ -109,19 +110,66 @@ export class PrismaProductRepository implements IProductRepository {
       }
     }
 
-    const where = {
+    // Búsqueda inteligente: divide en palabras, busca cada una por separado
+    let searchCategoryIds: string[] | undefined
+    if (filters.search) {
+      const words = extractSearchWords(filters.search)
+      const matchedSlugs = detectCategorySlugs(filters.search)
+      if (matchedSlugs.length > 0) {
+        const cats = await prisma.category.findMany({
+          where: { slug: { in: matchedSlugs } },
+          include: { children: { select: { id: true } } },
+        })
+        searchCategoryIds = cats.flatMap((c) => [c.id, ...c.children.map((ch) => ch.id)])
+      }
+    }
+
+    const searchConditions: Record<string, unknown>[] = []
+    if (filters.search) {
+      const words = extractSearchWords(filters.search)
+      const matchedSlugs = detectCategorySlugs(filters.search)
+      const searchWords = words.filter((w) => !matchedSlugs.includes(w))
+      if (searchWords.length > 0) {
+        for (const word of searchWords) {
+          searchConditions.push({
+            OR: [
+              { name:        { contains: word, mode: 'insensitive' as const } },
+              { description: { contains: word, mode: 'insensitive' as const } },
+              { sku:         { contains: word, mode: 'insensitive' as const } },
+            ],
+          })
+        }
+      }
+    }
+
+    const where: Record<string, unknown> = {
       isActive: true,
       ...(filters.inStock  && { stock: { gt: 0 } }),
-      ...(categoryIdFilter && { categoryId: categoryIdFilter }),
-      ...(filters.search && {
-        OR: [
-          { name:        { contains: filters.search, mode: 'insensitive' as const } },
-          { description: { contains: filters.search, mode: 'insensitive' as const } },
-          { sku:         { contains: filters.search, mode: 'insensitive' as const } },
-        ],
-      }),
       ...(filters.minPrice !== undefined && { price: { gte: filters.minPrice } }),
       ...(filters.maxPrice !== undefined && { price: { lte: filters.maxPrice } }),
+    }
+
+    if (searchCategoryIds && searchCategoryIds.length > 0) {
+      if (searchConditions.length > 0) {
+        where.AND = [{ categoryId: { in: searchCategoryIds } }, ...searchConditions]
+      } else {
+        where.categoryId = { in: searchCategoryIds }
+      }
+    } else if (searchConditions.length > 0) {
+      if (searchConditions.length === 1) {
+        where.OR = (searchConditions[0] as { OR: Record<string, unknown>[] }).OR
+      } else {
+        where.AND = searchConditions
+      }
+    }
+
+    if (categoryIdFilter) {
+      if (where.categoryId && typeof where.categoryId === 'object' && 'in' in (where.categoryId as Record<string, unknown>)) {
+        const existing = (where.categoryId as { in: string[] }).in
+        where.categoryId = { in: [...new Set([...existing, ...categoryIdFilter.in])] }
+      } else {
+        where.categoryId = categoryIdFilter
+      }
     }
 
     // Promise.all — count + findMany en paralelo

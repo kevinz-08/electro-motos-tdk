@@ -1,29 +1,11 @@
 'use client'
 
-/**
- * Formulario de creación y edición de productos para el panel admin.
- *
- * Conversión de precio:
- *   - El formulario muestra el precio en pesos COP (ej: 85000).
- *   - Al enviar, se multiplica × 100 para almacenar en centavos (8500000).
- *   - Al cargar un producto existente, se divide / 100 para mostrar en pesos.
- *
- * El slug se genera automáticamente desde el nombre del producto (URL-friendly),
- * pero puede editarse manualmente si se necesita una URL diferente.
- *
- * Imágenes:
- *   - Las imágenes se suben a Cloudinary vía POST /api/admin/products/upload-image.
- *   - Se muestran en una cuadrícula con botón de eliminación por imagen.
- *   - El array de URLs se incluye en el payload final al guardar el producto.
- *
- * Usa POST /api/admin/products para crear y PUT /api/admin/products/[id] para editar.
- */
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Image from 'next/image'
 import { Product } from '@h2r/domain'
-import { X, ImagePlus, Loader2 } from 'lucide-react'
+import { X, ImagePlus, Loader2, Plus, Trash2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
 import { CACHE_TAGS } from '@/lib/cache-tags'
@@ -34,20 +16,33 @@ interface Category {
   slug: string
 }
 
+interface Benefit {
+  body: string
+  order: number
+}
+
 interface ProductEditFormProps {
   product?: Product
   categories: Category[]
+  initialBenefits?: Benefit[]
 }
 
-export function ProductEditForm({ product, categories }: ProductEditFormProps) {
+const INPUT_CLASS = 'w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors'
+
+export function ProductEditForm({ product, categories, initialBenefits = [] }: ProductEditFormProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [images, setImages] = useState<string[]>(product?.images ?? [])
+  const [images, setImages] = useState<string[]>(
+    (product?.images ?? []).filter((url) => {
+      try { new URL(url); return true } catch { return false }
+    }),
+  )
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [benefits, setBenefits] = useState<Benefit[]>(initialBenefits)
 
   const [form, setForm] = useState({
     name: product?.name ?? '',
@@ -59,6 +54,27 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
     categoryId: product?.categoryId ?? (categories[0]?.id ?? ''),
     isActive: product?.isActive ?? true,
   })
+
+  // ── Beneficios ────────────────────────────────────────────────────────────
+
+  const addBenefit = () => {
+    if (benefits.length >= 10) return
+    setBenefits((prev) => [...prev, { body: '', order: prev.length }])
+  }
+
+  const removeBenefit = (index: number) => {
+    setBenefits((prev) =>
+      prev.filter((_, i) => i !== index).map((b, i) => ({ ...b, order: i })),
+    )
+  }
+
+  const updateBenefit = (index: number, value: string) => {
+    setBenefits((prev) =>
+      prev.map((b, i) => (i === index ? { ...b, body: value } : b)),
+    )
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,12 +91,24 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
     const client = apiClient(session?.user?.accessToken)
 
     try {
-      const res = product
-        ? await client.put<void>(`/admin/products/${product.id}`, payload)
-        : await client.post<void>('/admin/products', payload)
+      let productId = product?.id
 
-      if (!res.ok) {
-        throw new Error(res.error ?? 'Error al guardar el producto')
+      if (product) {
+        const res = await client.put<void>(`/admin/products/${product.id}`, payload)
+        if (!res.ok) throw new Error(res.error ?? 'Error al guardar el producto')
+      } else {
+        const res = await client.post<{ id: string }>('/admin/products', payload)
+        if (!res.ok) throw new Error(res.error ?? 'Error al guardar el producto')
+        productId = res.data.id
+      }
+
+      // Guardar beneficios junto con el producto (lista puede ser vacía para limpiar)
+      if (productId) {
+        await client.put(`/admin/products/${productId}/description`, {
+          benefits: benefits
+            .filter((b) => b.body.trim())
+            .map((b, i) => ({ body: b.body.trim(), order: i })),
+        })
       }
 
       await revalidateAdminCache([CACHE_TAGS.products])
@@ -97,10 +125,12 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
     name
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .trim()
+
+  // ── Imágenes ──────────────────────────────────────────────────────────────
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -119,11 +149,7 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
           '/admin/products/upload-image',
           formData,
         )
-
-        if (!res.ok) {
-          throw new Error(res.error ?? 'Error al subir la imagen')
-        }
-
+        if (!res.ok) throw new Error(res.error ?? 'Error al subir la imagen')
         setImages((prev) => [...prev, res.data.url])
       } catch (e) {
         setUploadError(e instanceof Error ? e.message : 'Error al subir imagen')
@@ -131,13 +157,14 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
     }
 
     setUploading(false)
-    // Reset input so the same file can be re-selected if needed
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const removeImage = (url: string) => {
     setImages((prev) => prev.filter((u) => u !== url))
   }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
@@ -155,7 +182,7 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
             type="text"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value, slug: generateSlug(e.target.value) })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors"
+            className={INPUT_CLASS}
           />
         </div>
 
@@ -165,7 +192,7 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
             type="text"
             value={form.slug}
             onChange={(e) => setForm({ ...form, slug: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors"
+            className={`${INPUT_CLASS} font-mono`}
           />
         </div>
 
@@ -176,8 +203,51 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
             rows={4}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors resize-none"
+            className={`${INPUT_CLASS} resize-none`}
           />
+        </div>
+
+        {/* ── Beneficios — inline, justo debajo de Descripción ── */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-white/70">
+              Beneficios
+              {benefits.length > 0 && (
+                <span className="ml-1.5 text-white/30 font-normal text-xs">({benefits.length}/10)</span>
+              )}
+            </label>
+            <button
+              type="button"
+              onClick={addBenefit}
+              disabled={benefits.length >= 10}
+              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Agregar beneficio
+            </button>
+          </div>
+
+          {benefits.map((benefit, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="text-xs text-white/20 w-4 text-right shrink-0">{index + 1}.</span>
+              <input
+                type="text"
+                value={benefit.body}
+                onChange={(e) => updateBenefit(index, e.target.value)}
+                placeholder={`Beneficio ${index + 1} — ej: Alta durabilidad y resistencia`}
+                maxLength={200}
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => removeBenefit(index)}
+                aria-label="Eliminar beneficio"
+                className="text-white/20 hover:text-red-400 transition-colors shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -190,7 +260,7 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
               step="100"
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors"
+              className={INPUT_CLASS}
               placeholder="85000"
             />
             <p className="text-xs text-white/30 mt-1">En pesos (sin centavos)</p>
@@ -203,7 +273,7 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
               min="0"
               value={form.stock}
               onChange={(e) => setForm({ ...form, stock: e.target.value })}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+              className={INPUT_CLASS}
             />
           </div>
         </div>
@@ -216,7 +286,7 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
               type="text"
               value={form.sku}
               onChange={(e) => setForm({ ...form, sku: e.target.value })}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors"
+              className={`${INPUT_CLASS} font-mono`}
               placeholder="FRE-BRE-FZ25-001"
             />
           </div>
@@ -256,18 +326,11 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
           Imágenes del producto
         </h2>
 
-        {/* Grid de imágenes actuales */}
         {images.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
             {images.map((url) => (
               <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                <Image
-                  src={url}
-                  alt="Imagen del producto"
-                  fill
-                  className="object-cover"
-                  sizes="160px"
-                />
+                <Image src={url} alt="Imagen del producto" fill className="object-cover" sizes="160px" />
                 <button
                   type="button"
                   onClick={() => removeImage(url)}
@@ -281,7 +344,6 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
           </div>
         )}
 
-        {/* Zona de subida */}
         <div>
           <input
             ref={fileInputRef}
@@ -308,18 +370,14 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
             ) : (
               <>
                 <ImagePlus className="w-6 h-6 text-white/30" />
-                <span className="text-sm text-white/50">
-                  Haz clic para subir imágenes - MAXIMO 4 IMAGENES
-                </span>
+                <span className="text-sm text-white/50">Haz clic para subir imágenes — máximo 4</span>
                 <span className="text-xs text-white/25">PNG, JPG, WEBP · Máx. 10 MB</span>
               </>
             )}
           </label>
         </div>
 
-        {uploadError && (
-          <p className="text-sm text-red-400">{uploadError}</p>
-        )}
+        {uploadError && <p className="text-sm text-red-400">{uploadError}</p>}
 
         {images.length === 0 && !uploading && (
           <p className="text-xs text-white/25 text-center">
@@ -328,14 +386,12 @@ export function ProductEditForm({ product, categories }: ProductEditFormProps) {
         )}
       </div>
 
-      {/* ── Error de guardado ── */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
-      {/* ── Acciones ── */}
       <div className="flex gap-3">
         <button
           type="submit"

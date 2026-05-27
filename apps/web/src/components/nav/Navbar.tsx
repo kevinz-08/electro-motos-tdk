@@ -28,6 +28,18 @@ import { useSession, signOut } from 'next-auth/react'
 import { CartIcon } from '@/components/ui/CartIcon'
 import { ProfileModal } from '@/components/nav/ProfileModal'
 
+interface Suggestion {
+  id: string
+  name: string
+  slug: string
+  price: number
+  priceLabel: string
+  image: string | null
+  stock: number
+  categoryName: string | null
+  categorySlug: string | null
+}
+
 // ─── Datos del mega menu ──────────────────────────────────────────────────────
 
 const MEGA_MENU = [
@@ -144,11 +156,88 @@ export function Navbar() {
   }, [searchParams])
 
   // ── Estados de UI ─────────────────────────────────────────────────────────
-  const [catOpen,       setCatOpen]      = useState(false)
-  const [userOpen,      setUserOpen]     = useState(false)
-  const [profileOpen,   setProfileOpen]  = useState(false)
-  const [mobileOpen,    setMobileOpen]   = useState(false)
-  const [mobileCatOpen, setMobileCatOpen] = useState(false)
+  const [catOpen,        setCatOpen]        = useState(false)
+  const [userOpen,       setUserOpen]       = useState(false)
+  const [profileOpen,    setProfileOpen]    = useState(false)
+  const [mobileOpen,     setMobileOpen]     = useState(false)
+  const [mobileCatOpen,  setMobileCatOpen]  = useState(false)
+  const [searchOpen,     setSearchOpen]     = useState(false)
+  const [searchQuery,    setSearchQuery]    = useState('')
+  const [suggestions,    setSuggestions]    = useState<Suggestion[]>([])
+  const [selectedIdx,    setSelectedIdx]    = useState(-1)
+  const searchInputRef   = useRef<HTMLInputElement>(null)
+  const debounceRef      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const suggestRef       = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setSearchOpen(false); setSuggestions([]) }
+    }
+    if (searchOpen) document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [searchOpen])
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (suggestRef.current && !suggestRef.current.contains(e.target as Node)) {
+        setSuggestions([])
+      }
+    }
+    if (suggestions.length > 0) document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [suggestions.length])
+
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (query.trim().length < 2) { setSuggestions([]); return }
+    try {
+      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(query.trim())}`)
+      const data = await res.json()
+      setSuggestions(data.results ?? [])
+    } catch {
+      setSuggestions([])
+    }
+  }, [])
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setSelectedIdx(-1)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => fetchSuggestions(value), 250)
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!searchQuery.trim()) return
+    setSearchOpen(false)
+    setSuggestions([])
+    setSearchQuery('')
+    router.push(`/catalogo?search=${encodeURIComponent(searchQuery.trim())}`)
+  }
+
+  const goToProduct = (slug: string) => {
+    setSearchOpen(false)
+    setSuggestions([])
+    setSearchQuery('')
+    router.push(`/producto/${slug}`)
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (suggestions.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIdx((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIdx((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1))
+    } else if (e.key === 'Enter' && selectedIdx >= 0) {
+      e.preventDefault()
+      goToProduct(suggestions[selectedIdx]!.slug)
+    }
+  }
 
   // Cerrar dropdowns al cambiar de ruta
   useEffect(() => {
@@ -408,7 +497,11 @@ export function Navbar() {
             <div className="flex items-center justify-end gap-1">
 
               {/* Búsqueda */}
-              <button className="p-2 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors" aria-label="Buscar producto" title="Búsqueda próximamente">
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="p-2 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                aria-label="Buscar producto"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -611,6 +704,107 @@ export function Navbar() {
             <button disabled className="w-full text-left px-3 py-2.5 text-sm font-medium text-white/25 cursor-not-allowed rounded-lg">
               Contáctanos (próximamente)
             </button>
+          </div>
+        )}
+        {/* ── Search overlay ── */}
+        {searchOpen && (
+          <div
+            className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh] bg-black/70 backdrop-blur-sm"
+            onClick={() => { setSearchOpen(false); setSuggestions([]) }}
+          >
+            <div
+              ref={suggestRef}
+              className="w-full max-w-xl mx-4 bg-[#111] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <form id="search-form" onSubmit={handleSearchSubmit} className="flex items-center gap-3 px-5 py-4">
+                <svg className="w-5 h-5 shrink-0 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Buscar productos..."
+                  className="flex-1 bg-transparent text-white text-lg placeholder-white/30 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setSearchOpen(false); setSuggestions([]) }}
+                  className="shrink-0 p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  aria-label="Cerrar búsqueda"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </form>
+
+              {suggestions.length > 0 && (
+                <div className="border-t border-white/10 max-h-[360px] overflow-y-auto">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => goToProduct(s.slug)}
+                      onMouseEnter={() => setSelectedIdx(i)}
+                      className={`w-full flex items-center gap-3 px-5 py-3 text-left transition-colors ${
+                        i === selectedIdx ? 'bg-white/10' : 'hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="w-12 h-12 shrink-0 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
+                        {s.image ? (
+                          <img src={s.image} alt="" className="w-full h-full object-contain p-1" />
+                        ) : (
+                          <svg className="w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white truncate">{s.name}</p>
+                        <p className="text-xs text-white/40 mt-0.5">
+                          {s.categoryName && <span>{s.categoryName}</span>}
+                          <span className="ml-2 font-semibold text-sky-400">{s.priceLabel}</span>
+                        </p>
+                      </div>
+                      {s.stock <= 5 && s.stock > 0 && (
+                        <span className="shrink-0 text-[10px] font-semibold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
+                          Últ. {s.stock}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {searchQuery.trim().length >= 2 && suggestions.length === 0 && (
+                <div className="px-5 pb-4">
+                  <p className="text-sm text-white/30 text-center py-3">
+                    Sin resultados para &ldquo;{searchQuery.trim()}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              <div className="border-t border-white/10 px-5 py-3 flex items-center justify-between">
+                <button
+                  type="submit"
+                  form="search-form"
+                  className="text-sm font-medium text-sky-400 hover:text-sky-300 transition-colors"
+                >
+                  {suggestions.length > 0
+                    ? `Ver todos los resultados (${suggestions.length})`
+                    : `Buscar "${searchQuery.trim()}" en el catálogo`
+                  }
+                </button>
+                <span className="text-[11px] text-white/20 flex items-center gap-1">
+                  <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[10px]">↵</kbd>
+                  <span>para buscar</span>
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </header>

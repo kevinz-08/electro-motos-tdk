@@ -10,8 +10,9 @@
  * Patrón de uso en servicios/use cases:
  *   constructor(@Inject(PRODUCT_REPOSITORY) private repo: IProductRepository) {}
  */
-export const PRODUCT_REPOSITORY  = Symbol('IProductRepository')
-export const ORDER_REPOSITORY    = Symbol('IOrderRepository')
-export const USER_REPOSITORY     = Symbol('IUserRepository')
-export const INVENTORY_REPOSITORY = Symbol('IInventorySyncRepository')
-export const PAYMENT_SERVICE     = Symbol('IPaymentService')
+export const PRODUCT_REPOSITORY             = Symbol('IProductRepository')
+export const PRODUCT_DESCRIPTION_REPOSITORY = Symbol('IProductDescriptionRepository')
+export const ORDER_REPOSITORY               = Symbol('IOrderRepository')
+export const USER_REPOSITORY                = Symbol('IUserRepository')
+export const INVENTORY_REPOSITORY           = Symbol('IInventorySyncRepository')
+export const PAYMENT_SERVICE                = Symbol('IPaymentService')

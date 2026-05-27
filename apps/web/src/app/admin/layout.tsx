@@ -2,6 +2,8 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { auth, signOut } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { ArrowUpRight, LogOut } from 'lucide-react'
+import { AdminNav } from '@/components/admin/AdminNav'
 
 export const metadata: Metadata = {
   title: {
@@ -12,72 +14,76 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-const navItems = [
-  { href: '/admin', label: 'Dashboard', icon: '📊' },
-  { href: '/admin/productos', label: 'Productos', icon: '🏍️' },
-  { href: '/admin/categorias', label: 'Categorías', icon: '🗂️' },
-  { href: '/admin/pedidos', label: 'Pedidos', icon: '📦' },
-  { href: '/admin/stock', label: 'Stock bajo', icon: '⚠️' },
-  { href: '/admin/configuracion', label: 'Configuración', icon: '⚙️' },
-]
-
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   const user = session?.user as ({ role?: string } & NonNullable<typeof session>['user'])
 
   if (!session?.user || user.role !== 'ADMIN') redirect('/')
 
-  return (
-    <div className="flex h-screen bg-black">
+  const initials = session.user?.name
+    ? session.user.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+    : (session.user?.email?.[0] ?? 'A').toUpperCase()
 
-      {/* Sidebar */}
-      <aside className="w-64 bg-[#0a0a0a] border-r border-white/10 flex flex-col shrink-0">
-        <div className="p-5 border-b border-white/10">
-          <Link href="/" className="text-white font-bold text-base hover:text-blue-400 transition-colors">
-            Electro Motos Tony
+  return (
+    <div className="flex h-screen bg-[#080808]">
+
+      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
+      <aside className="w-[220px] shrink-0 flex flex-col border-r border-white/[0.06]">
+
+        {/* Brand */}
+        <div className="px-6 pt-7 pb-6">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-white/30 uppercase mb-1">
+            Admin Panel
+          </p>
+          <Link href="/" className="text-white font-bold text-sm leading-tight hover:text-white/70 transition-colors">
+            H2R Online Store
           </Link>
-          <p className="text-white/30 text-xs mt-1">Panel Admin</p>
         </div>
 
-        <nav className="flex-1 p-3 space-y-0.5">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/5 transition-colors"
-            >
-              <span className="text-base">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
+        {/* Nav */}
+        <AdminNav />
 
-        <div className="p-4 border-t border-white/10 space-y-3">
-          <p className="text-xs text-white/30 truncate">{session.user?.email}</p>
-          <Link href="/" className="text-xs text-blue-400 hover:text-blue-300 transition-colors block">
-            ← Ver tienda
-          </Link>
-          <form
-            action={async () => {
+        {/* Footer */}
+        <div className="px-4 py-5 border-t border-white/[0.06] space-y-4">
+          {/* Avatar + email */}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+              <span className="text-[11px] font-bold text-white/70">{initials}</span>
+            </div>
+            <p className="text-xs text-white/30 truncate leading-tight">
+              {session.user?.email}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Link
+              href="/"
+              className="flex items-center gap-1 text-xs text-white/30 hover:text-white/70 transition-colors"
+            >
+              Ver tienda
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+
+            <form action={async () => {
               'use server'
               await signOut({ redirectTo: '/auth/login' })
-            }}
-          >
-            <button
-              type="submit"
-              className="text-xs text-white/30 hover:text-red-400 transition-colors"
-            >
-              Cerrar sesión
-            </button>
-          </form>
+            }}>
+              <button
+                type="submit"
+                className="flex items-center gap-1 text-xs text-white/30 hover:text-red-400 transition-colors"
+              >
+                <LogOut className="w-3 h-3" />
+                Salir
+              </button>
+            </form>
+          </div>
         </div>
       </aside>
 
-      {/* Contenido */}
-      <div className="flex-1 overflow-auto bg-black">
-        <main className="p-8">{children}</main>
+      {/* ── Contenido ───────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-auto">
+        <main className="p-8 max-w-[1400px]">{children}</main>
       </div>
-
     </div>
   )
 }

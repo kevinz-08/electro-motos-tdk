@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Plus, Search } from 'lucide-react'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { prisma } from '@/infrastructure/database/prisma-client'
 
@@ -29,77 +30,94 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil(total / limit)
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Productos</h1>
+    <div className="space-y-6">
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-white/25 uppercase mb-1">
+            Catálogo
+          </p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Productos</h1>
+        </div>
         <Link
           href="/admin/productos/nuevo"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-500 transition-colors"
+          className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-xl text-sm font-bold hover:bg-white/90 transition-colors"
         >
-          + Nuevo producto
+          <Plus className="w-4 h-4" />
+          Nuevo producto
         </Link>
       </div>
 
-      {/* Búsqueda */}
-      <form method="GET" className="mb-6">
-        <div className="flex gap-2 max-w-md">
+      {/* ── Search ─────────────────────────────────────────────────────── */}
+      <form method="GET">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 pointer-events-none" />
           <input
             type="text"
             name="search"
             defaultValue={params.search}
             placeholder="Buscar por nombre, SKU..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-blue-500 transition-colors"
+            className="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
           />
-          <button
-            type="submit"
-            className="bg-white/10 border border-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/15 transition-colors"
-          >
-            Buscar
-          </button>
         </div>
       </form>
 
-      {/* Tabla */}
-      <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+      {/* ── Tabla ──────────────────────────────────────────────────────── */}
+      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="border-b border-white/10">
-            <tr>
-              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Producto</th>
-              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">SKU</th>
-              <th className="text-left px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Categoría</th>
-              <th className="text-right px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Precio</th>
-              <th className="text-center px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Stock</th>
-              <th className="text-center px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Estado</th>
-              <th className="px-4 py-3" />
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              {['Producto', 'SKU', 'Categoría', 'Precio', 'Stock', 'Estado', ''].map((h) => (
+                <th
+                  key={h}
+                  className={`px-5 py-4 text-[11px] font-semibold tracking-[0.12em] text-white/20 uppercase ${
+                    h === 'Precio' ? 'text-right' : h === 'Stock' || h === 'Estado' ? 'text-center' : 'text-left'
+                  }`}
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody>
             {items.map((p) => {
               const category = categories.find((c) => c.id === p.categoryId)
               return (
-                <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                  <td className="px-4 py-3 font-medium text-white max-w-xs">
-                    <p className="line-clamp-1">{p.name}</p>
+                <tr
+                  key={p.id}
+                  className="group border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors"
+                >
+                  <td className="px-5 py-3.5 font-medium text-white/80 max-w-[240px]">
+                    <p className="truncate">{p.name}</p>
                   </td>
-                  <td className="px-4 py-3 text-white/40 font-mono text-xs">{p.sku}</td>
-                  <td className="px-4 py-3 text-white/50">{category?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-right text-white font-medium">{formatCOP(p.price)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`font-bold ${p.stock === 0 ? 'text-red-400' : p.stock <= 5 ? 'text-amber-400' : 'text-white'}`}>
+                  <td className="px-5 py-3.5">
+                    <span className="font-mono text-xs text-white/30 tracking-wider">{p.sku}</span>
+                  </td>
+                  <td className="px-5 py-3.5 text-white/35 text-xs">
+                    {category?.name ?? '—'}
+                  </td>
+                  <td className="px-5 py-3.5 text-right font-semibold text-white/70 tabular-nums">
+                    {formatCOP(p.price)}
+                  </td>
+                  <td className="px-5 py-3.5 text-center">
+                    <span className={`text-sm font-bold tabular-nums ${
+                      p.stock === 0 ? 'text-red-400'
+                      : p.stock <= 5 ? 'text-amber-400'
+                      : 'text-white/60'
+                    }`}>
                       {p.stock}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.isActive ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white/40'}`}>
-                      {p.isActive ? 'Activo' : 'Inactivo'}
-                    </span>
+                  <td className="px-5 py-3.5 text-center">
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${p.isActive ? 'bg-emerald-400' : 'bg-white/15'}`} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-3.5 text-right">
                     <Link
                       href={`/admin/productos/${p.id}`}
-                      className="text-blue-400 hover:text-blue-300 text-xs transition-colors"
+                      className="text-xs text-white/20 group-hover:text-white/60 transition-colors font-medium"
                     >
-                      Editar
+                      Editar →
                     </Link>
                   </td>
                 </tr>
@@ -109,26 +127,31 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
         </table>
 
         {items.length === 0 && (
-          <div className="text-center py-12 text-white/30">No se encontraron productos</div>
+          <div className="py-20 text-center text-sm text-white/20">
+            {params.search ? `Sin resultados para "${params.search}"` : 'No hay productos aún'}
+          </div>
         )}
       </div>
 
-      {/* Paginación */}
+      {/* ── Paginación ─────────────────────────────────────────────────── */}
       {totalPages > 1 && (
-        <div className="flex gap-2 mt-4">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/productos?${new URLSearchParams({ ...params, page: String(p) }).toString()}`}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+              href={`/admin/productos?${new URLSearchParams({ ...(params.search ? { search: params.search } : {}), page: String(p) })}`}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all ${
                 p === page
-                  ? 'bg-blue-600 text-white'
-                  : 'border border-white/10 text-white/50 hover:border-blue-500 hover:text-white'
+                  ? 'bg-white text-black'
+                  : 'text-white/30 hover:text-white/60 hover:bg-white/5'
               }`}
             >
               {p}
             </a>
           ))}
+          {totalPages > 7 && (
+            <span className="text-xs text-white/20 px-2">··· {totalPages} páginas</span>
+          )}
         </div>
       )}
     </div>

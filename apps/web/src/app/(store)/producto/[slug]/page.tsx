@@ -79,6 +79,11 @@ export default async function ProductPage({ params }: PageProps) {
 
   const product = result.value
 
+  const structuredDescription = await prisma.productDescription.findUnique({
+    where: { productId: product.id },
+    include: { benefits: { orderBy: { order: 'asc' } } },
+  })
+
   return (
     <div className="min-h-screen bg-white">
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -131,6 +136,20 @@ export default async function ProductPage({ params }: PageProps) {
             <h3 className="text-base font-semibold text-gray-900 mb-2">Descripción</h3>
             <p>{product.description}</p>
           </div>
+
+          {structuredDescription && structuredDescription.benefits.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Beneficios</h3>
+              <ul className="space-y-2">
+                {structuredDescription.benefits.map((benefit) => (
+                  <li key={benefit.id} className="flex items-start gap-2.5 text-sm text-gray-600">
+                    <span className="mt-0.5 w-4 h-4 rounded-full bg-sky-100 text-sky-500 flex items-center justify-center shrink-0 text-[10px] font-bold">✓</span>
+                    {benefit.body}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {product.compatible && product.compatible.length > 0 && (
             <div className="mt-6">

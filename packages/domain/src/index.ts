@@ -13,11 +13,13 @@
 export * from './entities/Category'
 export * from './entities/Order'
 export * from './entities/Product'
+export * from './entities/ProductDescription'
 export * from './entities/User'
 
 // ── Interfaces de repositorio ────────────────────────────────────────────────
 export * from './repositories/IInventorySyncRepository'
 export * from './repositories/IOrderRepository'
+export * from './repositories/IProductDescriptionRepository'
 export * from './repositories/IProductRepository'
 export * from './repositories/IUserRepository'
 
@@ -33,3 +35,4 @@ export * from './use-cases/orders/CreateOrder'
 export * from './use-cases/products/GetProductBySlug'
 export * from './use-cases/products/ListProducts'
 export * from './use-cases/products/UpdateStock'
+export * from './use-cases/products/UpsertProductDescription'

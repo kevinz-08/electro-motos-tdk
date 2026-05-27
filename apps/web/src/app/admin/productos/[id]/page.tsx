@@ -14,7 +14,6 @@ export default async function EditProductPage({ params }: PageProps) {
     ? null
     : await repo.findBySku(id) ?? await repo.findBySlug(id)
 
-  // Also try by ID directly
   let foundProduct = product
   if (!foundProduct && id !== 'nuevo') {
     const raw = await prisma.product.findUnique({
@@ -39,14 +38,31 @@ export default async function EditProductPage({ params }: PageProps) {
     }
   }
 
-  const categories = await prisma.category.findMany()
+  const [categories, structuredDescription] = await Promise.all([
+    prisma.category.findMany(),
+    foundProduct
+      ? prisma.productDescription.findUnique({
+          where: { productId: foundProduct.id },
+          include: { benefits: { orderBy: { order: 'asc' } } },
+        })
+      : Promise.resolve(null),
+  ])
+
+  const initialBenefits = structuredDescription?.benefits.map((b) => ({
+    body: b.body,
+    order: b.order,
+  })) ?? []
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
         {foundProduct ? `Editar: ${foundProduct.name}` : 'Nuevo producto'}
       </h1>
-      <ProductEditForm product={foundProduct ?? undefined} categories={categories} />
+      <ProductEditForm
+        product={foundProduct ?? undefined}
+        categories={categories}
+        initialBenefits={initialBenefits}
+      />
     </div>
   )
 }

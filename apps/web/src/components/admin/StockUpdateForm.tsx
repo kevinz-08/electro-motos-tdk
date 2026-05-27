@@ -35,7 +35,7 @@ export function StockUpdateForm({ productId, currentStock }: StockUpdateFormProp
         min={0}
         value={value}
         onChange={(e) => setValue(Number(e.target.value))}
-        className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:border-amber-400"
+        className="w-20 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-white/30 transition-colors"
       />
       <button
         onClick={handleSave}

@@ -121,7 +121,7 @@ export function ProductImageGallery({ images, productName }: Props) {
               key={i}
               onClick={() => goTo(i)}
               aria-label={`Ver imagen ${i + 1}`}
-              className={`relative flex-1 aspect-square rounded-xl overflow-hidden border-2 transition-all duration-200 ${
+              className={`relative w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all duration-200 ${
                 i === current
                   ? 'border-sky-400 shadow-sm'
                   : 'border-gray-100 hover:border-gray-300'

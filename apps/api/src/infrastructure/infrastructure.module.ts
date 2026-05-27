@@ -10,6 +10,8 @@ import { MercadoPagoService } from './services/MercadoPagoService'
 import { ResendEmailService } from './services/ResendEmailService'
 import { CloudinaryService } from './services/CloudinaryService'
 import { EmailQueueService } from './services/EmailQueueService'
+import { VendeloHttpClient } from './services/VendeloHttpClient'
+import { VendeloService } from './services/VendeloService'
 
 @Module({
   imports: [PrismaModule],
@@ -26,6 +28,8 @@ import { EmailQueueService } from './services/EmailQueueService'
     ResendEmailService,
     CloudinaryService,
     EmailQueueService,
+    VendeloHttpClient,
+    VendeloService,
   ],
   exports: [
     PrismaModule,
@@ -39,6 +43,8 @@ import { EmailQueueService } from './services/EmailQueueService'
     ResendEmailService,
     CloudinaryService,
     EmailQueueService,
+    VendeloHttpClient,
+    VendeloService,
   ],
 })
 export class InfrastructureModule {}

@@ -10,6 +10,7 @@ import { ProductsModule } from './products/products.module'
 import { OrdersModule } from './orders/orders.module'
 import { AdminModule } from './admin/admin.module'
 import { PaymentsModule } from './payments/payments.module'
+import { VendeloModule } from './vendelo/vendelo.module'
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'
 import { RolesGuard } from './auth/guards/roles.guard'
 
@@ -33,6 +34,7 @@ import { RolesGuard } from './auth/guards/roles.guard'
     OrdersModule,
     AdminModule,
     PaymentsModule,
+    VendeloModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

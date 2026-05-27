@@ -2729,3 +2729,61 @@ Se creó la ruta `PATCH /api/orders/[id]/status` en Next.js para que el componen
 `OrderStatusSelect` usa `fetch('/api/orders/${orderId}/status', { method: 'PATCH' })` sin necesidad de obtener ni pasar el `accessToken` de NestJS. La actualización es inmediata en la UI con feedback de error si falla. 
 
 *Última actualización: 2026-05-27*
+
+---
+
+## 81. Integración Vendelo — Fase 0: infraestructura base
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se estableció la infraestructura base para la integración con Vendelo (plataforma logística colombiana). Esta fase no toca el flujo de pago ni el checkout — solo prepara el cliente HTTP, el módulo NestJS y la validación de arranque.
+
+**Cambios detallados:**
+
+1. **`VendeloHttpClient`** (`apps/api/src/infrastructure/services/VendeloHttpClient.ts`) — cliente HTTP tipado con:
+   - Retry con backoff exponencial (1 s → 2 s → 4 s) en respuestas 429 y 5xx, máximo 3 reintentos
+   - Timeout de 10 s por intento via `AbortController`
+   - Log de cada request/response (método, path, status HTTP, latencia en ms) usando `Logger` de NestJS
+   - Lee `VENDELO_API_KEY` y `VENDELO_API_URL` del entorno
+
+2. **`VendeloService`** (`apps/api/src/infrastructure/services/VendeloService.ts`) — servicio que envuelve `VendeloHttpClient`. Expone `checkAuth()` que llama a `GET /v1/admin/check-auth` de Vendelo para verificar conectividad.
+
+3. **`VendeloModule`** (`apps/api/src/vendelo/`) — módulo NestJS con un controlador que expone `GET /admin/vendelo/health`, protegido por `@Roles('ADMIN')`. Sirve como smoke test de conectividad hacia Vendelo.
+
+4. **`assertEnvVars()`** (`apps/api/src/main.ts`) — se añadió `VENDELO_API_KEY` a la lista de variables requeridas al arranque. El servidor no inicia si esta variable falta.
+
+5. **`injection-tokens.ts`** — se añadió el token `VENDELO_SERVICE = Symbol('IVendeloService')`, preparado para cuando se conecte la interfaz de dominio en la Fase 2.
+
+6. **Variables de entorno** — añadidas a `apps/api/.env` y documentadas en `apps/api/.env.example`:
+   - `VENDELO_API_KEY` — requerida
+   - `VENDELO_API_URL` — default `https://api.vendelo.co`
+   - `VENDELO_WEBHOOK_SECRET` — usada en Fase 3 (webhooks entrantes)
+   - `VENDELO_WALLET_ALERT_THRESHOLD` — umbral de alerta de saldo en centavos COP
+
+7. **`INTEGRACION_VENDELO.md`** (raíz) — documento creado con análisis completo de la integración: complejidad, mapa de módulos, puntos críticos, patrones del proyecto a respetar, y hoja de ruta por fases.
+
+**Archivos creados:**
+- `apps/api/src/infrastructure/services/VendeloHttpClient.ts`
+- `apps/api/src/infrastructure/services/VendeloService.ts`
+- `apps/api/src/vendelo/vendelo.module.ts`
+- `apps/api/src/vendelo/vendelo.controller.ts`
+- `INTEGRACION_VENDELO.md`
+
+**Archivos modificados:**
+- `apps/api/src/main.ts` — `assertEnvVars()` extendido con `VENDELO_API_KEY`
+- `apps/api/src/infrastructure/injection-tokens.ts` — token `VENDELO_SERVICE`
+- `apps/api/src/infrastructure/infrastructure.module.ts` — registra y exporta `VendeloHttpClient` y `VendeloService`
+- `apps/api/src/app.module.ts` — importa `VendeloModule`
+- `apps/api/.env` — bloque Vendelo con las 4 variables
+- `apps/api/.env.example` — documentación de las variables Vendelo
+
+**Acción manual pendiente:**
+Obtener la API Key real de Vendelo (panel de administración) y configurarla en `VENDELO_API_KEY`. Una vez configurada, `GET /admin/vendelo/health` (con JWT ADMIN) confirma la conectividad.
+
+**Fin:**
+
+Dejar lista la capa de transporte hacia Vendelo sin afectar ningún flujo existente. El servidor no arranca si `VENDELO_API_KEY` está vacía, lo que previene deploys silenciosos sin credencial. Las fases 1–4 construyen sobre esta base.
+
+*Última actualización: 2026-05-27*

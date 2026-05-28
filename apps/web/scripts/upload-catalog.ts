@@ -74,11 +74,17 @@ const CHILD_SLUG: Record<string, string> = {
   'DUNLOP':         'dunlop',
   'SKY':            'sky',
   // Accesorios
-  'ESPEJOS':        'espejos',
-  'EXPLORADORES':   'exploradores',
-  'BOMBILLAS LED':  'bombillas-led',
-  'EQUIPAMIENTO':   'equipamiento',
-  'OBJETIVO':       'objetivo',
+  'ESPEJOS':               'espejos',
+  'EXPLORADORES':          'exploradores',
+  'BOMBILLAS LED':         'bombillas-led',
+  'EQUIPAMIENTO':          'equipamiento',
+  'OBJETIVO':              'objetivo',
+  'BALACLAVAS':            'balaclavas',
+  'FENDER':                'fender',
+  'FILTROS DE AIRE':       'filtros-de-aire',
+  'SEGURIDAD':             'seguridad',
+  'STOP':                  'stop',
+  'ACCESORIOS GENERALES':  'accesorios-generales',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

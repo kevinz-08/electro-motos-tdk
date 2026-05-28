@@ -2787,3 +2787,193 @@ Obtener la API Key real de Vendelo (panel de administración) y configurarla en 
 Dejar lista la capa de transporte hacia Vendelo sin afectar ningún flujo existente. El servidor no arranca si `VENDELO_API_KEY` está vacía, lo que previene deploys silenciosos sin credencial. Las fases 1–4 construyen sobre esta base.
 
 *Última actualización: 2026-05-27*
+
+---
+
+## 82. Expansión del catálogo — 6 nuevas subcategorías y 37 nuevos productos en Accesorios
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se amplió el catálogo de la categoría Accesorios con 6 nuevas subcategorías y 37 productos reales con imágenes en Cloudinary.
+
+### Nuevas subcategorías (bajo `accesorios`)
+
+| Slug | Nombre | Descripción |
+|------|--------|-------------|
+| `balaclavas` | Balaclavas | Balaclavas y pasamontañas para protección del motociclista. |
+| `fender` | Fender | Fenders y guardabarro para personalización de motos. |
+| `filtros-de-aire` | Filtros de Aire | Filtros de aire de alto flujo para mayor rendimiento. |
+| `seguridad` | Seguridad | Alarmas, candados y sistemas de seguridad para moto. |
+| `stop` | Stop | Stops integrados y luces traseras LED para moto. |
+| `accesorios-generales` | Accesorios Generales | Cascos, manubrios, direccionales y accesorios varios para moto. |
+
+Se eliminó el placeholder `PH-OBJ-001` (Soporte de celular para manillar) que ocupaba la subcategoría `objetivo`.
+
+### Corrección en el seed
+
+Se eliminó `description` del bloque `update` del upsert en `catalog.ts`. Antes, al volver a ejecutar `pnpm db:seed`, se sobreescribía la descripción de productos que ya habían recibido texto manual a través del admin con string vacío. Ahora el seed solo actualiza precio, stock, `isActive` e imágenes — nunca la descripción.
+
+### Navbar actualizado
+
+El mega menu de Accesorios pasa de 5 a 9 subcategorías visibles (se quitaron `Equipamiento` y `Objetivo` que no tenían productos reales; se añadieron las 6 nuevas). Orden en el menú: Espejos, Exploradores, Bombillas LED, Balaclavas, Fender, Filtros de Aire, Seguridad, Stop, Accesorios Generales.
+
+### `upload-catalog.ts` actualizado
+
+Se añadieron las 6 entradas al mapa `CHILD_SLUG` del script de upload masivo para que los SKUs de los nuevos productos resuelvan correctamente su categoría.
+
+**Archivos modificados:**
+
+- `packages/database/prisma/catalog.ts` — 6 subcategorías nuevas en `SUBCATEGORIES`, 37 productos al inicio de `PRODUCTS`, placeholder eliminado, `description` removido del bloque `update`
+- `packages/database/prisma/catalog-upload.ts` — 37 productos nuevos en `UPLOADED_PRODUCTS` (generado 2026-05-28, 85 productos total)
+- `apps/web/src/components/nav/Navbar.tsx` — `MEGA_MENU.Accesorios.children` actualizado con 9 subcategorías
+- `apps/web/scripts/upload-catalog.ts` — 6 entradas nuevas en `CHILD_SLUG`
+
+**Fin:**
+
+El catálogo crece de 48 a 85 productos activos. Las 6 subcategorías nuevas son navegables desde el mega menú y desde el catálogo con filtros. El seed es seguro de re-ejecutar sin riesgo de perder descripciones manuales.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 83. Fix: descripción del producto — fallback en página de detalle
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se corrigió un bug en `apps/web/src/app/(store)/producto/[slug]/page.tsx` donde la página mostraba siempre la `description` del objeto cacheado (`product.description`) incluso si el campo estaba vacío o había sido actualizado en la BD.
+
+**Causa raíz:**
+
+`GetProductBySlug` (use case) retorna un objeto cacheado por `unstable_cache`. Si la descripción se actualizó en la BD después de que el caché se pobló, el campo `product.description` que llega al componente es el valor antiguo (o vacío). El campo `structuredDescription.generalDescription` tiene la descripción actual porque se consulta directamente a Prisma (sin caché).
+
+**Solución:**
+
+Se añadió una query paralela via `Promise.all` que obtiene `freshProduct.description` directamente de Prisma en el mismo SSR request. La descripción se resuelve con la siguiente cadena de fallback:
+
+```ts
+const description =
+  structuredDescription?.generalDescription ||
+  freshProduct?.description ||
+  product.description
+```
+
+Prioridad: texto general de la descripción estructurada → descripción fresca de la BD → descripción cacheada. Si ninguna tiene valor, la sección "Descripción" se oculta completamente (antes mostraba un bloque vacío).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — `Promise.all` con query fresca, chain de fallback, renderizado condicional del bloque de descripción
+
+**Fin:**
+
+La página de producto muestra siempre la descripción más actualizada y no renderiza un bloque vacío para productos sin descripción.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 84. Fix: `revalidateTag` con argumento incorrecto en ruta de admin
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se corrigió una llamada incorrecta a `revalidateTag` en `apps/web/src/app/api/admin/revalidate/route.ts`.
+
+**Problema:**
+
+```ts
+// Antes — segundo argumento inválido, no hace nada
+revalidateTag(tag, {})
+```
+
+`revalidateTag` en Next.js 16 acepta como segundo argumento opcional el tipo de invalidación (`'page'` o `'layout'`), pero `{}` no es un valor válido. El efecto era que los tags de caché **no se invalidaban** al llamar a `POST /api/admin/revalidate` desde el admin.
+
+**Solución:**
+
+```ts
+// Después — invalida agresivamente todos los niveles
+revalidateTag(tag, 'max')
+```
+
+Esto asegura que todas las entradas de `unstable_cache` etiquetadas con ese tag se expiran inmediatamente tras una mutación administrativa (crear, editar o eliminar un producto).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/api/admin/revalidate/route.ts` — segundo argumento corregido de `{}` a `'max'`
+
+**Fin:**
+
+Las mutaciones de productos del admin invalidan correctamente el caché de Next.js. Los cambios de precio, stock o descripción se reflejan en el catálogo y páginas de producto sin esperar que el TTL expire.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 85. Fix: galería de imágenes del admin para IDs de Cloudinary sin prefijo HTTP
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se corrigieron dos bugs en `apps/web/src/components/admin/ProductEditForm.tsx` relacionados con el manejo de imágenes de productos.
+
+### Bug 1 — Validación de URL con `new URL()` descartaba IDs de Cloudinary
+
+La inicialización del estado `images` filtraba los strings usando `try { new URL(url); return true } catch { return false }`. Los IDs de Cloudinary (`products/SKU/1`) no son URLs absolutas válidas, por lo que `new URL()` lanzaba y el ID era descartado. Esto causaba que productos con imágenes en Cloudinary aparecieran sin imágenes al abrir el editor.
+
+**Corrección:** Se reemplazó por `typeof url === 'string' && url.trim().length > 0`. Cualquier string no vacío se acepta.
+
+### Bug 2 — `<Image>` crasheaba con IDs de Cloudinary como `src`
+
+El componente `<Image>` de Next.js lanza si `src` no es una URL HTTP válida. La galería intentaba renderizar los IDs de Cloudinary directamente en `<Image>`, causando un error en runtime.
+
+**Corrección:** Se añade un condicional `const isUrl = url.startsWith('http')`. Para strings que son IDs de Cloudinary (no empiezan por `http`), se renderiza un placeholder visual con el ícono `ImagePlus` y el ID truncado, en lugar de `<Image>`. Esto mantiene la posibilidad de eliminar el ítem y sirve como indicador visual de que la imagen existe pero su URL completa la genera Cloudinary.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/admin/ProductEditForm.tsx` — filtro de inicialización simplificado, renderizado condicional en la galería (URL → `<Image>`, ID → placeholder con ícono)
+
+**Fin:**
+
+El editor de productos muestra correctamente las imágenes existentes (o un placeholder manejable cuando solo se tiene el ID de Cloudinary). No se producen errores de runtime al abrir productos con imágenes en formato `products/SKU/N`.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 86. Mejora: timeouts explícitos en el pool de PostgreSQL
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se añadieron dos parámetros al pool de `pg` en `packages/database/src/index.ts`:
+
+```ts
+const pool = new Pool({
+  connectionString,
+  max: POOL_MAX,
+  idleTimeoutMillis: 30_000,       // conexiones inactivas liberadas a los 30 s
+  connectionTimeoutMillis: 15_000, // falla rápido si no hay conexión en 15 s
+})
+```
+
+**Por qué:**
+
+- **`idleTimeoutMillis: 30_000`**: En Neon (serverless PostgreSQL) las conexiones inactivas consumen cuota aunque nadie las use. Sin este timeout, una conexión que se abrió para una request de baja frecuencia puede permanecer abierta indefinidamente hasta agotar el pool. Con 30 s de inactividad, se libera automáticamente.
+
+- **`connectionTimeoutMillis: 15_000`**: Sin timeout explícito, si Neon está saturado o hay un problema de red, la aplicación puede quedar bloqueada esperando una conexión indefinidamente. Con 15 s de timeout, falla rápido y retorna un error controlable en lugar de colgar el request.
+
+**Archivos modificados:**
+
+- `packages/database/src/index.ts` — `idleTimeoutMillis` y `connectionTimeoutMillis` añadidos al constructor de `Pool`
+
+**Fin:**
+
+El pool gestiona conexiones inactivas automáticamente (clave para Neon free tier con límite de 5–10 conexiones simultáneas) y tiene un tiempo de fallo determinístico ante problemas de conectividad.
+
+*Última actualización: 2026-05-28*

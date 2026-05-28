@@ -3,6 +3,7 @@
         "ui",
         "admin",
         "catalog",
-        "web/admin"
+        "web/admin",
+        "database"
     ]
 }

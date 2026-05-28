@@ -79,10 +79,17 @@ export default async function ProductPage({ params }: PageProps) {
 
   const product = result.value
 
-  const structuredDescription = await prisma.productDescription.findUnique({
-    where: { productId: product.id },
-    include: { benefits: { orderBy: { order: 'asc' } } },
-  })
+  const [freshProduct, structuredDescription] = await Promise.all([
+    prisma.product.findUnique({ where: { id: product.id }, select: { description: true } }),
+    prisma.productDescription.findUnique({
+      where: { productId: product.id },
+      include: { benefits: { orderBy: { order: 'asc' } } },
+    }),
+  ])
+  const description =
+    structuredDescription?.generalDescription ||
+    freshProduct?.description ||
+    product.description
 
   return (
     <div className="min-h-screen bg-white">
@@ -132,10 +139,12 @@ export default async function ProductPage({ params }: PageProps) {
 
           <hr className="my-6 border-gray-100" />
 
-          <div className="prose prose-sm text-gray-600">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Descripción</h3>
-            <p>{product.description}</p>
-          </div>
+          {description && (
+            <div className="prose prose-sm text-gray-600">
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Descripción</h3>
+              <p>{description}</p>
+            </div>
+          )}
 
           {structuredDescription && structuredDescription.benefits.length > 0 && (
             <div className="mt-5">

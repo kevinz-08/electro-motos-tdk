@@ -37,9 +37,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [images, setImages] = useState<string[]>(
-    (product?.images ?? []).filter((url) => {
-      try { new URL(url); return true } catch { return false }
-    }),
+    (product?.images ?? []).filter((url) => typeof url === 'string' && url.trim().length > 0),
   )
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -348,19 +346,29 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
 
         {images.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-            {images.map((url) => (
-              <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                <Image src={url} alt="Imagen del producto" fill className="object-cover" sizes="160px" />
-                <button
-                  type="button"
-                  onClick={() => removeImage(url)}
-                  className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all"
-                  aria-label="Eliminar imagen"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+            {images.map((url) => {
+              const isUrl = url.startsWith('http')
+              return (
+                <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                  {isUrl ? (
+                    <Image src={url} alt="Imagen del producto" fill className="object-cover" sizes="160px" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full gap-1 px-1">
+                      <ImagePlus className="w-6 h-6 text-white/20" />
+                      <span className="text-[9px] text-white/20 text-center break-all leading-tight">{url}</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeImage(url)}
+                    className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all"
+                    aria-label="Eliminar imagen"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )
+            })}
           </div>
         )}
 

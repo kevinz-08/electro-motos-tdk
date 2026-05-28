@@ -41,7 +41,12 @@ function createPrismaClient(): PrismaClient {
         'Configurá el .env de la app consumidora (apps/web o apps/api).',
     )
   }
-  const pool = new Pool({ connectionString, max: POOL_MAX })
+  const pool = new Pool({
+    connectionString,
+    max: POOL_MAX,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 15_000,
+  })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({
     adapter,

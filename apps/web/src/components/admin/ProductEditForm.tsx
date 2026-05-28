@@ -33,6 +33,8 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
   const router = useRouter()
   const { data: session } = useSession()
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [images, setImages] = useState<string[]>(
     (product?.images ?? []).filter((url) => {
@@ -72,6 +74,24 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
     setBenefits((prev) =>
       prev.map((b, i) => (i === index ? { ...b, body: value } : b)),
     )
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  const handleDelete = async () => {
+    if (!product) return
+    setDeleting(true)
+    setError(null)
+    const res = await apiClient(session?.user?.accessToken).delete(`/admin/products/${product.id}`)
+    if (!res.ok) {
+      setError(res.error ?? 'Error al eliminar el producto')
+      setDeleting(false)
+      setConfirmDelete(false)
+      return
+    }
+    await revalidateAdminCache([CACHE_TAGS.products])
+    router.push('/admin/productos')
+    router.refresh()
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -408,6 +428,49 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
           Cancelar
         </button>
       </div>
+
+      {/* ── Zona de peligro (solo en edición) ── */}
+      {product && (
+        <div className="border border-red-500/20 rounded-xl p-5 space-y-3">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-red-400/50 uppercase">
+            Zona de peligro
+          </p>
+          {confirmDelete ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-white/60">
+                ¿Eliminar <span className="text-white font-medium">{product.name}</span> permanentemente?
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500 transition-colors disabled:opacity-60"
+                >
+                  {deleting ? 'Eliminando...' : 'Sí, eliminar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  className="text-sm text-white/40 hover:text-white/70 transition-colors disabled:opacity-40"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-2 text-sm text-red-400/70 hover:text-red-400 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Eliminar producto
+            </button>
+          )}
+        </div>
+      )}
     </form>
   )
 }

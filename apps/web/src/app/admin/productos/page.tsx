@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Plus, Search } from 'lucide-react'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { prisma } from '@/infrastructure/database/prisma-client'
+import { DeleteProductButton } from '@/components/admin/DeleteProductButton'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -113,12 +114,15 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
                     <span className={`inline-block w-1.5 h-1.5 rounded-full ${p.isActive ? 'bg-emerald-400' : 'bg-white/15'}`} />
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <Link
-                      href={`/admin/productos/${p.id}`}
-                      className="text-xs text-white/20 group-hover:text-white/60 transition-colors font-medium"
-                    >
-                      Editar →
-                    </Link>
+                    <span className="flex items-center justify-end gap-3">
+                      <DeleteProductButton id={p.id} name={p.name} />
+                      <Link
+                        href={`/admin/productos/${p.id}`}
+                        className="text-xs text-white/20 group-hover:text-white/60 transition-colors font-medium"
+                      >
+                        Editar →
+                      </Link>
+                    </span>
                   </td>
                 </tr>
               )

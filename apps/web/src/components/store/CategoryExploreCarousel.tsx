@@ -11,12 +11,13 @@
  *   - Botones prev/next siguen funcionando manualmente.
  *   - Imágenes más grandes: 280 px de ancho (antes 220 px).
  *
- * Las imágenes se ubican en public/assets/exploreByCategory/[slug].jpg.
+ * Las imágenes son assets estáticos en public/assets/exploreByCategory/[slug].jpg.
+ * Next.js <Image> las optimiza automáticamente (WebP/AVIF, redimensionado) sin
+ * necesidad de Cloudinary, que está reservado para assets de producto subidos por el admin.
  */
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRef, useEffect, useCallback } from 'react'
-import { cloudinaryUrl } from '@/lib/cloudinary'
 
 interface Category {
   id: string
@@ -148,7 +149,7 @@ export function CategoryExploreCarousel({ categories }: Props) {
             {/* Imagen retrato — más grande */}
             <div className="relative aspect-[3/4] rounded-2xl overflow-hidden c-surface-2 border c-border">
               <Image
-                src={cloudinaryUrl(getImage(cat.slug), 'carousel')}
+                src={getImage(cat.slug)}
                 alt={cat.name}
                 fill
                 className="object-cover transition-transform duration-500 group-hover:scale-105"

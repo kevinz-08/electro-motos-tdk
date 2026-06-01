@@ -3,4 +3,5 @@ export const CACHE_TAGS = {
   categories: 'categories',
   home: 'home',
   catalog: 'catalog',
+  orders: 'orders',
 } as const

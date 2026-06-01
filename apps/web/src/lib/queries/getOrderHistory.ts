@@ -1,4 +1,6 @@
+import { unstable_cache } from 'next/cache'
 import { prisma } from '@h2r/database'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 export type OrderHistoryItem = {
   id: string
@@ -30,7 +32,17 @@ export type OrderHistoryResult = {
 
 const ORDERS_PER_PAGE = 8
 
-export async function getOrderHistory(
+/** TTL corto — el estado de los pedidos cambia con webhooks de Vendelo */
+const TTL = 60
+
+export const getOrderHistory = (userId: string, page = 1) =>
+  unstable_cache(
+    () => _getOrderHistory(userId, page),
+    [`order-history-${userId}-${page}`],
+    { revalidate: TTL, tags: [CACHE_TAGS.orders] },
+  )()
+
+async function _getOrderHistory(
   userId: string,
   page = 1,
 ): Promise<OrderHistoryResult> {

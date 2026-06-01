@@ -14,6 +14,7 @@ export * from './entities/Category'
 export * from './entities/Order'
 export * from './entities/Product'
 export * from './entities/ProductDescription'
+export * from './entities/Shipment'
 export * from './entities/User'
 
 // ── Interfaces de repositorio ────────────────────────────────────────────────
@@ -21,6 +22,7 @@ export * from './repositories/IInventorySyncRepository'
 export * from './repositories/IOrderRepository'
 export * from './repositories/IProductDescriptionRepository'
 export * from './repositories/IProductRepository'
+export * from './repositories/IShipmentRepository'
 export * from './repositories/IUserRepository'
 
 // ── Contratos de servicios ───────────────────────────────────────────────────
@@ -32,6 +34,7 @@ export * from './shared/Result'
 // ── Use cases ────────────────────────────────────────────────────────────────
 export * from './use-cases/orders/ConfirmPayment'
 export * from './use-cases/orders/CreateOrder'
+export * from './use-cases/orders/SyncShipmentStatus'
 export * from './use-cases/products/GetProductBySlug'
 export * from './use-cases/products/ListProducts'
 export * from './use-cases/products/UpdateStock'

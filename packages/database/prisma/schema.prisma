@@ -176,6 +176,8 @@ model Order {
   total           Int             // centavos COP
   shippingAddress Json
   paymentProvider PaymentProvider
+  /// ID del pedido creado en Vendelo API. Null hasta que VendeloOrderQueueService lo procesa.
+  vendeloOrderId  String?
   createdAt       DateTime        @default(now())
   user            User            @relation(fields: [userId], references: [id])
   items           OrderItem[]
@@ -212,6 +214,22 @@ model Settings {
 model EmailQueue {
   id        String   @id @default(cuid())
   to        String
+  orderId   String
+  attempts  Int      @default(0)
+  lastError String?
+  /// PENDING | SENT | FAILED
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  nextRetry DateTime @default(now())
+
+  @@index([status, nextRetry])
+}
+
+/// Cola de órdenes pendientes de crear en Vendelo API.
+/// Se crea una entrada cuando un pago se confirma (APPROVED).
+/// VendeloOrderQueueService la procesa cada 2 min con backoff exponencial (5s→30s→120s).
+model VendeloOrderQueue {
+  id        String   @id @default(cuid())
   orderId   String
   attempts  Int      @default(0)
   lastError String?

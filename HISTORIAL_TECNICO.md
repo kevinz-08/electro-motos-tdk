@@ -3187,3 +3187,59 @@ Se implementó la recepción y procesamiento de eventos del Chatbot Connection d
 2. Guardar el secret recibido en `VENDELO_WEBHOOK_SECRET` en Railway y en `.env` local
 
 *Última actualización: 2026-06-01*
+
+---
+
+## 90. Integración Vendelo — Fase 4: operaciones logísticas admin
+
+**Qué se hizo:**
+
+Se implementaron todos los endpoints administrativos de logística para el panel de Vendelo, siguiendo Clean Architecture: use cases de dominio para operaciones con reglas de negocio, NestJS application service para las operaciones thin, y DTOs con class-validator en todos los endpoints.
+
+**Operaciones implementadas:**
+
+| Endpoint NestJS | Capa | Operación Vendelo API |
+| --- | --- | --- |
+| `POST /admin/vendelo/create-shipments` | Domain use case | `POST /v1/admin/shipping/create-shipments` |
+| `POST /admin/vendelo/generate-labels` | ShippingAdminService | `POST /v1/admin/shipping/generate-labels` |
+| `GET  /admin/vendelo/exceptions` | ShippingAdminService | `GET /v1/admin/shipping/exceptions` |
+| `GET  /admin/vendelo/exceptions/:id` | ShippingAdminService | `GET /v1/admin/shipping/exceptions/:id` |
+| `POST /admin/vendelo/exceptions/:id/resolve` | Domain use case | `POST /v1/admin/shipping/exceptions/:id/resolve` |
+| `POST /admin/vendelo/request-pickup` | ShippingAdminService | `POST /v1/admin/shipping/request-pickup` |
+
+**Decisiones de diseño relevantes:**
+
+- `CreateShipments` y `ResolveShipmentException` viven en el dominio porque tienen reglas de negocio: el primero valida que los pedidos tengan `vendeloOrderId` asignado; el segundo implementa una máquina de estados que solo permite resolver novedades en estado `PENDING`
+- `GenerateLabels`, `GetExceptions` y `RequestPickup` son operaciones thin (resolución de IDs + llamada API) → `ShippingAdminService` NestJS
+- `IVendeloShippingPort` — nuevo puerto de dominio, implementado por `VendeloService`. Dominio no importa HTTP
+- `findVendeloOrderIdsBatch` — un solo `SELECT` batch en lugar de N queries individuales
+- `generate-labels` soporta dos modos: `URL` (retorna link temporal de Vendelo) y `BASE64` (controller decodifica y sirve PDF con `Content-Disposition: attachment; Cache-Control: no-store`)
+- `encodeURIComponent(id)` en paths dinámicos hacia Vendelo — previene path traversal
+- `ArrayMaxSize(50)` en todos los DTOs de batch — previene DoS por lotes masivos
+- Errores de dominio se mapean a `422 UnprocessableEntityException` sin leak de detalles internos
+
+**Archivos creados:**
+
+- `packages/domain/src/entities/ShipmentException.ts`
+- `packages/domain/src/repositories/IVendeloShippingPort.ts`
+- `packages/domain/src/use-cases/shipping/CreateShipments.ts`
+- `packages/domain/src/use-cases/shipping/ResolveShipmentException.ts`
+- `apps/api/src/vendelo/dto/create-shipments.dto.ts`
+- `apps/api/src/vendelo/dto/generate-labels.dto.ts`
+- `apps/api/src/vendelo/dto/request-pickup.dto.ts`
+- `apps/api/src/vendelo/dto/resolve-exception.dto.ts`
+- `apps/api/src/vendelo/services/shipping-admin.service.ts`
+
+**Archivos modificados:**
+
+- `packages/domain/src/repositories/IOrderRepository.ts` — `findVendeloOrderIdsBatch`
+- `packages/domain/src/index.ts` — exports de Fase 4
+- `apps/api/src/infrastructure/injection-tokens.ts` — `VENDELO_SHIPPING_PORT`
+- `apps/api/src/infrastructure/services/VendeloService.ts` — implementa `IVendeloShippingPort` + `generateLabels`, `getExceptions`, `requestPickup`
+- `apps/api/src/infrastructure/repositories/PrismaOrderRepository.ts` — `findVendeloOrderIdsBatch`
+- `apps/api/src/infrastructure/infrastructure.module.ts` — registro `VENDELO_SHIPPING_PORT`
+- `apps/api/src/vendelo/vendelo.controller.ts` — 6 endpoints nuevos
+- `apps/api/src/vendelo/vendelo.module.ts` — registro `ShippingAdminService`
+- `INTEGRACION_VENDELO.md` — Fase 4 marcada como completada
+
+*Última actualización: 2026-06-01*

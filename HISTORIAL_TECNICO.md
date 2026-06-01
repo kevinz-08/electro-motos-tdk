@@ -2977,3 +2977,57 @@ const pool = new Pool({
 El pool gestiona conexiones inactivas automáticamente (clave para Neon free tier con límite de 5–10 conexiones simultáneas) y tiene un tiempo de fallo determinístico ante problemas de conectividad.
 
 *Última actualización: 2026-05-28*
+
+---
+
+## 87. Integración Vendelo — Fase 1: catálogo de ciudades y selector en checkout
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se implementó el prerequisito duro para crear órdenes de envío en Vendelo: el sistema ahora captura el `city_code` (código DIVIPOLA de 8 dígitos) y `subdivision_code` en el checkout, en lugar del campo libre de texto que existía antes.
+
+**Cambios detallados:**
+
+1. **Corrección URL base de Vendelo** — La URL estaba incorrecta: `https://api.vendelo.co` → `https://api.venndelo.com` (doble `n`, dominio `.com`). Corregida en `apps/api/.env` y `.env.example`.
+
+2. **`VendeloCity` model** (`packages/database/prisma/schema.prisma`) — Nuevo modelo con `code` (PK, código DIVIPOLA), `name`, `subdivisionCode`, `countryCode`. Migración: `20260601165124_add_vendelo_city`.
+
+3. **`VendeloService.getAllCities()`** (`apps/api/src/infrastructure/services/VendeloService.ts`) — Paginación completa sobre `GET /v1/admin/region/cities`. Sigue el patrón de `next_page_token === ''` como señal de última página (según la documentación de Vendelo v1.20260504).
+
+4. **`POST /admin/vendelo/sync-cities`** (`apps/api/src/vendelo/vendelo.controller.ts`) — Endpoint de admin que descarga todas las ciudades de Vendelo y las sincroniza en la tabla `VendeloCity` local. Retorna `{ synced: N }`. Protegido con `@Roles('ADMIN')`.
+
+5. **`GET /api/vendelo/cities?q=`** (`apps/web/src/app/api/vendelo/cities/route.ts`) — Ruta Next.js que busca ciudades en la tabla local con `ILIKE`. Mínimo 2 caracteres para buscar, retorna hasta 10 resultados. Pública (solo datos geográficos).
+
+6. **`CitySelector` component** (`apps/web/src/components/checkout/CitySelector.tsx`) — Combobox con:
+   - Debounce de 300 ms en la búsqueda
+   - Indicador visual `✓` cuando hay ciudad seleccionada
+   - Cierre del dropdown al hacer click fuera
+   - `aria-autocomplete`, `aria-expanded`, `aria-selected` para accesibilidad
+   - Limpia la selección si el usuario edita el texto manualmente
+
+7. **`CheckoutForm`** (`apps/web/src/components/checkout/CheckoutForm.tsx`) — Se reemplazaron los campos libres `city` y `department` por el `CitySelector`. El payload a NestJS ahora incluye `cityCode` y `subdivisionCode` en `shippingAddress`. El botón "Continuar al pago" queda deshabilitado hasta que hay una ciudad seleccionada.
+
+**Archivos creados:**
+
+- `apps/web/src/app/api/vendelo/cities/route.ts`
+- `apps/web/src/components/checkout/CitySelector.tsx`
+- `packages/database/prisma/migrations/20260601165124_add_vendelo_city/migration.sql`
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma` — modelo `VendeloCity`
+- `apps/api/src/infrastructure/services/VendeloService.ts` — `getAllCities()`, `getCitiesPage()`
+- `apps/api/src/vendelo/vendelo.controller.ts` — endpoint `sync-cities`
+- `apps/web/src/components/checkout/CheckoutForm.tsx` — integración `CitySelector`
+- `apps/api/.env` y `.env.example` — URL corregida
+
+**Acción requerida antes de que el checkout funcione:**
+Ejecutar `POST /admin/vendelo/health` para verificar conectividad, luego `POST /admin/vendelo/sync-cities` para poblar la tabla `VendeloCity`. Sin este sync, el selector de ciudades no devuelve resultados.
+
+**Fin:**
+
+El checkout ahora captura `cityCode` y `subdivisionCode`, que son los campos requeridos por `POST /v1/admin/orders` de Vendelo. La Fase 2 (creación de órdenes) puede construirse directamente sobre esta base.
+
+*Última actualización: 2026-06-01*

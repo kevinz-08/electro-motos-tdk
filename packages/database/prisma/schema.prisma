@@ -222,3 +222,16 @@ model EmailQueue {
 
   @@index([status, nextRetry])
 }
+
+/// Catálogo de ciudades colombianas con sus códigos Vendelo.
+/// Se pobla via POST /admin/vendelo/sync-cities y se cachea 24h en el checkout.
+model VendeloCity {
+  /// Código DIVIPOLA de 8 dígitos. Ej: "05001000" = Medellín
+  code            String @id
+  name            String
+  /// Código de subdivisión dentro de la ciudad. Ej: "02"
+  subdivisionCode String
+  countryCode     String @default("CO")
+
+  @@index([name])
+}

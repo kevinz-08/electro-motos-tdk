@@ -182,6 +182,26 @@ model Order {
   user            User            @relation(fields: [userId], references: [id])
   items           OrderItem[]
   payment         Payment?
+  shipment        Shipment?
+}
+
+/// Envío asociado a un pedido. Se crea cuando Vendelo dispara el primer webhook
+/// del Chatbot Connection (ORDER_SHIPPED, SHIPMENT_STATUS_UPDATED, etc.).
+/// Relación 1:1 con Order.
+model Shipment {
+  id             String   @id @default(cuid())
+  orderId        String   @unique
+  /// Estado del envío — mapeado desde los eventos del Chatbot Connection de Vendelo.
+  /// PENDING | READY | PREPARING | SHIPPED | INCIDENT | DELIVERED | RETURNED | CANCELLED
+  status         String   @default("PENDING")
+  trackingNumber String?
+  carrier        String?
+  labelUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 model OrderItem {

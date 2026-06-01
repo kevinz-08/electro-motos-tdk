@@ -15,6 +15,7 @@ export * from './entities/Order'
 export * from './entities/Product'
 export * from './entities/ProductDescription'
 export * from './entities/Shipment'
+export * from './entities/ShipmentException'
 export * from './entities/User'
 
 // ── Interfaces de repositorio ────────────────────────────────────────────────
@@ -23,6 +24,7 @@ export * from './repositories/IOrderRepository'
 export * from './repositories/IProductDescriptionRepository'
 export * from './repositories/IProductRepository'
 export * from './repositories/IShipmentRepository'
+export * from './repositories/IVendeloShippingPort'
 export * from './repositories/IUserRepository'
 
 // ── Contratos de servicios ───────────────────────────────────────────────────
@@ -39,3 +41,5 @@ export * from './use-cases/products/GetProductBySlug'
 export * from './use-cases/products/ListProducts'
 export * from './use-cases/products/UpdateStock'
 export * from './use-cases/products/UpsertProductDescription'
+export * from './use-cases/shipping/CreateShipments'
+export * from './use-cases/shipping/ResolveShipmentException'

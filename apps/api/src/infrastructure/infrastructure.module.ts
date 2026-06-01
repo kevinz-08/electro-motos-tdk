@@ -12,6 +12,7 @@ import { CloudinaryService } from './services/CloudinaryService'
 import { EmailQueueService } from './services/EmailQueueService'
 import { VendeloHttpClient } from './services/VendeloHttpClient'
 import { VendeloService } from './services/VendeloService'
+import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
 
 @Module({
   imports: [PrismaModule],
@@ -30,6 +31,7 @@ import { VendeloService } from './services/VendeloService'
     EmailQueueService,
     VendeloHttpClient,
     VendeloService,
+    VendeloOrderQueueService,
   ],
   exports: [
     PrismaModule,
@@ -45,6 +47,7 @@ import { VendeloService } from './services/VendeloService'
     EmailQueueService,
     VendeloHttpClient,
     VendeloService,
+    VendeloOrderQueueService,
   ],
 })
 export class InfrastructureModule {}

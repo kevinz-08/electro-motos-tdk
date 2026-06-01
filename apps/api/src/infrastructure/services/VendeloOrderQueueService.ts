@@ -45,6 +45,9 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`[VendeloOrderQueue] Procesando ${pending.length} orden(es) pendiente(s)`)
 
     for (const item of pending) {
+      // Prefijo de trazabilidad consistente: todos los logs de este item llevan orderId + queueId
+      const ctx = `orderId=${item.orderId} queueId=${item.id} intento=${item.attempts + 1}/${MAX_ATTEMPTS}`
+
       try {
         const order = await this.prisma.client.order.findUnique({
           where: { id: item.orderId },
@@ -56,7 +59,7 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
             where: { id: item.id },
             data: { status: 'FAILED', lastError: 'Pedido no encontrado', attempts: item.attempts + 1 },
           })
-          this.logger.warn(`[VendeloOrderQueue] Pedido no encontrado orderId=${item.orderId}, marcando FAILED`)
+          this.logger.warn(`[VendeloOrderQueue] Pedido no encontrado — marcando FAILED ${ctx}`)
           continue
         }
 
@@ -64,6 +67,8 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
           where: { id: order.userId },
           select: { email: true },
         })
+
+        this.logger.log(`[VendeloOrderQueue] Enviando a Vendelo ${ctx}`)
 
         // Mapear desde Prisma al tipo de dominio Order
         const domainOrder = {
@@ -96,7 +101,7 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
         ])
 
         this.logger.log(
-          `[VendeloOrderQueue] Orden creada exitosamente orderId=${order.id} vendeloOrderId=${vendeloOrderId ?? 'n/a'}`,
+          `[VendeloOrderQueue] OK — vendeloOrderId=${vendeloOrderId ?? 'n/a'} ${ctx}`,
         )
       } catch (e) {
         const attempts = item.attempts + 1
@@ -110,7 +115,7 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
         })
 
         this.logger.error(
-          `[VendeloOrderQueue] Intento ${attempts}/${MAX_ATTEMPTS} fallido orderId=${item.orderId} status=${status}: ${e}`,
+          `[VendeloOrderQueue] ERROR status=${status} nextRetry=${nextRetry.toISOString()} ${ctx}: ${e}`,
         )
       }
     }

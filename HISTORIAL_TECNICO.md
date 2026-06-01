@@ -3292,3 +3292,59 @@ Se implementaron los tres pilares del hardening de la integración Vendelo: obse
 `tsc --noEmit` en `@h2r/domain` y `@h2r/api` → sin errores.
 
 *Última actualización: 2026-06-01*
+
+---
+
+## 92. Correcciones de Auditoría de Preparación para Producción — Módulo Vendelo
+
+**Qué se hizo:**
+
+Se aplicaron todas las correcciones identificadas en la auditoría de preparación para producción, cubriendo resiliencia, seguridad, observabilidad, rendimiento e idempotencia.
+
+**R-08 CRITICAL — `sync-cities` en transacción atómica**
+`deleteMany` + `createMany` ahora se ejecutan dentro de `prisma.$transaction()`. Si `createMany` falla, el rollback automático preserva los datos anteriores y el `CitySelector` del checkout continúa funcionando. Archivo: `apps/api/src/vendelo/vendelo.controller.ts`.
+
+**S-08 — `assertEnvVars()` extendido**
+`VENDELO_API_KEY` y `VENDELO_WEBHOOK_SECRET` agregados a la validación de bootstrap. El proceso ahora falla fast con código 1 si estas variables no están configuradas. Archivo: `apps/api/src/main.ts`.
+
+**S-09 — Comparación de firma timing-safe**
+`signature === expected` reemplazado por `timingSafeEqual(Buffer, Buffer)` en `VendeloWebhookGuard`. Previene timing attacks de fuerza bruta sobre la firma HMAC. Archivo: `apps/api/src/vendelo/guards/vendelo-webhook.guard.ts`.
+
+**I-05 — Protección anti-replay en webhook**
+Nuevo método `verifyTimestamp()` en el guard: valida que `X-Vendelo-Timestamp` (si presente) esté dentro de una ventana de 5 minutos. Si el header está ausente, el guard es permisivo para mantener compatibilidad con versiones antiguas de Vendelo. Archivo: `apps/api/src/vendelo/guards/vendelo-webhook.guard.ts`.
+
+**S-10 — `ParseVendeloIdPipe` para `@Param`**
+Nuevo pipe `ParseVendeloIdPipe` con whitelist `[a-zA-Z0-9_-]{1,100}` que valida los IDs de novedades en la frontera del sistema. Aplicado en `GET /exceptions/:id` y `POST /exceptions/:id/resolve`. Archivos: `apps/api/src/vendelo/pipes/parse-vendelo-id.pipe.ts`, `vendelo.controller.ts`.
+
+**R-03 + R-04 — Circuit Breaker + retry en errores de red**
+`VendeloHttpClient` reescrito con retry en errores de red (`FetchError`, `AbortError`, `ECONNREFUSED`) y Circuit Breaker de 3 estados: CLOSED → OPEN (5 fallos) → HALF_OPEN (60s) → CLOSED. `sleep` es `protected` para tests. `getCircuitState()` expuesto para health checks. Archivo: `apps/api/src/infrastructure/services/VendeloHttpClient.ts`.
+
+**O-05 — Correlation IDs en `VendeloOrderQueueService`**
+Todos los mensajes del ciclo de procesamiento incluyen el prefijo `orderId={} queueId={} intento={}/{}` consistentemente. Archivo: `apps/api/src/infrastructure/services/VendeloOrderQueueService.ts`.
+
+**P-06 — Invalidación de caché per-usuario**
+`SyncShipmentStatusOutput` incluye `userId`. `getOrderHistory` agrega tag `orders:{userId}`. `VendeloWebhookController` invalida solo `orders:{userId}` en lugar de toda la caché de pedidos. Archivos: `SyncShipmentStatus.ts`, `getOrderHistory.ts`, `vendelo-webhook.controller.ts`.
+
+**Archivos creados:**
+
+- `apps/api/src/vendelo/pipes/parse-vendelo-id.pipe.ts`
+- `apps/api/src/__tests__/VendeloHttpClient.test.ts` — 10 tests
+- `apps/api/src/__tests__/VendeloWebhookGuard.test.ts` — 11 tests
+- `apps/api/src/__tests__/ParseVendeloIdPipe.test.ts` — 7 tests
+
+**Archivos modificados:**
+
+- `apps/api/src/main.ts`, `vendelo/vendelo.controller.ts`, `vendelo/guards/vendelo-webhook.guard.ts`
+- `apps/api/src/infrastructure/services/VendeloHttpClient.ts`, `VendeloOrderQueueService.ts`
+- `packages/domain/src/use-cases/orders/SyncShipmentStatus.ts`
+- `apps/web/src/lib/queries/getOrderHistory.ts`
+- `apps/api/src/vendelo/vendelo-webhook.controller.ts`
+- `apps/api/src/__tests__/wompi.controller.test.ts` — agrega mock de `VendeloOrderQueueService`
+
+**Resultado:**
+
+`pnpm --filter @h2r/domain test` → 84 tests, 10 archivos, todos en verde.
+`pnpm --filter @h2r/api test` → 49 tests, 6 archivos, todos en verde.
+`tsc --noEmit` en `@h2r/domain` y `@h2r/api` → sin errores.
+
+*Última actualización: 2026-06-01*

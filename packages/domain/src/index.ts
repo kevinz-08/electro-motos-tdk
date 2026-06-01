@@ -14,6 +14,7 @@ export * from './entities/Category'
 export * from './entities/Order'
 export * from './entities/Product'
 export * from './entities/ProductDescription'
+export * from './entities/RecipientTrust'
 export * from './entities/Shipment'
 export * from './entities/ShipmentException'
 export * from './entities/User'
@@ -28,7 +29,9 @@ export * from './repositories/IVendeloShippingPort'
 export * from './repositories/IUserRepository'
 
 // ── Contratos de servicios ───────────────────────────────────────────────────
+export * from './services/IAlertNotificationPort'
 export * from './services/IPaymentService'
+export * from './services/IRecipientTrustStrategy'
 
 // ── Shared ───────────────────────────────────────────────────────────────────
 export * from './shared/Result'

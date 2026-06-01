@@ -165,4 +165,14 @@ export class PrismaOrderRepository implements IOrderRepository {
   async getPendingCount(): Promise<number> {
     return this.prisma.client.order.count({ where: { status: 'PENDING' } })
   }
+
+  async findVendeloOrderIdsBatch(
+    orderIds: string[],
+  ): Promise<Array<{ id: string; vendeloOrderId: string | null }>> {
+    const rows = await this.prisma.client.order.findMany({
+      where: { id: { in: orderIds } },
+      select: { id: true, vendeloOrderId: true },
+    })
+    return rows.map((r) => ({ id: r.id, vendeloOrderId: r.vendeloOrderId }))
+  }
 }

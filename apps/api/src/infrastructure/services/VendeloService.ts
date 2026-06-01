@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { Order } from '@h2r/domain'
+import {
+  Order,
+  IVendeloShippingPort,
+  ShipmentExceptionDetail,
+  ExceptionResolution,
+} from '@h2r/domain'
 import { VendeloHttpClient } from './VendeloHttpClient'
 
 export interface VendeloAuthInfo {
@@ -71,8 +76,33 @@ export interface VendeloCreateOrderResponse {
   items: Array<{ id: string; [key: string]: unknown }>
 }
 
+export type LabelFormat = 'LETTER_2PP' | 'LABEL_10x10' | 'LABEL_10x15'
+export type LabelOutput = 'URL' | 'BASE64'
+
+export interface GenerateLabelsResponse {
+  status: 'SUCCESS' | string
+  order_ids: string[]
+  output: LabelOutput
+  data: string
+}
+
+interface PaginatedExceptionsResponse {
+  curr_page_token: string
+  next_page_token: string
+  page_item_count: number
+  items: ShipmentExceptionDetail[]
+}
+
+export interface GetExceptionsParams {
+  page_token?: string
+  page_size?: number
+  status?: string
+  created_min?: string
+  created_max?: string
+}
+
 @Injectable()
-export class VendeloService {
+export class VendeloService implements IVendeloShippingPort {
   private readonly logger = new Logger(VendeloService.name)
 
   constructor(private readonly http: VendeloHttpClient) {}
@@ -169,5 +199,58 @@ export class VendeloService {
 
     this.logger.log(`Creando orden Vendelo para pedido interno ${order.id}`)
     return this.http.post<VendeloCreateOrderResponse>('/v1/admin/orders', body)
+  }
+
+  // ── IVendeloShippingPort ────────────────────────────────────────────────────
+
+  async createShipments(vendeloOrderIds: string[]): Promise<{ message: string }> {
+    this.logger.log(`Creando envíos Vendelo para ${vendeloOrderIds.length} órdenes`)
+    return this.http.post<{ message: string }>('/v1/admin/shipping/create-shipments', {
+      order_ids: vendeloOrderIds,
+    })
+  }
+
+  async getException(id: string): Promise<ShipmentExceptionDetail> {
+    return this.http.get<ShipmentExceptionDetail>(`/v1/admin/shipping/exceptions/${encodeURIComponent(id)}`)
+  }
+
+  async resolveException(id: string, resolution: ExceptionResolution): Promise<{ message: string }> {
+    this.logger.log(`Resolviendo novedad Vendelo id=${id}`)
+    return this.http.post<{ message: string }>(
+      `/v1/admin/shipping/exceptions/${encodeURIComponent(id)}/resolve`,
+      resolution,
+    )
+  }
+
+  // ── Métodos de administración sin lógica de dominio ───────────────────────
+
+  async generateLabels(
+    vendeloOrderIds: string[],
+    format: LabelFormat,
+    output: LabelOutput = 'URL',
+  ): Promise<GenerateLabelsResponse> {
+    this.logger.log(`Generando etiquetas (format=${format}, output=${output}) para ${vendeloOrderIds.length} órdenes`)
+    return this.http.post<GenerateLabelsResponse>('/v1/admin/shipping/generate-labels', {
+      output,
+      format,
+      order_ids: vendeloOrderIds,
+    })
+  }
+
+  async getExceptions(params: GetExceptionsParams = {}): Promise<PaginatedExceptionsResponse> {
+    const qs = new URLSearchParams()
+    if (params.page_token)  qs.set('page_token',  params.page_token)
+    if (params.page_size)   qs.set('page_size',   String(params.page_size))
+    if (params.status)      qs.set('status',       params.status)
+    if (params.created_min) qs.set('created_min',  params.created_min)
+    if (params.created_max) qs.set('created_max',  params.created_max)
+    return this.http.get<PaginatedExceptionsResponse>(`/v1/admin/shipping/exceptions?${qs}`)
+  }
+
+  async requestPickup(vendeloOrderIds: string[]): Promise<{ pickups: unknown[] }> {
+    this.logger.log(`Solicitando recolección para ${vendeloOrderIds.length} órdenes`)
+    return this.http.post<{ pickups: unknown[] }>('/v1/admin/shipping/request-pickup', {
+      order_ids: vendeloOrderIds,
+    })
   }
 }

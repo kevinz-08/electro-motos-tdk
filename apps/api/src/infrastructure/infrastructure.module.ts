@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
 import { PrismaModule } from './database/prisma.module'
-import { PRODUCT_REPOSITORY, PRODUCT_DESCRIPTION_REPOSITORY, ORDER_REPOSITORY, USER_REPOSITORY, PAYMENT_SERVICE, SHIPMENT_REPOSITORY } from './injection-tokens'
+import { PRODUCT_REPOSITORY, PRODUCT_DESCRIPTION_REPOSITORY, ORDER_REPOSITORY, USER_REPOSITORY, PAYMENT_SERVICE, SHIPMENT_REPOSITORY, VENDELO_SHIPPING_PORT } from './injection-tokens'
 import { PrismaProductRepository } from './repositories/PrismaProductRepository'
 import { PrismaProductDescriptionRepository } from './repositories/PrismaProductDescriptionRepository'
 import { PrismaOrderRepository } from './repositories/PrismaOrderRepository'
@@ -23,6 +23,7 @@ import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
     { provide: ORDER_REPOSITORY,               useClass: PrismaOrderRepository },
     { provide: USER_REPOSITORY,                useClass: PrismaUserRepository },
     { provide: SHIPMENT_REPOSITORY,            useClass: PrismaShipmentRepository },
+    { provide: VENDELO_SHIPPING_PORT,          useClass: VendeloService },
     // PAYMENT_SERVICE token → Wompi (pasarela principal Colombia)
     { provide: PAYMENT_SERVICE,    useClass: WompiService },
     // Servicios concretos también disponibles por clase para inyección directa en controllers
@@ -42,6 +43,7 @@ import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
     ORDER_REPOSITORY,
     USER_REPOSITORY,
     SHIPMENT_REPOSITORY,
+    VENDELO_SHIPPING_PORT,
     PAYMENT_SERVICE,
     WompiService,
     MercadoPagoService,

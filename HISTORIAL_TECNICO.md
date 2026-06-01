@@ -3243,3 +3243,52 @@ Se implementaron todos los endpoints administrativos de logística para el panel
 - `INTEGRACION_VENDELO.md` — Fase 4 marcada como completada
 
 *Última actualización: 2026-06-01*
+
+---
+
+## 91. Integración Vendelo — Fase 5: Hardening
+
+**Qué se hizo:**
+
+Se implementaron los tres pilares del hardening de la integración Vendelo: observabilidad (alerta de wallet), resiliencia (Strategy Pattern para confianza del destinatario) y calidad (3 nuevas suites de tests TDD).
+
+**Decisiones de diseño relevantes:**
+
+**AlertNotificationPort:** `IAlertNotificationPort` vive en el dominio como un puerto puro. La implementación actual `LogAlertNotificationService` escribe en el logger estructurado de NestJS (visible en Railway). Para migrar a Slack o Telegram en el futuro: crear una nueva clase, cambiar `useClass` en `InfrastructureModule`. El cron emisor no necesita modificaciones.
+
+**WalletAlertCron:** Usa el mismo patrón `setInterval + OnModuleInit/OnModuleDestroy` que `VendeloOrderQueueService` y `EmailQueueService` — sin añadir `@nestjs/schedule`. Lee `VENDELO_WALLET_ALERT_THRESHOLD` dentro del callback del cron (no en el constructor) para que cambiar el umbral en las variables de Railway sea efectivo en el próximo deploy sin cambios de código. También ejecuta un chequeo al arrancar el módulo.
+
+**RecipientTrust — Strategy Pattern:** El evaluador `RecipientTrustEvaluator` recibe `IRecipientTrustStrategy[]` inyectado via `RECIPIENT_TRUST_STRATEGIES`. Para añadir un criterio nuevo: crear clase + añadir al `useFactory` en `vendelo.module.ts`. El evaluador nunca cambia. Score total 0–100: ≥80→HIGH, ≥50→MEDIUM, ≥20→LOW, <20→BLOCKED. Criterios actuales: historial (50 pts), teléfono colombiano (20 pts), completitud de dirección (30 pts).
+
+**Tests TDD:** Las 3 suites se escribieron antes de modificar cualquier use case existente. Los tests de `SyncShipmentStatus` cubren el contrato implícito del doble mecanismo de idempotencia (rank check en memoria + `atomicUpdateStatus` atómico), documentando el invariante sin que sea obvio solo leyendo el código.
+
+**Archivos creados:**
+
+- `packages/domain/src/entities/RecipientTrust.ts` — `TrustContext`, `TrustEvaluation`, `TrustLevel`, `scoreToLevel()`
+- `packages/domain/src/services/IRecipientTrustStrategy.ts` — `IRecipientTrustStrategy`, `StrategyResult`
+- `packages/domain/src/services/IAlertNotificationPort.ts` — `IAlertNotificationPort`, `AlertLevel`
+- `packages/domain/src/__tests__/CreateShipments.test.ts` — 6 tests
+- `packages/domain/src/__tests__/ResolveShipmentException.test.ts` — 7 tests (incluye `.each` con 5 estados)
+- `packages/domain/src/__tests__/SyncShipmentStatus.test.ts` — 10 tests
+- `apps/api/src/infrastructure/services/LogAlertNotificationService.ts`
+- `apps/api/src/vendelo/services/WalletAlertCron.ts`
+- `apps/api/src/vendelo/trust/RecipientTrustEvaluator.ts`
+- `apps/api/src/vendelo/trust/strategies/OrderHistoryTrustStrategy.ts`
+- `apps/api/src/vendelo/trust/strategies/PhoneFormatTrustStrategy.ts`
+- `apps/api/src/vendelo/trust/strategies/AddressCompletenessTrustStrategy.ts`
+
+**Archivos modificados:**
+
+- `packages/domain/src/index.ts` — exports `RecipientTrust`, `IRecipientTrustStrategy`, `IAlertNotificationPort`
+- `apps/api/src/infrastructure/injection-tokens.ts` — `RECIPIENT_TRUST_STRATEGIES`, `ALERT_NOTIFICATION_PORT`
+- `apps/api/src/infrastructure/infrastructure.module.ts` — `LogAlertNotificationService` + `ALERT_NOTIFICATION_PORT`
+- `apps/api/src/infrastructure/services/VendeloService.ts` — `getWalletBalance()`
+- `apps/api/src/vendelo/vendelo.module.ts` — strategies, evaluator, `WalletAlertCron`, factory `RECIPIENT_TRUST_STRATEGIES`
+- `INTEGRACION_VENDELO.md` — Fase 5 marcada como completada
+
+**Resultado:**
+
+`pnpm --filter @h2r/domain test` → 56 tests, 7 archivos, todos en verde.
+`tsc --noEmit` en `@h2r/domain` y `@h2r/api` → sin errores.
+
+*Última actualización: 2026-06-01*

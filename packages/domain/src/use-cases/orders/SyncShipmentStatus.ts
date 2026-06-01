@@ -19,6 +19,8 @@ export interface SyncShipmentStatusOutput {
   /** true si este webhook aplicó el cambio de estado. false si era un duplicado. */
   updated: boolean
   newStatus: ShipmentStatus
+  /** ID del usuario propietario del pedido — para invalidación de caché por usuario */
+  userId: string
 }
 
 /**
@@ -59,7 +61,7 @@ export class SyncShipmentStatus {
     const isForward = incomingRank > currentRank
 
     if (!isCancelled && !isForward) {
-      return ok({ updated: false, newStatus: currentStatus })
+      return ok({ updated: false, newStatus: currentStatus, userId: order.userId })
     }
 
     // Si no existe registro de envío aún, crearlo primero (upsert inicial)
@@ -70,7 +72,7 @@ export class SyncShipmentStatus {
         carrier: input.carrier ?? null,
       })
       await this.syncOrderStatus(input.orderId, input.vendelo_status)
-      return ok({ updated: true, newStatus: input.vendelo_status })
+      return ok({ updated: true, newStatus: input.vendelo_status, userId: order.userId })
     }
 
     // Idempotencia nivel 2: atomic WHERE en BD (protege race conditions entre workers)
@@ -85,11 +87,11 @@ export class SyncShipmentStatus {
     )
 
     if (!result.applied) {
-      return ok({ updated: false, newStatus: currentStatus })
+      return ok({ updated: false, newStatus: currentStatus, userId: order.userId })
     }
 
     await this.syncOrderStatus(input.orderId, input.vendelo_status)
-    return ok({ updated: true, newStatus: input.vendelo_status })
+    return ok({ updated: true, newStatus: input.vendelo_status, userId: order.userId })
   }
 
   /** Actualiza Order.status cuando el envío llega a un estado terminal del ciclo logístico. */

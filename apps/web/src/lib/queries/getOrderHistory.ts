@@ -39,7 +39,9 @@ export const getOrderHistory = (userId: string, page = 1) =>
   unstable_cache(
     () => _getOrderHistory(userId, page),
     [`order-history-${userId}-${page}`],
-    { revalidate: TTL, tags: [CACHE_TAGS.orders] },
+    // Tag global 'orders' para invalidación masiva (admin).
+    // Tag per-usuario 'orders:{userId}' para invalidación quirúrgica desde el webhook de Vendelo.
+    { revalidate: TTL, tags: [CACHE_TAGS.orders, `${CACHE_TAGS.orders}:${userId}`] },
   )()
 
 async function _getOrderHistory(

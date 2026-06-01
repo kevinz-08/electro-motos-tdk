@@ -107,24 +107,30 @@ export class VendeloWebhookController {
     }
 
     if (result.value.updated) {
-      this.revalidateOrdersCache().catch((e) =>
+      this.revalidateOrdersCache(result.value.userId).catch((e) =>
         this.logger.warn(`[VendeloWebhook] No se pudo invalidar caché de pedidos: ${e}`),
       )
     }
 
     this.logger.log(
-      `[VendeloWebhook] orderId=${orderId} event=${event} updated=${result.value.updated} status=${result.value.newStatus}`,
+      `[VendeloWebhook] orderId=${orderId} userId=${result.value.userId} event=${event} updated=${result.value.updated} status=${result.value.newStatus}`,
     )
     return { received: true, processed: true, updated: result.value.updated }
   }
 
-  private async revalidateOrdersCache(): Promise<void> {
+  /**
+   * Invalida la caché del historial de pedidos en Next.js.
+   * Usa el tag per-usuario para invalidar solo al cliente afectado — evita
+   * que un webhook de Vendelo descarte la caché de todos los usuarios.
+   * El tag global 'orders' se mantiene para invalidaciones masivas del admin.
+   */
+  private async revalidateOrdersCache(userId: string): Promise<void> {
     const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000'
     const secret = process.env['INTERNAL_API_SECRET'] ?? ''
     await fetch(`${frontendUrl}/api/internal/revalidate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
-      body: JSON.stringify({ tags: ['orders'] }),
+      body: JSON.stringify({ tags: [`orders:${userId}`] }),
       signal: AbortSignal.timeout(5000),
     })
   }

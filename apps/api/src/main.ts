@@ -47,6 +47,8 @@ function assertEnvVars(): void {
     'INTERNAL_API_SECRET',
     'WOMPI_EVENTS_SECRET',
     'WOMPI_INTEGRITY_SECRET',
+    'VENDELO_API_KEY',
+    'VENDELO_WEBHOOK_SECRET',
   ]
   const missing = required.filter((k) => !process.env[k])
   if (missing.length > 0) {

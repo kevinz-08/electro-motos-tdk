@@ -10,6 +10,7 @@ import { ResendEmailService } from '../infrastructure/services/ResendEmailServic
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Public } from '../auth/decorators/public.decorator'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
+import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
 import { WompiIntegrityDto } from './dto/wompi-integrity.dto'
 
 @ApiTags('payments')
@@ -22,6 +23,7 @@ export class WompiController {
     private readonly wompiService: WompiService,
     private readonly emailService: ResendEmailService,
     private readonly emailQueue: EmailQueueService,
+    private readonly vendeloOrderQueue: VendeloOrderQueueService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -120,6 +122,7 @@ export class WompiController {
         if (user?.email) {
           await this.emailQueue.enqueue(user.email, orderId)
         }
+        await this.vendeloOrderQueue.enqueue(orderId)
       }
     }
 

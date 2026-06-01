@@ -253,4 +253,8 @@ export class VendeloService implements IVendeloShippingPort {
       order_ids: vendeloOrderIds,
     })
   }
+
+  async getWalletBalance(): Promise<{ balance: number; currency: string }> {
+    return this.http.get<{ balance: number; currency: string }>('/v1/admin/wallet/balance')
+  }
 }

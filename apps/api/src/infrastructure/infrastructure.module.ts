@@ -1,6 +1,15 @@
 import { Module } from '@nestjs/common'
 import { PrismaModule } from './database/prisma.module'
-import { PRODUCT_REPOSITORY, PRODUCT_DESCRIPTION_REPOSITORY, ORDER_REPOSITORY, USER_REPOSITORY, PAYMENT_SERVICE, SHIPMENT_REPOSITORY, VENDELO_SHIPPING_PORT } from './injection-tokens'
+import {
+  PRODUCT_REPOSITORY,
+  PRODUCT_DESCRIPTION_REPOSITORY,
+  ORDER_REPOSITORY,
+  USER_REPOSITORY,
+  PAYMENT_SERVICE,
+  SHIPMENT_REPOSITORY,
+  VENDELO_SHIPPING_PORT,
+  ALERT_NOTIFICATION_PORT,
+} from './injection-tokens'
 import { PrismaProductRepository } from './repositories/PrismaProductRepository'
 import { PrismaProductDescriptionRepository } from './repositories/PrismaProductDescriptionRepository'
 import { PrismaOrderRepository } from './repositories/PrismaOrderRepository'
@@ -14,6 +23,7 @@ import { EmailQueueService } from './services/EmailQueueService'
 import { VendeloHttpClient } from './services/VendeloHttpClient'
 import { VendeloService } from './services/VendeloService'
 import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
+import { LogAlertNotificationService } from './services/LogAlertNotificationService'
 
 @Module({
   imports: [PrismaModule],
@@ -35,6 +45,8 @@ import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
     VendeloHttpClient,
     VendeloService,
     VendeloOrderQueueService,
+    LogAlertNotificationService,
+    { provide: ALERT_NOTIFICATION_PORT, useClass: LogAlertNotificationService },
   ],
   exports: [
     PrismaModule,
@@ -45,6 +57,7 @@ import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
     SHIPMENT_REPOSITORY,
     VENDELO_SHIPPING_PORT,
     PAYMENT_SERVICE,
+    ALERT_NOTIFICATION_PORT,
     WompiService,
     MercadoPagoService,
     ResendEmailService,

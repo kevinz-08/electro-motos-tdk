@@ -33,6 +33,7 @@ import { WompiController } from '../payments/wompi.controller'
 import { WompiService } from '../infrastructure/services/WompiService'
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
+import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { ORDER_REPOSITORY } from '../infrastructure/injection-tokens'
 
@@ -93,15 +94,18 @@ function buildTransactionEvent(
   }
 }
 
+const mockVendeloQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
+
 async function buildController() {
   const module = await Test.createTestingModule({
     controllers: [WompiController],
     providers: [
-      { provide: ORDER_REPOSITORY, useValue: mockOrderRepo },
-      { provide: WompiService, useValue: mockWompiService },
-      { provide: ResendEmailService, useValue: mockEmailService },
-      { provide: EmailQueueService, useValue: mockEmailQueue },
-      { provide: PrismaService, useValue: mockPrisma },
+      { provide: ORDER_REPOSITORY,         useValue: mockOrderRepo },
+      { provide: WompiService,             useValue: mockWompiService },
+      { provide: ResendEmailService,       useValue: mockEmailService },
+      { provide: EmailQueueService,        useValue: mockEmailQueue },
+      { provide: VendeloOrderQueueService, useValue: mockVendeloQueue },
+      { provide: PrismaService,            useValue: mockPrisma },
     ],
   }).compile()
 

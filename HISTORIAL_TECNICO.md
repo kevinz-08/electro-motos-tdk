@@ -3030,4 +3030,78 @@ Ejecutar `POST /admin/vendelo/health` para verificar conectividad, luego `POST /
 
 El checkout ahora captura `cityCode` y `subdivisionCode`, que son los campos requeridos por `POST /v1/admin/orders` de Vendelo. La Fase 2 (creación de órdenes) puede construirse directamente sobre esta base.
 
+---
+
+## 88. Integración Vendelo — Fase 2: creación automática de órdenes al confirmar pago
+
+**Qué se hizo:**
+
+Se implementó el flujo completo para crear automáticamente una orden en Vendelo cada vez que un pago se confirma como `APPROVED`. El sistema usa el mismo patrón de cola asincrónica que el envío de emails de confirmación (`EmailQueueService`).
+
+**Componentes implementados:**
+
+1. **Migración Prisma** (`20260601185620_add_vendelo_order_queue`):
+
+   - Campo `vendeloOrderId String?` en el modelo `Order` — guarda el ID de la orden creada en Vendelo para correlación.
+   - Modelo `VendeloOrderQueue` — cola de órdenes pendientes de enviar a Vendelo con campos `orderId`, `attempts`, `lastError`, `status` (PENDING/SENT/FAILED), `nextRetry`.
+
+2. **`ShippingAddress` entity** (`packages/domain/src/entities/Order.ts`) — Se agregaron `cityCode?: string` y `subdivisionCode?: string`. El campo `department` se hizo opcional (`department?`) ya que fue reemplazado por el selector de ciudad de Vendelo.
+
+3. **`VendeloService.createOrder()`** (`apps/api/src/infrastructure/services/VendeloService.ts`) — Mapper completo de `Order` (dominio) → body de `POST /v1/admin/orders`:
+
+   - `pickup_info` — datos de la tienda, configurable via env vars (`VENDELO_STORE_*`)
+   - `billing_info` — nombre del cliente (split en `first_name` + `last_name`), email, teléfono
+   - `shipping_info` — dirección de destino con `city_code` y `subdivision_code` del `shippingAddress`
+   - `line_items` — cada `OrderItem` mapeado con conversión centavos→float, dimensiones por defecto configurables via env vars
+   - `payment_method_code: "EXTERNAL_PAYMENT"` (pago ya confirmado por Wompi/MercadoPago)
+   - `confirmation_status: "CONFIRMED"` (no requiere confirmación manual del admin)
+
+4. **`VendeloOrderQueueService`** (`apps/api/src/infrastructure/services/VendeloOrderQueueService.ts`):
+
+   - Patrón idéntico a `EmailQueueService`: `setInterval` cada 2 min via `OnModuleInit`
+   - `enqueue(orderId)` — crea fila con status PENDING
+   - `processNext()` — consulta PENDING con `nextRetry <= now`, llama `VendeloService.createOrder()`, guarda `vendeloOrderId` en `Order` en una transacción
+   - Backoff exponencial: intento 1 → +5s | intento 2 → +30s | intento 3 → +120s → FAILED
+
+5. **Webhooks de pago actualizados**:
+
+   - `WompiController.webhook()` — en la rama `APPROVED && stateChanged`, después de encolar email, llama `vendeloOrderQueue.enqueue(orderId)`
+   - `MercadoPagoController.webhook()` — idéntico
+
+6. **Variables de entorno nuevas** (en `.env` y `.env.example`):
+
+   - `VENDELO_STORE_NAME`, `VENDELO_STORE_PHONE`, `VENDELO_STORE_ADDRESS` — datos del comercio para `pickup_info`
+   - `VENDELO_STORE_CITY_CODE`, `VENDELO_STORE_SUBDIVISION_CODE` — código DIVIPOLA de la ciudad de la tienda
+   - `VENDELO_DEFAULT_WEIGHT_KG`, `VENDELO_DEFAULT_HEIGHT_CM`, `VENDELO_DEFAULT_WIDTH_CM`, `VENDELO_DEFAULT_LENGTH_CM` — dimensiones de empaque por defecto
+
+**Archivos creados:**
+
+- `apps/api/src/infrastructure/services/VendeloOrderQueueService.ts`
+- `packages/database/prisma/migrations/20260601185620_add_vendelo_order_queue/migration.sql`
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma`
+- `packages/domain/src/entities/Order.ts`
+- `apps/api/src/infrastructure/services/VendeloService.ts`
+- `apps/api/src/infrastructure/infrastructure.module.ts`
+- `apps/api/src/payments/wompi.controller.ts`
+- `apps/api/src/payments/mercadopago.controller.ts`
+- `apps/api/.env` y `apps/api/.env.example`
+- `INTEGRACION_VENDELO.md`
+
+**Acción requerida para que Fase 2 funcione en producción:**
+
+Antes del primer deploy, configurar en `apps/api/.env` (y en las variables de Railway):
+
+- `VENDELO_STORE_PHONE` — teléfono real de la tienda
+- `VENDELO_STORE_ADDRESS` — dirección física de la tienda donde Vendelo recogerá los paquetes
+- `VENDELO_STORE_CITY_CODE` — código DIVIPOLA de la ciudad (ej. `05001000` = Medellín)
+- `VENDELO_STORE_SUBDIVISION_CODE` — código de subdivisión (ej. `02`)
+- Ajustar `VENDELO_DEFAULT_WEIGHT_KG` y dimensiones según el empaque real de los productos
+
+**Fin:**
+
+A partir de este punto, cada vez que Wompi o MercadoPago confirmen un pago, el sistema crea automáticamente una orden en Vendelo con reintentos automáticos. El `vendeloOrderId` se guarda en la orden para trazabilidad. La Fase 3 (tracking de envíos via webhooks Vendelo) puede construirse sobre esta base.
+
 *Última actualización: 2026-06-01*

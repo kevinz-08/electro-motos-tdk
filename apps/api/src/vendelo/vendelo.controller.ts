@@ -15,6 +15,7 @@ import {
 } from '@h2r/domain'
 import { ORDER_REPOSITORY, VENDELO_SHIPPING_PORT } from '../infrastructure/injection-tokens'
 import { ShippingAdminService } from './services/shipping-admin.service'
+import { ParseVendeloIdPipe } from './pipes/parse-vendelo-id.pipe'
 import { CreateShipmentsDto } from './dto/create-shipments.dto'
 import { GenerateLabelsDto } from './dto/generate-labels.dto'
 import { RequestPickupDto } from './dto/request-pickup.dto'
@@ -48,15 +49,19 @@ export class VendeloController {
   async syncCities() {
     const cities = await this.vendeloService.getAllCities()
 
-    await this.prisma.client.vendeloCity.deleteMany()
-    await this.prisma.client.vendeloCity.createMany({
-      data: cities.map((c) => ({
-        code: c.code,
-        name: c.name,
-        subdivisionCode: c.subdivision_code,
-        countryCode: c.country_code ?? 'CO',
-      })),
-      skipDuplicates: true,
+    // Transacción atómica: si createMany falla, el deleteMany previo se revierte
+    // y la tabla VendeloCity mantiene los datos anteriores — el checkout no se rompe
+    await this.prisma.client.$transaction(async (tx) => {
+      await tx.vendeloCity.deleteMany()
+      await tx.vendeloCity.createMany({
+        data: cities.map((c) => ({
+          code: c.code,
+          name: c.name,
+          subdivisionCode: c.subdivision_code,
+          countryCode: c.country_code ?? 'CO',
+        })),
+        skipDuplicates: true,
+      })
     })
 
     return { synced: cities.length }
@@ -122,7 +127,7 @@ export class VendeloController {
   /** Detalle de una novedad específica con possible_replies. */
   @Get('exceptions/:id')
   @ApiOperation({ summary: 'Detalle de una novedad de envío con las respuestas posibles' })
-  async getException(@Param('id') id: string) {
+  async getException(@Param('id', ParseVendeloIdPipe) id: string) {
     return this.shippingAdmin.getException(id)
   }
 
@@ -134,7 +139,7 @@ export class VendeloController {
   @Post('exceptions/:id/resolve')
   @HttpCode(200)
   @ApiOperation({ summary: 'Resuelve una novedad de transporte (solo si está en estado PENDING)' })
-  async resolveException(@Param('id') id: string, @Body() dto: ResolveExceptionDto) {
+  async resolveException(@Param('id', ParseVendeloIdPipe) id: string, @Body() dto: ResolveExceptionDto) {
     const useCase = new ResolveShipmentException(this.shippingPort)
     const result = await useCase.execute({
       exceptionId: id,

@@ -3104,4 +3104,86 @@ Antes del primer deploy, configurar en `apps/api/.env` (y en las variables de Ra
 
 A partir de este punto, cada vez que Wompi o MercadoPago confirmen un pago, el sistema crea automáticamente una orden en Vendelo con reintentos automáticos. El `vendeloOrderId` se guarda en la orden para trazabilidad. La Fase 3 (tracking de envíos via webhooks Vendelo) puede construirse sobre esta base.
 
+---
+
+## 89. Integración Vendelo — Fase 3: webhooks de envío y tracking
+
+**Qué se hizo:**
+
+Se implementó la recepción y procesamiento de eventos del Chatbot Connection de Vendelo. Cuando Vendelo notifica que un pedido fue despachado, entregado o cancelado, el sistema actualiza el estado del envío y del pedido con idempotencia atómica, e invalida la caché de pedidos del usuario.
+
+**Componentes implementados:**
+
+1. **`Shipment` entity** (`packages/domain/src/entities/Shipment.ts`):
+
+   - Tipo `ShipmentStatus`: `PENDING | READY | PREPARING | SHIPPED | INCIDENT | DELIVERED | RETURNED | CANCELLED`
+   - `SHIPMENT_STATUS_RANK`: mapa numérico para detectar retrocesos de estado (progresión unidireccional)
+
+2. **`IShipmentRepository`** (`packages/domain/src/repositories/IShipmentRepository.ts`):
+
+   - `findByOrderId()`, `upsert()`, `atomicUpdateStatus()` — el método atómico ejecuta `UPDATE WHERE status = from`, garantizando idempotencia ante webhooks duplicados
+
+3. **`SyncShipmentStatus` use case** (`packages/domain/src/use-cases/orders/SyncShipmentStatus.ts`):
+
+   - **Idempotencia nivel 1:** rank check en memoria — si `rank(nuevo) <= rank(actual)`, retorna `{ updated: false }` sin tocar la BD
+   - **Idempotencia nivel 2:** `atomicUpdateStatus` con `WHERE status = from` — protege contra race conditions entre workers
+   - Actualiza `Order.status` cuando el envío llega a `SHIPPED`, `DELIVERED` o `CANCELLED`
+   - Patrón idéntico a `ConfirmPayment`: sin excepciones, retorna `Result<T,E>`
+
+4. **Prisma** — migración `20260601191728_add_shipment`:
+
+   - Modelo `Shipment` (1:1 con `Order`, `onDelete: Cascade`)
+   - Relación `Order.shipment Shipment?`
+
+5. **`SHIPMENT_REPOSITORY`** — nuevo token en `injection-tokens.ts`, `PrismaShipmentRepository` registrado y exportado en `InfrastructureModule`
+
+6. **`VendeloWebhookGuard`** (`apps/api/src/vendelo/guards/vendelo-webhook.guard.ts`):
+
+   - Implementa `CanActivate`
+   - Verifica HMAC-SHA256 del body crudo contra `X-Vendelo-Signature`
+   - Dev sin secret: permite con warning. Prod sin secret: rechaza con 401
+   - Requiere `rawBody: true` en `NestFactory.create()` — habilitado en `main.ts`
+
+7. **`VendeloWebhookController`** (`apps/api/src/vendelo/vendelo-webhook.controller.ts`):
+
+   - Thin controller: `@Public() @SkipThrottle() @UseGuards(VendeloWebhookGuard)`
+   - Mapea evento Vendelo → `ShipmentStatus` (tabla de 7 eventos)
+   - Llama `SyncShipmentStatus` use case
+   - Si `updated: true`, llama `POST /api/internal/revalidate` con `x-internal-secret` para invalidar caché `orders` en Next.js
+   - Siempre responde 200 para evitar reintentos masivos
+
+8. **Cache `orders`**:
+
+   - `CACHE_TAGS.orders` agregado en `apps/web/src/lib/cache-tags.ts`
+   - `getOrderHistory` envuelta en `unstable_cache` (TTL 60s, tag `orders`)
+   - `POST /api/internal/revalidate` — endpoint Next.js con `x-internal-secret` para invalidación server-to-server
+
+**Archivos creados:**
+
+- `packages/domain/src/entities/Shipment.ts`
+- `packages/domain/src/repositories/IShipmentRepository.ts`
+- `packages/domain/src/use-cases/orders/SyncShipmentStatus.ts`
+- `apps/api/src/infrastructure/repositories/PrismaShipmentRepository.ts`
+- `apps/api/src/vendelo/guards/vendelo-webhook.guard.ts`
+- `apps/api/src/vendelo/vendelo-webhook.controller.ts`
+- `apps/web/src/app/api/internal/revalidate/route.ts`
+- `packages/database/prisma/migrations/20260601191728_add_shipment/migration.sql`
+
+**Archivos modificados:**
+
+- `packages/domain/src/index.ts` — nuevos exports
+- `packages/database/prisma/schema.prisma` — modelo `Shipment` + `Order.shipment`
+- `apps/api/src/infrastructure/injection-tokens.ts` — `SHIPMENT_REPOSITORY`
+- `apps/api/src/infrastructure/infrastructure.module.ts` — registro y export
+- `apps/api/src/vendelo/vendelo.module.ts` — `VendeloWebhookController`
+- `apps/api/src/main.ts` — `rawBody: true`
+- `apps/web/src/lib/cache-tags.ts` — tag `orders`
+- `apps/web/src/lib/queries/getOrderHistory.ts` — `unstable_cache`
+- `INTEGRACION_VENDELO.md`
+
+**Acción requerida antes de recibir webhooks de Vendelo:**
+
+1. Registrar Chatbot Connection en Vendelo (`POST /v1/admin/chatbot/connections`) apuntando a `https://<api-domain>/vendelo/webhook` con los 7 eventos de envío
+2. Guardar el secret recibido en `VENDELO_WEBHOOK_SECRET` en Railway y en `.env` local
+
 *Última actualización: 2026-06-01*

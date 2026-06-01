@@ -58,7 +58,7 @@ function assertEnvVars(): void {
 async function bootstrap() {
   assertEnvVars()
   const structuredLogger = new StructuredLogger()
-  const app = await NestFactory.create(AppModule, { bufferLogs: true })
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true })
   app.useLogger(structuredLogger)
 
   // Seguridad y compresión

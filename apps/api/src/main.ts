@@ -45,6 +45,8 @@ function assertEnvVars(): void {
     'DATABASE_URL',
     'JWT_SECRET',
     'INTERNAL_API_SECRET',
+    'WOMPI_PUBLIC_KEY',
+    'WOMPI_PRIVATE_KEY',
     'WOMPI_EVENTS_SECRET',
     'WOMPI_INTEGRITY_SECRET',
     'VENDELO_API_KEY',

@@ -24,6 +24,7 @@ import { VendeloHttpClient } from './services/VendeloHttpClient'
 import { VendeloService } from './services/VendeloService'
 import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
 import { LogAlertNotificationService } from './services/LogAlertNotificationService'
+import { WompiReconciliationService } from './services/WompiReconciliationService'
 
 @Module({
   imports: [PrismaModule],
@@ -47,6 +48,7 @@ import { LogAlertNotificationService } from './services/LogAlertNotificationServ
     VendeloOrderQueueService,
     LogAlertNotificationService,
     { provide: ALERT_NOTIFICATION_PORT, useClass: LogAlertNotificationService },
+    WompiReconciliationService,
   ],
   exports: [
     PrismaModule,

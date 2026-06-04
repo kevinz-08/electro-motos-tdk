@@ -11,7 +11,6 @@ import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Public } from '../auth/decorators/public.decorator'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
 import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
-import { WompiIntegrityDto } from './dto/wompi-integrity.dto'
 
 @ApiTags('payments')
 @Controller('payments/wompi')
@@ -26,29 +25,6 @@ export class WompiController {
     private readonly vendeloOrderQueue: VendeloOrderQueueService,
     private readonly prisma: PrismaService,
   ) {}
-
-  /** Genera referencia + integrity signature para inicializar el widget de Wompi */
-  @Post('integrity')
-  @Public()
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Generar referencia e integrity signature para el widget Wompi' })
-  integrity(@Body() dto: WompiIntegrityDto) {
-    const reference = `ORDER-${dto.orderId}-${Date.now()}`
-    const currency = dto.currency ?? 'COP'
-    const integritySignature = WompiService.computeIntegritySignature(
-      reference,
-      dto.amountInCents,
-      currency,
-      process.env['WOMPI_INTEGRITY_SECRET'] ?? '',
-    )
-    return {
-      reference,
-      integritySignature,
-      publicKey: process.env['WOMPI_PUBLIC_KEY'] ?? '',
-      amountInCents: dto.amountInCents,
-      currency,
-    }
-  }
 
   /**
    * Recibe eventos de pago de Wompi.

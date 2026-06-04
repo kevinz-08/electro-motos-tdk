@@ -1,4 +1,4 @@
-// AUTO-GENERADO — 2026-05-28T19:42:48.790Z
+// AUTO-GENERADO — 2026-06-03T22:40:47.988Z
 // Generados 85 productos desde C:\Users\pagin\VSC-Business\electro-motos-tdk\apps\web\tmp-productos
 //
 // ¿Cómo usar?

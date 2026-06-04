@@ -3348,3 +3348,160 @@ Todos los mensajes del ciclo de procesamiento incluyen el prefijo `orderId={} qu
 `tsc --noEmit` en `@h2r/domain` y `@h2r/api` → sin errores.
 
 *Última actualización: 2026-06-01*
+
+---
+
+## 93. Documentación de migración Railway → Google Cloud Platform
+
+**Qué se hizo:**
+
+Se diseñó e implementó el plan completo de migración del backend NestJS desde Railway hacia Google Cloud Platform, priorizando Cloud Run como servicio de destino. Se crearon los archivos de infraestructura necesarios y se documentó todo el proceso.
+
+**Archivos creados:**
+
+- `MIGRACION_GOOGLE_CLOUD.md` — documento completo con arquitectura, Dockerfile, CI/CD, costos y secuencia de migración
+- `apps/api/Dockerfile` — build multi-stage (4 stages) del monorepo pnpm: `base → deps → builder → runner`. Stage `builder` corre `pnpm db:generate` + `nest build`; stage `runner` solo contiene `dist/`, cliente Prisma generado y dependencias de producción. Imagen final ~300 MB
+- `.dockerignore` — excluye `apps/web`, `node_modules`, `.next`, `.turbo` y `generated/` del contexto de build. Reduce el contexto de ~500 MB a ~50 MB
+
+**Archivos modificados:**
+
+- `.github/workflows/ci.yml` — job `deploy` añadido al final del pipeline. Se activa solo en `push` a `main`, depende de `build-api`, autentica con GCP via Workload Identity Federation (sin JSON keys), pushea imagen a Artifact Registry e invoca `gcloud run deploy` con `--set-secrets` para inyectar los 14 secretos desde Secret Manager
+
+**Decisiones de arquitectura:**
+
+- **Cloud Run** elegido sobre App Engine y Compute Engine: escala a cero, `PORT` dinámico ya configurado en `main.ts:120`, handler `SIGTERM` ya existe en `database/src/index.ts:74`
+- **Mantener Neon** como base de datos: no está en Railway, el cambio no la afecta; migrar a Cloud SQL solo si se necesita latencia <2 ms o VPC privada
+- **Workload Identity Federation** en lugar de JSON keys: sin credenciales permanentes en GitHub Secrets
+- **Secret Manager** para los 14 secretos de runtime: se inyectan como env vars en Cloud Run, cero cambios en el código de la app
+- **Cero cambios en la lógica de negocio**: la app NestJS ya era compatible con Cloud Run antes de esta tarea
+
+**Costo estimado:** $0.04–$5/mes vs $5–15/mes en Railway para el nivel de tráfico actual
+
+*Última actualización: 2026-06-02*
+
+---
+
+## 94. Auditoría de Seguridad y Corrección — Integración Wompi
+
+Se realizó una auditoría completa de la integración con la pasarela de pagos Wompi, cubriendo 5 ejes: seguridad de credenciales, integridad de datos, manejo de webhooks, resiliencia ante errores, y experiencia de usuario post-pago. Se identificaron 1 vulnerabilidad crítica (IDOR), 2 bugs funcionales altos y 5 riesgos medios/bajos. Todos fueron corregidos en la misma sesión.
+
+---
+
+### Correcciones aplicadas
+
+#### Fix #1 — CRÍTICO: Eliminación del endpoint IDOR `POST /payments/wompi/integrity`
+
+El endpoint era `@Public()` y aceptaba `amountInCents` arbitrario desde el cliente, lo que permitía generar firmas de integridad SHA-256 válidas para montos incorrectos. El frontend nunca lo usaba (la firma ya venía en la respuesta de `POST /orders`). Se eliminó el método `integrity()` del controlador, el `WompiIntegrityDto` y los tests del endpoint eliminado.
+
+Archivos modificados:
+
+- `apps/api/src/payments/wompi.controller.ts` — método `integrity()` eliminado; import `WompiIntegrityDto` eliminado
+- `apps/api/src/payments/dto/wompi-integrity.dto.ts` — **archivo eliminado**
+- `apps/api/src/__tests__/wompi.controller.test.ts` — bloque `describe('POST /payments/wompi/integrity')` y `vi.stubEnv` de integridad eliminados
+
+#### Fix #2 — ALTO: Limpieza del carrito tras pago exitoso
+
+`WompiWidget` hacía un full-page redirect a Wompi; tras el redirect de vuelta a `/checkout/confirmacion`, el carrito Zustand nunca se limpiaba porque `onSuccess` era una prop declarada pero nunca invocada. Se creó `CartCleaner` (Client Component) que se monta en la página de confirmación solo cuando `status === 'PAID'` y llama a `clearCart()` via `useEffect`. Se eliminó la prop `onSuccess` de `WompiWidget` para evitar confusión futura.
+
+Archivos creados:
+
+- `apps/web/src/components/checkout/CartCleaner.tsx`
+
+Archivos modificados:
+
+- `apps/web/src/app/(store)/checkout/confirmacion/page.tsx` — monta `<CartCleaner orderId={order.id} />` cuando `isPaid`
+- `apps/web/src/components/checkout/WompiWidget.tsx` — prop `onSuccess` eliminada de la interfaz y la firma
+- `apps/web/src/components/checkout/CheckoutForm.tsx` — `clearCart` eliminado del destructuring de `useCart()`; `onSuccess` eliminado del JSX
+
+#### Fix #3 — ALTO: `WOMPI_PUBLIC_KEY` y `WOMPI_PRIVATE_KEY` en `assertEnvVars()`
+
+Ambas variables faltaban en la validación de arranque. Con `WOMPI_PUBLIC_KEY` vacío, el widget se inicializa con clave pública vacía y todos los pagos fallan silenciosamente en el cliente. Se agregaron al array `required` en `assertEnvVars()`.
+
+Archivos modificados:
+
+- `apps/api/src/main.ts` — `'WOMPI_PUBLIC_KEY'` y `'WOMPI_PRIVATE_KEY'` agregados a `required[]`
+
+#### Fix #4 — MEDIO: `Logger` de NestJS en `WompiService` (API)
+
+`validateWebhook()` usaba `console.error` y `console.warn` directamente, bypaseando el pipeline JSON de `StructuredLogger`. Con `bufferLogs: true` en NestJS, esos mensajes no aparecían en Railway con el formato estructurado. Se reemplazaron todos los `console.*` por `this.logger.*` usando `new Logger(WompiService.name)`.
+
+Archivos modificados:
+
+- `apps/api/src/infrastructure/services/WompiService.ts` — `Logger` importado; `private readonly logger` declarado; 5 llamadas a `console.*` reemplazadas
+
+#### Fix #5 — MEDIO: Job de reconciliación `WompiReconciliationService`
+
+Sin este job, un pedido cuyo webhook se perdió permanecía en `PENDING` indefinidamente. El servicio corre cada 15 minutos, busca pedidos `PENDING` con `paymentProvider = WOMPI`, más de 15 minutos de antigüedad y con `Payment.externalId` no nulo, consulta `GET /v1/transactions/:id` en Wompi y ejecuta `ConfirmPayment` con el estado real. Procesa máximo 20 pedidos por ciclo. Errores de red por pedido se capturan individualmente para no interrumpir el batch.
+
+Archivos creados:
+
+- `apps/api/src/infrastructure/services/WompiReconciliationService.ts`
+
+Archivos modificados:
+
+- `apps/api/src/infrastructure/infrastructure.module.ts` — `WompiReconciliationService` importado y registrado en `providers[]`
+
+#### Fix #6 — MEDIO: Polling automático en página de confirmación para estado PENDING
+
+Si el webhook aún no llegó cuando el usuario aterriza en `/checkout/confirmacion`, la página mostraba "Pago en procesamiento" para siempre sin actualizarse. Se añadió `OrderStatusPoller` (Client Component) que cada 5 segundos invoca una Server Action para consultar el `Order.status` directamente contra Prisma. Cuando el status ya no es `PENDING`, llama a `router.refresh()` para que el Server Component se re-renderice con los datos actualizados. Se detiene automáticamente tras 3 minutos (36 intentos) o cuando el estado cambia.
+
+Archivos creados:
+
+- `apps/web/src/components/checkout/OrderStatusPoller.tsx`
+- `apps/web/src/app/(store)/checkout/confirmacion/actions.ts` — Server Action `getOrderStatus(orderId)`
+
+Archivos modificados:
+
+- `apps/web/src/app/(store)/checkout/confirmacion/page.tsx` — monta `<OrderStatusPoller orderId={order.id} />` cuando `isPending`
+
+#### Fix #7 — BAJO: Eliminación de `WompiService` duplicado en `apps/web`
+
+`apps/web/src/infrastructure/services/WompiService.ts` era código muerto: ningún componente del frontend lo importaba, y contenía `validateWebhook()` y `getTransactionStatus()` que no tienen sentido en contexto de browser. Eliminado sin referencias rotas.
+
+Archivos eliminados:
+
+- `apps/web/src/infrastructure/services/WompiService.ts`
+
+#### Fix #8 — BAJO: `AppError` en `getTransactionStatus()`
+
+`throw new Error(...)` reemplazado por `throw new AppError('INTERNAL_ERROR', ...)` para que el `HttpExceptionFilter` global lo mapee correctamente con código de error estructurado.
+
+Archivos modificados:
+
+- `apps/api/src/infrastructure/services/WompiService.ts` — `AppError` importado; `throw new Error(...)` reemplazado
+
+---
+
+### Veredicto de producción post-correcciones
+
+**¿Está lista la integración Wompi para producción? → SÍ.** Todos los riesgos de seguridad, funcionales y de resiliencia de la integración Wompi están resueltos.
+
+**¿Está lista la aplicación completa para producción? → CASI — 1 bloqueante menor.** Durante la revisión se constató que los otros dos bloqueantes de la auditoría v2.0 ya estaban resueltos antes de esta sesión:
+
+| Bloqueante auditoría v2.0 | Estado actual |
+| --- | --- |
+| Rate limiter en memoria | ✅ Resuelto — `rate-limit.ts` es no-op; enforcement real en NestJS `ThrottlerGuard` |
+| Sin monitoreo externo | ✅ Resuelto — `apps/api/src/instrument.ts` con `@sentry/nestjs`; `SentryModule.forRoot()` en `AppModule`; modo no-op si `SENTRY_DSN` no está configurada |
+| Sin health check | ✅ Resuelto — `GET /health` con `SELECT 1` en `app.controller.ts` |
+
+**Bloqueante pendiente único:** `/auth/error` page no existe. `apps/web/src/lib/auth.ts` configura `pages: { error: '/auth/error' }` pero `apps/web/src/app/auth/error/page.tsx` no existe. Cualquier error de OAuth (cuenta duplicada, token inválido, OAuth cancelado) genera un 404 en lugar de una pantalla de error manejada. Impacta al 100% de los flujos de login con Google que fallen. Tiempo estimado de resolución: menos de 1 hora.
+
+---
+
+### Resultado de tests
+
+```text
+pnpm --filter @h2r/api test → 47 tests, 6 archivos, todos en verde
+pnpm --filter @h2r/api exec tsc --noEmit → sin errores
+pnpm --filter @h2r/web exec tsc --noEmit → sin errores en archivos modificados
+```
+
+**Fix #9 — CRÍTICO (descubierto en revisión pre-producción): `ShippingAddressDto` desincronizado con dominio**
+
+`ShippingAddressDto` declaraba `department: string` como obligatorio (`@IsNotEmpty()`) pero el frontend nunca lo enviaba (el `CitySelector` no expone nombre de departamento). Además enviaba `cityCode` y `subdivisionCode` que no estaban en el DTO; con `forbidNonWhitelisted: true` eso hacía que **cada `POST /orders` fallara con HTTP 400**, haciendo imposible completar ningún pedido. El fix alinea el DTO con la interfaz `ShippingAddress` del dominio: `department`, `cityCode` y `subdivisionCode` pasan a ser opcionales con `@IsOptional()`.
+
+Archivos modificados:
+
+- `apps/api/src/orders/dto/create-order.dto.ts` — `department` cambiado a opcional; `cityCode?` y `subdivisionCode?` agregados como opcionales
+
+*Última actualización: 2026-06-02*

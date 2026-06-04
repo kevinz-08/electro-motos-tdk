@@ -4,7 +4,8 @@
 
 E-commerce completo para una tienda de motos colombiana. Permite a los clientes comprar
 repuestos en línea con pago a través de **Wompi** (principal) o **Mercado Pago** (respaldo),
-mientras que los administradores gestionan productos, pedidos y stock desde un panel dedicado.
+despacho logístico integrado con **Vendelo**, y confirmaciones automáticas por correo
+electrónico. Los administradores gestionan productos, pedidos y stock desde un panel dedicado.
 
 ---
 
@@ -18,22 +19,25 @@ mientras que los administradores gestionan productos, pedidos y stock desde un p
 6. [Flujo de autenticación](#6-flujo-de-autenticación)
 7. [Flujo de pago con Wompi](#7-flujo-de-pago-con-wompi)
 8. [Flujo de pago con Mercado Pago](#8-flujo-de-pago-con-mercado-pago)
-9. [API NestJS — Referencia completa](#9-api-nestjs--referencia-completa)
-10. [Variables de entorno](#10-variables-de-entorno)
-11. [Instalación y ejecución local](#11-instalación-y-ejecución-local)
-12. [Credenciales de prueba](#12-credenciales-de-prueba)
-13. [Panel de administración](#13-panel-de-administración)
-14. [Roles de usuario](#14-roles-de-usuario)
-15. [Manejo de precios (centavos COP)](#15-manejo-de-precios-centavos-cop)
-16. [Integración Wompi — Detalles técnicos](#16-integración-wompi--detalles-técnicos)
-17. [Integración Mercado Pago — Detalles técnicos](#17-integración-mercado-pago--detalles-técnicos)
-18. [Preguntas frecuentes](#18-preguntas-frecuentes)
+9. [Integración de despacho con Vendelo](#9-integración-de-despacho-con-vendelo)
+10. [Servicios de background (colas y reconciliación)](#10-servicios-de-background-colas-y-reconciliación)
+11. [API NestJS — Referencia completa](#11-api-nestjs--referencia-completa)
+12. [Variables de entorno](#12-variables-de-entorno)
+13. [Instalación y ejecución local](#13-instalación-y-ejecución-local)
+14. [Despliegue en producción](#14-despliegue-en-producción)
+15. [Credenciales de prueba](#15-credenciales-de-prueba)
+16. [Panel de administración](#16-panel-de-administración)
+17. [Roles de usuario](#17-roles-de-usuario)
+18. [Manejo de precios (centavos COP)](#18-manejo-de-precios-centavos-cop)
+19. [Detalles técnicos: Wompi](#19-detalles-técnicos-wompi)
+20. [Detalles técnicos: Mercado Pago](#20-detalles-técnicos-mercado-pago)
+21. [Preguntas frecuentes](#21-preguntas-frecuentes)
 
 ---
 
 ## 1. Stack tecnológico
 
-| Capa | Tecnología | Versión | Para qué se usa |
+| Capa | Tecnología | Versión | Uso |
 |---|---|---|---|
 | Monorepo | **pnpm workspaces** + Turborepo | — | Gestión de paquetes y build pipeline |
 | Frontend | **Next.js** | 16 (App Router) | SSR, páginas, componentes, sesión |
@@ -43,9 +47,10 @@ mientras que los administradores gestionan productos, pedidos y stock desde un p
 | ORM | **Prisma** | 7 | Acceso a base de datos |
 | Base de datos | **PostgreSQL** (Neon) | — | Almacenamiento principal |
 | Autenticación | **NextAuth.js** v5 + JWT NestJS | — | Sesiones browser + tokens API |
-| Pago (principal) | **Wompi** | Widget | Tarjetas, Nequi, PSE, Bancolombia |
+| Pago (principal) | **Wompi** | URL directa | Tarjetas, Nequi, PSE, Bancolombia |
 | Pago (respaldo) | **Mercado Pago** | SDK v2 | Preference + redirect |
-| Email | **Resend** | — | Emails transaccionales |
+| Logística | **Vendelo** | REST API | Despacho y seguimiento de envíos |
+| Email | **Resend** | — | Emails transaccionales (con cola de reintentos) |
 | Imágenes | **Cloudinary** | — | Subida y almacenamiento de fotos |
 | Estado del carrito | **Zustand** | — | Carrito persistido en localStorage |
 | Validación API | **class-validator** | — | DTOs en NestJS |
@@ -115,8 +120,9 @@ paquetes internos (`packages/domain`, `packages/database`, `packages/types`).
 │              INFRASTRUCTURE  (apps/api + apps/web)              │
 │                                                                 │
 │  PrismaProductRepository · PrismaOrderRepository                │
-│  WompiService · MercadoPagoService                              │
-│  ResendEmailService · CloudinaryService                         │
+│  WompiService · MercadoPagoService · VendeloService             │
+│  ResendEmailService · EmailQueueService · CloudinaryService     │
+│  WompiReconciliationService · VendeloOrderQueueService          │
 └───────────────────────────▲─────────────────────────────────────┘
                             │ usa
 ┌───────────────────────────┴─────────────────────────────────────┐
@@ -143,37 +149,49 @@ electro-motos-tdk/
 │   │   │   ├── lib/
 │   │   │   │   ├── auth.ts         ← Config NextAuth (Credentials + Google OAuth)
 │   │   │   │   ├── api-client.ts   ← Factory apiClient(token) para llamadas al API
+│   │   │   │   ├── cache.ts        ← unstable_cache con TTLs y tags de invalidación
+│   │   │   │   ├── cache-tags.ts   ← Constantes CACHE_TAGS
 │   │   │   │   └── cart.ts         ← Store Zustand del carrito (localStorage)
 │   │   │   ├── infrastructure/
-│   │   │   │   ├── database/
-│   │   │   │   │   └── prisma-client.ts  ← Re-exporta singleton de @h2r/database
 │   │   │   │   ├── repositories/   ← Repos Prisma (usados en Server Components)
-│   │   │   │   └── services/       ← Servicios (Wompi, MP, Cloudinary, Resend)
+│   │   │   │   └── services/       ← Servicios (Cloudinary, Resend)
 │   │   │   ├── app/
 │   │   │   │   ├── (store)/        ← Tienda pública (home, catálogo, producto, carrito)
+│   │   │   │   │   └── checkout/confirmacion/  ← Página de confirmación post-pago
 │   │   │   │   ├── admin/          ← Panel admin (solo ADMIN)
 │   │   │   │   ├── auth/           ← Login, registro
-│   │   │   │   └── api/auth/       ← Solo NextAuth handler (demás rutas están en NestJS)
-│   │   │   └── components/         ← Componentes React
+│   │   │   │   └── api/auth/       ← Solo NextAuth handler
+│   │   │   └── components/
+│   │   │       └── checkout/
+│   │   │           ├── CheckoutForm.tsx      ← Formulario de checkout
+│   │   │           ├── WompiWidget.tsx       ← Botón de pago Wompi
+│   │   │           ├── CartCleaner.tsx       ← Limpia el carrito post-pago
+│   │   │           └── OrderStatusPoller.tsx ← Polling del estado del pedido
 │   │   ├── next.config.ts
-│   │   ├── tsconfig.json
 │   │   └── package.json
 │   │
 │   └── api/                        ← NestJS 10 (REST API backend)
 │       ├── src/
-│       │   ├── main.ts             ← Bootstrap: dotenv, Helmet, CORS, Swagger, validación
+│       │   ├── main.ts             ← Bootstrap: dotenv, Helmet, CORS, Swagger, validación env
 │       │   ├── app.module.ts       ← Módulo raíz + guards globales
 │       │   ├── auth/               ← AuthModule: registro, login, JWT, Google session-token
 │       │   ├── products/           ← ProductsModule: GET /products (público)
 │       │   ├── orders/             ← OrdersModule: POST /orders, PATCH status
 │       │   ├── admin/              ← AdminModule: CRUD productos, stock, settings
 │       │   ├── payments/           ← PaymentsModule: webhooks Wompi y Mercado Pago
-│       │   ├── infrastructure/     ← Repos Prisma + servicios inyectables NestJS
-│       │   └── shared/             ← Filtros, guards, decoradores
-│       ├── webpack.config.js       ← Bundlea @h2r/* directamente (evita error TS en runtime)
-│       ├── nest-cli.json
-│       ├── tsconfig.json
-│       ├── tsconfig.build.json
+│       │   └── infrastructure/
+│       │       ├── services/
+│       │       │   ├── WompiService.ts              ← Firma SHA256, validación webhook
+│       │       │   ├── WompiReconciliationService.ts← Job cada 15 min (pedidos PENDING)
+│       │       │   ├── MercadoPagoService.ts        ← Preference, HMAC, estado
+│       │       │   ├── VendeloService.ts            ← Creación y seguimiento de envíos
+│       │       │   ├── VendeloHttpClient.ts         ← HTTP client con retry + circuit breaker
+│       │       │   ├── VendeloOrderQueueService.ts  ← Cola de despacho (Prisma, cada 2 min)
+│       │       │   ├── EmailQueueService.ts         ← Cola de emails (Prisma, cada 2 min)
+│       │       │   ├── ResendEmailService.ts        ← Envío real vía Resend API
+│       │       │   └── CloudinaryService.ts         ← Upload de imágenes
+│       │       └── injection-tokens.ts              ← Symbols para inyección de dependencias
+│       ├── webpack.config.js
 │       └── package.json
 │
 ├── packages/
@@ -181,7 +199,7 @@ electro-motos-tdk/
 │   │   └── src/
 │   │       ├── entities/           ← Product, Order, User, Category
 │   │       ├── repositories/       ← IProductRepository, IOrderRepository, IUserRepository
-│   │       ├── services/           ← IPaymentService
+│   │       ├── services/           ← IPaymentService, IVendeloShippingPort
 │   │       ├── use-cases/          ← CreateOrder, ConfirmPayment, ListProducts, UpdateStock
 │   │       └── shared/             ← Result<T,E>, AppError
 │   │
@@ -191,37 +209,39 @@ electro-motos-tdk/
 │   │   │   ├── seed.ts             ← Datos iniciales (admin, productos, pedidos)
 │   │   │   ├── catalog.ts          ← 85 productos con jerarquía de categorías
 │   │   │   └── migrations/         ← Historial de migraciones
-│   │   ├── src/
-│   │   │   ├── index.ts            ← Singleton PrismaClient + PrismaPg adapter
-│   │   │   └── generated/          ← Auto-generado por prisma generate (no editar)
-│   │   └── prisma.config.ts        ← Carga DATABASE_URL desde múltiples ubicaciones
+│   │   └── src/
+│   │       ├── index.ts            ← Singleton PrismaClient + PrismaPg adapter (pool máx 5)
+│   │       └── generated/          ← Auto-generado por prisma generate (no editar)
 │   │
-│   └── types/                      ← DTOs y tipos compartidos entre apps
+│   └── types/                      ← DTOs compartidos: auth, product, order, payment, admin
 │
 ├── HISTORIAL_TECNICO.md            ← Registro cronológico de todos los cambios
+├── AUDITORIA.md                    ← Auditoría técnica v2.0 (mayo 2026)
 ├── turbo.json                      ← Pipeline de Turborepo
 ├── pnpm-workspace.yaml
-├── tsconfig.base.json              ← CompilerOptions base heredadas por todos los paquetes
-└── package.json                    ← Scripts raíz con turbo y pnpm --filter
+├── tsconfig.base.json
+└── package.json
 ```
 
 ---
 
 ## 4. Flujo de datos general
 
-### Tienda — cliente viendo el catálogo (SSR)
+### Catálogo — lectura SSR (sin HTTP a NestJS)
 
 ```
 Navegador
     │  GET /catalogo
     ▼
 apps/web — Server Component
-    │  PrismaProductRepository.findAll(filters)  ← acceso directo a BD (sin HTTP)
+    │  PrismaProductRepository.findAll(filters)  ← acceso directo a BD
     ▼
 packages/database — Prisma + Neon
     │  rows[]  →  toDomain()  →  Product[]
     ▼
-Next.js renderiza HTML y lo envía al navegador
+Next.js renderiza HTML con unstable_cache (TTL 180–3600 s)
+    ▼
+Respuesta HTML al navegador
 ```
 
 ### Operaciones autenticadas (checkout, admin)
@@ -234,7 +254,7 @@ apps/api — NestJS :3001
     │  JwtAuthGuard verifica Bearer token
     │  Controller → Use Case → Repository → Prisma → Neon
     ▼
-Response JSON
+Response JSON  →  Browser actualiza UI
 ```
 
 ### Carrito — estado del cliente
@@ -308,31 +328,31 @@ localStorage["electro-motos-cart:{userId}"]
                        │ brand · model · year?    │
                        └─────────────────────────┘
 
-┌─────────────┐
-│  Settings   │  ← Configuración clave-valor
-│─────────────│     Ej: MERCADOPAGO_ENABLED=true
-│ key (UNIQUE)│
-│ value       │
-└─────────────┘
+┌─────────────────┐    ┌──────────────────────┐
+│    Settings     │    │     EmailQueue       │
+│─────────────────│    │──────────────────────│
+│ key (UNIQUE)    │    │ orderId · to         │
+│ value           │    │ status · attempts    │
+└─────────────────┘    │ nextRetry            │
+                       └──────────────────────┘
+
+┌──────────────────────────┐
+│    VendeloOrderQueue     │
+│──────────────────────────│
+│ orderId · status         │
+│ attempts · nextRetry     │
+│ vendeloShipmentId?       │
+└──────────────────────────┘
 ```
 
 ### Categorías — jerarquía de tres niveles
 
 ```
 Sistema Eléctrico
-  ├── Ramales
-  ├── Reguladores
-  ├── CDI
-  ├── Baterías
-  ├── Estatores
-  └── Bobinas
+  ├── Ramales · Reguladores · CDI · Baterías · Estatores · Bobinas
 
 Repuestos
-  ├── Filtro de Aire
-  ├── Bujías
-  ├── Conectores
-  ├── Frenos
-  └── Repuestos Motor
+  ├── Filtro de Aire · Bujías · Conectores · Frenos · Repuestos Motor
 
 Aceites          → Liquimoly · SKY
 Llantas          → (subcategorías)
@@ -425,64 +445,205 @@ proxy.ts  (Node.js runtime)
 
 ## 7. Flujo de pago con Wompi
 
-```
-Browser — checkout paso 1
-    │  apiClient(token).post('/orders', { items, shippingAddress, paymentProvider: 'WOMPI' })
-    ▼
-NestJS — POST /orders
-    │  CreateOrder use case: valida stock → crea Order(PENDING)
-    │  WompiService.createTransaction(order) → SHA256(reference + amount + COP + secret)
-    │  → { order: { id }, payment: { reference, integritySignature, publicKey, amountInCents } }
-    ▼
-Browser — checkout paso 2
-    │  WompiWidget construye URL directa a Wompi con todos los params como query string:
-    │  https://checkout.wompi.co/p/?public-key=...&amount-in-cents=...&reference=...
-    │  <a href> redirige al usuario — misma experiencia que el widget oficial
-    │  Usuario paga (tarjeta / Nequi / PSE / Bancolombia)
-    ▼
-Wompi — procesa el pago
-    │  POST /payments/wompi/webhook  (directo a NestJS)
-    ▼
-NestJS — valida firma SHA256 → ConfirmPayment use case
-    │  APPROVED → Order.status=PAID, descuenta stock, email de confirmación
-    │  DECLINED → Order.status=CANCELLED
-    ▼
-Browser — redirect a /checkout/confirmacion?orderId=xxx
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant W as apps/web
+    participant A as apps/api (NestJS)
+    participant WP as Wompi
+    participant DB as PostgreSQL
+
+    B->>W: Completa checkout (dirección + datos)
+    W->>A: POST /orders {items, shippingAddress, provider: WOMPI}
+    A->>DB: CreateOrder → Order(status=PENDING)
+    A->>A: WompiService.createTransaction(order)<br/>SHA256(reference+amount+COP+secret)
+    A-->>B: {reference, integritySignature, publicKey, amountInCents}
+
+    B->>WP: Redirect a checkout.wompi.co con query params
+    WP->>B: Formulario de pago (tarjeta / Nequi / PSE)
+    B->>WP: Usuario paga
+
+    WP->>A: POST /payments/wompi/webhook
+    A->>A: Validar firma SHA256 (WOMPI_EVENTS_SECRET)
+    A->>DB: ConfirmPayment use case
+    alt APPROVED
+        A->>DB: Order.status = PAID, decrementStock()
+        A->>A: EmailQueueService.enqueue(email, orderId)
+        A->>A: VendeloOrderQueueService.enqueue(orderId)
+    else DECLINED
+        A->>DB: Order.status = CANCELLED
+    end
+    A-->>WP: 200 OK
+
+    B->>W: Redirect a /checkout/confirmacion?orderId=xxx
+    W->>DB: OrderStatusPoller consulta estado
+    W-->>B: Página de confirmación
 ```
 
 > **Por qué no usamos el `widget.js` de Wompi:** el widget usa `document.currentScript`
 > para localizar su form padre. Esto solo funciona en scripts parseados desde HTML estático,
 > no en scripts añadidos dinámicamente (que es lo que hace React/Next.js siempre).
-> La URL directa hace exactamente lo mismo que el widget internamente.
+> La URL directa produce exactamente la misma experiencia de pago.
 
 ---
 
 ## 8. Flujo de pago con Mercado Pago
 
-```
-Browser — checkout
-    │  paymentProvider: 'MERCADO_PAGO'
-    ▼
-NestJS — POST /orders
-    │  ¿MERCADOPAGO_ENABLED = 'true'? NO → 403
-    │  MercadoPagoService.createTransaction(order) → init_point URL
-    │  → { payment: { redirectUrl } }
-    ▼
-Browser — redirect a mercadopago.com.co
-    ▼
-Mercado Pago — pago
-    │  POST /payments/mercadopago/webhook (IPN a NestJS)
-    ▼
-NestJS — valida HMAC-SHA256 → getTransactionStatus(externalId) → ConfirmPayment
-    ▼
-Browser — back_url → /checkout/success o /checkout/failure
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as apps/api (NestJS)
+    participant MP as Mercado Pago
+    participant DB as PostgreSQL
+
+    B->>A: POST /orders {provider: MERCADO_PAGO}
+    A->>DB: ¿Settings.MERCADOPAGO_ENABLED = true?
+    alt Deshabilitado
+        A-->>B: 403 Forbidden
+    else Habilitado
+        A->>MP: MercadoPagoService.createTransaction(order)
+        MP-->>A: {init_point URL}
+        A->>DB: Order(status=PENDING) + Payment(externalId)
+        A-->>B: {redirectUrl}
+        B->>MP: Redirect completo a Mercado Pago
+        B->>MP: Usuario paga
+        MP->>A: POST /payments/mercadopago/webhook (IPN)
+        A->>A: Validar HMAC-SHA256 (x-signature header)
+        A->>MP: getTransactionStatus(externalId) ← consulta activa
+        A->>DB: ConfirmPayment (APPROVED / DECLINED / VOIDED)
+        MP-->>B: back_url → /checkout/success o /checkout/failure
+    end
 ```
 
 ---
 
-## 9. API NestJS — Referencia completa
+## 9. Integración de despacho con Vendelo
 
-Base URL: `http://localhost:3001` (dev) · Documentación interactiva: `/api/docs`
+Tras la confirmación de pago (webhook `APPROVED`), el pedido se encola automáticamente
+para despacho a través de **Vendelo**, el operador logístico integrado.
+
+### Flujo de despacho
+
+```mermaid
+sequenceDiagram
+    participant WH as Webhook Wompi
+    participant VQ as VendeloOrderQueueService
+    participant VS as VendeloService
+    participant HC as VendeloHttpClient
+    participant VE as API Vendelo
+    participant DB as PostgreSQL
+
+    WH->>VQ: enqueue(orderId) → VendeloOrderQueue(PENDING)
+
+    loop Cada 2 minutos
+        VQ->>DB: findMany {status: PENDING, nextRetry <= now}
+        VQ->>VS: createShipment(order)
+        VS->>HC: POST /shipments (con retry + circuit breaker)
+        HC->>VE: Llamada HTTP
+        alt Éxito
+            VE-->>HC: {shipment_id, tracking_code}
+            HC-->>VS: respuesta
+            VS-->>VQ: OK
+            VQ->>DB: status=DONE, vendeloShipmentId saved
+        else Error transitorio (5xx / 429 / red)
+            HC->>HC: Retry con backoff 1s → 2s → 4s
+            HC-->>VQ: Error
+            VQ->>DB: attempts++, nextRetry = now + backoff(5s/30s/120s)
+        else 3 intentos agotados
+            VQ->>DB: status=FAILED, lastError logged
+        end
+    end
+```
+
+### Circuit Breaker en `VendeloHttpClient`
+
+El cliente HTTP hacia Vendelo implementa un **circuit breaker** de tres estados para
+proteger el sistema cuando la API de Vendelo experimenta fallas sostenidas:
+
+| Estado | Condición | Comportamiento |
+|---|---|---|
+| `CLOSED` | Normal | Todas las llamadas pasan |
+| `OPEN` | ≥ 5 fallos consecutivos | Rechaza llamadas inmediatamente durante 60 s |
+| `HALF_OPEN` | Después de 60 s en OPEN | Permite una llamada de prueba |
+
+Si la prueba tiene éxito, el circuito vuelve a `CLOSED`. Si falla, regresa a `OPEN`.
+
+### Endpoints de Vendelo utilizados
+
+| Operación | Endpoint | Descripción |
+|---|---|---|
+| Autenticación | `POST /auth/token` | Obtiene access token |
+| Catálogo de ciudades | `GET /cities` | Ciudades disponibles con paginación |
+| Crear envío | `POST /shipments` | Crea la orden de despacho |
+| Estado del envío | `GET /shipments/{id}` | Consulta tracking |
+| Sincronizar estado | `PATCH /orders/:id/sync-shipment` | Actualiza estado desde Vendelo |
+
+---
+
+## 10. Servicios de background (colas y reconciliación)
+
+NestJS levanta tres servicios de fondo al iniciar (`OnModuleInit`). Todos usan
+**PostgreSQL como broker** (sin Redis ni BullMQ) y se limpian correctamente en `OnModuleDestroy`.
+
+### `EmailQueueService` — Cola de correos de confirmación
+
+Los emails de confirmación **nunca se envían inline** en el webhook. Esto evita que un
+fallo de Resend bloquee la respuesta al procesador de pagos.
+
+```
+Webhook APPROVED
+    │  EmailQueueService.enqueue(email, orderId)
+    ▼
+EmailQueue { status: PENDING } — escrito en BD
+
+┌─────────────────────────────────────────┐
+│  setInterval cada 2 min                 │
+│                                         │
+│  findMany { status: PENDING,            │
+│             nextRetry <= now }          │
+│  → ResendEmailService.send(...)         │
+│                                         │
+│  Éxito → status = DONE                  │
+│  Error → attempts++                     │
+│          nextRetry = +5s / +30s / +120s │
+│  3 fallos → status = FAILED             │
+└─────────────────────────────────────────┘
+```
+
+### `VendeloOrderQueueService` — Cola de despacho
+
+Idéntico patrón al `EmailQueueService` pero encola pedidos para despacho en Vendelo.
+Reintentos: 3 intentos con backoff 5 s → 30 s → 120 s.
+
+### `WompiReconciliationService` — Reconciliación de pagos
+
+Cubre el escenario donde Wompi procesó el pago pero su webhook **nunca llegó** al servidor
+(falla de red, reinicio, misconfiguration temporal).
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  setInterval cada 15 min                                 │
+│                                                          │
+│  Busca: status=PENDING + provider=WOMPI                  │
+│         + createdAt < (now - 15 min)                     │
+│         + payment.externalId IS NOT NULL                 │
+│                                                          │
+│  Por cada pedido:                                        │
+│    WompiService.getTransactionStatus(externalId)         │
+│    → Si APPROVED → ConfirmPayment use case               │
+│    → Si DECLINED → Order.status = CANCELLED             │
+│    → Si PENDING  → ignorar (aún procesando)              │
+└──────────────────────────────────────────────────────────┘
+```
+
+> El batch size máximo por ciclo es 20 pedidos para evitar sobrecarga en el primer
+> arranque tras un período de inactividad del servidor.
+
+---
+
+## 11. API NestJS — Referencia completa
+
+Base URL: `http://localhost:3001` (dev) · Documentación interactiva: `http://localhost:3001/api/docs`
 
 ### Autenticación
 
@@ -511,29 +672,24 @@ Base URL: `http://localhost:3001` (dev) · Documentación interactiva: `/api/doc
 { "message": "Credenciales inválidas", "statusCode": 401 }
 ```
 
----
-
 ### Productos (público)
 
-| Método | Ruta        | Auth    | Descripción                            |
-|--------|-------------|---------|----------------------------------------|
-| `GET`  | `/products` | Público | Lista productos con filtros opcionales |
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `GET` | `/products` | Público | Lista productos con filtros opcionales |
 
 ```
 GET /products?category=sistema-electrico&inStock=true&page=1&limit=12
 GET /products?search=yamaha&minPrice=5000000&maxPrice=20000000
 ```
 
----
-
 ### Pedidos
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `POST` | `/orders` | JWT | Crea pedido y prepara pago |
+| `POST` | `/orders` | JWT | Crea pedido y prepara transacción de pago |
 | `PATCH` | `/orders/:id/status` | JWT + ADMIN | Actualiza estado manualmente |
-
----
+| `PATCH` | `/orders/:id/sync-shipment` | JWT + ADMIN | Sincroniza estado de envío con Vendelo |
 
 ### Pagos
 
@@ -544,7 +700,11 @@ GET /products?search=yamaha&minPrice=5000000&maxPrice=20000000
 | `POST` | `/payments/mercadopago/create-preference` | JWT | Crea preferencia MP |
 | `POST` | `/payments/mercadopago/webhook` | Firma MP | Webhook IPN de Mercado Pago |
 
----
+### Health check
+
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `GET` | `/health` | Público | Estado del servidor (`{ status: 'ok', uptime }`) |
 
 ### Admin (requieren JWT + rol ADMIN)
 
@@ -554,115 +714,134 @@ GET /products?search=yamaha&minPrice=5000000&maxPrice=20000000
 | `POST` | `/admin/products` | Crear producto |
 | `PUT` | `/admin/products/:id` | Editar producto |
 | `DELETE` | `/admin/products/:id` | Eliminar producto |
-| `PATCH` | `/admin/products/:id/stock` | Stock individual |
+| `PATCH` | `/admin/products/:id/stock` | Actualizar stock individual |
 | `POST` | `/admin/products/upload-image` | Subir imagen a Cloudinary |
-| `PATCH` | `/admin/stock/bulk` | Stock masivo por SKU |
+| `PATCH` | `/admin/stock/bulk` | Actualizar stock masivo por SKU |
 | `PATCH` | `/admin/settings/mercadopago` | Activar/desactivar Mercado Pago |
-
----
 
 ### Seguridad global (NestJS)
 
 - **ThrottlerGuard**: 100 req/min global. Login → 10/min. Registro → 5/min.
 - **JwtAuthGuard**: todas las rutas requieren JWT salvo las marcadas `@Public()`.
 - **RolesGuard**: rutas admin verifican `role === 'ADMIN'`.
-- **Helm** + compresión en todos los responses.
+- **Helmet** + compresión en todos los responses.
+- **CORS**: en producción solo acepta `FRONTEND_URL`. En desarrollo acepta localhost y dominios ngrok configurados.
 
 ---
 
-## 10. Variables de entorno
+## 12. Variables de entorno
 
 ### `apps/api/.env`
 
 ```bash
-# ── Base de datos ──────────────────────────────────────────────────────────
+# ── Base de datos ──────────────────────────────────────────────────────────────
 DATABASE_URL="postgresql://user:pass@ep-xxx.region.aws.neon.tech/dbname?sslmode=verify-full"
 
-# ── JWT ────────────────────────────────────────────────────────────────────
+# ── JWT ────────────────────────────────────────────────────────────────────────
 # Generar con: node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
 JWT_SECRET=
 JWT_EXPIRES_IN=7d
 
-# ── Google OAuth ───────────────────────────────────────────────────────────
+# ── Google OAuth ───────────────────────────────────────────────────────────────
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
-# ── Wompi ──────────────────────────────────────────────────────────────────
+# ── Wompi ──────────────────────────────────────────────────────────────────────
 WOMPI_PUBLIC_KEY=pub_test_xxxx
 WOMPI_PRIVATE_KEY=prv_test_xxxx
 WOMPI_INTEGRITY_SECRET=test_integrity_xxxx
 WOMPI_EVENTS_SECRET=test_events_xxxx
-WOMPI_ENV=sandbox
+WOMPI_ENV=sandbox                          # sandbox | production
 
-# ── Mercado Pago ───────────────────────────────────────────────────────────
+# ── Mercado Pago ───────────────────────────────────────────────────────────────
 MP_ACCESS_TOKEN=TEST-xxx
 MP_PUBLIC_KEY=TEST-xxx
 MP_WEBHOOK_SECRET=
 
-# ── Email (Resend) ─────────────────────────────────────────────────────────
+# ── Vendelo (logística) ────────────────────────────────────────────────────────
+VENDELO_API_URL=https://api.vendelo.co
+VENDELO_API_KEY=
+VENDELO_PICKUP_CITY_CODE=                  # Código de ciudad de despacho (ej. BOG)
+VENDELO_PICKUP_ADDRESS=                    # Dirección del punto de recogida
+VENDELO_PICKUP_CONTACT_NAME=
+VENDELO_PICKUP_CONTACT_PHONE=
+
+# ── Email (Resend) ─────────────────────────────────────────────────────────────
 RESEND_API_KEY=re_xxx
 RESEND_FROM_EMAIL=no-reply@electromotos-tony.co
 
-# ── Imágenes (Cloudinary) ──────────────────────────────────────────────────
+# ── Imágenes (Cloudinary) ──────────────────────────────────────────────────────
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 
-# ── App ────────────────────────────────────────────────────────────────────
+# ── App ────────────────────────────────────────────────────────────────────────
 NODE_ENV=development
 PORT=3001
 FRONTEND_URL=http://localhost:3000
 
-# ── Seguridad interna (NextAuth → NestJS) ──────────────────────────────────
-INTERNAL_API_SECRET=   ← mismo valor que en apps/web/.env.local
+# ── Seguridad interna (NextAuth ↔ NestJS) ──────────────────────────────────────
+# Debe coincidir exactamente con apps/web/.env.local
+# Generar con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+INTERNAL_API_SECRET=
 ```
 
 ### `apps/web/.env.local`
 
 ```bash
-# ── Base de datos (para Server Components que acceden directo a Prisma) ────
+# ── Base de datos (Server Components acceden directo a Prisma) ─────────────────
 DATABASE_URL="postgresql://..."
 
-# ── NestJS API ─────────────────────────────────────────────────────────────
-API_URL=http://localhost:3001              ← server-side (NextAuth, Server Actions)
-NEXT_PUBLIC_API_URL=http://localhost:3001  ← client-side (componentes React)
+# ── NestJS API ─────────────────────────────────────────────────────────────────
+API_URL=http://localhost:3001              # server-side (NextAuth, Server Actions)
+NEXT_PUBLIC_API_URL=http://localhost:3001  # client-side (componentes React)
 
-# ── NextAuth ───────────────────────────────────────────────────────────────
+# ── NextAuth ───────────────────────────────────────────────────────────────────
+# Generar con: openssl rand -base64 32
 NEXTAUTH_SECRET=
 NEXTAUTH_URL=http://localhost:3000
 
-# ── Seguridad interna ──────────────────────────────────────────────────────
-INTERNAL_API_SECRET=   ← mismo valor que en apps/api/.env
+# ── Seguridad interna ──────────────────────────────────────────────────────────
+# Debe coincidir exactamente con apps/api/.env
+INTERNAL_API_SECRET=
 
-# ── Google OAuth ───────────────────────────────────────────────────────────
+# ── Google OAuth ───────────────────────────────────────────────────────────────
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
-# ── Wompi (keys públicas para el widget del browser) ──────────────────────
+# ── Wompi (key pública para el cliente) ───────────────────────────────────────
 WOMPI_PUBLIC_KEY=pub_test_xxxx
 
-# ── Cloudinary ─────────────────────────────────────────────────────────────
+# ── Cloudinary ─────────────────────────────────────────────────────────────────
 CLOUDINARY_CLOUD_NAME=
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
+
+# ── WhatsApp ───────────────────────────────────────────────────────────────────
+NEXT_PUBLIC_WHATSAPP_NUMBER=573XXXXXXXXX  # Sin espacios ni guiones
 ```
 
 ### `packages/database/.env`
 
 ```bash
-# Necesario para pnpm run db:seed y pnpm run db:studio
+# Necesario para pnpm db:seed y pnpm db:studio
 DATABASE_URL="postgresql://..."
 ```
 
+> **Nota de seguridad:** `INTERNAL_API_SECRET` debe tener al menos 32 caracteres.
+> `WOMPI_EVENTS_SECRET` y `WOMPI_INTEGRITY_SECRET` son obligatorios; el servidor no
+> arranca si están vacíos (validación en `main.ts`).
+
 ---
 
-## 11. Instalación y ejecución local
+## 13. Instalación y ejecución local
 
 ### Requisitos previos
 
 - **Node.js 20+**
 - **pnpm 9+** — `npm install -g pnpm`
+- Una base de datos PostgreSQL accesible (se recomienda [Neon](https://neon.tech) en desarrollo)
 
 ### Pasos
 
@@ -674,50 +853,107 @@ cd electro-motos-tdk
 # 2. Instalar dependencias de todo el monorepo
 pnpm install
 
-# 3. Crear los archivos de entorno
-#    Copiar las plantillas y completar los valores reales
-cp apps/api/.env.example apps/api/.env
-# Crear apps/web/.env.local y packages/database/.env manualmente
+# 3. Crear los archivos de entorno a partir de los ejemplos
+cp apps/api/.env.example         apps/api/.env
+cp apps/web/.env.local.example   apps/web/.env.local
+cp packages/database/.env.example packages/database/.env
+# Luego completar los valores reales en cada archivo
 
 # 4. Generar el cliente Prisma
 pnpm --filter @h2r/database generate
 
-# 5. Aplicar migraciones a la base de datos
+# 5. Aplicar migraciones
 pnpm --filter @h2r/database exec prisma migrate deploy
 
 # 6. Poblar la base de datos con datos de prueba
 pnpm run db:seed
 
-# 7. Levantar el backend (NestJS en :3001)
+# 7. Levantar el backend — NestJS en :3001
 pnpm --filter @h2r/api dev
 
-# 8. Levantar el frontend (Next.js en :3000) — en otra terminal
+# 8. Levantar el frontend — Next.js en :3000 (otra terminal)
 pnpm --filter @h2r/web dev
 ```
 
-### Comandos útiles
+### Comandos de referencia
 
 ```bash
-# Monorepo
-pnpm run db:seed               # Re-ejecutar seed (datos de prueba)
-pnpm run db:studio             # Abrir Prisma Studio en :5555
+# ── Monorepo ───────────────────────────────────────────────────────────────────
+pnpm dev                                        # Levanta web + api en paralelo
+pnpm build                                      # Build completo con Turborepo
+pnpm lint                                       # ESLint en todo el monorepo
+pnpm type-check                                 # tsc --noEmit en todos los paquetes
+
+# ── Base de datos ──────────────────────────────────────────────────────────────
+pnpm run db:seed                                # Re-ejecutar seed
+pnpm run db:studio                             # Prisma Studio en :5555
 pnpm --filter @h2r/database exec prisma migrate dev --name <nombre>
+pnpm --filter @h2r/database generate           # Regenerar cliente Prisma
 
-# Backend
-pnpm --filter @h2r/api dev     # Dev con hot-reload (webpack --watch)
-pnpm --filter @h2r/api build   # Build de producción → dist/main.js
+# ── Tests ──────────────────────────────────────────────────────────────────────
+pnpm --filter @h2r/domain test                 # Tests unitarios del dominio
+pnpm --filter @h2r/api test                    # Tests unitarios del API
+pnpm --filter @h2r/domain exec vitest run --coverage  # Cobertura (umbral: 80%)
 
-# Frontend
-pnpm --filter @h2r/web dev     # Dev con Turbopack
-pnpm --filter @h2r/web build   # Build de producción
+# ── Build individual ───────────────────────────────────────────────────────────
+pnpm --filter @h2r/api build                   # Build NestJS → dist/main.js
+pnpm --filter @h2r/web build                   # Build Next.js
 
-# Swagger (solo con backend corriendo)
-# http://localhost:3001/api/docs
+# ── Swagger ────────────────────────────────────────────────────────────────────
+# http://localhost:3001/api/docs  (solo disponible con NODE_ENV=development)
 ```
 
 ---
 
-## 12. Credenciales de prueba
+## 14. Despliegue en producción
+
+### API → Railway
+
+```bash
+# Build command
+pnpm install --frozen-lockfile && \
+  pnpm --filter @h2r/database generate && \
+  pnpm --filter @h2r/api build
+
+# Start command
+node apps/api/dist/main.js
+```
+
+Variables de entorno requeridas en Railway: todas las de `apps/api/.env` con valores
+de producción. Cambiar `WOMPI_ENV=production`, `NODE_ENV=production` y `FRONTEND_URL`
+al dominio real de Vercel.
+
+### Web → Vercel
+
+```bash
+# Build command
+pnpm install --frozen-lockfile && \
+  pnpm --filter @h2r/database generate && \
+  pnpm --filter @h2r/web build
+```
+
+Configurar en el panel de Vercel: Framework `Next.js`. Variables de entorno de
+`apps/web/.env.local` con valores de producción.
+
+### Webhooks en producción
+
+Configurar en el panel de Wompi (sandbox/producción):
+
+```
+Webhook URL: https://tu-api.railway.app/payments/wompi/webhook
+```
+
+Para desarrollo local con webhooks reales:
+
+```bash
+ngrok http 3001
+# Usar la URL pública generada en el panel de Wompi sandbox
+# Ejemplo: https://abc123.ngrok.io/payments/wompi/webhook
+```
+
+---
+
+## 15. Credenciales de prueba
 
 Después de ejecutar `pnpm run db:seed`:
 
@@ -727,7 +963,7 @@ Después de ejecutar `pnpm run db:seed`:
 |---|---|
 | Email | `admin@electromotos-tony.co` |
 | Contraseña | `Admin123!` |
-| Acceso al panel | `http://localhost:3000/admin` |
+| Panel | `http://localhost:3000/admin` |
 
 ### Cliente de prueba
 
@@ -743,23 +979,24 @@ Después de ejecutar `pnpm run db:seed`:
 | Número | `4242 4242 4242 4242` |
 | Vencimiento | Cualquier fecha futura |
 | CVV | `123` |
+| Nombre | Cualquier nombre |
 
 ---
 
-## 13. Panel de administración
+## 16. Panel de administración
 
-Acceso exclusivo para usuarios con rol `ADMIN`. URL: `/admin`
+Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admin`
 
-| Ruta | Qué hace |
+| Ruta | Funcionalidad |
 |---|---|
 | `/admin` | Dashboard: ingresos del día, pedidos pendientes, stock bajo |
-| `/admin/productos` | Lista de productos con crear, editar, eliminar |
-| `/admin/productos/[id]` | Formulario edición de producto |
-| `/admin/pedidos` | Todos los pedidos con filtro por estado |
+| `/admin/productos` | Lista de productos — crear, editar, eliminar |
+| `/admin/productos/[id]` | Formulario de edición con upload a Cloudinary |
+| `/admin/pedidos` | Todos los pedidos filtrados por estado |
 | `/admin/stock` | Productos con stock ≤ 5 + importación masiva CSV |
 | `/admin/configuracion` | Toggle para activar/desactivar Mercado Pago |
 
-### Importación de stock por CSV
+### Importación masiva de stock (CSV)
 
 ```csv
 sku,stock
@@ -767,11 +1004,11 @@ FRE-BRE-FZ25-001,50
 MOT-PIS-YBR125-001,10
 ```
 
-Ir a `/admin/stock` → "Importar CSV" → seleccionar archivo.
+Ir a `/admin/stock` → **Importar CSV** → seleccionar archivo → confirmar.
 
 ---
 
-## 14. Roles de usuario
+## 17. Roles de usuario
 
 ```
 CUSTOMER (por defecto)            ADMIN
@@ -788,27 +1025,27 @@ CUSTOMER (por defecto)            ADMIN
 ### Asignar rol ADMIN
 
 ```bash
-# Opción 1: Prisma Studio
+# Opción 1: Prisma Studio (recomendado)
 pnpm run db:studio
-# → tabla User → campo role → cambiar a "ADMIN"
+# Tabla User → campo role → cambiar a "ADMIN"
 
 # Opción 2: SQL directo
 psql $DATABASE_URL -c "UPDATE \"User\" SET role = 'ADMIN' WHERE email = 'nuevo@admin.co';"
 ```
 
-### Triple verificación de seguridad
+### Triple capa de protección admin
 
 ```
-1. proxy.ts          ← nivel de ruta (antes de renderizar)
-2. admin/layout.tsx  ← nivel de servidor (al renderizar)
-3. NestJS guards     ← nivel de API (antes de operar en BD)
+1. proxy.ts          ← nivel de ruta (antes de renderizar la página)
+2. admin/layout.tsx  ← nivel de servidor (al renderizar el layout)
+3. NestJS @Roles()   ← nivel de API (antes de cualquier operación en BD)
 ```
 
 ---
 
-## 15. Manejo de precios (centavos COP)
+## 18. Manejo de precios (centavos COP)
 
-Todos los precios se almacenan en **centavos** como enteros para evitar errores de punto flotante.
+Todos los precios se almacenan en **centavos enteros** para evitar errores de punto flotante.
 
 ```
 Precio visible:   $85.000 COP  →  BD: 8.500.000
@@ -817,56 +1054,72 @@ Precio visible: $1.580.000 COP  →  BD: 158.000.000
 
 ```typescript
 // Mostrar al usuario
-new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })
-  .format(cents / 100)   // 8500000 → "$85.000"
+new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  minimumFractionDigits: 0
+}).format(cents / 100)   // 8500000 → "$85.000"
 
 // Guardar desde formulario admin
 Math.round(parseFloat(inputValue) * 100)   // "85000" → 8500000
 ```
 
+> Los procesadores de pago (Wompi, Mercado Pago) también usan la unidad mínima de la
+> moneda en sus APIs (`amount_in_cents`), lo que hace que esta convención sea natural.
+
 ---
 
-## 16. Integración Wompi — Detalles técnicos
+## 19. Detalles técnicos: Wompi
 
 ### Firma de integridad
 
 ```
-SHA256( reference + amountInCents + currency + WOMPI_INTEGRITY_SECRET )
+SHA256( reference + amountInCents + "COP" + WOMPI_INTEGRITY_SECRET )
 ```
 
-Sin esta firma, un usuario podría modificar el monto en el HTML del widget.
-La firma la calcula el servidor (NestJS) y nunca expone el secret al cliente.
+La firma la calcula el servidor (NestJS) y **nunca expone el secret al cliente**.
+Sin esta firma, un usuario podría manipular el monto en la URL de pago.
 
 ### Validación de webhook
 
 ```
-SHA256( properties + timestamp + WOMPI_EVENTS_SECRET )
+SHA256( properties_joined + timestamp + WOMPI_EVENTS_SECRET )
 ```
 
-Si la firma no coincide → 401. Evita que terceros falsifiquen eventos de pago.
+Si la firma del header no coincide → `401 Unauthorized`. Previene que terceros
+falsifiquen eventos de pago hacia el servidor.
 
 ### Idempotencia
 
 ```typescript
-if (order.status !== 'PENDING') return ok(undefined)  // ya procesado, no hacer nada
+if (order.status !== 'PENDING') return ok(undefined)  // ya procesado
 ```
 
-Wompi puede reenviar el mismo webhook. El use case `ConfirmPayment` es idempotente.
+Wompi puede reenviar el mismo webhook múltiples veces. El use case `ConfirmPayment`
+es completamente idempotente. Adicionalmente, `PrismaOrderRepository.transitionFromPending()`
+usa una transacción atómica con `updateMany({ where: { id, status: 'PENDING' } })` —
+si `count === 0` indica que otro proceso ya lo procesó.
+
+### Reconciliación activa
+
+Si el webhook nunca llega, `WompiReconciliationService` consulta activamente el estado
+de la transacción cada 15 minutos. Ver [sección 10](#10-servicios-de-background-colas-y-reconciliación).
 
 ---
 
-## 17. Integración Mercado Pago — Detalles técnicos
+## 20. Detalles técnicos: Mercado Pago
 
 | Aspecto | Wompi | Mercado Pago |
 |---|---|---|
-| Experiencia | Widget embebido | Redirect completo a MP |
-| Validación webhook | SHA256 events | HMAC-SHA256 x-signature |
-| Estado en webhook | Directo en el evento | Requiere consultar la API de MP |
+| Experiencia | URL directa (mismo efecto que widget) | Redirect completo a MP |
+| Validación webhook | SHA256 events secret | HMAC-SHA256 (header `x-signature`) |
+| Estado en webhook | Incluido en el evento | Requiere consultar la API de MP |
 | Activación | Siempre disponible | Toggle en admin → Configuración |
+| Habilitación | `WOMPI_ENV=sandbox/production` | `Settings.MERCADOPAGO_ENABLED=true` |
 
-### Mapeo de estados
+### Mapeo de estados MP → dominio
 
-| Mercado Pago | Dominio |
+| Mercado Pago | Estado en dominio |
 |---|---|
 | `approved` / `authorized` | `APPROVED` |
 | `pending` / `in_process` / `in_mediation` | `PENDING` |
@@ -876,38 +1129,57 @@ Wompi puede reenviar el mismo webhook. El use case `ConfirmPayment` es idempoten
 
 ---
 
-## 18. Preguntas frecuentes
+## 21. Preguntas frecuentes
 
 **¿Por qué hay dos apps separadas (Next.js + NestJS)?**
-> Clean Architecture con separación real de capas. Next.js maneja el SSR y la sesión del
-> browser. NestJS maneja toda la lógica de negocio, autenticación JWT y webhooks. Ambas
-> comparten el dominio (`packages/domain`) y la base de datos (`packages/database`) sin duplicar código.
+> Clean Architecture con separación real de capas. Next.js maneja SSR y la sesión del
+> browser. NestJS maneja la lógica de negocio, autenticación JWT y webhooks. Ambas
+> comparten el dominio y la base de datos sin duplicar código.
 
-**¿Por qué los Server Components acceden directo a Prisma y no al API?**
+**¿Por qué los Server Components acceden directo a Prisma en lugar de llamar al API?**
 > En un monorepo donde ambas apps comparten la misma BD, el SSR puede ir directo a Prisma
-> sin pasar por HTTP. Es más rápido y evita una capa de latencia innecesaria en el renderizado.
-> Las operaciones que necesitan lógica de negocio (crear pedidos, pagos) sí pasan por NestJS.
+> sin overhead HTTP. Las operaciones que necesitan lógica de negocio (checkout, pagos,
+> admin) sí pasan por NestJS.
 
 **¿Por qué `proxy.ts` en vez de `middleware.ts`?**
-> En Next.js 16 el archivo fue renombrado. Además corre en Node.js (no Edge Runtime),
-> lo que permite usar NextAuth con sesiones JWT directamente.
+> En Next.js 16 el archivo fue renombrado. Corre en Node.js runtime (no Edge), lo que
+> permite usar NextAuth con sesiones JWT sin restricciones del Edge Runtime.
 
 **¿Por qué los precios en centavos si en Colombia no hay centavos?**
-> Evita errores de punto flotante en JavaScript. Los procesadores de pago (Wompi, Stripe)
-> también usan la unidad mínima de la moneda (`amount_in_cents`).
+> Evita errores de punto flotante en JavaScript. Los procesadores de pago (Wompi, Stripe,
+> Mercado Pago) también usan la unidad mínima de la moneda.
 
 **¿Por qué JWT en vez de database sessions con NextAuth?**
-> El proveedor Credentials de NextAuth requiere JWT cuando se usa con PrismaAdapter.
-> Con database sessions, NextAuth intenta insertar registros en la tabla Session al
-> hacer signIn con Credentials, lo cual falla.
+> El proveedor `credentials` de NextAuth requiere JWT cuando se combina con PrismaAdapter.
+> Con database sessions, NextAuth falla al insertar en la tabla `Session` al hacer
+> `signIn('credentials', ...)`.
 
 **¿Cómo probar webhooks localmente?**
 
 ```bash
 ngrok http 3001
-# Copiar la URL pública → configurar en panel Wompi sandbox:
-# Webhook URL: https://abc123.ngrok.io/payments/wompi/webhook
+# URL generada → panel Wompi sandbox → Webhook URL:
+# https://abc123.ngrok.io/payments/wompi/webhook
 ```
 
-**¿Cómo habilitar Mercado Pago?**
-> `/admin/configuracion` → activar el toggle → guarda `MERCADOPAGO_ENABLED=true` en la tabla `Settings`.
+**¿Cómo activar Mercado Pago?**
+> Panel `/admin/configuracion` → activar el toggle. Esto guarda `MERCADOPAGO_ENABLED=true`
+> en la tabla `Settings`. Para desactivarlo, apagar el toggle o ejecutar:
+>
+> ```bash
+> psql $DATABASE_URL -c "UPDATE \"Settings\" SET value = 'false' WHERE key = 'MERCADOPAGO_ENABLED';"
+> ```
+
+**¿Qué pasa si el despacho a Vendelo falla?**
+> El pedido queda en la tabla `VendeloOrderQueue` con `status=PENDING` y se reintenta
+> automáticamente hasta 3 veces con backoff exponencial. Si los 3 intentos fallan,
+> el registro queda en `status=FAILED` para revisión manual en Prisma Studio.
+
+**¿Cómo forzar la reconciliación de un pago Wompi pendiente?**
+> La reconciliación automática corre cada 15 minutos. Para forzarla manualmente:
+>
+> ```bash
+> # Llamar al endpoint interno (requiere JWT admin)
+> curl -X POST http://localhost:3001/admin/payments/reconcile \
+>   -H "Authorization: Bearer <token>"
+> ```

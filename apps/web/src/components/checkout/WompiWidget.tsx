@@ -20,18 +20,11 @@ interface WompiWidgetProps {
   reference: string
   integritySignature: string
   redirectUrl: string
-  onSuccess?: () => void
 }
 
 const WIDGET_TIMEOUT_MS = 5_000
 
-export function WompiWidget({
-  publicKey,
-  amountInCents,
-  reference,
-  integritySignature,
-  redirectUrl,
-}: WompiWidgetProps) {
+export function WompiWidget({ publicKey, amountInCents, reference, integritySignature, redirectUrl }: WompiWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [useFallback, setUseFallback] = useState(false)
 

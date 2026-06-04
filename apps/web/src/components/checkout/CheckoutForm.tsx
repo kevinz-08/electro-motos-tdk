@@ -49,7 +49,7 @@ function formatCOP(cents: number): string {
 
 export function CheckoutForm({ userEmail }: CheckoutFormProps) {
   const { data: session } = useSession()
-  const { items, total, clearCart } = useCart()
+  const { items, total } = useCart()
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping')
   const [orderId, setOrderId] = useState<string | null>(null)
   const [wompiParams, setWompiParams] = useState<CreateOrderResponse['payment'] | null>(null)
@@ -254,7 +254,6 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                 publicKey={wompiParams.publicKey}
                 integritySignature={wompiParams.integritySignature}
                 redirectUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/checkout/confirmacion?orderId=${orderId}`}
-                onSuccess={() => clearCart()}
               />
             )}
           </div>

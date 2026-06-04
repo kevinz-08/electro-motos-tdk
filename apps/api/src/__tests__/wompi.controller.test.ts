@@ -33,12 +33,9 @@ import { WompiController } from '../payments/wompi.controller'
 import { WompiService } from '../infrastructure/services/WompiService'
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
+import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { ORDER_REPOSITORY } from '../infrastructure/injection-tokens'
-
-// Wompi env vars para la firma de integridad
-vi.stubEnv('WOMPI_INTEGRITY_SECRET', 'test-integrity-secret')
-vi.stubEnv('WOMPI_PUBLIC_KEY', 'pub_test_key')
 
 // ── Stubs de dependencias ──────────────────────────────────────────────────────
 
@@ -93,15 +90,18 @@ function buildTransactionEvent(
   }
 }
 
+const mockVendeloQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
+
 async function buildController() {
   const module = await Test.createTestingModule({
     controllers: [WompiController],
     providers: [
-      { provide: ORDER_REPOSITORY, useValue: mockOrderRepo },
-      { provide: WompiService, useValue: mockWompiService },
-      { provide: ResendEmailService, useValue: mockEmailService },
-      { provide: EmailQueueService, useValue: mockEmailQueue },
-      { provide: PrismaService, useValue: mockPrisma },
+      { provide: ORDER_REPOSITORY,         useValue: mockOrderRepo },
+      { provide: WompiService,             useValue: mockWompiService },
+      { provide: ResendEmailService,       useValue: mockEmailService },
+      { provide: EmailQueueService,        useValue: mockEmailQueue },
+      { provide: VendeloOrderQueueService, useValue: mockVendeloQueue },
+      { provide: PrismaService,            useValue: mockPrisma },
     ],
   }).compile()
 
@@ -117,25 +117,6 @@ describe('WompiController', () => {
     vi.clearAllMocks()
     mockWompiService.validateWebhook.mockReturnValue(true)
     controller = await buildController()
-  })
-
-  // ── integrity ────────────────────────────────────────────────────────────────
-
-  describe('POST /payments/wompi/integrity', () => {
-    it('retorna referencia, firma de integridad y publicKey', () => {
-      const result = controller.integrity({ orderId: 'order-1', amountInCents: 5000000 })
-
-      expect(result.publicKey).toBe('pub_test_key')
-      expect(result.amountInCents).toBe(5000000)
-      expect(result.currency).toBe('COP')
-      expect(result.reference).toMatch(/^ORDER-order-1-\d+$/)
-      expect(result.integritySignature).toBeTruthy()
-    })
-
-    it('usa COP como moneda por defecto si no se especifica', () => {
-      const result = controller.integrity({ orderId: 'order-1', amountInCents: 1000 })
-      expect(result.currency).toBe('COP')
-    })
   })
 
   // ── webhook ───────────────────────────────────────────────────────────────────

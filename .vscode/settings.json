@@ -1,5 +1,9 @@
 {
     "conventionalCommits.scopes": [
-        "ui"
+        "ui",
+        "admin",
+        "catalog",
+        "web/admin",
+        "database"
     ]
 }

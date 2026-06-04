@@ -42,9 +42,13 @@ export interface ShippingAddress {
   /** Ciudad. Ej: "Medellín" */
   city: string
   /** Departamento. Ej: "Antioquia" */
-  department: string
+  department?: string
   /** Teléfono de contacto para el mensajero */
   phone: string
+  /** Código DIVIPOLA de 8 dígitos requerido por Vendelo. Ej: "05001000" para Medellín. */
+  cityCode?: string
+  /** Código de subdivisión dentro de la ciudad requerido por Vendelo. Ej: "02" */
+  subdivisionCode?: string
   /** Código postal (opcional — no todas las ciudades colombianas lo usan) */
   postalCode?: string
   /** Instrucciones adicionales para el mensajero */

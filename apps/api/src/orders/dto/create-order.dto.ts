@@ -9,8 +9,10 @@ export class ShippingAddressDto {
   @ApiProperty() @IsString() @IsNotEmpty() fullName: string
   @ApiProperty() @IsString() @IsNotEmpty() address: string
   @ApiProperty() @IsString() @IsNotEmpty() city: string
-  @ApiProperty() @IsString() @IsNotEmpty() department: string
+  @ApiPropertyOptional() @IsOptional() @IsString() department?: string
   @ApiProperty() @IsString() @IsNotEmpty() phone: string
+  @ApiPropertyOptional() @IsOptional() @IsString() cityCode?: string
+  @ApiPropertyOptional() @IsOptional() @IsString() subdivisionCode?: string
   @ApiPropertyOptional() @IsOptional() @IsString() postalCode?: string
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string
 }

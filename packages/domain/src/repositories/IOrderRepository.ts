@@ -81,4 +81,10 @@ export interface IOrderRepository {
   getTodayRevenue(): Promise<number>
   /** Cuenta pedidos con status PENDING. Para alertas en el dashboard. */
   getPendingCount(): Promise<number>
+  /**
+   * Resuelve en lote los vendeloOrderId de un conjunto de pedidos internos.
+   * Usado por CreateShipments y GenerateLabels para mapear IDs internos → Vendelo.
+   * Los pedidos no encontrados no aparecen en la respuesta.
+   */
+  findVendeloOrderIdsBatch(orderIds: string[]): Promise<Array<{ id: string; vendeloOrderId: string | null }>>
 }

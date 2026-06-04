@@ -24,6 +24,24 @@ async function parseResponse<T>(res: Response): Promise<ApiResponse<T>> {
   return { ok: true, data: body as T, status: res.status }
 }
 
+// Wraps fetch so network-level failures (CORS, connection refused, DNS) return
+// ApiErr instead of throwing — callers always get an ApiResponse, never an exception.
+async function doFetch<T>(input: string, init?: RequestInit): Promise<ApiResponse<T>> {
+  try {
+    const res = await fetch(input, init)
+    return parseResponse<T>(res)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error de red desconocido'
+    // "Failed to fetch" means the request never reached the server.
+    // Most common causes: API not running, CORS preflight rejected, or no internet.
+    const friendly =
+      message === 'Failed to fetch'
+        ? 'No se pudo conectar con el servidor. Verifica que la API esté corriendo.'
+        : message
+    return { ok: false, error: friendly, status: 0 }
+  }
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 export function apiClient(accessToken?: string | null) {
@@ -36,37 +54,34 @@ export function apiClient(accessToken?: string | null) {
 
   return {
     get: <T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> =>
-      fetch(base(path), { ...init, headers: { ...bearer, ...init?.headers } })
-        .then(parseResponse<T>),
+      doFetch<T>(base(path), { ...init, headers: { ...bearer, ...init?.headers } }),
 
     post: <T>(path: string, body?: unknown): Promise<ApiResponse<T>> =>
-      fetch(base(path), {
+      doFetch<T>(base(path), {
         method: 'POST',
         headers: json,
         body: body !== undefined ? JSON.stringify(body) : undefined,
-      }).then(parseResponse<T>),
+      }),
 
     put: <T>(path: string, body?: unknown): Promise<ApiResponse<T>> =>
-      fetch(base(path), {
+      doFetch<T>(base(path), {
         method: 'PUT',
         headers: json,
         body: body !== undefined ? JSON.stringify(body) : undefined,
-      }).then(parseResponse<T>),
+      }),
 
     patch: <T>(path: string, body?: unknown): Promise<ApiResponse<T>> =>
-      fetch(base(path), {
+      doFetch<T>(base(path), {
         method: 'PATCH',
         headers: json,
         body: body !== undefined ? JSON.stringify(body) : undefined,
-      }).then(parseResponse<T>),
+      }),
 
     delete: <T = void>(path: string): Promise<ApiResponse<T>> =>
-      fetch(base(path), { method: 'DELETE', headers: bearer })
-        .then(parseResponse<T>),
+      doFetch<T>(base(path), { method: 'DELETE', headers: bearer }),
 
     /** Multipart/form-data — omite Content-Type para que el browser fije el boundary */
     postForm: <T>(path: string, formData: FormData): Promise<ApiResponse<T>> =>
-      fetch(base(path), { method: 'POST', headers: bearer, body: formData })
-        .then(parseResponse<T>),
+      doFetch<T>(base(path), { method: 'POST', headers: bearer, body: formData }),
   }
 }

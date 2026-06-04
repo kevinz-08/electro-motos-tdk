@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { createHash, timingSafeEqual } from 'crypto'
-import { IPaymentService, PaymentResult } from '@h2r/domain'
+import { IPaymentService, PaymentResult, AppError } from '@h2r/domain'
 import { Order, PaymentStatus } from '@h2r/domain'
 
 interface WompiWebhookEvent {
@@ -40,6 +40,7 @@ const WEBHOOK_MAX_AGE_SECONDS = 600
 
 @Injectable()
 export class WompiService implements IPaymentService {
+  private readonly logger = new Logger(WompiService.name)
   private readonly baseUrl: string
   private readonly publicKey: string
   private readonly privateKey: string
@@ -75,7 +76,9 @@ export class WompiService implements IPaymentService {
       headers: { Authorization: `Bearer ${this.privateKey}` },
     })
 
-    if (!response.ok) throw new Error(`Wompi API error: ${response.status}`)
+    if (!response.ok) {
+      throw new AppError('INTERNAL_ERROR', `Wompi API respondió con ${response.status} al consultar transacción ${externalId}`)
+    }
 
     const data = (await response.json()) as WompiTransaction
     const statusMap: Record<string, PaymentStatus> = {
@@ -86,7 +89,7 @@ export class WompiService implements IPaymentService {
 
   validateWebhook(payload: unknown, _headers: Headers): boolean {
     if (!this.eventsSecret) {
-      console.error('[Wompi] WOMPI_EVENTS_SECRET no está configurado')
+      this.logger.error('WOMPI_EVENTS_SECRET no está configurado — webhook no se puede validar')
       return false
     }
 
@@ -95,14 +98,14 @@ export class WompiService implements IPaymentService {
       const { signature, timestamp, data } = event
 
       if (!signature?.checksum || !Array.isArray(signature?.properties) || !timestamp || !data) {
-        console.warn('[Wompi] Webhook rechazado: estructura inválida')
+        this.logger.warn('Webhook rechazado: estructura inválida')
         return false
       }
 
       const nowSeconds = Math.floor(Date.now() / 1000)
       const ageSeconds = Math.abs(nowSeconds - Number(timestamp))
       if (!Number.isFinite(ageSeconds) || ageSeconds > WEBHOOK_MAX_AGE_SECONDS) {
-        console.warn(`[Wompi] Webhook rechazado: timestamp fuera de ventana (${ageSeconds}s)`)
+        this.logger.warn(`Webhook rechazado: timestamp fuera de ventana (${ageSeconds}s)`)
         return false
       }
 
@@ -119,7 +122,7 @@ export class WompiService implements IPaymentService {
 
       const provided = String(signature.checksum)
       if (provided.length !== expectedChecksum.length) {
-        console.warn('[Wompi] Webhook rechazado: checksum con longitud inesperada')
+        this.logger.warn('Webhook rechazado: checksum con longitud inesperada')
         return false
       }
 
@@ -127,10 +130,10 @@ export class WompiService implements IPaymentService {
         Buffer.from(provided, 'utf8'),
         Buffer.from(expectedChecksum, 'utf8'),
       )
-      if (!match) console.warn('[Wompi] Webhook rechazado: checksum no coincide')
+      if (!match) this.logger.warn('Webhook rechazado: checksum no coincide')
       return match
     } catch (e) {
-      console.warn('[Wompi] Webhook rechazado: excepción al validar firma', e)
+      this.logger.warn(`Webhook rechazado: excepción al validar firma — ${e}`)
       return false
     }
   }

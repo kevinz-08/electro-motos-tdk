@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getOrderConfirmation } from '@/lib/queries/getOrderConfirmation'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
+import { CartCleaner } from '@/components/checkout/CartCleaner'
+import { OrderStatusPoller } from '@/components/checkout/OrderStatusPoller'
 
 interface PageProps {
   searchParams: Promise<{ orderId?: string }>
@@ -79,6 +81,8 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
+      {isPaid && <CartCleaner orderId={order.id} />}
+      {isPending && <OrderStatusPoller orderId={order.id} />}
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
 
         {/* ── Hero de estado ─────────────────────────────────────────────── */}

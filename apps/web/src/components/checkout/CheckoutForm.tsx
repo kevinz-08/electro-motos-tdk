@@ -19,17 +19,22 @@ import { useSession } from 'next-auth/react'
 import type { CreateOrderResponse } from '@h2r/types'
 import { useCart } from '@/lib/cart'
 import { WompiWidget } from './WompiWidget'
+import { CitySelector } from './CitySelector'
 import { apiClient } from '@/lib/api-client'
 
 interface CheckoutFormProps {
   userEmail: string
 }
 
+interface CityOption {
+  code: string
+  name: string
+  subdivisionCode: string
+}
+
 interface ShippingFormData {
   fullName: string
   address: string
-  city: string
-  department: string
   phone: string
   notes: string
 }
@@ -44,7 +49,7 @@ function formatCOP(cents: number): string {
 
 export function CheckoutForm({ userEmail }: CheckoutFormProps) {
   const { data: session } = useSession()
-  const { items, total, clearCart } = useCart()
+  const { items, total } = useCart()
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping')
   const [orderId, setOrderId] = useState<string | null>(null)
   const [wompiParams, setWompiParams] = useState<CreateOrderResponse['payment'] | null>(null)
@@ -54,30 +59,35 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
   const [form, setForm] = useState<ShippingFormData>({
     fullName: '',
     address: '',
-    city: '',
-    department: '',
     phone: '',
     notes: '',
   })
+  const [selectedCity, setSelectedCity] = useState<CityOption | null>(null)
 
   const cartTotal = total()
 
   const handleSubmitShipping = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!selectedCity) {
+      setError('Por favor selecciona una ciudad de la lista.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     try {
       const client = apiClient(session?.user?.accessToken)
 
-      // Crear el pedido — la respuesta ya incluye la firma de integridad Wompi
       const orderRes = await client.post<CreateOrderResponse>('/orders', {
         items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
         shippingAddress: {
           fullName: form.fullName,
           address: form.address,
-          city: form.city,
-          department: form.department,
+          city: selectedCity.name,
+          cityCode: selectedCity.code,
+          subdivisionCode: selectedCity.subdivisionCode,
           phone: form.phone,
           notes: form.notes || undefined,
         },
@@ -157,35 +167,18 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label htmlFor="checkout-city" className="block text-sm font-medium text-gray-700 mb-1">
                     Ciudad *
+                    {!selectedCity && (
+                      <span className="ml-1 text-xs text-gray-400 font-normal">(escribe para buscar)</span>
+                    )}
                   </label>
-                  <input
-                    id="checkout-city"
+                  <CitySelector
+                    value={selectedCity}
+                    onChange={setSelectedCity}
                     required
-                    aria-required="true"
-                    type="text"
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
-                    placeholder="Medellín"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="checkout-department" className="block text-sm font-medium text-gray-700 mb-1">
-                    Departamento *
-                  </label>
-                  <input
-                    id="checkout-department"
-                    required
-                    aria-required="true"
-                    type="text"
-                    value={form.department}
-                    onChange={(e) => setForm({ ...form, department: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
-                    placeholder="Antioquia"
+                    disabled={loading}
                   />
                 </div>
 
@@ -243,7 +236,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !selectedCity}
               className="w-full bg-sky-500 text-white py-3 rounded-xl font-bold text-base hover:bg-sky-600 active:scale-95 transition-all disabled:opacity-60"
             >
               {loading ? 'Procesando...' : 'Continuar al pago →'}
@@ -261,7 +254,6 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                 publicKey={wompiParams.publicKey}
                 integritySignature={wompiParams.integritySignature}
                 redirectUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/checkout/confirmacion?orderId=${orderId}`}
-                onSuccess={() => clearCart()}
               />
             )}
           </div>

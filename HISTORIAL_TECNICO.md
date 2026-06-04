@@ -2729,3 +2729,779 @@ Se creó la ruta `PATCH /api/orders/[id]/status` en Next.js para que el componen
 `OrderStatusSelect` usa `fetch('/api/orders/${orderId}/status', { method: 'PATCH' })` sin necesidad de obtener ni pasar el `accessToken` de NestJS. La actualización es inmediata en la UI con feedback de error si falla. 
 
 *Última actualización: 2026-05-27*
+
+---
+
+## 81. Integración Vendelo — Fase 0: infraestructura base
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se estableció la infraestructura base para la integración con Vendelo (plataforma logística colombiana). Esta fase no toca el flujo de pago ni el checkout — solo prepara el cliente HTTP, el módulo NestJS y la validación de arranque.
+
+**Cambios detallados:**
+
+1. **`VendeloHttpClient`** (`apps/api/src/infrastructure/services/VendeloHttpClient.ts`) — cliente HTTP tipado con:
+   - Retry con backoff exponencial (1 s → 2 s → 4 s) en respuestas 429 y 5xx, máximo 3 reintentos
+   - Timeout de 10 s por intento via `AbortController`
+   - Log de cada request/response (método, path, status HTTP, latencia en ms) usando `Logger` de NestJS
+   - Lee `VENDELO_API_KEY` y `VENDELO_API_URL` del entorno
+
+2. **`VendeloService`** (`apps/api/src/infrastructure/services/VendeloService.ts`) — servicio que envuelve `VendeloHttpClient`. Expone `checkAuth()` que llama a `GET /v1/admin/check-auth` de Vendelo para verificar conectividad.
+
+3. **`VendeloModule`** (`apps/api/src/vendelo/`) — módulo NestJS con un controlador que expone `GET /admin/vendelo/health`, protegido por `@Roles('ADMIN')`. Sirve como smoke test de conectividad hacia Vendelo.
+
+4. **`assertEnvVars()`** (`apps/api/src/main.ts`) — se añadió `VENDELO_API_KEY` a la lista de variables requeridas al arranque. El servidor no inicia si esta variable falta.
+
+5. **`injection-tokens.ts`** — se añadió el token `VENDELO_SERVICE = Symbol('IVendeloService')`, preparado para cuando se conecte la interfaz de dominio en la Fase 2.
+
+6. **Variables de entorno** — añadidas a `apps/api/.env` y documentadas en `apps/api/.env.example`:
+   - `VENDELO_API_KEY` — requerida
+   - `VENDELO_API_URL` — default `https://api.vendelo.co`
+   - `VENDELO_WEBHOOK_SECRET` — usada en Fase 3 (webhooks entrantes)
+   - `VENDELO_WALLET_ALERT_THRESHOLD` — umbral de alerta de saldo en centavos COP
+
+7. **`INTEGRACION_VENDELO.md`** (raíz) — documento creado con análisis completo de la integración: complejidad, mapa de módulos, puntos críticos, patrones del proyecto a respetar, y hoja de ruta por fases.
+
+**Archivos creados:**
+- `apps/api/src/infrastructure/services/VendeloHttpClient.ts`
+- `apps/api/src/infrastructure/services/VendeloService.ts`
+- `apps/api/src/vendelo/vendelo.module.ts`
+- `apps/api/src/vendelo/vendelo.controller.ts`
+- `INTEGRACION_VENDELO.md`
+
+**Archivos modificados:**
+- `apps/api/src/main.ts` — `assertEnvVars()` extendido con `VENDELO_API_KEY`
+- `apps/api/src/infrastructure/injection-tokens.ts` — token `VENDELO_SERVICE`
+- `apps/api/src/infrastructure/infrastructure.module.ts` — registra y exporta `VendeloHttpClient` y `VendeloService`
+- `apps/api/src/app.module.ts` — importa `VendeloModule`
+- `apps/api/.env` — bloque Vendelo con las 4 variables
+- `apps/api/.env.example` — documentación de las variables Vendelo
+
+**Acción manual pendiente:**
+Obtener la API Key real de Vendelo (panel de administración) y configurarla en `VENDELO_API_KEY`. Una vez configurada, `GET /admin/vendelo/health` (con JWT ADMIN) confirma la conectividad.
+
+**Fin:**
+
+Dejar lista la capa de transporte hacia Vendelo sin afectar ningún flujo existente. El servidor no arranca si `VENDELO_API_KEY` está vacía, lo que previene deploys silenciosos sin credencial. Las fases 1–4 construyen sobre esta base.
+
+*Última actualización: 2026-05-27*
+
+---
+
+## 82. Expansión del catálogo — 6 nuevas subcategorías y 37 nuevos productos en Accesorios
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se amplió el catálogo de la categoría Accesorios con 6 nuevas subcategorías y 37 productos reales con imágenes en Cloudinary.
+
+### Nuevas subcategorías (bajo `accesorios`)
+
+| Slug | Nombre | Descripción |
+|------|--------|-------------|
+| `balaclavas` | Balaclavas | Balaclavas y pasamontañas para protección del motociclista. |
+| `fender` | Fender | Fenders y guardabarro para personalización de motos. |
+| `filtros-de-aire` | Filtros de Aire | Filtros de aire de alto flujo para mayor rendimiento. |
+| `seguridad` | Seguridad | Alarmas, candados y sistemas de seguridad para moto. |
+| `stop` | Stop | Stops integrados y luces traseras LED para moto. |
+| `accesorios-generales` | Accesorios Generales | Cascos, manubrios, direccionales y accesorios varios para moto. |
+
+Se eliminó el placeholder `PH-OBJ-001` (Soporte de celular para manillar) que ocupaba la subcategoría `objetivo`.
+
+### Corrección en el seed
+
+Se eliminó `description` del bloque `update` del upsert en `catalog.ts`. Antes, al volver a ejecutar `pnpm db:seed`, se sobreescribía la descripción de productos que ya habían recibido texto manual a través del admin con string vacío. Ahora el seed solo actualiza precio, stock, `isActive` e imágenes — nunca la descripción.
+
+### Navbar actualizado
+
+El mega menu de Accesorios pasa de 5 a 9 subcategorías visibles (se quitaron `Equipamiento` y `Objetivo` que no tenían productos reales; se añadieron las 6 nuevas). Orden en el menú: Espejos, Exploradores, Bombillas LED, Balaclavas, Fender, Filtros de Aire, Seguridad, Stop, Accesorios Generales.
+
+### `upload-catalog.ts` actualizado
+
+Se añadieron las 6 entradas al mapa `CHILD_SLUG` del script de upload masivo para que los SKUs de los nuevos productos resuelvan correctamente su categoría.
+
+**Archivos modificados:**
+
+- `packages/database/prisma/catalog.ts` — 6 subcategorías nuevas en `SUBCATEGORIES`, 37 productos al inicio de `PRODUCTS`, placeholder eliminado, `description` removido del bloque `update`
+- `packages/database/prisma/catalog-upload.ts` — 37 productos nuevos en `UPLOADED_PRODUCTS` (generado 2026-05-28, 85 productos total)
+- `apps/web/src/components/nav/Navbar.tsx` — `MEGA_MENU.Accesorios.children` actualizado con 9 subcategorías
+- `apps/web/scripts/upload-catalog.ts` — 6 entradas nuevas en `CHILD_SLUG`
+
+**Fin:**
+
+El catálogo crece de 48 a 85 productos activos. Las 6 subcategorías nuevas son navegables desde el mega menú y desde el catálogo con filtros. El seed es seguro de re-ejecutar sin riesgo de perder descripciones manuales.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 83. Fix: descripción del producto — fallback en página de detalle
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se corrigió un bug en `apps/web/src/app/(store)/producto/[slug]/page.tsx` donde la página mostraba siempre la `description` del objeto cacheado (`product.description`) incluso si el campo estaba vacío o había sido actualizado en la BD.
+
+**Causa raíz:**
+
+`GetProductBySlug` (use case) retorna un objeto cacheado por `unstable_cache`. Si la descripción se actualizó en la BD después de que el caché se pobló, el campo `product.description` que llega al componente es el valor antiguo (o vacío). El campo `structuredDescription.generalDescription` tiene la descripción actual porque se consulta directamente a Prisma (sin caché).
+
+**Solución:**
+
+Se añadió una query paralela via `Promise.all` que obtiene `freshProduct.description` directamente de Prisma en el mismo SSR request. La descripción se resuelve con la siguiente cadena de fallback:
+
+```ts
+const description =
+  structuredDescription?.generalDescription ||
+  freshProduct?.description ||
+  product.description
+```
+
+Prioridad: texto general de la descripción estructurada → descripción fresca de la BD → descripción cacheada. Si ninguna tiene valor, la sección "Descripción" se oculta completamente (antes mostraba un bloque vacío).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — `Promise.all` con query fresca, chain de fallback, renderizado condicional del bloque de descripción
+
+**Fin:**
+
+La página de producto muestra siempre la descripción más actualizada y no renderiza un bloque vacío para productos sin descripción.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 84. Fix: `revalidateTag` con argumento incorrecto en ruta de admin
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se corrigió una llamada incorrecta a `revalidateTag` en `apps/web/src/app/api/admin/revalidate/route.ts`.
+
+**Problema:**
+
+```ts
+// Antes — segundo argumento inválido, no hace nada
+revalidateTag(tag, {})
+```
+
+`revalidateTag` en Next.js 16 acepta como segundo argumento opcional el tipo de invalidación (`'page'` o `'layout'`), pero `{}` no es un valor válido. El efecto era que los tags de caché **no se invalidaban** al llamar a `POST /api/admin/revalidate` desde el admin.
+
+**Solución:**
+
+```ts
+// Después — invalida agresivamente todos los niveles
+revalidateTag(tag, 'max')
+```
+
+Esto asegura que todas las entradas de `unstable_cache` etiquetadas con ese tag se expiran inmediatamente tras una mutación administrativa (crear, editar o eliminar un producto).
+
+**Archivos modificados:**
+
+- `apps/web/src/app/api/admin/revalidate/route.ts` — segundo argumento corregido de `{}` a `'max'`
+
+**Fin:**
+
+Las mutaciones de productos del admin invalidan correctamente el caché de Next.js. Los cambios de precio, stock o descripción se reflejan en el catálogo y páginas de producto sin esperar que el TTL expire.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 85. Fix: galería de imágenes del admin para IDs de Cloudinary sin prefijo HTTP
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se corrigieron dos bugs en `apps/web/src/components/admin/ProductEditForm.tsx` relacionados con el manejo de imágenes de productos.
+
+### Bug 1 — Validación de URL con `new URL()` descartaba IDs de Cloudinary
+
+La inicialización del estado `images` filtraba los strings usando `try { new URL(url); return true } catch { return false }`. Los IDs de Cloudinary (`products/SKU/1`) no son URLs absolutas válidas, por lo que `new URL()` lanzaba y el ID era descartado. Esto causaba que productos con imágenes en Cloudinary aparecieran sin imágenes al abrir el editor.
+
+**Corrección:** Se reemplazó por `typeof url === 'string' && url.trim().length > 0`. Cualquier string no vacío se acepta.
+
+### Bug 2 — `<Image>` crasheaba con IDs de Cloudinary como `src`
+
+El componente `<Image>` de Next.js lanza si `src` no es una URL HTTP válida. La galería intentaba renderizar los IDs de Cloudinary directamente en `<Image>`, causando un error en runtime.
+
+**Corrección:** Se añade un condicional `const isUrl = url.startsWith('http')`. Para strings que son IDs de Cloudinary (no empiezan por `http`), se renderiza un placeholder visual con el ícono `ImagePlus` y el ID truncado, en lugar de `<Image>`. Esto mantiene la posibilidad de eliminar el ítem y sirve como indicador visual de que la imagen existe pero su URL completa la genera Cloudinary.
+
+**Archivos modificados:**
+
+- `apps/web/src/components/admin/ProductEditForm.tsx` — filtro de inicialización simplificado, renderizado condicional en la galería (URL → `<Image>`, ID → placeholder con ícono)
+
+**Fin:**
+
+El editor de productos muestra correctamente las imágenes existentes (o un placeholder manejable cuando solo se tiene el ID de Cloudinary). No se producen errores de runtime al abrir productos con imágenes en formato `products/SKU/N`.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 86. Mejora: timeouts explícitos en el pool de PostgreSQL
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se añadieron dos parámetros al pool de `pg` en `packages/database/src/index.ts`:
+
+```ts
+const pool = new Pool({
+  connectionString,
+  max: POOL_MAX,
+  idleTimeoutMillis: 30_000,       // conexiones inactivas liberadas a los 30 s
+  connectionTimeoutMillis: 15_000, // falla rápido si no hay conexión en 15 s
+})
+```
+
+**Por qué:**
+
+- **`idleTimeoutMillis: 30_000`**: En Neon (serverless PostgreSQL) las conexiones inactivas consumen cuota aunque nadie las use. Sin este timeout, una conexión que se abrió para una request de baja frecuencia puede permanecer abierta indefinidamente hasta agotar el pool. Con 30 s de inactividad, se libera automáticamente.
+
+- **`connectionTimeoutMillis: 15_000`**: Sin timeout explícito, si Neon está saturado o hay un problema de red, la aplicación puede quedar bloqueada esperando una conexión indefinidamente. Con 15 s de timeout, falla rápido y retorna un error controlable en lugar de colgar el request.
+
+**Archivos modificados:**
+
+- `packages/database/src/index.ts` — `idleTimeoutMillis` y `connectionTimeoutMillis` añadidos al constructor de `Pool`
+
+**Fin:**
+
+El pool gestiona conexiones inactivas automáticamente (clave para Neon free tier con límite de 5–10 conexiones simultáneas) y tiene un tiempo de fallo determinístico ante problemas de conectividad.
+
+*Última actualización: 2026-05-28*
+
+---
+
+## 87. Integración Vendelo — Fase 1: catálogo de ciudades y selector en checkout
+
+**Rama:** `feat/vendelo-integration`
+
+**Qué se hizo:**
+
+Se implementó el prerequisito duro para crear órdenes de envío en Vendelo: el sistema ahora captura el `city_code` (código DIVIPOLA de 8 dígitos) y `subdivision_code` en el checkout, en lugar del campo libre de texto que existía antes.
+
+**Cambios detallados:**
+
+1. **Corrección URL base de Vendelo** — La URL estaba incorrecta: `https://api.vendelo.co` → `https://api.venndelo.com` (doble `n`, dominio `.com`). Corregida en `apps/api/.env` y `.env.example`.
+
+2. **`VendeloCity` model** (`packages/database/prisma/schema.prisma`) — Nuevo modelo con `code` (PK, código DIVIPOLA), `name`, `subdivisionCode`, `countryCode`. Migración: `20260601165124_add_vendelo_city`.
+
+3. **`VendeloService.getAllCities()`** (`apps/api/src/infrastructure/services/VendeloService.ts`) — Paginación completa sobre `GET /v1/admin/region/cities`. Sigue el patrón de `next_page_token === ''` como señal de última página (según la documentación de Vendelo v1.20260504).
+
+4. **`POST /admin/vendelo/sync-cities`** (`apps/api/src/vendelo/vendelo.controller.ts`) — Endpoint de admin que descarga todas las ciudades de Vendelo y las sincroniza en la tabla `VendeloCity` local. Retorna `{ synced: N }`. Protegido con `@Roles('ADMIN')`.
+
+5. **`GET /api/vendelo/cities?q=`** (`apps/web/src/app/api/vendelo/cities/route.ts`) — Ruta Next.js que busca ciudades en la tabla local con `ILIKE`. Mínimo 2 caracteres para buscar, retorna hasta 10 resultados. Pública (solo datos geográficos).
+
+6. **`CitySelector` component** (`apps/web/src/components/checkout/CitySelector.tsx`) — Combobox con:
+   - Debounce de 300 ms en la búsqueda
+   - Indicador visual `✓` cuando hay ciudad seleccionada
+   - Cierre del dropdown al hacer click fuera
+   - `aria-autocomplete`, `aria-expanded`, `aria-selected` para accesibilidad
+   - Limpia la selección si el usuario edita el texto manualmente
+
+7. **`CheckoutForm`** (`apps/web/src/components/checkout/CheckoutForm.tsx`) — Se reemplazaron los campos libres `city` y `department` por el `CitySelector`. El payload a NestJS ahora incluye `cityCode` y `subdivisionCode` en `shippingAddress`. El botón "Continuar al pago" queda deshabilitado hasta que hay una ciudad seleccionada.
+
+**Archivos creados:**
+
+- `apps/web/src/app/api/vendelo/cities/route.ts`
+- `apps/web/src/components/checkout/CitySelector.tsx`
+- `packages/database/prisma/migrations/20260601165124_add_vendelo_city/migration.sql`
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma` — modelo `VendeloCity`
+- `apps/api/src/infrastructure/services/VendeloService.ts` — `getAllCities()`, `getCitiesPage()`
+- `apps/api/src/vendelo/vendelo.controller.ts` — endpoint `sync-cities`
+- `apps/web/src/components/checkout/CheckoutForm.tsx` — integración `CitySelector`
+- `apps/api/.env` y `.env.example` — URL corregida
+
+**Acción requerida antes de que el checkout funcione:**
+Ejecutar `POST /admin/vendelo/health` para verificar conectividad, luego `POST /admin/vendelo/sync-cities` para poblar la tabla `VendeloCity`. Sin este sync, el selector de ciudades no devuelve resultados.
+
+**Fin:**
+
+El checkout ahora captura `cityCode` y `subdivisionCode`, que son los campos requeridos por `POST /v1/admin/orders` de Vendelo. La Fase 2 (creación de órdenes) puede construirse directamente sobre esta base.
+
+---
+
+## 88. Integración Vendelo — Fase 2: creación automática de órdenes al confirmar pago
+
+**Qué se hizo:**
+
+Se implementó el flujo completo para crear automáticamente una orden en Vendelo cada vez que un pago se confirma como `APPROVED`. El sistema usa el mismo patrón de cola asincrónica que el envío de emails de confirmación (`EmailQueueService`).
+
+**Componentes implementados:**
+
+1. **Migración Prisma** (`20260601185620_add_vendelo_order_queue`):
+
+   - Campo `vendeloOrderId String?` en el modelo `Order` — guarda el ID de la orden creada en Vendelo para correlación.
+   - Modelo `VendeloOrderQueue` — cola de órdenes pendientes de enviar a Vendelo con campos `orderId`, `attempts`, `lastError`, `status` (PENDING/SENT/FAILED), `nextRetry`.
+
+2. **`ShippingAddress` entity** (`packages/domain/src/entities/Order.ts`) — Se agregaron `cityCode?: string` y `subdivisionCode?: string`. El campo `department` se hizo opcional (`department?`) ya que fue reemplazado por el selector de ciudad de Vendelo.
+
+3. **`VendeloService.createOrder()`** (`apps/api/src/infrastructure/services/VendeloService.ts`) — Mapper completo de `Order` (dominio) → body de `POST /v1/admin/orders`:
+
+   - `pickup_info` — datos de la tienda, configurable via env vars (`VENDELO_STORE_*`)
+   - `billing_info` — nombre del cliente (split en `first_name` + `last_name`), email, teléfono
+   - `shipping_info` — dirección de destino con `city_code` y `subdivision_code` del `shippingAddress`
+   - `line_items` — cada `OrderItem` mapeado con conversión centavos→float, dimensiones por defecto configurables via env vars
+   - `payment_method_code: "EXTERNAL_PAYMENT"` (pago ya confirmado por Wompi/MercadoPago)
+   - `confirmation_status: "CONFIRMED"` (no requiere confirmación manual del admin)
+
+4. **`VendeloOrderQueueService`** (`apps/api/src/infrastructure/services/VendeloOrderQueueService.ts`):
+
+   - Patrón idéntico a `EmailQueueService`: `setInterval` cada 2 min via `OnModuleInit`
+   - `enqueue(orderId)` — crea fila con status PENDING
+   - `processNext()` — consulta PENDING con `nextRetry <= now`, llama `VendeloService.createOrder()`, guarda `vendeloOrderId` en `Order` en una transacción
+   - Backoff exponencial: intento 1 → +5s | intento 2 → +30s | intento 3 → +120s → FAILED
+
+5. **Webhooks de pago actualizados**:
+
+   - `WompiController.webhook()` — en la rama `APPROVED && stateChanged`, después de encolar email, llama `vendeloOrderQueue.enqueue(orderId)`
+   - `MercadoPagoController.webhook()` — idéntico
+
+6. **Variables de entorno nuevas** (en `.env` y `.env.example`):
+
+   - `VENDELO_STORE_NAME`, `VENDELO_STORE_PHONE`, `VENDELO_STORE_ADDRESS` — datos del comercio para `pickup_info`
+   - `VENDELO_STORE_CITY_CODE`, `VENDELO_STORE_SUBDIVISION_CODE` — código DIVIPOLA de la ciudad de la tienda
+   - `VENDELO_DEFAULT_WEIGHT_KG`, `VENDELO_DEFAULT_HEIGHT_CM`, `VENDELO_DEFAULT_WIDTH_CM`, `VENDELO_DEFAULT_LENGTH_CM` — dimensiones de empaque por defecto
+
+**Archivos creados:**
+
+- `apps/api/src/infrastructure/services/VendeloOrderQueueService.ts`
+- `packages/database/prisma/migrations/20260601185620_add_vendelo_order_queue/migration.sql`
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma`
+- `packages/domain/src/entities/Order.ts`
+- `apps/api/src/infrastructure/services/VendeloService.ts`
+- `apps/api/src/infrastructure/infrastructure.module.ts`
+- `apps/api/src/payments/wompi.controller.ts`
+- `apps/api/src/payments/mercadopago.controller.ts`
+- `apps/api/.env` y `apps/api/.env.example`
+- `INTEGRACION_VENDELO.md`
+
+**Acción requerida para que Fase 2 funcione en producción:**
+
+Antes del primer deploy, configurar en `apps/api/.env` (y en las variables de Railway):
+
+- `VENDELO_STORE_PHONE` — teléfono real de la tienda
+- `VENDELO_STORE_ADDRESS` — dirección física de la tienda donde Vendelo recogerá los paquetes
+- `VENDELO_STORE_CITY_CODE` — código DIVIPOLA de la ciudad (ej. `05001000` = Medellín)
+- `VENDELO_STORE_SUBDIVISION_CODE` — código de subdivisión (ej. `02`)
+- Ajustar `VENDELO_DEFAULT_WEIGHT_KG` y dimensiones según el empaque real de los productos
+
+**Fin:**
+
+A partir de este punto, cada vez que Wompi o MercadoPago confirmen un pago, el sistema crea automáticamente una orden en Vendelo con reintentos automáticos. El `vendeloOrderId` se guarda en la orden para trazabilidad. La Fase 3 (tracking de envíos via webhooks Vendelo) puede construirse sobre esta base.
+
+---
+
+## 89. Integración Vendelo — Fase 3: webhooks de envío y tracking
+
+**Qué se hizo:**
+
+Se implementó la recepción y procesamiento de eventos del Chatbot Connection de Vendelo. Cuando Vendelo notifica que un pedido fue despachado, entregado o cancelado, el sistema actualiza el estado del envío y del pedido con idempotencia atómica, e invalida la caché de pedidos del usuario.
+
+**Componentes implementados:**
+
+1. **`Shipment` entity** (`packages/domain/src/entities/Shipment.ts`):
+
+   - Tipo `ShipmentStatus`: `PENDING | READY | PREPARING | SHIPPED | INCIDENT | DELIVERED | RETURNED | CANCELLED`
+   - `SHIPMENT_STATUS_RANK`: mapa numérico para detectar retrocesos de estado (progresión unidireccional)
+
+2. **`IShipmentRepository`** (`packages/domain/src/repositories/IShipmentRepository.ts`):
+
+   - `findByOrderId()`, `upsert()`, `atomicUpdateStatus()` — el método atómico ejecuta `UPDATE WHERE status = from`, garantizando idempotencia ante webhooks duplicados
+
+3. **`SyncShipmentStatus` use case** (`packages/domain/src/use-cases/orders/SyncShipmentStatus.ts`):
+
+   - **Idempotencia nivel 1:** rank check en memoria — si `rank(nuevo) <= rank(actual)`, retorna `{ updated: false }` sin tocar la BD
+   - **Idempotencia nivel 2:** `atomicUpdateStatus` con `WHERE status = from` — protege contra race conditions entre workers
+   - Actualiza `Order.status` cuando el envío llega a `SHIPPED`, `DELIVERED` o `CANCELLED`
+   - Patrón idéntico a `ConfirmPayment`: sin excepciones, retorna `Result<T,E>`
+
+4. **Prisma** — migración `20260601191728_add_shipment`:
+
+   - Modelo `Shipment` (1:1 con `Order`, `onDelete: Cascade`)
+   - Relación `Order.shipment Shipment?`
+
+5. **`SHIPMENT_REPOSITORY`** — nuevo token en `injection-tokens.ts`, `PrismaShipmentRepository` registrado y exportado en `InfrastructureModule`
+
+6. **`VendeloWebhookGuard`** (`apps/api/src/vendelo/guards/vendelo-webhook.guard.ts`):
+
+   - Implementa `CanActivate`
+   - Verifica HMAC-SHA256 del body crudo contra `X-Vendelo-Signature`
+   - Dev sin secret: permite con warning. Prod sin secret: rechaza con 401
+   - Requiere `rawBody: true` en `NestFactory.create()` — habilitado en `main.ts`
+
+7. **`VendeloWebhookController`** (`apps/api/src/vendelo/vendelo-webhook.controller.ts`):
+
+   - Thin controller: `@Public() @SkipThrottle() @UseGuards(VendeloWebhookGuard)`
+   - Mapea evento Vendelo → `ShipmentStatus` (tabla de 7 eventos)
+   - Llama `SyncShipmentStatus` use case
+   - Si `updated: true`, llama `POST /api/internal/revalidate` con `x-internal-secret` para invalidar caché `orders` en Next.js
+   - Siempre responde 200 para evitar reintentos masivos
+
+8. **Cache `orders`**:
+
+   - `CACHE_TAGS.orders` agregado en `apps/web/src/lib/cache-tags.ts`
+   - `getOrderHistory` envuelta en `unstable_cache` (TTL 60s, tag `orders`)
+   - `POST /api/internal/revalidate` — endpoint Next.js con `x-internal-secret` para invalidación server-to-server
+
+**Archivos creados:**
+
+- `packages/domain/src/entities/Shipment.ts`
+- `packages/domain/src/repositories/IShipmentRepository.ts`
+- `packages/domain/src/use-cases/orders/SyncShipmentStatus.ts`
+- `apps/api/src/infrastructure/repositories/PrismaShipmentRepository.ts`
+- `apps/api/src/vendelo/guards/vendelo-webhook.guard.ts`
+- `apps/api/src/vendelo/vendelo-webhook.controller.ts`
+- `apps/web/src/app/api/internal/revalidate/route.ts`
+- `packages/database/prisma/migrations/20260601191728_add_shipment/migration.sql`
+
+**Archivos modificados:**
+
+- `packages/domain/src/index.ts` — nuevos exports
+- `packages/database/prisma/schema.prisma` — modelo `Shipment` + `Order.shipment`
+- `apps/api/src/infrastructure/injection-tokens.ts` — `SHIPMENT_REPOSITORY`
+- `apps/api/src/infrastructure/infrastructure.module.ts` — registro y export
+- `apps/api/src/vendelo/vendelo.module.ts` — `VendeloWebhookController`
+- `apps/api/src/main.ts` — `rawBody: true`
+- `apps/web/src/lib/cache-tags.ts` — tag `orders`
+- `apps/web/src/lib/queries/getOrderHistory.ts` — `unstable_cache`
+- `INTEGRACION_VENDELO.md`
+
+**Acción requerida antes de recibir webhooks de Vendelo:**
+
+1. Registrar Chatbot Connection en Vendelo (`POST /v1/admin/chatbot/connections`) apuntando a `https://<api-domain>/vendelo/webhook` con los 7 eventos de envío
+2. Guardar el secret recibido en `VENDELO_WEBHOOK_SECRET` en Railway y en `.env` local
+
+*Última actualización: 2026-06-01*
+
+---
+
+## 90. Integración Vendelo — Fase 4: operaciones logísticas admin
+
+**Qué se hizo:**
+
+Se implementaron todos los endpoints administrativos de logística para el panel de Vendelo, siguiendo Clean Architecture: use cases de dominio para operaciones con reglas de negocio, NestJS application service para las operaciones thin, y DTOs con class-validator en todos los endpoints.
+
+**Operaciones implementadas:**
+
+| Endpoint NestJS | Capa | Operación Vendelo API |
+| --- | --- | --- |
+| `POST /admin/vendelo/create-shipments` | Domain use case | `POST /v1/admin/shipping/create-shipments` |
+| `POST /admin/vendelo/generate-labels` | ShippingAdminService | `POST /v1/admin/shipping/generate-labels` |
+| `GET  /admin/vendelo/exceptions` | ShippingAdminService | `GET /v1/admin/shipping/exceptions` |
+| `GET  /admin/vendelo/exceptions/:id` | ShippingAdminService | `GET /v1/admin/shipping/exceptions/:id` |
+| `POST /admin/vendelo/exceptions/:id/resolve` | Domain use case | `POST /v1/admin/shipping/exceptions/:id/resolve` |
+| `POST /admin/vendelo/request-pickup` | ShippingAdminService | `POST /v1/admin/shipping/request-pickup` |
+
+**Decisiones de diseño relevantes:**
+
+- `CreateShipments` y `ResolveShipmentException` viven en el dominio porque tienen reglas de negocio: el primero valida que los pedidos tengan `vendeloOrderId` asignado; el segundo implementa una máquina de estados que solo permite resolver novedades en estado `PENDING`
+- `GenerateLabels`, `GetExceptions` y `RequestPickup` son operaciones thin (resolución de IDs + llamada API) → `ShippingAdminService` NestJS
+- `IVendeloShippingPort` — nuevo puerto de dominio, implementado por `VendeloService`. Dominio no importa HTTP
+- `findVendeloOrderIdsBatch` — un solo `SELECT` batch en lugar de N queries individuales
+- `generate-labels` soporta dos modos: `URL` (retorna link temporal de Vendelo) y `BASE64` (controller decodifica y sirve PDF con `Content-Disposition: attachment; Cache-Control: no-store`)
+- `encodeURIComponent(id)` en paths dinámicos hacia Vendelo — previene path traversal
+- `ArrayMaxSize(50)` en todos los DTOs de batch — previene DoS por lotes masivos
+- Errores de dominio se mapean a `422 UnprocessableEntityException` sin leak de detalles internos
+
+**Archivos creados:**
+
+- `packages/domain/src/entities/ShipmentException.ts`
+- `packages/domain/src/repositories/IVendeloShippingPort.ts`
+- `packages/domain/src/use-cases/shipping/CreateShipments.ts`
+- `packages/domain/src/use-cases/shipping/ResolveShipmentException.ts`
+- `apps/api/src/vendelo/dto/create-shipments.dto.ts`
+- `apps/api/src/vendelo/dto/generate-labels.dto.ts`
+- `apps/api/src/vendelo/dto/request-pickup.dto.ts`
+- `apps/api/src/vendelo/dto/resolve-exception.dto.ts`
+- `apps/api/src/vendelo/services/shipping-admin.service.ts`
+
+**Archivos modificados:**
+
+- `packages/domain/src/repositories/IOrderRepository.ts` — `findVendeloOrderIdsBatch`
+- `packages/domain/src/index.ts` — exports de Fase 4
+- `apps/api/src/infrastructure/injection-tokens.ts` — `VENDELO_SHIPPING_PORT`
+- `apps/api/src/infrastructure/services/VendeloService.ts` — implementa `IVendeloShippingPort` + `generateLabels`, `getExceptions`, `requestPickup`
+- `apps/api/src/infrastructure/repositories/PrismaOrderRepository.ts` — `findVendeloOrderIdsBatch`
+- `apps/api/src/infrastructure/infrastructure.module.ts` — registro `VENDELO_SHIPPING_PORT`
+- `apps/api/src/vendelo/vendelo.controller.ts` — 6 endpoints nuevos
+- `apps/api/src/vendelo/vendelo.module.ts` — registro `ShippingAdminService`
+- `INTEGRACION_VENDELO.md` — Fase 4 marcada como completada
+
+*Última actualización: 2026-06-01*
+
+---
+
+## 91. Integración Vendelo — Fase 5: Hardening
+
+**Qué se hizo:**
+
+Se implementaron los tres pilares del hardening de la integración Vendelo: observabilidad (alerta de wallet), resiliencia (Strategy Pattern para confianza del destinatario) y calidad (3 nuevas suites de tests TDD).
+
+**Decisiones de diseño relevantes:**
+
+**AlertNotificationPort:** `IAlertNotificationPort` vive en el dominio como un puerto puro. La implementación actual `LogAlertNotificationService` escribe en el logger estructurado de NestJS (visible en Railway). Para migrar a Slack o Telegram en el futuro: crear una nueva clase, cambiar `useClass` en `InfrastructureModule`. El cron emisor no necesita modificaciones.
+
+**WalletAlertCron:** Usa el mismo patrón `setInterval + OnModuleInit/OnModuleDestroy` que `VendeloOrderQueueService` y `EmailQueueService` — sin añadir `@nestjs/schedule`. Lee `VENDELO_WALLET_ALERT_THRESHOLD` dentro del callback del cron (no en el constructor) para que cambiar el umbral en las variables de Railway sea efectivo en el próximo deploy sin cambios de código. También ejecuta un chequeo al arrancar el módulo.
+
+**RecipientTrust — Strategy Pattern:** El evaluador `RecipientTrustEvaluator` recibe `IRecipientTrustStrategy[]` inyectado via `RECIPIENT_TRUST_STRATEGIES`. Para añadir un criterio nuevo: crear clase + añadir al `useFactory` en `vendelo.module.ts`. El evaluador nunca cambia. Score total 0–100: ≥80→HIGH, ≥50→MEDIUM, ≥20→LOW, <20→BLOCKED. Criterios actuales: historial (50 pts), teléfono colombiano (20 pts), completitud de dirección (30 pts).
+
+**Tests TDD:** Las 3 suites se escribieron antes de modificar cualquier use case existente. Los tests de `SyncShipmentStatus` cubren el contrato implícito del doble mecanismo de idempotencia (rank check en memoria + `atomicUpdateStatus` atómico), documentando el invariante sin que sea obvio solo leyendo el código.
+
+**Archivos creados:**
+
+- `packages/domain/src/entities/RecipientTrust.ts` — `TrustContext`, `TrustEvaluation`, `TrustLevel`, `scoreToLevel()`
+- `packages/domain/src/services/IRecipientTrustStrategy.ts` — `IRecipientTrustStrategy`, `StrategyResult`
+- `packages/domain/src/services/IAlertNotificationPort.ts` — `IAlertNotificationPort`, `AlertLevel`
+- `packages/domain/src/__tests__/CreateShipments.test.ts` — 6 tests
+- `packages/domain/src/__tests__/ResolveShipmentException.test.ts` — 7 tests (incluye `.each` con 5 estados)
+- `packages/domain/src/__tests__/SyncShipmentStatus.test.ts` — 10 tests
+- `apps/api/src/infrastructure/services/LogAlertNotificationService.ts`
+- `apps/api/src/vendelo/services/WalletAlertCron.ts`
+- `apps/api/src/vendelo/trust/RecipientTrustEvaluator.ts`
+- `apps/api/src/vendelo/trust/strategies/OrderHistoryTrustStrategy.ts`
+- `apps/api/src/vendelo/trust/strategies/PhoneFormatTrustStrategy.ts`
+- `apps/api/src/vendelo/trust/strategies/AddressCompletenessTrustStrategy.ts`
+
+**Archivos modificados:**
+
+- `packages/domain/src/index.ts` — exports `RecipientTrust`, `IRecipientTrustStrategy`, `IAlertNotificationPort`
+- `apps/api/src/infrastructure/injection-tokens.ts` — `RECIPIENT_TRUST_STRATEGIES`, `ALERT_NOTIFICATION_PORT`
+- `apps/api/src/infrastructure/infrastructure.module.ts` — `LogAlertNotificationService` + `ALERT_NOTIFICATION_PORT`
+- `apps/api/src/infrastructure/services/VendeloService.ts` — `getWalletBalance()`
+- `apps/api/src/vendelo/vendelo.module.ts` — strategies, evaluator, `WalletAlertCron`, factory `RECIPIENT_TRUST_STRATEGIES`
+- `INTEGRACION_VENDELO.md` — Fase 5 marcada como completada
+
+**Resultado:**
+
+`pnpm --filter @h2r/domain test` → 56 tests, 7 archivos, todos en verde.
+`tsc --noEmit` en `@h2r/domain` y `@h2r/api` → sin errores.
+
+*Última actualización: 2026-06-01*
+
+---
+
+## 92. Correcciones de Auditoría de Preparación para Producción — Módulo Vendelo
+
+**Qué se hizo:**
+
+Se aplicaron todas las correcciones identificadas en la auditoría de preparación para producción, cubriendo resiliencia, seguridad, observabilidad, rendimiento e idempotencia.
+
+**R-08 CRITICAL — `sync-cities` en transacción atómica**
+`deleteMany` + `createMany` ahora se ejecutan dentro de `prisma.$transaction()`. Si `createMany` falla, el rollback automático preserva los datos anteriores y el `CitySelector` del checkout continúa funcionando. Archivo: `apps/api/src/vendelo/vendelo.controller.ts`.
+
+**S-08 — `assertEnvVars()` extendido**
+`VENDELO_API_KEY` y `VENDELO_WEBHOOK_SECRET` agregados a la validación de bootstrap. El proceso ahora falla fast con código 1 si estas variables no están configuradas. Archivo: `apps/api/src/main.ts`.
+
+**S-09 — Comparación de firma timing-safe**
+`signature === expected` reemplazado por `timingSafeEqual(Buffer, Buffer)` en `VendeloWebhookGuard`. Previene timing attacks de fuerza bruta sobre la firma HMAC. Archivo: `apps/api/src/vendelo/guards/vendelo-webhook.guard.ts`.
+
+**I-05 — Protección anti-replay en webhook**
+Nuevo método `verifyTimestamp()` en el guard: valida que `X-Vendelo-Timestamp` (si presente) esté dentro de una ventana de 5 minutos. Si el header está ausente, el guard es permisivo para mantener compatibilidad con versiones antiguas de Vendelo. Archivo: `apps/api/src/vendelo/guards/vendelo-webhook.guard.ts`.
+
+**S-10 — `ParseVendeloIdPipe` para `@Param`**
+Nuevo pipe `ParseVendeloIdPipe` con whitelist `[a-zA-Z0-9_-]{1,100}` que valida los IDs de novedades en la frontera del sistema. Aplicado en `GET /exceptions/:id` y `POST /exceptions/:id/resolve`. Archivos: `apps/api/src/vendelo/pipes/parse-vendelo-id.pipe.ts`, `vendelo.controller.ts`.
+
+**R-03 + R-04 — Circuit Breaker + retry en errores de red**
+`VendeloHttpClient` reescrito con retry en errores de red (`FetchError`, `AbortError`, `ECONNREFUSED`) y Circuit Breaker de 3 estados: CLOSED → OPEN (5 fallos) → HALF_OPEN (60s) → CLOSED. `sleep` es `protected` para tests. `getCircuitState()` expuesto para health checks. Archivo: `apps/api/src/infrastructure/services/VendeloHttpClient.ts`.
+
+**O-05 — Correlation IDs en `VendeloOrderQueueService`**
+Todos los mensajes del ciclo de procesamiento incluyen el prefijo `orderId={} queueId={} intento={}/{}` consistentemente. Archivo: `apps/api/src/infrastructure/services/VendeloOrderQueueService.ts`.
+
+**P-06 — Invalidación de caché per-usuario**
+`SyncShipmentStatusOutput` incluye `userId`. `getOrderHistory` agrega tag `orders:{userId}`. `VendeloWebhookController` invalida solo `orders:{userId}` en lugar de toda la caché de pedidos. Archivos: `SyncShipmentStatus.ts`, `getOrderHistory.ts`, `vendelo-webhook.controller.ts`.
+
+**Archivos creados:**
+
+- `apps/api/src/vendelo/pipes/parse-vendelo-id.pipe.ts`
+- `apps/api/src/__tests__/VendeloHttpClient.test.ts` — 10 tests
+- `apps/api/src/__tests__/VendeloWebhookGuard.test.ts` — 11 tests
+- `apps/api/src/__tests__/ParseVendeloIdPipe.test.ts` — 7 tests
+
+**Archivos modificados:**
+
+- `apps/api/src/main.ts`, `vendelo/vendelo.controller.ts`, `vendelo/guards/vendelo-webhook.guard.ts`
+- `apps/api/src/infrastructure/services/VendeloHttpClient.ts`, `VendeloOrderQueueService.ts`
+- `packages/domain/src/use-cases/orders/SyncShipmentStatus.ts`
+- `apps/web/src/lib/queries/getOrderHistory.ts`
+- `apps/api/src/vendelo/vendelo-webhook.controller.ts`
+- `apps/api/src/__tests__/wompi.controller.test.ts` — agrega mock de `VendeloOrderQueueService`
+
+**Resultado:**
+
+`pnpm --filter @h2r/domain test` → 84 tests, 10 archivos, todos en verde.
+`pnpm --filter @h2r/api test` → 49 tests, 6 archivos, todos en verde.
+`tsc --noEmit` en `@h2r/domain` y `@h2r/api` → sin errores.
+
+*Última actualización: 2026-06-01*
+
+---
+
+## 93. Documentación de migración Railway → Google Cloud Platform
+
+**Qué se hizo:**
+
+Se diseñó e implementó el plan completo de migración del backend NestJS desde Railway hacia Google Cloud Platform, priorizando Cloud Run como servicio de destino. Se crearon los archivos de infraestructura necesarios y se documentó todo el proceso.
+
+**Archivos creados:**
+
+- `MIGRACION_GOOGLE_CLOUD.md` — documento completo con arquitectura, Dockerfile, CI/CD, costos y secuencia de migración
+- `apps/api/Dockerfile` — build multi-stage (4 stages) del monorepo pnpm: `base → deps → builder → runner`. Stage `builder` corre `pnpm db:generate` + `nest build`; stage `runner` solo contiene `dist/`, cliente Prisma generado y dependencias de producción. Imagen final ~300 MB
+- `.dockerignore` — excluye `apps/web`, `node_modules`, `.next`, `.turbo` y `generated/` del contexto de build. Reduce el contexto de ~500 MB a ~50 MB
+
+**Archivos modificados:**
+
+- `.github/workflows/ci.yml` — job `deploy` añadido al final del pipeline. Se activa solo en `push` a `main`, depende de `build-api`, autentica con GCP via Workload Identity Federation (sin JSON keys), pushea imagen a Artifact Registry e invoca `gcloud run deploy` con `--set-secrets` para inyectar los 14 secretos desde Secret Manager
+
+**Decisiones de arquitectura:**
+
+- **Cloud Run** elegido sobre App Engine y Compute Engine: escala a cero, `PORT` dinámico ya configurado en `main.ts:120`, handler `SIGTERM` ya existe en `database/src/index.ts:74`
+- **Mantener Neon** como base de datos: no está en Railway, el cambio no la afecta; migrar a Cloud SQL solo si se necesita latencia <2 ms o VPC privada
+- **Workload Identity Federation** en lugar de JSON keys: sin credenciales permanentes en GitHub Secrets
+- **Secret Manager** para los 14 secretos de runtime: se inyectan como env vars en Cloud Run, cero cambios en el código de la app
+- **Cero cambios en la lógica de negocio**: la app NestJS ya era compatible con Cloud Run antes de esta tarea
+
+**Costo estimado:** $0.04–$5/mes vs $5–15/mes en Railway para el nivel de tráfico actual
+
+*Última actualización: 2026-06-02*
+
+---
+
+## 94. Auditoría de Seguridad y Corrección — Integración Wompi
+
+Se realizó una auditoría completa de la integración con la pasarela de pagos Wompi, cubriendo 5 ejes: seguridad de credenciales, integridad de datos, manejo de webhooks, resiliencia ante errores, y experiencia de usuario post-pago. Se identificaron 1 vulnerabilidad crítica (IDOR), 2 bugs funcionales altos y 5 riesgos medios/bajos. Todos fueron corregidos en la misma sesión.
+
+---
+
+### Correcciones aplicadas
+
+#### Fix #1 — CRÍTICO: Eliminación del endpoint IDOR `POST /payments/wompi/integrity`
+
+El endpoint era `@Public()` y aceptaba `amountInCents` arbitrario desde el cliente, lo que permitía generar firmas de integridad SHA-256 válidas para montos incorrectos. El frontend nunca lo usaba (la firma ya venía en la respuesta de `POST /orders`). Se eliminó el método `integrity()` del controlador, el `WompiIntegrityDto` y los tests del endpoint eliminado.
+
+Archivos modificados:
+
+- `apps/api/src/payments/wompi.controller.ts` — método `integrity()` eliminado; import `WompiIntegrityDto` eliminado
+- `apps/api/src/payments/dto/wompi-integrity.dto.ts` — **archivo eliminado**
+- `apps/api/src/__tests__/wompi.controller.test.ts` — bloque `describe('POST /payments/wompi/integrity')` y `vi.stubEnv` de integridad eliminados
+
+#### Fix #2 — ALTO: Limpieza del carrito tras pago exitoso
+
+`WompiWidget` hacía un full-page redirect a Wompi; tras el redirect de vuelta a `/checkout/confirmacion`, el carrito Zustand nunca se limpiaba porque `onSuccess` era una prop declarada pero nunca invocada. Se creó `CartCleaner` (Client Component) que se monta en la página de confirmación solo cuando `status === 'PAID'` y llama a `clearCart()` via `useEffect`. Se eliminó la prop `onSuccess` de `WompiWidget` para evitar confusión futura.
+
+Archivos creados:
+
+- `apps/web/src/components/checkout/CartCleaner.tsx`
+
+Archivos modificados:
+
+- `apps/web/src/app/(store)/checkout/confirmacion/page.tsx` — monta `<CartCleaner orderId={order.id} />` cuando `isPaid`
+- `apps/web/src/components/checkout/WompiWidget.tsx` — prop `onSuccess` eliminada de la interfaz y la firma
+- `apps/web/src/components/checkout/CheckoutForm.tsx` — `clearCart` eliminado del destructuring de `useCart()`; `onSuccess` eliminado del JSX
+
+#### Fix #3 — ALTO: `WOMPI_PUBLIC_KEY` y `WOMPI_PRIVATE_KEY` en `assertEnvVars()`
+
+Ambas variables faltaban en la validación de arranque. Con `WOMPI_PUBLIC_KEY` vacío, el widget se inicializa con clave pública vacía y todos los pagos fallan silenciosamente en el cliente. Se agregaron al array `required` en `assertEnvVars()`.
+
+Archivos modificados:
+
+- `apps/api/src/main.ts` — `'WOMPI_PUBLIC_KEY'` y `'WOMPI_PRIVATE_KEY'` agregados a `required[]`
+
+#### Fix #4 — MEDIO: `Logger` de NestJS en `WompiService` (API)
+
+`validateWebhook()` usaba `console.error` y `console.warn` directamente, bypaseando el pipeline JSON de `StructuredLogger`. Con `bufferLogs: true` en NestJS, esos mensajes no aparecían en Railway con el formato estructurado. Se reemplazaron todos los `console.*` por `this.logger.*` usando `new Logger(WompiService.name)`.
+
+Archivos modificados:
+
+- `apps/api/src/infrastructure/services/WompiService.ts` — `Logger` importado; `private readonly logger` declarado; 5 llamadas a `console.*` reemplazadas
+
+#### Fix #5 — MEDIO: Job de reconciliación `WompiReconciliationService`
+
+Sin este job, un pedido cuyo webhook se perdió permanecía en `PENDING` indefinidamente. El servicio corre cada 15 minutos, busca pedidos `PENDING` con `paymentProvider = WOMPI`, más de 15 minutos de antigüedad y con `Payment.externalId` no nulo, consulta `GET /v1/transactions/:id` en Wompi y ejecuta `ConfirmPayment` con el estado real. Procesa máximo 20 pedidos por ciclo. Errores de red por pedido se capturan individualmente para no interrumpir el batch.
+
+Archivos creados:
+
+- `apps/api/src/infrastructure/services/WompiReconciliationService.ts`
+
+Archivos modificados:
+
+- `apps/api/src/infrastructure/infrastructure.module.ts` — `WompiReconciliationService` importado y registrado en `providers[]`
+
+#### Fix #6 — MEDIO: Polling automático en página de confirmación para estado PENDING
+
+Si el webhook aún no llegó cuando el usuario aterriza en `/checkout/confirmacion`, la página mostraba "Pago en procesamiento" para siempre sin actualizarse. Se añadió `OrderStatusPoller` (Client Component) que cada 5 segundos invoca una Server Action para consultar el `Order.status` directamente contra Prisma. Cuando el status ya no es `PENDING`, llama a `router.refresh()` para que el Server Component se re-renderice con los datos actualizados. Se detiene automáticamente tras 3 minutos (36 intentos) o cuando el estado cambia.
+
+Archivos creados:
+
+- `apps/web/src/components/checkout/OrderStatusPoller.tsx`
+- `apps/web/src/app/(store)/checkout/confirmacion/actions.ts` — Server Action `getOrderStatus(orderId)`
+
+Archivos modificados:
+
+- `apps/web/src/app/(store)/checkout/confirmacion/page.tsx` — monta `<OrderStatusPoller orderId={order.id} />` cuando `isPending`
+
+#### Fix #7 — BAJO: Eliminación de `WompiService` duplicado en `apps/web`
+
+`apps/web/src/infrastructure/services/WompiService.ts` era código muerto: ningún componente del frontend lo importaba, y contenía `validateWebhook()` y `getTransactionStatus()` que no tienen sentido en contexto de browser. Eliminado sin referencias rotas.
+
+Archivos eliminados:
+
+- `apps/web/src/infrastructure/services/WompiService.ts`
+
+#### Fix #8 — BAJO: `AppError` en `getTransactionStatus()`
+
+`throw new Error(...)` reemplazado por `throw new AppError('INTERNAL_ERROR', ...)` para que el `HttpExceptionFilter` global lo mapee correctamente con código de error estructurado.
+
+Archivos modificados:
+
+- `apps/api/src/infrastructure/services/WompiService.ts` — `AppError` importado; `throw new Error(...)` reemplazado
+
+---
+
+### Veredicto de producción post-correcciones
+
+**¿Está lista la integración Wompi para producción? → SÍ.** Todos los riesgos de seguridad, funcionales y de resiliencia de la integración Wompi están resueltos.
+
+**¿Está lista la aplicación completa para producción? → CASI — 1 bloqueante menor.** Durante la revisión se constató que los otros dos bloqueantes de la auditoría v2.0 ya estaban resueltos antes de esta sesión:
+
+| Bloqueante auditoría v2.0 | Estado actual |
+| --- | --- |
+| Rate limiter en memoria | ✅ Resuelto — `rate-limit.ts` es no-op; enforcement real en NestJS `ThrottlerGuard` |
+| Sin monitoreo externo | ✅ Resuelto — `apps/api/src/instrument.ts` con `@sentry/nestjs`; `SentryModule.forRoot()` en `AppModule`; modo no-op si `SENTRY_DSN` no está configurada |
+| Sin health check | ✅ Resuelto — `GET /health` con `SELECT 1` en `app.controller.ts` |
+
+**Bloqueante pendiente único:** `/auth/error` page no existe. `apps/web/src/lib/auth.ts` configura `pages: { error: '/auth/error' }` pero `apps/web/src/app/auth/error/page.tsx` no existe. Cualquier error de OAuth (cuenta duplicada, token inválido, OAuth cancelado) genera un 404 en lugar de una pantalla de error manejada. Impacta al 100% de los flujos de login con Google que fallen. Tiempo estimado de resolución: menos de 1 hora.
+
+---
+
+### Resultado de tests
+
+```text
+pnpm --filter @h2r/api test → 47 tests, 6 archivos, todos en verde
+pnpm --filter @h2r/api exec tsc --noEmit → sin errores
+pnpm --filter @h2r/web exec tsc --noEmit → sin errores en archivos modificados
+```
+
+**Fix #9 — CRÍTICO (descubierto en revisión pre-producción): `ShippingAddressDto` desincronizado con dominio**
+
+`ShippingAddressDto` declaraba `department: string` como obligatorio (`@IsNotEmpty()`) pero el frontend nunca lo enviaba (el `CitySelector` no expone nombre de departamento). Además enviaba `cityCode` y `subdivisionCode` que no estaban en el DTO; con `forbidNonWhitelisted: true` eso hacía que **cada `POST /orders` fallara con HTTP 400**, haciendo imposible completar ningún pedido. El fix alinea el DTO con la interfaz `ShippingAddress` del dominio: `department`, `cityCode` y `subdivisionCode` pasan a ser opcionales con `@IsOptional()`.
+
+Archivos modificados:
+
+- `apps/api/src/orders/dto/create-order.dto.ts` — `department` cambiado a opcional; `cityCode?` y `subdivisionCode?` agregados como opcionales
+
+*Última actualización: 2026-06-02*

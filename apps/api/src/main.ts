@@ -45,8 +45,12 @@ function assertEnvVars(): void {
     'DATABASE_URL',
     'JWT_SECRET',
     'INTERNAL_API_SECRET',
+    'WOMPI_PUBLIC_KEY',
+    'WOMPI_PRIVATE_KEY',
     'WOMPI_EVENTS_SECRET',
     'WOMPI_INTEGRITY_SECRET',
+    'VENDELO_API_KEY',
+    'VENDELO_WEBHOOK_SECRET',
   ]
   const missing = required.filter((k) => !process.env[k])
   if (missing.length > 0) {
@@ -58,7 +62,7 @@ function assertEnvVars(): void {
 async function bootstrap() {
   assertEnvVars()
   const structuredLogger = new StructuredLogger()
-  const app = await NestFactory.create(AppModule, { bufferLogs: true })
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true })
   app.useLogger(structuredLogger)
 
   // Seguridad y compresión

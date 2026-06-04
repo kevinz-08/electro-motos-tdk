@@ -176,10 +176,32 @@ model Order {
   total           Int             // centavos COP
   shippingAddress Json
   paymentProvider PaymentProvider
+  /// ID del pedido creado en Vendelo API. Null hasta que VendeloOrderQueueService lo procesa.
+  vendeloOrderId  String?
   createdAt       DateTime        @default(now())
   user            User            @relation(fields: [userId], references: [id])
   items           OrderItem[]
   payment         Payment?
+  shipment        Shipment?
+}
+
+/// Envío asociado a un pedido. Se crea cuando Vendelo dispara el primer webhook
+/// del Chatbot Connection (ORDER_SHIPPED, SHIPMENT_STATUS_UPDATED, etc.).
+/// Relación 1:1 con Order.
+model Shipment {
+  id             String   @id @default(cuid())
+  orderId        String   @unique
+  /// Estado del envío — mapeado desde los eventos del Chatbot Connection de Vendelo.
+  /// PENDING | READY | PREPARING | SHIPPED | INCIDENT | DELIVERED | RETURNED | CANCELLED
+  status         String   @default("PENDING")
+  trackingNumber String?
+  carrier        String?
+  labelUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 model OrderItem {
@@ -221,4 +243,33 @@ model EmailQueue {
   nextRetry DateTime @default(now())
 
   @@index([status, nextRetry])
+}
+
+/// Cola de órdenes pendientes de crear en Vendelo API.
+/// Se crea una entrada cuando un pago se confirma (APPROVED).
+/// VendeloOrderQueueService la procesa cada 2 min con backoff exponencial (5s→30s→120s).
+model VendeloOrderQueue {
+  id        String   @id @default(cuid())
+  orderId   String
+  attempts  Int      @default(0)
+  lastError String?
+  /// PENDING | SENT | FAILED
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  nextRetry DateTime @default(now())
+
+  @@index([status, nextRetry])
+}
+
+/// Catálogo de ciudades colombianas con sus códigos Vendelo.
+/// Se pobla via POST /admin/vendelo/sync-cities y se cachea 24h en el checkout.
+model VendeloCity {
+  /// Código DIVIPOLA de 8 dígitos. Ej: "05001000" = Medellín
+  code            String @id
+  name            String
+  /// Código de subdivisión dentro de la ciudad. Ej: "02"
+  subdivisionCode String
+  countryCode     String @default("CO")
+
+  @@index([name])
 }

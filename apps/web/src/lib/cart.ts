@@ -176,6 +176,7 @@ export function useCart() {
 
   // Crear el store si no existe para este usuario, o recuperar el existente del caché
   if (!stores[storageKey]) {
+    // eslint-disable-next-line react-hooks/immutability
     stores[storageKey] = createCartStore(storageKey)
   }
 

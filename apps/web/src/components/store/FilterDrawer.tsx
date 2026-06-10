@@ -88,6 +88,7 @@ export function FilterDrawer({
   )
 
   // Sincronizar si los params externos cambian (navegación back/forward)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setSelCategory(currentCategory ?? '')
     setInStock(currentInStock === 'true')

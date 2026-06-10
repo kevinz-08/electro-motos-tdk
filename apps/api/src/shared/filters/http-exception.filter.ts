@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 import * as Sentry from '@sentry/nestjs'
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 import { AppError } from '@h2r/domain'
 
 /** Mapeo de AppError.code del dominio a status HTTP */

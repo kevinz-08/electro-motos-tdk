@@ -17,6 +17,9 @@ RUN pnpm install --frozen-lockfile
 # ── Stage 3: build ─────────────────────────────────────────────────────────────
 FROM deps AS builder
 
+# tsconfig base requerido por Prisma generate
+COPY tsconfig.base.json ./
+
 # Fuente completa de los paquetes workspace
 COPY packages/domain ./packages/domain
 COPY packages/database ./packages/database

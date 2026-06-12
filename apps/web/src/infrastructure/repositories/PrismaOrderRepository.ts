@@ -266,4 +266,14 @@ export class PrismaOrderRepository implements IOrderRepository {
   async getTotalCount(): Promise<number> {
     return prisma.order.count()
   }
+
+  async findVendeloOrderIdsBatch(
+    orderIds: string[],
+  ): Promise<Array<{ id: string; vendeloOrderId: string | null }>> {
+    const rows = await prisma.order.findMany({
+      where: { id: { in: orderIds } },
+      select: { id: true, vendeloOrderId: true },
+    })
+    return rows.map((r) => ({ id: r.id, vendeloOrderId: r.vendeloOrderId }))
+  }
 }

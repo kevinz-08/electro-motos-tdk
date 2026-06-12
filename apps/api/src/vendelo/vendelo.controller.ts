@@ -2,7 +2,7 @@ import {
   Controller, Get, Post, Param, Body, HttpCode, Inject, Res, Logger,
   UnprocessableEntityException,
 } from '@nestjs/common'
-import { Response } from 'express'
+import type { Response } from 'express'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { VendeloService } from '../infrastructure/services/VendeloService'

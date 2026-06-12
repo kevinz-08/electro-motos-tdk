@@ -112,7 +112,7 @@ export function CitySelector({ value, onChange, required, disabled }: CitySelect
             </li>
           ))}
           {!loading && results.length === 0 && query.length >= 2 && (
-            <li className="px-4 py-2.5 text-gray-400">Sin resultados para "{query}"</li>
+            <li className="px-4 py-2.5 text-gray-400">Sin resultados para &quot;{query}&quot;</li>
           )}
         </ul>
       )}

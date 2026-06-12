@@ -3620,3 +3620,43 @@ JSX contenía comillas literales `"` en el texto `Sin resultados para "{query}"`
 - `fix(web): escape quotes in CitySelector no-results message`
 
 *Última actualización: 2026-06-12*
+
+---
+
+### 46.4 Corrección de errores de type-check y deploy en CI
+
+**Contexto:** El CI continuó fallando tras resolver el lint. Se identificaron dos errores de TypeScript en `apps/web` y dos errores de permisos GCP en el job de deploy.
+
+**Bug 9 — `revalidateTag` con argumento faltante:**
+`apps/web/src/app/api/internal/revalidate/route.ts` llamaba `revalidateTag(tag)` con un solo argumento. Next.js 16 requiere un segundo argumento `type: 'max' | 'current'`. Corregido a `revalidateTag(tag, 'max')`, consistente con el endpoint admin equivalente en `apps/web/src/app/api/admin/revalidate/route.ts`.
+
+**Bug 10 — `findVendeloOrderIdsBatch` faltante en el repo de `apps/web`:**
+El sprint de Vendelo agregó el método `findVendeloOrderIdsBatch` a la interfaz `IOrderRepository` en `packages/domain` e implementó en `apps/api`, pero nunca se implementó en `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts`. Ambas apps tienen implementaciones paralelas del contrato (arquitectura intencional para SSR directo). Agregado el método usando `prisma.order.findMany` con `select: { id, vendeloOrderId }`.
+
+**Bug 11 — Permiso IAM faltante para deploy a Cloud Run:**
+El job de deploy fallaba con `Permission 'iam.serviceaccounts.actAs' denied on service account 378308641940-compute@developer.gserviceaccount.com`. `roles/run.admin` no incluye el permiso para asignar la SA de runtime. Solución: otorgar `roles/iam.serviceAccountUser` al deployer SA sobre la SA de Compute Engine:
+
+```bash
+gcloud iam service-accounts add-iam-policy-binding \
+  378308641940-compute@developer.gserviceaccount.com \
+  --member="serviceAccount:github-deploy@h2r-online-store.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser" \
+  --project=h2r-online-store
+```
+
+**Bug 12 — `MERCADOPAGO_ACCESS_TOKEN` no existe en Secret Manager:**
+Cloud Run fallaba al crear la revisión porque el secret `MERCADOPAGO_ACCESS_TOKEN` fue cargado en Secret Manager pero Mercado Pago no se va a usar en el corto plazo. Eliminado de `--set-secrets` en el CI. El secret permanece en Secret Manager pero no se inyecta al contenedor.
+
+**Archivos modificados:**
+
+- `apps/web/src/app/api/internal/revalidate/route.ts` — segundo argumento `'max'` en `revalidateTag`
+- `apps/web/src/infrastructure/repositories/PrismaOrderRepository.ts` — método `findVendeloOrderIdsBatch` agregado
+- `.github/workflows/ci.yml` — `MERCADOPAGO_ACCESS_TOKEN` removido de `--set-secrets`
+
+**Commits:**
+
+- `fix(web): fix type-check errors blocking CI`
+- `ci: re-trigger deploy after IAM fix`
+- `ci: remove MERCADOPAGO_ACCESS_TOKEN from Cloud Run secrets`
+
+*Última actualización: 2026-06-12*

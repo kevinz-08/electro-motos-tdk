@@ -88,13 +88,17 @@ export class ResendEmailService {
   /** Email con código OTP de 6 dígitos para verificar el correo al registrarse. Expira en 10 minutos. */
   async sendOtpVerification(customerEmail: string, name: string, otpCode: string): Promise<void> {
     if (!this.resend) return
-    const { error } = await this.resend.emails.send({
+    const { data, error } = await this.resend.emails.send({
       from: this.from,
       to: customerEmail,
       subject: `${otpCode} es tu código de verificación — H2R Online Store`,
       html: this.buildOtpEmail(name, otpCode),
     })
-    if (error) this.logger.error(`sendOtpVerification failed email=${customerEmail}: ${JSON.stringify(error)}`)
+    if (error) {
+      this.logger.error(`sendOtpVerification FAILED email=${customerEmail}: ${JSON.stringify(error)}`)
+    } else {
+      this.logger.log(`sendOtpVerification OK email=${customerEmail} resendId=${data?.id}`)
+    }
   }
 
   /** Email con enlace para restablecer la contraseña. Token expira en 1 hora. */

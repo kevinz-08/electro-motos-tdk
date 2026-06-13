@@ -22,131 +22,113 @@ export class ResendEmailService {
   /** Email inmediato al crear el pedido (estado PENDING). */
   async sendOrderReceived(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
-    try {
-      await this.resend.emails.send({
-        from: this.from,
-        to: customerEmail,
-        subject: `Recibimos tu pedido #${order.id.slice(-8).toUpperCase()} ⚡`,
-        html: this.buildEmail({
-          accentColor: '#0ea5e9',
-          icon: '📦',
-          heading: 'Pedido recibido',
-          intro: `Estamos procesando tu pago. En cuanto sea confirmado, te enviaremos otro correo.`,
-          orderId: order.id,
-          total: order.total,
-          address: order.shippingAddress,
-          cta: { label: 'Ver mi pedido', href: `${this.frontendUrl}/checkout/confirmacion?orderId=${order.id}` },
-        }),
-      })
-    } catch (e) {
-      this.logger.error(`sendOrderReceived failed orderId=${order.id}: ${e}`)
-    }
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: customerEmail,
+      subject: `Recibimos tu pedido #${order.id.slice(-8).toUpperCase()} ⚡`,
+      html: this.buildEmail({
+        accentColor: '#0ea5e9',
+        icon: '📦',
+        heading: 'Pedido recibido',
+        intro: `Estamos procesando tu pago. En cuanto sea confirmado, te enviaremos otro correo.`,
+        orderId: order.id,
+        total: order.total,
+        address: order.shippingAddress,
+        cta: { label: 'Ver mi pedido', href: `${this.frontendUrl}/checkout/confirmacion?orderId=${order.id}` },
+      }),
+    })
+    if (error) this.logger.error(`sendOrderReceived failed orderId=${order.id}: ${JSON.stringify(error)}`)
   }
 
   /** Email al confirmar que el pago fue APROBADO (estado PAID). */
   async sendOrderConfirmation(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
-    try {
-      await this.resend.emails.send({
-        from: this.from,
-        to: customerEmail,
-        subject: `¡Pago confirmado! Pedido #${order.id.slice(-8).toUpperCase()} 🏍️`,
-        html: this.buildEmail({
-          accentColor: '#16a34a',
-          icon: '✅',
-          heading: '¡Pago confirmado!',
-          intro: 'Tu pedido fue aprobado y está siendo preparado para envío.',
-          orderId: order.id,
-          total: order.total,
-          address: order.shippingAddress,
-          cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
-          footer: 'Te notificaremos cuando tu pedido sea despachado.',
-        }),
-      })
-    } catch (e) {
-      this.logger.error(`sendOrderConfirmation failed orderId=${order.id}: ${e}`)
-    }
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: customerEmail,
+      subject: `¡Pago confirmado! Pedido #${order.id.slice(-8).toUpperCase()} 🏍️`,
+      html: this.buildEmail({
+        accentColor: '#16a34a',
+        icon: '✅',
+        heading: '¡Pago confirmado!',
+        intro: 'Tu pedido fue aprobado y está siendo preparado para envío.',
+        orderId: order.id,
+        total: order.total,
+        address: order.shippingAddress,
+        cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
+        footer: 'Te notificaremos cuando tu pedido sea despachado.',
+      }),
+    })
+    if (error) this.logger.error(`sendOrderConfirmation failed orderId=${order.id}: ${JSON.stringify(error)}`)
   }
 
   /** Email cuando el envío sale del almacén (estado SHIPPED). */
   async sendShippingNotification(order: Order, customerEmail: string, trackingNumber?: string): Promise<void> {
     if (!this.resend) return
-    try {
-      await this.resend.emails.send({
-        from: this.from,
-        to: customerEmail,
-        subject: `Tu pedido #${order.id.slice(-8).toUpperCase()} está en camino 🚚`,
-        html: this.buildEmail({
-          accentColor: '#2563eb',
-          icon: '🚚',
-          heading: '¡Tu pedido está en camino!',
-          intro: trackingNumber
-            ? `Número de seguimiento: <strong>${trackingNumber}</strong>`
-            : 'Tu pedido salió de nuestro almacén y está en camino.',
-          orderId: order.id,
-          total: order.total,
-          address: order.shippingAddress,
-          cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
-        }),
-      })
-    } catch (e) {
-      this.logger.error(`sendShippingNotification failed orderId=${order.id}: ${e}`)
-    }
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: customerEmail,
+      subject: `Tu pedido #${order.id.slice(-8).toUpperCase()} está en camino 🚚`,
+      html: this.buildEmail({
+        accentColor: '#2563eb',
+        icon: '🚚',
+        heading: '¡Tu pedido está en camino!',
+        intro: trackingNumber
+          ? `Número de seguimiento: <strong>${trackingNumber}</strong>`
+          : 'Tu pedido salió de nuestro almacén y está en camino.',
+        orderId: order.id,
+        total: order.total,
+        address: order.shippingAddress,
+        cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
+      }),
+    })
+    if (error) this.logger.error(`sendShippingNotification failed orderId=${order.id}: ${JSON.stringify(error)}`)
   }
 
   /** Email con código OTP de 6 dígitos para verificar el correo al registrarse. Expira en 10 minutos. */
   async sendOtpVerification(customerEmail: string, name: string, otpCode: string): Promise<void> {
     if (!this.resend) return
-    try {
-      await this.resend.emails.send({
-        from: this.from,
-        to: customerEmail,
-        subject: `${otpCode} es tu código de verificación — H2R Online Store`,
-        html: this.buildOtpEmail(name, otpCode),
-      })
-    } catch (e) {
-      this.logger.error(`sendOtpVerification failed email=${customerEmail}: ${e}`)
-    }
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: customerEmail,
+      subject: `${otpCode} es tu código de verificación — H2R Online Store`,
+      html: this.buildOtpEmail(name, otpCode),
+    })
+    if (error) this.logger.error(`sendOtpVerification failed email=${customerEmail}: ${JSON.stringify(error)}`)
   }
 
   /** Email con enlace para restablecer la contraseña. Token expira en 1 hora. */
   async sendPasswordReset(customerEmail: string, name: string, rawToken: string): Promise<void> {
     if (!this.resend) return
     const resetUrl = `${this.frontendUrl}/auth/reset-password/${rawToken}`
-    try {
-      await this.resend.emails.send({
-        from: this.from,
-        to: customerEmail,
-        subject: 'Recupera tu contraseña — H2R Online Store',
-        html: this.buildPasswordResetEmail(name, resetUrl),
-      })
-    } catch (e) {
-      this.logger.error(`sendPasswordReset failed email=${customerEmail}: ${e}`)
-    }
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: customerEmail,
+      subject: 'Recupera tu contraseña — H2R Online Store',
+      html: this.buildPasswordResetEmail(name, resetUrl),
+    })
+    if (error) this.logger.error(`sendPasswordReset failed email=${customerEmail}: ${JSON.stringify(error)}`)
   }
 
   /** Email cuando la pasarela rechaza el pago. */
   async sendPaymentDeclined(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
-    try {
-      await this.resend.emails.send({
-        from: this.from,
-        to: customerEmail,
-        subject: `Problema con tu pago — Pedido #${order.id.slice(-8).toUpperCase()}`,
-        html: this.buildEmail({
-          accentColor: '#dc2626',
-          icon: '❌',
-          heading: 'El pago no pudo procesarse',
-          intro: 'Tu pago fue rechazado. Puedes intentarlo nuevamente con otro método de pago.',
-          orderId: order.id,
-          total: order.total,
-          address: order.shippingAddress,
-          cta: { label: 'Volver al carrito', href: `${this.frontendUrl}/carrito` },
-        }),
-      })
-    } catch (e) {
-      this.logger.error(`sendPaymentDeclined failed orderId=${order.id}: ${e}`)
-    }
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: customerEmail,
+      subject: `Problema con tu pago — Pedido #${order.id.slice(-8).toUpperCase()}`,
+      html: this.buildEmail({
+        accentColor: '#dc2626',
+        icon: '❌',
+        heading: 'El pago no pudo procesarse',
+        intro: 'Tu pago fue rechazado. Puedes intentarlo nuevamente con otro método de pago.',
+        orderId: order.id,
+        total: order.total,
+        address: order.shippingAddress,
+        cta: { label: 'Volver al carrito', href: `${this.frontendUrl}/carrito` },
+      }),
+    })
+    if (error) this.logger.error(`sendPaymentDeclined failed orderId=${order.id}: ${JSON.stringify(error)}`)
   }
 
   // ─── Template builder ────────────────────────────────────────────────────────

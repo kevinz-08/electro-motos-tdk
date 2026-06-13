@@ -246,14 +246,10 @@ export function Navbar() {
 
   // Toast de logout
   useEffect(() => {
-    if (searchParams.get('msg') === 'logout') {
+    if (sessionStorage.getItem('tdk-logout') === '1') {
+      sessionStorage.removeItem('tdk-logout')
       toast.info('Cerraste sesión correctamente')
-      const params = new URLSearchParams(searchParams.toString())
-      params.delete('msg')
-      const clean = params.toString()
-      router.replace(clean ? `${pathname}?${clean}` : pathname)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Cerrar dropdowns al cambiar de ruta
@@ -366,7 +362,7 @@ export function Navbar() {
 
               <div className="my-1 border-t border-white/10" />
               <button
-                onClick={() => { signOut({ callbackUrl: '/?msg=logout' }); setUserOpen(false) }}
+                onClick={() => { sessionStorage.setItem('tdk-logout', '1'); signOut({ callbackUrl: '/' }); setUserOpen(false) }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -701,7 +697,7 @@ export function Navbar() {
                   </button>
                 </div>
                 <button
-                  onClick={() => { signOut({ callbackUrl: '/?msg=logout' }); setMobileOpen(false) }}
+                  onClick={() => { sessionStorage.setItem('tdk-logout', '1'); signOut({ callbackUrl: '/' }); setMobileOpen(false) }}
                   className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                 >
                   Cerrar sesión

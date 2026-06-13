@@ -20,6 +20,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { toast } from 'sonner'
 import { Product } from '@h2r/domain'
 import { useCart } from '@/lib/cart'
 import { cloudinaryUrl, IMAGE_BLUR_PLACEHOLDER } from '@/lib/cloudinary'
@@ -64,6 +65,7 @@ function CartHoverButton({ product }: { product: Product }) {
     e.stopPropagation()
     if (added) return          // evitar doble click durante animación
     addItem(product, 1)
+    toast.success('Agregado al carrito', { description: product.name })
     setAdded(true)
     timerRef.current = setTimeout(() => setAdded(false), 1800)
   }

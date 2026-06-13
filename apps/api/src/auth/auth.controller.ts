@@ -7,6 +7,8 @@ import { LoginDto } from './dto/login.dto'
 import { SessionTokenDto } from './dto/session-token.dto'
 import { ForgotPasswordDto } from './dto/forgot-password.dto'
 import { ResetPasswordDto } from './dto/reset-password.dto'
+import { VerifyEmailDto } from './dto/verify-email.dto'
+import { ResendOtpDto } from './dto/resend-otp.dto'
 import { Public } from './decorators/public.decorator'
 
 @ApiTags('auth')
@@ -18,7 +20,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(201)
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
-  @ApiOperation({ summary: 'Registrar nuevo usuario' })
+  @ApiOperation({ summary: 'Registrar nuevo usuario y enviar OTP de verificación' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto)
   }
@@ -26,15 +28,27 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  @ApiOperation({ summary: 'Iniciar sesión y obtener JWT' })
+  @ApiOperation({ summary: 'Iniciar sesión y obtener JWT (requiere email verificado)' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto)
   }
 
-  /**
-   * Endpoint interno: emite un JWT NestJS para un usuario ya autenticado via OAuth (Google).
-   * Solo accesible desde el servidor Next.js mediante el secreto compartido INTERNAL_API_SECRET.
-   */
+  @Post('verify-email')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @ApiOperation({ summary: 'Verificar email con código OTP de 6 dígitos' })
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto)
+  }
+
+  @Post('resend-otp')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 600_000, limit: 3 } })
+  @ApiOperation({ summary: 'Reenviar código OTP (anti-enumeración, siempre responde 200)' })
+  resendOtp(@Body() dto: ResendOtpDto) {
+    return this.authService.resendOtp(dto)
+  }
+
   @Post('session-token')
   @SkipThrottle()
   @HttpCode(200)

@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     : (session.user?.email?.[0] ?? 'A').toUpperCase()
 
   return (
-    <div className="flex h-screen bg-[#080808] overflow-hidden">
+    <div className="fixed inset-0 flex bg-[#080808] overflow-hidden">
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <aside className="w-[220px] shrink-0 flex flex-col border-r border-white/[0.06]">

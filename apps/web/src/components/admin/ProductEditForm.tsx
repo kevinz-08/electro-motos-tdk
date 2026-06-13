@@ -29,6 +29,13 @@ interface ProductEditFormProps {
 
 const INPUT_CLASS = 'w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors'
 
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ''
+
+function toImageUrl(publicIdOrUrl: string): string {
+  if (publicIdOrUrl.startsWith('http')) return publicIdOrUrl
+  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicIdOrUrl}`
+}
+
 export function ProductEditForm({ product, categories, initialBenefits = [] }: ProductEditFormProps) {
   const router = useRouter()
   const { data: session } = useSession()
@@ -346,29 +353,25 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
 
         {images.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-            {images.map((url) => {
-              const isUrl = url.startsWith('http')
-              return (
-                <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                  {isUrl ? (
-                    <Image src={url} alt="Imagen del producto" fill className="object-cover" sizes="160px" />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full gap-1 px-1">
-                      <ImagePlus className="w-6 h-6 text-white/20" />
-                      <span className="text-[9px] text-white/20 text-center break-all leading-tight">{url}</span>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeImage(url)}
-                    className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all"
-                    aria-label="Eliminar imagen"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )
-            })}
+            {images.map((url) => (
+              <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                <Image
+                  src={toImageUrl(url)}
+                  alt="Imagen del producto"
+                  fill
+                  className="object-cover"
+                  sizes="160px"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(url)}
+                  className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all"
+                  aria-label="Eliminar imagen"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
 

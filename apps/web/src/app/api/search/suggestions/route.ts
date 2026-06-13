@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@h2r/database'
 import { detectCategorySlugs, extractSearchWords } from '@/lib/search'
 
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ''
+
+function toImageUrl(publicIdOrUrl: string | undefined): string | null {
+  if (!publicIdOrUrl) return null
+  if (publicIdOrUrl.startsWith('http')) return publicIdOrUrl
+  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicIdOrUrl}`
+}
+
 function toCOP(cents: number) {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency', currency: 'COP', minimumFractionDigits: 0,
@@ -79,7 +87,7 @@ export async function GET(request: NextRequest) {
     slug: p.slug,
     price: p.price,
     priceLabel: toCOP(p.price),
-    image: p.images[0] ?? null,
+    image: toImageUrl(p.images[0]),
     stock: p.stock,
     categoryName: p.category?.name ?? null,
     categorySlug: p.category?.slug ?? null,

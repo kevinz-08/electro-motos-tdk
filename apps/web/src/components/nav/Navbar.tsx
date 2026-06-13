@@ -244,11 +244,20 @@ export function Navbar() {
     }
   }
 
-  // Toast de logout
+  // Toast de logout y Google OAuth
   useEffect(() => {
     if (sessionStorage.getItem('tdk-logout') === '1') {
       sessionStorage.removeItem('tdk-logout')
       toast.info('Cerraste sesión correctamente')
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('google_auth') === '1') {
+      toast.success('¡Bienvenido! Iniciaste sesión con Google')
+      params.delete('google_auth')
+      const newSearch = params.toString()
+      const cleanUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '')
+      window.history.replaceState({}, '', cleanUrl)
     }
   }, [])
 

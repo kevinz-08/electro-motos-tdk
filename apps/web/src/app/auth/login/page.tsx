@@ -81,7 +81,9 @@ export default async function LoginPage({ searchParams }: PageProps) {
         <form
           action={async () => {
             'use server'
-            await signIn('google', { redirectTo: callbackUrl ?? '/' })
+            const base = callbackUrl ?? '/'
+            const sep = base.includes('?') ? '&' : '?'
+            await signIn('google', { redirectTo: `${base}${sep}google_auth=1` })
           }}
         >
           <button

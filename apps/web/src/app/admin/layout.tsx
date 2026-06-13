@@ -81,8 +81,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       {/* ── Contenido ───────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto">
-        <main className="p-8 max-w-[1400px]">{children}</main>
+      <div className="flex-1 overflow-auto bg-[#080808]">
+        <main className="p-8 max-w-[1400px] min-h-full">{children}</main>
       </div>
     </div>
   )

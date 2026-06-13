@@ -55,7 +55,7 @@ export default async function EditProductPage({ params }: PageProps) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+      <h1 className="text-2xl font-bold text-white mb-6">
         {foundProduct ? `Editar: ${foundProduct.name}` : 'Nuevo producto'}
       </h1>
       <ProductEditForm

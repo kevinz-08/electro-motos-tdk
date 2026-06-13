@@ -628,7 +628,7 @@ export function Navbar() {
 
         {/* ── Menú móvil ── */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-white/10 bg-[#0a0a0a] px-4 py-3 space-y-1">
+          <div className="md:hidden border-t border-white/10 bg-[#0a0a0a] px-4 py-3 space-y-1 max-h-[calc(100svh-4rem)] overflow-y-auto">
 
             {/* Categorías con acordeón */}
             <div>

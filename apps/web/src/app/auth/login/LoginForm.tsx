@@ -13,6 +13,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import Link from 'next/link'
 
 interface LoginFormProps {
@@ -50,6 +51,7 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
       return
     }
 
+    toast.success('¡Bienvenido de nuevo!')
     router.push(callbackUrl ?? '/')
     router.refresh()
   }

@@ -25,6 +25,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
+import { toast } from 'sonner'
 import { CartIcon } from '@/components/ui/CartIcon'
 import { ProfileModal } from '@/components/nav/ProfileModal'
 
@@ -243,6 +244,18 @@ export function Navbar() {
     }
   }
 
+  // Toast de logout
+  useEffect(() => {
+    if (searchParams.get('msg') === 'logout') {
+      toast.info('Cerraste sesión correctamente')
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete('msg')
+      const clean = params.toString()
+      router.replace(clean ? `${pathname}?${clean}` : pathname)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Cerrar dropdowns al cambiar de ruta
   useEffect(() => {
     setCatOpen(false)
@@ -353,7 +366,7 @@ export function Navbar() {
 
               <div className="my-1 border-t border-white/10" />
               <button
-                onClick={() => { signOut({ callbackUrl: '/' }); setUserOpen(false) }}
+                onClick={() => { signOut({ callbackUrl: '/?msg=logout' }); setUserOpen(false) }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -459,7 +472,7 @@ export function Navbar() {
     <>
       <header className="sticky top-0 z-50 bg-black border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-3 items-center h-16">
+          <div className="flex md:grid md:grid-cols-3 items-center justify-between h-16">
 
             {/* ── Col 1: Logo ── */}
             <div className="flex items-center">
@@ -688,7 +701,7 @@ export function Navbar() {
                   </button>
                 </div>
                 <button
-                  onClick={() => { signOut({ callbackUrl: '/' }); setMobileOpen(false) }}
+                  onClick={() => { signOut({ callbackUrl: '/?msg=logout' }); setMobileOpen(false) }}
                   className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                 >
                   Cerrar sesión

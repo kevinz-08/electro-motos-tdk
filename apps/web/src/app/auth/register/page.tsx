@@ -64,7 +64,7 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push("/auth/login?registered=1");
+      router.push(`/auth/verify-email?email=${encodeURIComponent(form.email)}`);
     } catch {
       setError("Error de red. Verifica tu conexión e intenta de nuevo.");
     } finally {

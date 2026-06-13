@@ -13,11 +13,15 @@
  *  - NextAuth JWT (cookie httpOnly): mantiene la sesión del browser con id, role, accessToken.
  *  - NestJS JWT (accessToken): se usa como Bearer token en todas las llamadas a la API.
  */
-import NextAuth from 'next-auth'
+import NextAuth, { CredentialsSignin } from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import Google from 'next-auth/providers/google'
 import Credentials from 'next-auth/providers/credentials'
 import { prisma } from '@/infrastructure/database/prisma-client'
+
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = 'EMAIL_NOT_VERIFIED'
+}
 
 // ── Augmentaciones de tipo ────────────────────────────────────────────────────
 declare module 'next-auth' {
@@ -76,6 +80,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               password: credentials.password,
             }),
           })
+
+          if (res.status === 403) {
+            const errData = (await res.json()) as { message?: string }
+            if (errData.message === 'EMAIL_NOT_VERIFIED') throw new EmailNotVerifiedError()
+            return null
+          }
+
           if (!res.ok) return null
 
           const data = (await res.json()) as {

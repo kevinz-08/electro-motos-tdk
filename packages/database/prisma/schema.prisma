@@ -82,11 +82,30 @@ model User {
   /// Contraseña hasheada con bcrypt. Null para usuarios OAuth (Google).
   password            String?
   role                Role                 @default(CUSTOMER)
+  /// Null mientras el usuario no haya verificado su email. Requerido por PrismaAdapter de NextAuth.
+  emailVerified       DateTime?
   createdAt           DateTime             @default(now())
   accounts            Account[]
   sessions            Session[]
   orders              Order[]
   passwordResetTokens PasswordResetToken[]
+  emailOtps           EmailOtp[]
+}
+
+/// Código OTP de 6 dígitos para verificación de email al registrarse.
+/// Se almacena el SHA-256 del código, nunca el código en claro.
+/// Expira en 10 minutos. Máximo 5 intentos fallidos antes de invalidarse.
+model EmailOtp {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model PasswordResetToken {

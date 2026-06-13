@@ -40,6 +40,11 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
 
     setLoading(false)
 
+    if (result?.error === 'EMAIL_NOT_VERIFIED') {
+      router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
+      return
+    }
+
     if (result?.error) {
       setError('Correo o contraseña incorrectos. Verifica tus datos.')
       return

@@ -22,12 +22,12 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  searchParams: Promise<{ callbackUrl?: string; error?: string }>
+  searchParams: Promise<{ callbackUrl?: string; error?: string; verified?: string }>
 }
 
 export default async function LoginPage({ searchParams }: PageProps) {
   const session = await auth()
-  const { callbackUrl, error } = await searchParams
+  const { callbackUrl, error, verified } = await searchParams
 
   if (session?.user) redirect(callbackUrl ?? '/')
 
@@ -50,7 +50,12 @@ export default async function LoginPage({ searchParams }: PageProps) {
           <p className="text-white/50 mt-1 text-sm">Inicia sesión en tu cuenta</p>
         </div>
 
-        {/* Error de autenticación (viene de NextAuth via query param) */}
+        {verified && (
+          <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm rounded-lg px-4 py-3 mb-6">
+            ✅ Correo verificado correctamente. Ya puedes iniciar sesión.
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3 mb-6">
             {error === 'CredentialsSignin'

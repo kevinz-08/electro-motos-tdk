@@ -4,6 +4,66 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 95. Sistema de autenticación con verificación de email por OTP
+
+**Qué se hizo:**
+Se implementó un sistema completo de verificación de email mediante código OTP de 6 dígitos, integrado con el flujo de registro y login existente. La implementación se dividió en 3 sprints sobre la rama `feature/auth-system-implementation`.
+
+**Sprint 1 — Fundación back-end:**
+
+- Se añadió `emailVerified DateTime?` al modelo `User` (requerido por NextAuth PrismaAdapter).
+- Se creó el modelo `EmailOtp` en Prisma con `codeHash` (SHA-256), `expiresAt` (10 min), `attempts` (máx 5), `usedAt`.
+- Se creó `OtpService` en NestJS: genera código con `crypto.randomInt`, almacena SHA-256, verifica con `timingSafeEqual`.
+- Se añadió `sendOtpVerification()` a `ResendEmailService` con template HTML responsive de dígitos individuales.
+
+**Sprint 2 — Endpoints NestJS:**
+
+- `POST /auth/register` ahora genera y envía OTP tras crear el usuario, retorna `verificationRequired: true`.
+- `POST /auth/login` lanza `403 EMAIL_NOT_VERIFIED` si `emailVerified === null`.
+- `POST /auth/verify-email` (5 req/min): valida código, actualiza `emailVerified`, protección anti-fuerza bruta por intentos en BD.
+- `POST /auth/resend-otp` (3 req/10min): anti-enumeración, siempre responde 200.
+
+**Sprint 3 — Frontend Next.js:**
+
+- Se creó `/auth/verify-email` con 6 inputs individuales, auto-focus, soporte de pegado, auto-submit al completar y countdown de 60s para reenvío.
+- `LoginForm.tsx` redirige a `/auth/verify-email?email=xxx` si recibe error `EMAIL_NOT_VERIFIED`.
+- `auth.ts` lanza `EmailNotVerifiedError extends CredentialsSignin` cuando NestJS retorna 403, propagando el código al cliente.
+- `register/page.tsx` redirige a `/auth/verify-email` en lugar de `/auth/login` tras el registro.
+- `login/page.tsx` muestra banner verde de éxito cuando llega `?verified=1`.
+
+**Archivos modificados / creados:**
+
+- `packages/database/prisma/schema.prisma` *(modificado)*
+- `packages/database/prisma/migrations/20260612221338_.../migration.sql` *(nuevo)*
+- `apps/api/src/auth/otp.service.ts` *(nuevo)*
+- `apps/api/src/auth/auth.module.ts` *(modificado)*
+- `apps/api/src/auth/auth.service.ts` *(modificado)*
+- `apps/api/src/auth/auth.controller.ts` *(modificado)*
+- `apps/api/src/auth/dto/verify-email.dto.ts` *(nuevo)*
+- `apps/api/src/auth/dto/resend-otp.dto.ts` *(nuevo)*
+- `apps/api/src/infrastructure/services/ResendEmailService.ts` *(modificado)*
+- `apps/api/src/__tests__/otp.service.test.ts` *(nuevo — 12 tests)*
+- `apps/api/src/__tests__/auth.service.test.ts` *(nuevo — 15 tests)*
+- `apps/web/src/lib/auth.ts` *(modificado)*
+- `apps/web/src/app/auth/verify-email/page.tsx` *(nuevo)*
+- `apps/web/src/app/auth/verify-email/VerifyEmailForm.tsx` *(nuevo)*
+- `apps/web/src/app/auth/login/LoginForm.tsx` *(modificado)*
+- `apps/web/src/app/auth/login/page.tsx` *(modificado)*
+- `apps/web/src/app/auth/register/page.tsx` *(modificado)*
+
+**Seguridad aplicada:**
+
+- Código almacenado como SHA-256, comparación con `timingSafeEqual` (anti-timing attack).
+- Máximo 5 intentos fallidos por OTP antes de invalidarlo (capa de BD, no bypasseable por IP rotation).
+- Anti-enumeración en `resendOtp` y `verifyEmail` para usuarios inexistentes.
+- Throttling NestJS: 5 req/min en verify-email, 3 req/10min en resend-otp.
+- `EmailNotVerifiedError extends CredentialsSignin` propaga el código a través de NextAuth sin exponer el error HTTP raw al cliente.
+
+**Fin:**
+Garantizar que solo usuarios con correo verificado puedan iniciar sesión, previniendo el abuso de cuentas con emails falsos y alineando el sistema con estándares de seguridad de producción.
+
+---
+
 ## 1. Precios estimados en el catálogo
 
 **Qué se hizo:**

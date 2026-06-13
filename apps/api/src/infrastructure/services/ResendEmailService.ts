@@ -101,7 +101,7 @@ export class ResendEmailService {
       await this.resend.emails.send({
         from: this.from,
         to: customerEmail,
-        subject: `${otpCode} es tu código de verificación — Electro Motos Tony`,
+        subject: `${otpCode} es tu código de verificación — H2R Online Store`,
         html: this.buildOtpEmail(name, otpCode),
       })
     } catch (e) {
@@ -117,7 +117,7 @@ export class ResendEmailService {
       await this.resend.emails.send({
         from: this.from,
         to: customerEmail,
-        subject: 'Recupera tu contraseña — Electro Motos Tony',
+        subject: 'Recupera tu contraseña — H2R Online Store',
         html: this.buildPasswordResetEmail(name, resetUrl),
       })
     } catch (e) {
@@ -178,7 +178,7 @@ export class ResendEmailService {
           <tr>
             <td style="background:#0f172a;border-radius:12px 12px 0 0;padding:24px 32px;text-align:center;">
               <p style="margin:0;font-size:22px;font-weight:700;color:#f59e0b;letter-spacing:-0.5px;">
-                ⚡ Electro Motos Tony
+                ⚡ H2R Online Store
               </p>
             </td>
           </tr>
@@ -266,7 +266,7 @@ export class ResendEmailService {
           <tr>
             <td style="background:#0f172a;border-radius:12px 12px 0 0;padding:24px 32px;text-align:center;">
               <p style="margin:0;font-size:22px;font-weight:700;color:#f59e0b;letter-spacing:-0.5px;">
-                ⚡ Electro Motos Tony
+                ⚡ H2R Online Store
               </p>
             </td>
           </tr>
@@ -287,7 +287,7 @@ export class ResendEmailService {
               </table>
 
               <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.5;">
-                Si no creaste una cuenta en Electro Motos Tony, puedes ignorar este correo con seguridad.
+                Si no creaste una cuenta en H2R Online Store, puedes ignorar este correo con seguridad.
               </p>
               <p style="margin:0;font-size:13px;color:#dc2626;font-weight:600;">
                 Nunca compartas este código con nadie. Nuestro equipo jamás te lo pedirá.
@@ -299,8 +299,8 @@ export class ResendEmailService {
             <td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:20px 32px;
                         border-top:1px solid #e5e7eb;text-align:center;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">
-                Electro Motos Tony · Accesorios y repuestos para motos<br/>
-                Si tienes dudas, contáctanos en soporte@electromotos-tony.co
+                H2r Online Store · Accesorios y repuestos para motos<br/>
+                Si tienes dudas, contáctanos en h2ronlinestore@gmail.com
               </p>
             </td>
           </tr>
@@ -410,7 +410,7 @@ export class ResendEmailService {
             <td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:20px 32px;
                         border-top:1px solid #e5e7eb;text-align:center;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">
-                H2R Online Store · Accesorios y repuestos para motos eléctricas<br/>
+                H2R Online Store · Accesorios y repuestos para motos<br/>
                 Si tienes dudas, contáctanos en soporte@h2ronlinestore.co
               </p>
             </td>

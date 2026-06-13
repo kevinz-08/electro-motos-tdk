@@ -1,4 +1,12 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import { createHash, randomBytes } from 'crypto'
@@ -6,13 +14,16 @@ import { IUserRepository } from '@h2r/domain'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { USER_REPOSITORY } from '../infrastructure/injection-tokens'
+import { OtpService } from './otp.service'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 import { ForgotPasswordDto } from './dto/forgot-password.dto'
 import { ResetPasswordDto } from './dto/reset-password.dto'
+import { VerifyEmailDto } from './dto/verify-email.dto'
+import { ResendOtpDto } from './dto/resend-otp.dto'
 import type { JwtPayload } from './strategies/jwt.strategy'
 
-const TOKEN_EXPIRY_MS = 60 * 60 * 1000 // 1 hora
+const TOKEN_EXPIRY_MS = 60 * 60 * 1000
 
 function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex')
@@ -26,18 +37,25 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailService: ResendEmailService,
+    private readonly otpService: OtpService,
     @Inject(USER_REPOSITORY) private readonly userRepo: IUserRepository,
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ message: string }> {
+  async register(dto: RegisterDto): Promise<{ message: string; verificationRequired: boolean }> {
     const existing = await this.userRepo.findByEmail(dto.email)
     if (existing) throw new ConflictException('El email ya está registrado')
 
     const hashed = await bcrypt.hash(dto.password, 12)
-    await this.prisma.client.user.create({
+    const user = await this.prisma.client.user.create({
       data: { name: dto.name, email: dto.email, password: hashed, role: 'CUSTOMER' },
     })
-    return { message: 'Usuario registrado correctamente' }
+
+    const code = await this.otpService.generateAndSave(user.id)
+    this.emailService
+      .sendOtpVerification(dto.email, dto.name, code)
+      .catch((e) => this.logger.error(`register sendOtpVerification failed userId=${user.id}: ${e}`))
+
+    return { message: 'Revisa tu correo para verificar tu cuenta.', verificationRequired: true }
   }
 
   async login(dto: LoginDto): Promise<{
@@ -50,12 +68,15 @@ export class AuthService {
     const user = await this.userRepo.findByEmail(dto.email)
     if (!user) throw new UnauthorizedException('Credenciales inválidas')
 
-    // findByEmail del repositorio no expone el hash — lo leemos directamente
     const raw = await this.prisma.client.user.findUnique({ where: { email: dto.email } })
     if (!raw?.password) throw new UnauthorizedException('Credenciales inválidas')
 
     const valid = await bcrypt.compare(dto.password, raw.password)
     if (!valid) throw new UnauthorizedException('Credenciales inválidas')
+
+    if (!raw.emailVerified) {
+      throw new ForbiddenException('EMAIL_NOT_VERIFIED')
+    }
 
     const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role }
     return {
@@ -67,7 +88,56 @@ export class AuthService {
     }
   }
 
-  /** Usado por NextAuth server-side para emitir un JWT NestJS a usuarios OAuth (Google). */
+  async verifyEmail(dto: VerifyEmailDto): Promise<{ message: string }> {
+    const rawUser = await this.prisma.client.user.findUnique({
+      where: { email: dto.email },
+      select: { id: true, emailVerified: true },
+    })
+
+    if (!rawUser) throw new BadRequestException('Código inválido o expirado.')
+
+    if (rawUser.emailVerified) {
+      return { message: 'Tu correo ya fue verificado. Puedes iniciar sesión.' }
+    }
+
+    const result = await this.otpService.verify(rawUser.id, dto.code)
+
+    if (result === 'too_many_attempts') {
+      throw new BadRequestException('Demasiados intentos fallidos. Solicita un nuevo código.')
+    }
+
+    if (result === 'invalid_or_expired') {
+      throw new BadRequestException('Código inválido o expirado.')
+    }
+
+    await this.prisma.client.user.update({
+      where: { id: rawUser.id },
+      data: { emailVerified: new Date() },
+    })
+
+    return { message: 'Email verificado correctamente. Ya puedes iniciar sesión.' }
+  }
+
+  async resendOtp(dto: ResendOtpDto): Promise<{ message: string }> {
+    const SAFE_RESPONSE = {
+      message: 'Si el correo está registrado y pendiente de verificación, recibirás un nuevo código.',
+    }
+
+    const rawUser = await this.prisma.client.user.findUnique({
+      where: { email: dto.email },
+      select: { id: true, name: true, emailVerified: true },
+    })
+
+    if (!rawUser || rawUser.emailVerified) return SAFE_RESPONSE
+
+    const code = await this.otpService.generateAndSave(rawUser.id)
+    this.emailService
+      .sendOtpVerification(dto.email, rawUser.name ?? 'Usuario', code)
+      .catch((e) => this.logger.error(`resendOtp failed email=${dto.email}: ${e}`))
+
+    return SAFE_RESPONSE
+  }
+
   async issueTokenByEmail(email: string): Promise<{ accessToken: string; role: string }> {
     const user = await this.userRepo.findByEmail(email)
     if (!user) throw new UnauthorizedException('Usuario no encontrado')
@@ -75,10 +145,6 @@ export class AuthService {
     return { accessToken: this.jwtService.sign(payload), role: user.role }
   }
 
-  /**
-   * Inicia el flujo de recuperación de contraseña.
-   * Siempre responde con éxito para no filtrar si el email existe (anti-enumeración).
-   */
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
     const SAFE_RESPONSE = { message: 'Si el correo está registrado, recibirás un enlace de recuperación.' }
 
@@ -87,10 +153,8 @@ export class AuthService {
       select: { id: true, email: true, name: true, password: true },
     })
 
-    // Usuarios OAuth no tienen contraseña — no aplicar flujo de reset
     if (!user?.password) return SAFE_RESPONSE
 
-    // Invalidar tokens anteriores pendientes del mismo usuario
     await this.prisma.client.passwordResetToken.updateMany({
       where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } },
       data: { usedAt: new Date() },
@@ -114,7 +178,6 @@ export class AuthService {
     return SAFE_RESPONSE
   }
 
-  /** Valida el token y actualiza la contraseña del usuario. */
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
     const tokenHash = hashToken(dto.token)
 

@@ -24,6 +24,7 @@
  */
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
+import { Toaster } from 'sonner'
 import { AuthSessionProvider } from '@/components/providers/SessionProvider'
 import './globals.css'
 
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" className={`${geist.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-white text-gray-900" suppressHydrationWarning>
         <AuthSessionProvider>{children}</AuthSessionProvider>
+        <Toaster theme="dark" position="bottom-right" richColors closeButton />
       </body>
     </html>
   )

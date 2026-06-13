@@ -1,10 +1,7 @@
 'use client'
 
-/**
- * Botón "Agregar al carrito".
- * Usa clases semánticas c-* para adaptarse al tema claro/oscuro del catálogo.
- */
 import { Product } from '@h2r/domain'
+import { toast } from 'sonner'
 import { useCart } from '@/lib/cart'
 
 interface AddToCartButtonProps {
@@ -27,9 +24,14 @@ export function AddToCartButton({ product, quantity = 1, className }: AddToCartB
     )
   }
 
+  const handleAdd = () => {
+    addItem(product, quantity)
+    toast.success('Agregado al carrito', { description: product.name })
+  }
+
   return (
     <button
-      onClick={() => addItem(product, quantity)}
+      onClick={handleAdd}
       className={
         className ??
         'w-full bg-sky-500 text-white py-2.5 px-4 rounded-xl text-sm font-bold hover:bg-sky-600 active:scale-95 transition-all'

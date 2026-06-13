@@ -51,6 +51,9 @@ export class AuthService {
     })
 
     const code = await this.otpService.generateAndSave(user.id)
+    if (process.env['NODE_ENV'] !== 'production') {
+      this.logger.warn(`[DEV] OTP para ${dto.email}: ${code}`)
+    }
     this.emailService
       .sendOtpVerification(dto.email, dto.name, code)
       .catch((e) => this.logger.error(`register sendOtpVerification failed userId=${user.id}: ${e}`))
@@ -131,6 +134,9 @@ export class AuthService {
     if (!rawUser || rawUser.emailVerified) return SAFE_RESPONSE
 
     const code = await this.otpService.generateAndSave(rawUser.id)
+    if (process.env['NODE_ENV'] !== 'production') {
+      this.logger.warn(`[DEV] OTP (resend) para ${dto.email}: ${code}`)
+    }
     this.emailService
       .sendOtpVerification(dto.email, rawUser.name ?? 'Usuario', code)
       .catch((e) => this.logger.error(`resendOtp failed email=${dto.email}: ${e}`))

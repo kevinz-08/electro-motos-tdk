@@ -25,6 +25,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
+import { toast } from 'sonner'
 import { CartIcon } from '@/components/ui/CartIcon'
 import { ProfileModal } from '@/components/nav/ProfileModal'
 
@@ -243,6 +244,23 @@ export function Navbar() {
     }
   }
 
+  // Toast de logout y Google OAuth
+  useEffect(() => {
+    if (sessionStorage.getItem('tdk-logout') === '1') {
+      sessionStorage.removeItem('tdk-logout')
+      toast.info('Cerraste sesión correctamente')
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('google_auth') === '1') {
+      toast.success('¡Bienvenido! Iniciaste sesión con Google')
+      params.delete('google_auth')
+      const newSearch = params.toString()
+      const cleanUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '')
+      window.history.replaceState({}, '', cleanUrl)
+    }
+  }, [])
+
   // Cerrar dropdowns al cambiar de ruta
   useEffect(() => {
     setCatOpen(false)
@@ -353,7 +371,7 @@ export function Navbar() {
 
               <div className="my-1 border-t border-white/10" />
               <button
-                onClick={() => { signOut({ callbackUrl: '/' }); setUserOpen(false) }}
+                onClick={() => { sessionStorage.setItem('tdk-logout', '1'); signOut({ callbackUrl: '/' }); setUserOpen(false) }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -459,7 +477,7 @@ export function Navbar() {
     <>
       <header className="sticky top-0 z-50 bg-black border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-3 items-center h-16">
+          <div className="flex md:grid md:grid-cols-3 items-center justify-between h-16">
 
             {/* ── Col 1: Logo ── */}
             <div className="flex items-center">
@@ -619,7 +637,7 @@ export function Navbar() {
 
         {/* ── Menú móvil ── */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-white/10 bg-[#0a0a0a] px-4 py-3 space-y-1">
+          <div className="md:hidden border-t border-white/10 bg-[#0a0a0a] px-4 py-3 space-y-1 max-h-[calc(100svh-4rem)] overflow-y-auto">
 
             {/* Categorías con acordeón */}
             <div>
@@ -688,7 +706,7 @@ export function Navbar() {
                   </button>
                 </div>
                 <button
-                  onClick={() => { signOut({ callbackUrl: '/' }); setMobileOpen(false) }}
+                  onClick={() => { sessionStorage.setItem('tdk-logout', '1'); signOut({ callbackUrl: '/' }); setMobileOpen(false) }}
                   className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                 >
                   Cerrar sesión
@@ -758,13 +776,17 @@ export function Navbar() {
                         i === selectedIdx ? 'bg-white/10' : 'hover:bg-white/5'
                       }`}
                     >
-                      <div className="w-12 h-12 shrink-0 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
-                        {s.image ? (
-                          <img src={s.image} alt="" className="w-full h-full object-contain p-1" />
-                        ) : (
-                          <svg className="w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                          </svg>
+                      <div className="w-12 h-12 shrink-0 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden relative">
+                        <svg className="absolute inset-0 m-auto w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        {s.image && (
+                          <img
+                            src={s.image}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-contain p-1"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

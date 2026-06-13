@@ -4,10 +4,18 @@ import { detectCategorySlugs, extractSearchWords } from '@/lib/search'
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ''
 
+const TRANSFORMS = 'f_auto,q_auto,w_200,c_limit'
+
 function toImageUrl(publicIdOrUrl: string | undefined): string | null {
   if (!publicIdOrUrl) return null
-  if (publicIdOrUrl.startsWith('http')) return publicIdOrUrl
-  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicIdOrUrl}`
+  if (publicIdOrUrl.startsWith('http')) {
+    // Inyectar transformaciones si ya es URL de Cloudinary
+    const match = publicIdOrUrl.match(/^(https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)/)
+    if (match) return `${match[1]}${TRANSFORMS}/${publicIdOrUrl.slice(match[1].length).replace(/^[^v][^/]*\//, '')}`
+    return publicIdOrUrl
+  }
+  if (!CLOUD_NAME) return null
+  return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${TRANSFORMS}/${publicIdOrUrl}`
 }
 
 function toCOP(cents: number) {

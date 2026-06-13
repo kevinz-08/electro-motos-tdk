@@ -767,13 +767,17 @@ export function Navbar() {
                         i === selectedIdx ? 'bg-white/10' : 'hover:bg-white/5'
                       }`}
                     >
-                      <div className="w-12 h-12 shrink-0 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
-                        {s.image ? (
-                          <img src={s.image} alt="" className="w-full h-full object-contain p-1" />
-                        ) : (
-                          <svg className="w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                          </svg>
+                      <div className="w-12 h-12 shrink-0 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden relative">
+                        <svg className="absolute inset-0 m-auto w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        {s.image && (
+                          <img
+                            src={s.image}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-contain p-1"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

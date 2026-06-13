@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
 
         <div className="text-center mb-8">
           <Link href="/" className="text-white font-bold text-lg hover:text-blue-400 transition-colors">
-            Electro Motos Tony
+            H2r Online Store
           </Link>
           <h1 className="text-2xl font-black text-white mt-6 mb-2">Recuperar contraseña</h1>
           <p className="text-white/40 text-sm">

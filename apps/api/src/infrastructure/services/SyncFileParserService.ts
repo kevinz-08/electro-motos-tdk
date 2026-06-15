@@ -10,26 +10,22 @@ export type RawStockRow = {
   readonly detal: number // centavos COP (ya convertido desde pesos)
 }
 
+type ColumnMap = {
+  readonly CODIGO: number
+  readonly NOMBRE: number
+  readonly EXISTENCIAS: number
+  readonly DETAL: number
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// 0-based column indices matching the Optimun Excel export layout.
-// Col A (0) is always empty in Optimun exports — data starts at B.
-const COL = {
-  CODIGO: 1,      // B
-  NOMBRE: 2,      // C
-  EXISTENCIAS: 4, // E
-  DETAL: 9,       // J — falls outside usedRange in COM-exported files; range is forced below
+// Normalised labels to find — column positions are discovered at runtime.
+const LABEL = {
+  CODIGO:      'CODIGO',
+  NOMBRE:      'NOMBRE PRODUCTO',
+  EXISTENCIAS: 'EXISTENCIAS',
+  DETAL:       'DETAL',
 } as const
-
-// Normalised expected headers (accent-insensitive comparison applied at runtime).
-// Header row position is auto-detected (see locateHeaderRow) because Optimun
-// may export with or without an initial blank row depending on the version.
-const REQUIRED_HEADERS: ReadonlyArray<{ col: number; label: string }> = [
-  { col: COL.CODIGO,      label: 'CODIGO' },
-  { col: COL.NOMBRE,      label: 'NOMBRE PRODUCTO' },
-  { col: COL.EXISTENCIAS, label: 'EXISTENCIAS' },
-  { col: COL.DETAL,       label: 'DETAL' },
-]
 
 // Optimun codes are always: {digits}-{alphanumeric+}, with no second dash.
 // e.g. 9-00017, 10-4009, 9-MSCPL, 6-CDIDTMN
@@ -40,6 +36,10 @@ const VALID_CODE_RE = /^\d+-[A-Za-z0-9]+$/
 // A full Optimun catalog (~750 rows) is well under 1 MB when exported.
 // 5 MB is a generous ceiling that still rejects obvious non-Excel uploads.
 const MAX_FILE_BYTES = 5 * 1024 * 1024
+
+// Extend the sheet range to at least this many columns so COM-exported files
+// that truncate usedRange early don't drop rightmost data columns (e.g. DETAL).
+const MIN_SHEET_COLS = 20
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -77,21 +77,21 @@ export class SyncFileParserService {
       defval: '',
     })
 
-    const headerRowIndex = this.findAndValidateHeaders(allRows)
+    const { rowIndex: headerRowIndex, cols } = this.locateHeaders(allRows)
 
     const result: RawStockRow[] = []
 
     for (let i = headerRowIndex + 1; i < allRows.length; i++) {
       const row = allRows[i] as unknown[]
-      const codigo = String(row[COL.CODIGO] ?? '').trim()
+      const codigo = String(row[cols.CODIGO] ?? '').trim()
 
       if (!codigo) continue
 
       result.push({
         codigo,
-        nombre: String(row[COL.NOMBRE] ?? '').trim(),
-        stock:  this.toSafeInt(row[COL.EXISTENCIAS]),
-        detal:  this.toSafeInt(row[COL.DETAL]) * 100,
+        nombre: String(row[cols.NOMBRE] ?? '').trim(),
+        stock:  this.toSafeInt(row[cols.EXISTENCIAS]),
+        detal:  this.toSafeInt(row[cols.DETAL]) * 100,
       })
     }
 
@@ -139,14 +139,15 @@ export class SyncFileParserService {
 
     const sheet = workbook.Sheets[sheetName]!
 
-    // COM-exported files set usedRange ending at the last non-empty column
-    // detected by the COM object, which often stops at col I and silently
-    // drops col J (DETAL). Force the range to always include col J.
+    // COM-exported files truncate usedRange at the last non-empty column they
+    // detect, silently dropping rightmost columns. Extend to MIN_SHEET_COLS so
+    // SheetJS always reads all potential data columns regardless of how Optimun
+    // generated the file.
     const ref = sheet['!ref']
     if (ref) {
       const range = XLSX.utils.decode_range(ref)
-      if (range.e.c < COL.DETAL) {
-        range.e.c = COL.DETAL
+      if (range.e.c < MIN_SHEET_COLS - 1) {
+        range.e.c = MIN_SHEET_COLS - 1
         sheet['!ref'] = XLSX.utils.encode_range(range)
       }
     }
@@ -155,35 +156,52 @@ export class SyncFileParserService {
   }
 
   /**
-   * Scans the first 5 rows for the header row (identified by CODIGO in col B),
-   * validates all required columns, and returns the 0-based header row index.
-   * This handles both Optimun export variants: with and without an initial blank row.
+   * Scans the first 5 rows for a row that contains all 4 required headers
+   * (CODIGO, NOMBRE PRODUCTO, EXISTENCIAS, DETAL) in ANY column and ANY order.
+   * Returns the row index and discovered column positions.
+   *
+   * This makes the parser layout-agnostic: it works regardless of which column
+   * each field occupies, how many blank rows precede the header row, or whether
+   * Optimun adds/removes leading columns between export versions.
+   *
+   * If no row has all 4 headers, reports what is missing from the best candidate
+   * row (the one with the most matching headers found).
    */
-  private findAndValidateHeaders(rows: unknown[][]): number {
-    const headerRowIndex = this.locateHeaderRow(rows)
-    const headerRow = (rows[headerRowIndex] as unknown[]) ?? []
+  private locateHeaders(rows: unknown[][]): { rowIndex: number; cols: ColumnMap } {
+    type Candidate = { rowIndex: number; found: Partial<Record<keyof ColumnMap, number>>; count: number }
+    let best: Candidate = { rowIndex: -1, found: {}, count: 0 }
 
-    for (const { col, label } of REQUIRED_HEADERS) {
-      const actual = normalizeHeader(String(headerRow[col] ?? ''))
-      if (actual !== label) {
-        throw new BadRequestException(
-          `Columna inválida en posición ${col + 1}: ` +
-          `se esperaba "${label}", se recibió "${actual || '(vacía)'}"`,
-        )
+    for (let r = 0; r < Math.min(rows.length, 5); r++) {
+      const row = (rows[r] ?? []) as unknown[]
+      const found: Partial<Record<keyof ColumnMap, number>> = {}
+
+      for (let c = 0; c < row.length; c++) {
+        const h = normalizeHeader(String(row[c] ?? ''))
+        if (h === LABEL.CODIGO)           found.CODIGO      = c
+        else if (h === LABEL.NOMBRE)      found.NOMBRE      = c
+        else if (h === LABEL.EXISTENCIAS) found.EXISTENCIAS = c
+        else if (h === LABEL.DETAL)       found.DETAL       = c
+      }
+
+      const count = Object.keys(found).length
+
+      if (count === 4) {
+        return { rowIndex: r, cols: found as ColumnMap }
+      }
+
+      if (count > best.count) {
+        best = { rowIndex: r, found, count }
       }
     }
 
-    return headerRowIndex
-  }
+    const missingLabels = (Object.keys(LABEL) as Array<keyof typeof LABEL>)
+      .filter(k => best.found[k] === undefined)
+      .map(k => `"${LABEL[k]}"`)
 
-  private locateHeaderRow(rows: unknown[][]): number {
-    for (let i = 0; i < Math.min(rows.length, 5); i++) {
-      const row = (rows[i] ?? []) as unknown[]
-      if (normalizeHeader(String(row[COL.CODIGO] ?? '')) === 'CODIGO') return i
-    }
     throw new BadRequestException(
-      'No se encontró la columna "CODIGO" en las primeras 5 filas del archivo. ' +
-      'Verifica que sea el export estándar de Optimun (.xlsx).',
+      `No se encontraron todos los encabezados requeridos en las primeras 5 filas. ` +
+      `Faltantes: ${missingLabels.join(', ')}. ` +
+      `Verifica que sea el export estándar de Optimun (.xlsx).`,
     )
   }
 

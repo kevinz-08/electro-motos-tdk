@@ -212,23 +212,31 @@ describe('SyncFileParserService.parse', () => {
     expect(() => service.parse(csv)).toThrow(BadRequestException)
   })
 
-  it('lanza BadRequestException si falta la columna DETAL (col J ausente)', () => {
+  it('lanza BadRequestException si falta la columna DETAL', () => {
     const wb = XLSX.utils.book_new()
-    // Solo 9 columnas — sin DETAL
-    const headerRow = ['', 'CÒDIGO', 'NOMBRE PRODUCTO', 'PRESENTACIÒN', 'EXISTENCIAS', 'COSTO', 'DISTRIBUIDOR', 'MAYORISTA', 'MRT']
-    const ws = XLSX.utils.aoa_to_sheet([[], headerRow, [], [...VALID_ROW].slice(0, 9)])
+    // Header sin DETAL — el parser no puede encontrar los 4 encabezados requeridos
+    const headerRow = [
+      'CÒDIGO', 'NOMBRE PRODUCTO', 'PRESENTACIÒN', 'EXISTENCIAS',
+      'COSTO', 'DISTRIBUIDOR', 'MAYORISTA', 'MRT',
+    ]
+    const ws = XLSX.utils.aoa_to_sheet([headerRow, [...VALID_ROW].slice(0, 8)])
     XLSX.utils.book_append_sheet(wb, ws, 'Hoja1')
     const buffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
+
     expect(() => service.parse(buffer)).toThrow(BadRequestException)
+    expect(() => service.parse(buffer)).toThrow(/DETAL/)
   })
 
   it('lanza BadRequestException si el header de EXISTENCIAS es incorrecto', () => {
     const wb = XLSX.utils.book_new()
-    const wrongHeader = ['', 'CÒDIGO', 'NOMBRE PRODUCTO', 'PRESENTACIÒN', 'STOCK', 'COSTO', 'DISTRIBUIDOR', 'MAYORISTA', 'MRT', 'DETAL']
-    const ws = XLSX.utils.aoa_to_sheet([[], wrongHeader, [], VALID_ROW])
+    // STOCK en lugar de EXISTENCIAS — el parser reporta cuál falta
+    const wrongHeader = ['CÒDIGO', 'NOMBRE PRODUCTO', 'PRESENTACIÒN', 'STOCK', 'COSTO', 'DISTRIBUIDOR', 'MAYORISTA', 'MRT', 'DETAL']
+    const ws = XLSX.utils.aoa_to_sheet([wrongHeader, VALID_ROW])
     XLSX.utils.book_append_sheet(wb, ws, 'Hoja1')
     const buffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
+
     expect(() => service.parse(buffer)).toThrow(BadRequestException)
+    expect(() => service.parse(buffer)).toThrow(/EXISTENCIAS/)
   })
 
   it('lanza BadRequestException si no hay ninguna fila con CÓDIGO válido', () => {
@@ -239,10 +247,11 @@ describe('SyncFileParserService.parse', () => {
     expect(() => service.parse(buildXlsx(allEmpty))).toThrow(BadRequestException)
   })
 
-  it('incluye el nombre del header esperado en el mensaje de error', () => {
+  it('incluye el nombre del header faltante en el mensaje de error', () => {
     const wb = XLSX.utils.book_new()
-    const wrongHeader = ['', 'CLAVE', 'NOMBRE PRODUCTO', 'PRESENTACIÒN', 'EXISTENCIAS', 'COSTO', 'DISTRIBUIDOR', 'MAYORISTA', 'MRT', 'DETAL']
-    const ws = XLSX.utils.aoa_to_sheet([[], wrongHeader, [], VALID_ROW])
+    // CLAVE en lugar de CÓDIGO — el parser dice que falta "CODIGO"
+    const wrongHeader = ['CLAVE', 'NOMBRE PRODUCTO', 'PRESENTACIÒN', 'EXISTENCIAS', 'COSTO', 'DISTRIBUIDOR', 'MAYORISTA', 'MRT', 'DETAL']
+    const ws = XLSX.utils.aoa_to_sheet([wrongHeader, VALID_ROW])
     XLSX.utils.book_append_sheet(wb, ws, 'Hoja1')
     const buffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
 

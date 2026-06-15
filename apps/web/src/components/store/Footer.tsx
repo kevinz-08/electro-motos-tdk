@@ -2,7 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { WHATSAPP_URL } from '@/lib/contact'
 
-const WHATSAPP_FOOTER_URL = WHATSAPP_URL('Hola Tienda H2R 👋')
+const WHATSAPP_FOOTER_URL = WHATSAPP_URL('Hola Tienda H2R')
 
 const NAV_LINKS = [
   { href: '/catalogo', label: 'Ver todo el catálogo' },
@@ -80,7 +80,7 @@ export function Footer() {
       <div className="bg-sky-600/10 border-b border-sky-500/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <p className="text-center text-xs sm:text-sm text-sky-300/80 tracking-wide">
-            🛵 Envío gratis desde $500.000 &nbsp;·&nbsp; Garantía de hasta 1 año &nbsp;·&nbsp; Atención personalizada por WhatsApp
+            Envío gratis desde $500.000 &nbsp;·&nbsp; Garantía de hasta 1 año &nbsp;·&nbsp; Atención personalizada por WhatsApp
           </p>
         </div>
       </div>
@@ -108,7 +108,7 @@ export function Footer() {
             {/* Redes sociales */}
             <div className="flex items-center gap-3 pt-1">
               <a
-                href="https://www.instagram.com/h2r_onlinestore"
+                href="https://www.instagram.com/h2r.onlinestore/"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Síguenos en Instagram"

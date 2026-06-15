@@ -63,6 +63,10 @@ packages/*/src/**/*.d.ts
 tmp-productos/
 apps/web/tmp-productos/
 
+# exports de Optimun (inventario real del negocio — nunca al repo)
+*.xlsx
+*.csv
+
 # .md para opencode y claude code
 BACKLOG.md*
 AUDITORIA.md*

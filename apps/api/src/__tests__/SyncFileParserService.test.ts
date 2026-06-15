@@ -255,4 +255,20 @@ describe('SyncFileParserService.parse', () => {
     // El export real usa CÒDIGO con acento en la O; el parser debe normalizarlo
     expect(() => service.parse(buildXlsx([VALID_ROW]))).not.toThrow()
   })
+
+  it('parsea correctamente cuando los headers están en la fila 1 (sin fila en blanco inicial)', () => {
+    // Algunos exports de Optimun omiten la primera fila en blanco
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet([
+      HEADER_ROW,  // row 0: headers — sin fila en blanco previa
+      BLANK_ROW,   // row 1: separador
+      VALID_ROW,   // row 2: datos
+    ])
+    XLSX.utils.book_append_sheet(wb, ws, 'Hoja1')
+    const buffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
+
+    const [result] = service.parse(buffer)
+    expect(result.codigo).toBe('9-00017')
+    expect(result.detal).toBe(2_500_000)
+  })
 })

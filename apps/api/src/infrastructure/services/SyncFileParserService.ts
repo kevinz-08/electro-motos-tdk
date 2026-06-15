@@ -21,13 +21,9 @@ const COL = {
   DETAL: 9,       // J — falls outside usedRange in COM-exported files; range is forced below
 } as const
 
-// 0-based row indices.
-const ROW = {
-  HEADERS: 1,    // Row 2 in Excel — first row is blank in Optimun exports
-  DATA_START: 3, // Row 4 in Excel — row 3 is a blank separator
-} as const
-
 // Normalised expected headers (accent-insensitive comparison applied at runtime).
+// Header row position is auto-detected (see locateHeaderRow) because Optimun
+// may export with or without an initial blank row depending on the version.
 const REQUIRED_HEADERS: ReadonlyArray<{ col: number; label: string }> = [
   { col: COL.CODIGO,      label: 'CODIGO' },
   { col: COL.NOMBRE,      label: 'NOMBRE PRODUCTO' },
@@ -75,16 +71,17 @@ export class SyncFileParserService {
     this.assertSize(buffer)
 
     const sheet = this.loadSheet(buffer)
-    this.assertHeaders(sheet)
 
     const allRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
       header: 1,
       defval: '',
     })
 
+    const headerRowIndex = this.findAndValidateHeaders(allRows)
+
     const result: RawStockRow[] = []
 
-    for (let i = ROW.DATA_START; i < allRows.length; i++) {
+    for (let i = headerRowIndex + 1; i < allRows.length; i++) {
       const row = allRows[i] as unknown[]
       const codigo = String(row[COL.CODIGO] ?? '').trim()
 
@@ -157,13 +154,14 @@ export class SyncFileParserService {
     return sheet
   }
 
-  private assertHeaders(sheet: XLSX.WorkSheet): void {
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-      header: 1,
-      defval: '',
-    })
-
-    const headerRow = (rows[ROW.HEADERS] as unknown[]) ?? []
+  /**
+   * Scans the first 5 rows for the header row (identified by CODIGO in col B),
+   * validates all required columns, and returns the 0-based header row index.
+   * This handles both Optimun export variants: with and without an initial blank row.
+   */
+  private findAndValidateHeaders(rows: unknown[][]): number {
+    const headerRowIndex = this.locateHeaderRow(rows)
+    const headerRow = (rows[headerRowIndex] as unknown[]) ?? []
 
     for (const { col, label } of REQUIRED_HEADERS) {
       const actual = normalizeHeader(String(headerRow[col] ?? ''))
@@ -174,6 +172,19 @@ export class SyncFileParserService {
         )
       }
     }
+
+    return headerRowIndex
+  }
+
+  private locateHeaderRow(rows: unknown[][]): number {
+    for (let i = 0; i < Math.min(rows.length, 5); i++) {
+      const row = (rows[i] ?? []) as unknown[]
+      if (normalizeHeader(String(row[COL.CODIGO] ?? '')) === 'CODIGO') return i
+    }
+    throw new BadRequestException(
+      'No se encontró la columna "CODIGO" en las primeras 5 filas del archivo. ' +
+      'Verifica que sea el export estándar de Optimun (.xlsx).',
+    )
   }
 
   private toSafeInt(value: unknown): number {

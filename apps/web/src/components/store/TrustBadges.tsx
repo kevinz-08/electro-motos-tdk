@@ -26,7 +26,7 @@ const BADGES = [
       </svg>
     ),
     label: 'Compra protegida',
-    sub: 'Por Mercado Pago y Addi',
+    sub: 'Por Wompi y Addi',
   },
   {
     icon: (

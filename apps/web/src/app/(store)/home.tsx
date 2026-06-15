@@ -24,7 +24,7 @@ const HERO_BANNERS = [
   {
     src: '/assets/heroBanners/hero_banner1.png',
     title: 'Tu moto merece lo mejor.',
-    description: 'Repuestos y servicios de alta calidad para cualquier tipo de moto.',
+    description: 'Repuestos de alta calidad para cualquier tipo de moto.',
     cta: { label: 'Comprar ahora', href: '/catalogo' },
   },
   {

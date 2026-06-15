@@ -55,6 +55,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
   const [wompiParams, setWompiParams] = useState<CreateOrderResponse['payment'] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false)
 
   const [form, setForm] = useState<ShippingFormData>({
     fullName: '',
@@ -92,6 +93,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
           notes: form.notes || undefined,
         },
         paymentProvider: 'WOMPI',
+        policiesAcceptedAt: new Date().toISOString(),
       })
 
       if (!orderRes.ok) {
@@ -234,10 +236,61 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
               </div>
             )}
 
+            {/* Aceptación de políticas — obligatoria antes de proceder al pago */}
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={acceptedPolicies}
+                  onChange={(e) => setAcceptedPolicies(e.target.checked)}
+                  aria-required="true"
+                  aria-describedby="policies-description"
+                  className="mt-0.5 w-4 h-4 shrink-0 rounded border-gray-300 text-sky-500 focus:ring-sky-500 accent-sky-500"
+                />
+                <span
+                  id="policies-description"
+                  className="text-xs text-gray-600 leading-relaxed group-hover:text-gray-800 transition-colors"
+                >
+                  Al realizar este pedido confirmo que he leído y acepto la{' '}
+                  <a
+                    href="/legal/politica-de-envios"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sky-600 underline hover:text-sky-700"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Política de envíos
+                  </a>
+                  , la{' '}
+                  <a
+                    href="/legal/politica-de-cambios"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sky-600 underline hover:text-sky-700"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Política de cambios
+                  </a>{' '}
+                  y los{' '}
+                  <a
+                    href="/legal/terminos-y-condiciones"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sky-600 underline hover:text-sky-700"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Términos y condiciones
+                  </a>{' '}
+                  de H2R Online Store.
+                </span>
+              </label>
+            </div>
+
             <button
               type="submit"
-              disabled={loading || !selectedCity}
-              className="w-full bg-sky-500 text-white py-3 rounded-xl font-bold text-base hover:bg-sky-600 active:scale-95 transition-all disabled:opacity-60"
+              disabled={loading || !selectedCity || !acceptedPolicies}
+              aria-disabled={!acceptedPolicies}
+              className="w-full bg-sky-500 text-white py-3 rounded-xl font-bold text-base hover:bg-sky-600 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? 'Procesando...' : 'Continuar al pago →'}
             </button>

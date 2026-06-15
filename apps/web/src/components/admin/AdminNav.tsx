@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, ShoppingBag,
-  AlertTriangle, Settings,
+  AlertTriangle, Settings, RefreshCcw,
 } from 'lucide-react'
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/admin/categorias',    label: 'Categorías',    Icon: Tag },
   { href: '/admin/pedidos',       label: 'Pedidos',       Icon: ShoppingBag },
   { href: '/admin/stock',         label: 'Stock bajo',    Icon: AlertTriangle },
+  { href: '/admin/sync',          label: 'Sincronizar',   Icon: RefreshCcw },
   { href: '/admin/configuracion', label: 'Configuración', Icon: Settings },
 ]
 

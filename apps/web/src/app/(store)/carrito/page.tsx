@@ -198,6 +198,17 @@ export default function CartPage() {
                 <span className="text-gray-500">Envío</span>
                 <span className="text-gray-400 italic">Calculado al finalizar</span>
               </div>
+              <p className="text-xs text-gray-400 mb-1">
+                Gratis en compras mayores a $500.000 ·{' '}
+                <Link
+                  href="/legal/politica-de-envios"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-sky-600 transition-colors"
+                >
+                  Ver política de envíos
+                </Link>
+              </p>
 
               {/* Total */}
               <div className="border-t border-gray-100 mt-4 pt-4 mb-6">

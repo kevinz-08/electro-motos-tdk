@@ -5,12 +5,15 @@ import {
   PRODUCT_DESCRIPTION_REPOSITORY,
   ORDER_REPOSITORY,
   USER_REPOSITORY,
+  INVENTORY_REPOSITORY,
   PAYMENT_SERVICE,
   SHIPMENT_REPOSITORY,
   VENDELO_SHIPPING_PORT,
   ALERT_NOTIFICATION_PORT,
 } from './injection-tokens'
 import { PrismaProductRepository } from './repositories/PrismaProductRepository'
+import { PrismaStockSyncRepository } from './repositories/PrismaStockSyncRepository'
+import { SyncFileParserService } from './services/SyncFileParserService'
 import { PrismaProductDescriptionRepository } from './repositories/PrismaProductDescriptionRepository'
 import { PrismaOrderRepository } from './repositories/PrismaOrderRepository'
 import { PrismaUserRepository } from './repositories/PrismaUserRepository'
@@ -30,6 +33,8 @@ import { WompiReconciliationService } from './services/WompiReconciliationServic
   imports: [PrismaModule],
   providers: [
     { provide: PRODUCT_REPOSITORY,             useClass: PrismaProductRepository },
+    { provide: INVENTORY_REPOSITORY,           useClass: PrismaStockSyncRepository },
+    SyncFileParserService,
     { provide: PRODUCT_DESCRIPTION_REPOSITORY, useClass: PrismaProductDescriptionRepository },
     { provide: ORDER_REPOSITORY,               useClass: PrismaOrderRepository },
     { provide: USER_REPOSITORY,                useClass: PrismaUserRepository },
@@ -51,6 +56,8 @@ import { WompiReconciliationService } from './services/WompiReconciliationServic
     WompiReconciliationService,
   ],
   exports: [
+    INVENTORY_REPOSITORY,
+    SyncFileParserService,
     PrismaModule,
     PRODUCT_REPOSITORY,
     PRODUCT_DESCRIPTION_REPOSITORY,

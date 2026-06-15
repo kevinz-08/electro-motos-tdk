@@ -28,6 +28,7 @@
  *   6+ unidades   → "En stock (N unidades)" (verde)
  */
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
 import { getCachedProductBySlug } from '@/lib/cache'
@@ -135,6 +136,65 @@ export default async function ProductPage({ params }: PageProps) {
           <div className="text-sm text-gray-500 flex items-center gap-4 mt-4">
             <span>🔒 Pago seguro con Wompi</span>
             <span>🚚 Envío a todo Colombia</span>
+          </div>
+
+          {/* Acordeón de envíos y cambios */}
+          <div className="mt-5 space-y-2">
+            <details className="group border border-gray-200 rounded-xl overflow-hidden">
+              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
+                <span className="text-sm font-medium text-gray-700">
+                  📦 Envíos
+                </span>
+                <svg
+                  className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              <div className="px-4 py-3 text-xs text-gray-600 space-y-1.5 bg-white border-t border-gray-100">
+                <p>• Despacho en <strong>1 a 5 días hábiles</strong> desde la confirmación del pago.</p>
+                <p>• Envío <strong>gratis</strong> en compras superiores a $500.000 COP.</p>
+                <p>• Cobertura a <strong>todo Colombia</strong> con Coordinadora, Envía e Interrapidísimo.</p>
+                <p>• Una vez despachado, no se aceptan cambios de dirección.</p>
+                <Link
+                  href="/legal/politica-de-envios"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-1 text-sky-600 underline hover:text-sky-700"
+                >
+                  Ver política completa de envíos →
+                </Link>
+              </div>
+            </details>
+
+            <details className="group border border-gray-200 rounded-xl overflow-hidden">
+              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
+                <span className="text-sm font-medium text-gray-700">
+                  🔄 Cambios y devoluciones
+                </span>
+                <svg
+                  className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              <div className="px-4 py-3 text-xs text-gray-600 space-y-1.5 bg-white border-t border-gray-100">
+                <p>• Tienes <strong>5 días calendario</strong> desde la recepción para solicitar un cambio.</p>
+                <p>• El producto debe estar sin uso, en su <strong>embalaje original</strong> e intacto.</p>
+                <p>• El cambio se gestiona en un plazo máximo de <strong>30 días calendario</strong>.</p>
+                <p>• Los reembolsos aplican únicamente por garantía o derecho de retracto.</p>
+                <Link
+                  href="/legal/politica-de-cambios"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-1 text-sky-600 underline hover:text-sky-700"
+                >
+                  Ver política completa de cambios →
+                </Link>
+              </div>
+            </details>
           </div>
 
           <hr className="my-6 border-gray-100" />

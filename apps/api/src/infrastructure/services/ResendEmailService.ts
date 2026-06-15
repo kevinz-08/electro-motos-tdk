@@ -395,9 +395,24 @@ export class ResendEmailService {
           <tr>
             <td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:20px 32px;
                         border-top:1px solid #e5e7eb;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#9ca3af;">
+              <p style="margin:0 0 10px;font-size:12px;color:#9ca3af;">
                 H2R Online Store · Accesorios y repuestos para motos<br/>
-                Si tienes dudas, contáctanos en soporte@h2ronlinestore.co
+                ¿Tienes dudas? Escríbenos a
+                <a href="mailto:h2ronlinestore@gmail.com"
+                   style="color:#6b7280;text-decoration:underline;">h2ronlinestore@gmail.com</a>
+              </p>
+              <p style="margin:0;font-size:11px;color:#d1d5db;line-height:1.8;">
+                <a href="${this.frontendUrl}/legal/politica-de-envios"
+                   style="color:#9ca3af;text-decoration:underline;">Política de envíos</a>
+                &nbsp;·&nbsp;
+                <a href="${this.frontendUrl}/legal/politica-de-cambios"
+                   style="color:#9ca3af;text-decoration:underline;">Política de cambios</a>
+                &nbsp;·&nbsp;
+                <a href="${this.frontendUrl}/legal/terminos-y-condiciones"
+                   style="color:#9ca3af;text-decoration:underline;">Términos y condiciones</a>
+                &nbsp;·&nbsp;
+                <a href="${this.frontendUrl}/legal/politica-de-privacidad"
+                   style="color:#9ca3af;text-decoration:underline;">Privacidad</a>
               </p>
             </td>
           </tr>

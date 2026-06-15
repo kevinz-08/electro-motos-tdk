@@ -17,7 +17,7 @@ const BADGES = [
       </svg>
     ),
     label: 'Cambio fácil',
-    sub: 'Garantía de 1 año',
+    sub: 'Garantía de hasta 1 año',
   },
   {
     icon: (
@@ -26,7 +26,7 @@ const BADGES = [
       </svg>
     ),
     label: 'Compra protegida',
-    sub: 'Por Mercado Pago y Addi',
+    sub: 'Por Wompi y Addi',
   },
   {
     icon: (

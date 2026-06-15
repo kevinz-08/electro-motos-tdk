@@ -63,6 +63,10 @@ packages/*/src/**/*.d.ts
 tmp-productos/
 apps/web/tmp-productos/
 
+# exports de Optimun (inventario real del negocio — nunca al repo)
+*.xlsx
+*.csv
+
 # .md para opencode y claude code
 BACKLOG.md*
 AUDITORIA.md*
@@ -77,4 +81,7 @@ MIGRACION_GOOGLE_CLOUD.md
 apps/web/playwright/.auth/
 apps/web/playwright-report/
 apps/web/test-results/
+
+# Documentos legales fuente (Word) — el contenido ya está en /legal/*.tsx
+politicas_pagina/
 

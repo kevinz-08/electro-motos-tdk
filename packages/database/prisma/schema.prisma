@@ -85,6 +85,13 @@ model User {
   /// Null mientras el usuario no haya verificado su email. Requerido por PrismaAdapter de NextAuth.
   emailVerified       DateTime?
   createdAt           DateTime             @default(now())
+  /// Timestamp de aceptación de T&C + Política de Privacidad. Null = nunca aceptó explícitamente.
+  acceptedTermsAt     DateTime?
+  /// Versión del documento aceptado. Permite detectar si el usuario debe re-aceptar tras una actualización.
+  acceptedTermsVersion String?
+  /// Consentimiento para recibir comunicaciones de marketing (separado del consentimiento de T&C — Ley 1581/2012).
+  marketingConsent    Boolean              @default(false)
+  marketingConsentAt  DateTime?
   accounts            Account[]
   sessions            Session[]
   orders              Order[]
@@ -189,19 +196,22 @@ model MotorcycleCompatibility {
 }
 
 model Order {
-  id              String          @id @default(cuid())
-  userId          String
-  status          OrderStatus     @default(PENDING)
-  total           Int             // centavos COP
-  shippingAddress Json
-  paymentProvider PaymentProvider
+  id                 String          @id @default(cuid())
+  userId             String
+  status             OrderStatus     @default(PENDING)
+  total              Int             // centavos COP
+  shippingAddress    Json
+  paymentProvider    PaymentProvider
   /// ID del pedido creado en Vendelo API. Null hasta que VendeloOrderQueueService lo procesa.
-  vendeloOrderId  String?
-  createdAt       DateTime        @default(now())
-  user            User            @relation(fields: [userId], references: [id])
-  items           OrderItem[]
-  payment         Payment?
-  shipment        Shipment?
+  vendeloOrderId     String?
+  /// Timestamp del momento exacto en que el usuario marcó el checkbox de políticas en el checkout.
+  /// Evidencia inmutable para disputas legales o auditorías de la SIC.
+  policiesAcceptedAt DateTime?
+  createdAt          DateTime        @default(now())
+  user               User            @relation(fields: [userId], references: [id])
+  items              OrderItem[]
+  payment            Payment?
+  shipment           Shipment?
 }
 
 /// Envío asociado a un pedido. Se crea cuando Vendelo dispara el primer webhook

@@ -29,6 +29,8 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedMarketing, setAcceptedMarketing] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,11 +203,69 @@ export default function RegisterPage() {
             )}
           </div>
 
+          {/* Consentimientos legales */}
+          <div className="space-y-3 pt-1">
+            {/* Obligatorio: T&C + Privacidad */}
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                required
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                aria-required="true"
+                aria-describedby="terms-description"
+                className="mt-0.5 w-4 h-4 shrink-0 rounded border-white/30 bg-white/10 text-blue-500 focus:ring-blue-500 focus:ring-offset-black accent-blue-500"
+              />
+              <span
+                id="terms-description"
+                className="text-xs text-white/60 leading-relaxed group-hover:text-white/80 transition-colors"
+              >
+                He leído y acepto los{" "}
+                <Link
+                  href="/legal/terminos-y-condiciones"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 underline hover:text-blue-300"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Términos y condiciones
+                </Link>{" "}
+                y la{" "}
+                <Link
+                  href="/legal/politica-de-privacidad"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 underline hover:text-blue-300"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Política de privacidad
+                </Link>
+                .{" "}
+                <span className="text-white/30">(Obligatorio)</span>
+              </span>
+            </label>
+
+            {/* Opcional: marketing */}
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={acceptedMarketing}
+                onChange={(e) => setAcceptedMarketing(e.target.checked)}
+                className="mt-0.5 w-4 h-4 shrink-0 rounded border-white/30 bg-white/10 text-blue-500 focus:ring-blue-500 focus:ring-offset-black accent-blue-500"
+              />
+              <span className="text-xs text-white/60 leading-relaxed group-hover:text-white/80 transition-colors">
+                Acepto recibir promociones y novedades por correo electrónico.{" "}
+                <span className="text-white/30">(Opcional)</span>
+              </span>
+            </label>
+          </div>
+
           {/* Botón de registro */}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-60 mt-2"
+            disabled={loading || !acceptedTerms}
+            aria-disabled={!acceptedTerms}
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed mt-2"
           >
             {loading ? "Creando cuenta..." : "Crear cuenta"}
           </button>
@@ -264,10 +324,6 @@ export default function RegisterPage() {
           <Link href="/">← Volver a el Inicio</Link>
         </p>
 
-        <p className="text-xs text-white/20 text-center mt-3">
-          Al crear tu cuenta aceptas nuestros términos de uso y política de
-          privacidad.
-        </p>
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
 
       <footer className="bg-black text-gray-300 py-10 border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <Image src="/assets/logo.png" alt="H2R Online Store" width={120} height={34} className="object-contain mb-3" style={{ height: 'auto' }} />
               <p className="text-sm">Taller especializado en repuestos y servicio técnico de motos en Colombia.</p>
@@ -40,9 +40,40 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
                 <li>✉️ h2ronlinestore@gmail.com</li>
               </ul>
             </div>
+            <div>
+              <h4 className="text-white font-semibold mb-3">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link href="/legal/terminos-y-condiciones" className="hover:text-sky-400 transition-colors">
+                    Términos y condiciones
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/legal/politica-de-privacidad" className="hover:text-sky-400 transition-colors">
+                    Política de privacidad
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/legal/politica-de-envios" className="hover:text-sky-400 transition-colors">
+                    Política de envíos
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/legal/politica-de-cambios" className="hover:text-sky-400 transition-colors">
+                    Política de cambios
+                  </Link>
+                </li>
+              </ul>
+            </div>
           </div>
-          <div className="border-t border-white/10 mt-8 pt-8 text-center text-sm text-gray-500">
+          <div className="border-t border-white/10 mt-8 pt-8 text-sm text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p>© {new Date().getFullYear()} H2R Online Store. Todos los derechos reservados.</p>
+            <nav aria-label="Documentos legales" className="flex flex-wrap gap-x-4 gap-y-1 justify-center">
+              <Link href="/legal/terminos-y-condiciones" className="hover:text-sky-400 transition-colors">Términos</Link>
+              <Link href="/legal/politica-de-privacidad" className="hover:text-sky-400 transition-colors">Privacidad</Link>
+              <Link href="/legal/politica-de-envios" className="hover:text-sky-400 transition-colors">Envíos</Link>
+              <Link href="/legal/politica-de-cambios" className="hover:text-sky-400 transition-colors">Cambios</Link>
+            </nav>
           </div>
         </div>
       </footer>

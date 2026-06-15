@@ -59,6 +59,14 @@ export class OrdersController {
 
     if (!result.ok) throw result.error
 
+    // Persiste el timestamp de aceptación de políticas si el cliente lo envió
+    if (dto.policiesAcceptedAt) {
+      await this.prisma.client.order.update({
+        where: { id: result.value.order.id },
+        data: { policiesAcceptedAt: new Date(dto.policiesAcceptedAt) },
+      })
+    }
+
     // Fire-and-forget: nunca bloquea ni falla la respuesta del pedido
     this.emailService
       .sendOrderReceived(result.value.order, user.email)

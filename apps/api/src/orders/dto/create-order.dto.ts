@@ -1,5 +1,5 @@
 import {
-  IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional,
+  IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional,
   IsString, Min, ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
@@ -37,4 +37,9 @@ export class CreateOrderDto {
   @ApiProperty({ enum: ['WOMPI', 'MERCADO_PAGO'] })
   @IsEnum(['WOMPI', 'MERCADO_PAGO'])
   paymentProvider: 'WOMPI' | 'MERCADO_PAGO'
+
+  @ApiPropertyOptional({ description: 'ISO timestamp del momento en que el usuario aceptó las políticas en el checkout' })
+  @IsOptional()
+  @IsDateString()
+  policiesAcceptedAt?: string
 }

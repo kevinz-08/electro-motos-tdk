@@ -93,6 +93,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
           notes: form.notes || undefined,
         },
         paymentProvider: 'WOMPI',
+        policiesAcceptedAt: new Date().toISOString(),
       })
 
       if (!orderRes.ok) {

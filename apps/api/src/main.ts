@@ -49,6 +49,8 @@ function assertEnvVars(): void {
     'WOMPI_PRIVATE_KEY',
     'WOMPI_EVENTS_SECRET',
     'WOMPI_INTEGRITY_SECRET',
+    'MP_ACCESS_TOKEN',
+    'RESEND_API_KEY',
     'VENDELO_API_KEY',
     'VENDELO_WEBHOOK_SECRET',
   ]

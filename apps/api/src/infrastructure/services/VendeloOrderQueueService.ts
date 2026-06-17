@@ -59,7 +59,12 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
             where: { id: item.id },
             data: { status: 'FAILED', lastError: 'Pedido no encontrado', attempts: item.attempts + 1 },
           })
-          this.logger.warn(`[VendeloOrderQueue] Pedido no encontrado — marcando FAILED ${ctx}`)
+          this.emitFailedAlert({
+            orderId: item.orderId,
+            queueId: item.id,
+            lastError: 'Pedido no encontrado en BD',
+            attempts: item.attempts + 1,
+          })
           continue
         }
 
@@ -114,9 +119,18 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
           data: { attempts, lastError: String(e), status, nextRetry },
         })
 
-        this.logger.error(
-          `[VendeloOrderQueue] ERROR status=${status} nextRetry=${nextRetry.toISOString()} ${ctx}: ${e}`,
-        )
+        if (status === 'FAILED') {
+          this.emitFailedAlert({
+            orderId: item.orderId,
+            queueId: item.id,
+            lastError: String(e),
+            attempts,
+          })
+        } else {
+          this.logger.warn(
+            `[VendeloOrderQueue] Reintento programado — status=${status} nextRetry=${nextRetry.toISOString()} ${ctx}: ${e}`,
+          )
+        }
       }
     }
   }
@@ -127,5 +141,27 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
       orderBy: { createdAt: 'desc' },
       take: limit,
     })
+  }
+
+  private emitFailedAlert(payload: {
+    orderId: string
+    queueId: string
+    lastError: string
+    attempts: number
+  }): void {
+    // Emitir como JSON estructurado a stderr para Railway/Logtail.
+    // Nivel CRITICAL indica que un cliente pagó pero su pedido no se creó en Vendelo.
+    const entry = {
+      timestamp: new Date().toISOString(),
+      level: 'CRITICAL',
+      alert: 'VENDELO_ORDER_QUEUE_FAILED',
+      message: `[VendeloOrderQueue] CRITICAL — pedido NO enviado a Vendelo tras ${payload.attempts} intentos. El cliente pagó pero no se generará envío automáticamente.`,
+      orderId: payload.orderId,
+      queueId: payload.queueId,
+      lastError: payload.lastError,
+      attempts: payload.attempts,
+      action: 'Revisar VendeloOrderQueue y crear la orden manualmente si es necesario.',
+    }
+    process.stderr.write(JSON.stringify(entry) + '\n')
   }
 }

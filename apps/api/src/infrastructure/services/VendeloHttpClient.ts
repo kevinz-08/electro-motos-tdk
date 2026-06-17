@@ -38,6 +38,8 @@ type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN'
 const FAILURE_THRESHOLD = 5
 const RESET_TIMEOUT_MS  = 60_000 // 1 minuto
 
+const VENDELO_AUTH_HEADER = 'X-Vendelo-Api-Key'
+
 // ── Client ───────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -128,7 +130,7 @@ export class VendeloHttpClient {
       const res = await fetch(`${this.baseUrl}${path}`, {
         method,
         headers: {
-          'X-Venndelo-Api-Key': this.apiKey,
+          [VENDELO_AUTH_HEADER]: this.apiKey,
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },

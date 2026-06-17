@@ -7,24 +7,48 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-const ERROR_MESSAGES: Record<string, string> = {
-  OAuthAccountNotLinked:
-    'Ya existe una cuenta con este email usando otro método de inicio de sesión. Inicia sesión con el método original.',
-  OAuthCallbackError:
-    'No se pudo completar el inicio de sesión con Google. Intenta de nuevo.',
-  CredentialsSignin: 'Email o contraseña incorrectos.',
-  AccessDenied: 'No tienes permiso para acceder a esta cuenta.',
-  Verification: 'El enlace de verificación expiró o ya fue usado.',
+const ERROR_MESSAGES: Record<string, { message: string; hint?: string }> = {
+  OAuthAccountNotLinked: {
+    message: 'Ya existe una cuenta con este email usando otro método de inicio de sesión.',
+    hint: 'Inicia sesión con email y contraseña, o usa el mismo proveedor con el que te registraste.',
+  },
+  OAuthCallbackError: {
+    message: 'No se pudo completar el inicio de sesión con Google.',
+    hint: 'Es posible que hayas cancelado el proceso. Intenta de nuevo.',
+  },
+  CredentialsSignin: {
+    message: 'Email o contraseña incorrectos.',
+    hint: '¿Olvidaste tu contraseña? Puedes restablecerla desde el inicio de sesión.',
+  },
+  EMAIL_NOT_VERIFIED: {
+    message: 'Debes verificar tu correo electrónico antes de iniciar sesión.',
+    hint: 'Revisa tu bandeja de entrada y sigue el enlace que te enviamos al registrarte.',
+  },
+  AccessDenied: {
+    message: 'No tienes permiso para acceder a esta cuenta.',
+  },
+  Verification: {
+    message: 'El enlace de verificación expiró o ya fue usado.',
+    hint: 'Solicita un nuevo enlace desde la página de inicio de sesión.',
+  },
+  Configuration: {
+    message: 'Error de configuración del servidor de autenticación.',
+    hint: 'Nuestro equipo ha sido notificado. Intenta de nuevo más tarde.',
+  },
 }
 
 interface PageProps {
   searchParams: Promise<{ error?: string }>
 }
 
+const DEFAULT_ERROR = {
+  message: 'Ocurrió un error al iniciar sesión.',
+  hint: 'Si el problema persiste, intenta más tarde o contáctanos por WhatsApp.',
+}
+
 export default async function AuthErrorPage({ searchParams }: PageProps) {
   const { error } = await searchParams
-  const message =
-    (error && ERROR_MESSAGES[error]) ?? 'Ocurrió un error al iniciar sesión.'
+  const { message, hint } = (error && ERROR_MESSAGES[error]) ?? DEFAULT_ERROR
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4">
@@ -48,7 +72,10 @@ export default async function AuthErrorPage({ searchParams }: PageProps) {
         {/* Mensaje de error */}
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 mb-8 text-center">
           <p className="text-2xl mb-3">⚠️</p>
-          <p className="text-red-400 text-sm leading-relaxed">{message}</p>
+          <p className="text-red-400 text-sm font-medium leading-relaxed">{message}</p>
+          {hint && (
+            <p className="text-white/40 text-xs leading-relaxed mt-2">{hint}</p>
+          )}
         </div>
 
         {/* Acciones */}

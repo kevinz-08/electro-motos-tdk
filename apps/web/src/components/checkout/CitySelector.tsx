@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { getDepartmentName, normalizeCityName } from '@/lib/colombia-divipola'
 
 interface CityOption {
   code: string
@@ -57,7 +58,10 @@ export function CitySelector({ value, onChange, required, disabled }: CitySelect
 
   function handleSelect(city: CityOption) {
     onChange(city)
-    setQuery(city.name)
+    // Mostramos al usuario el formato "Ciudad, Departamento" para que después
+    // de elegir vea claramente cuál era la opción exacta (especialmente útil
+    // si hay varias ciudades con el mismo nombre).
+    setQuery(`${normalizeCityName(city.name)}, ${getDepartmentName(city.subdivisionCode)}`)
     setResults([])
     setOpen(false)
   }
@@ -106,9 +110,14 @@ export function CitySelector({ value, onChange, required, disabled }: CitySelect
               role="option"
               aria-selected={value?.code === city.code}
               onMouseDown={() => handleSelect(city)}
-              className="px-4 py-2.5 cursor-pointer hover:bg-sky-50 hover:text-sky-700"
+              className="px-4 py-2 cursor-pointer hover:bg-sky-50 group"
             >
-              {city.name}
+              <div className="text-gray-900 group-hover:text-sky-700 leading-tight">
+                {normalizeCityName(city.name)}
+              </div>
+              <div className="text-xs text-gray-500 group-hover:text-sky-600 leading-tight">
+                {getDepartmentName(city.subdivisionCode)}
+              </div>
             </li>
           ))}
           {!loading && results.length === 0 && query.length >= 2 && (

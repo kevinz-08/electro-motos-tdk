@@ -4,6 +4,53 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 98. Hotfixes post-launch — Wompi widget y dominio de Resend
+
+**Qué se hizo:**
+Dos bugs críticos detectados al hacer las primeras pruebas de checkout en producción.
+
+**Bug 1 — El botón "Pagar con Wompi" no aparecía:**
+
+Tras llenar los datos de envío y dar "Continuar al pago", la pantalla mostraba el header "Pago seguro con Wompi" pero ningún botón visible. Diagnóstico desde la consola del navegador:
+
+- El form `data-render="button"` se inyectaba correctamente en el DOM
+- `pub_prod_*`, `signature` y `redirectUrl` venían correctos del backend
+- `https://checkout.wompi.co/widget.js` cargaba (status 200)
+- `window.WidgetCheckout` quedaba definido como `function`
+- **Pero `Form innerHTML` quedaba vacío — Wompi no inyectaba el botón**
+
+Causa: el `widget.js` de Wompi escanea el DOM buscando `form[data-render="button"]` **solo en `DOMContentLoaded`**. Como en la SPA el form se crea dinámicamente al transicionar al paso "payment" (mucho después de `DOMContentLoaded`), el escaneo nunca lo encuentra. El comportamiento es silencioso, sin error.
+
+Fix en `apps/web/src/components/checkout/WompiWidget.tsx` (commit `22bcdc2`): se eliminó el enfoque basado en escaneo del DOM y se cambió a la API programática (`new window.WidgetCheckout({...}).open()`). Ahora se renderiza nuestro propio botón "Pagar con Wompi" y al click se instancia el widget con los params correctos. Wompi maneja el modal y el redirect al final.
+
+El componente también detecta si el script ya está cargado (`typeof window.WidgetCheckout === 'function'`) para evitar re-añadirlo en navegaciones internas, y queda como fallback un redirect directo a `checkout.wompi.co/p/` con los params en query string si el SDK no se puede instanciar.
+
+**Bug 2 — Ningún correo transaccional salía de Resend:**
+
+`ResendEmailService.constructor` lee `RESEND_FROM_EMAIL` con un fallback hardcoded a `no-reply@h2ronlinestore.co` (dominio que nunca existió como tal). En Cloud Run la variable nunca se configuró, así que se usaba el fallback. Resend rechazaba con HTTP 403 `domain not verified`.
+
+Impacto silencioso pero serio:
+
+- Ningún email de confirmación de pago se entregaba a clientes que pagaran (la cola `EmailQueueService` los marcaba como `FAILED` tras 3 retries).
+- **Más grave: los OTPs de registro tampoco salían**. En dev el código se loguea como `[DEV] OTP para <email>: <code>` pero en producción (`NODE_ENV === 'production'`) ese log no se imprime, por lo que el email era la única vía. Cualquier nuevo registro quedaba colgado esperando el código de verificación.
+
+Verificación contra la API de Resend:
+
+```
+no-reply@h2ronlinestore.co  → 403 "domain not verified"
+no-reply@tiendah2r.com      → 200 OK
+```
+
+Fix:
+
+- Cloud Run: `gcloud run services update --update-env-vars RESEND_FROM_EMAIL=no-reply@tiendah2r.com` (revisión `00025-mtr`).
+- `.github/workflows/ci.yml`: agregada `RESEND_FROM_EMAIL=no-reply@tiendah2r.com` al bloque `--update-env-vars` del deploy para que futuros despliegues preserven el valor.
+- `apps/api/.env.example`: corregido el default a `no-reply@tiendah2r.com` y añadido un comentario explicando la importancia de que el dominio del FROM esté verificado en `https://resend.com/domains`.
+
+Como el admin aún no había anunciado la tienda públicamente, no hay registros reales colgados ni emails pendientes que reencolar. Si esto sucediera en una etapa con tráfico real, habría que correr un script de re-enqueue sobre la tabla `EmailQueue` con `status='FAILED'`.
+
+---
+
 ## 97. Cron de polling de estados de envío Vendelo
 
 **Qué se hizo:**

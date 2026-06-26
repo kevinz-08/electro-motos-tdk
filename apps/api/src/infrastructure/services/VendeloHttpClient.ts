@@ -38,7 +38,7 @@ type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN'
 const FAILURE_THRESHOLD = 5
 const RESET_TIMEOUT_MS  = 60_000 // 1 minuto
 
-const VENDELO_AUTH_HEADER = 'X-Vendelo-Api-Key'
+const VENDELO_AUTH_HEADER = 'X-Venndelo-Api-Key'
 
 // ── Client ───────────────────────────────────────────────────────────────────
 

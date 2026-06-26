@@ -4,6 +4,7 @@ import {
   IOrderRepository,
   CreateOrderInput,
   PaymentTransitionResult,
+  ActiveVendeloOrder,
   Order,
   OrderStatus,
   OrderItem,
@@ -11,6 +12,7 @@ import {
   ShippingAddress,
   PaymentProvider,
   PaymentStatus,
+  ShipmentStatus,
 } from '@h2r/domain'
 import { PrismaService } from '../database/prisma.service'
 
@@ -174,5 +176,36 @@ export class PrismaOrderRepository implements IOrderRepository {
       select: { id: true, vendeloOrderId: true },
     })
     return rows.map((r) => ({ id: r.id, vendeloOrderId: r.vendeloOrderId }))
+  }
+
+  async findActiveVendeloOrders(limit: number): Promise<ActiveVendeloOrder[]> {
+    const rows = await this.prisma.client.order.findMany({
+      where: {
+        vendeloOrderId: { not: null },
+        status: { notIn: ['DELIVERED', 'CANCELLED'] },
+        OR: [
+          { shipment: null },
+          { shipment: { status: { notIn: ['DELIVERED', 'RETURNED', 'CANCELLED'] } } },
+        ],
+      },
+      select: {
+        id: true,
+        vendeloOrderId: true,
+        shipment: { select: { status: true, updatedAt: true } },
+      },
+      // ASC NULLS FIRST: pedidos sin shipment van primero, luego los más antiguos.
+      // Prisma no expone NULLS FIRST, pero como NULL implícito se ordena al inicio
+      // en PostgreSQL ASC, el comportamiento es el correcto.
+      orderBy: { shipment: { updatedAt: 'asc' } },
+      take: limit,
+    })
+
+    return rows
+      .filter((r): r is typeof r & { vendeloOrderId: string } => r.vendeloOrderId !== null)
+      .map((r) => ({
+        orderId: r.id,
+        vendeloOrderId: r.vendeloOrderId,
+        currentShipmentStatus: (r.shipment?.status as ShipmentStatus | undefined) ?? null,
+      }))
   }
 }

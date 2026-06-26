@@ -4,6 +4,144 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 97. Cron de polling de estados de envío Vendelo
+
+**Qué se hizo:**
+Se implementó un cron de polling que sincroniza periódicamente el estado de envíos activos contra la API de Vendelo. Workaround necesario porque `POST /v1/admin/chatbot/connections` está reservado a proveedores de chatbots (Lucidbot/Chatby) — no a comercios regulares — y Venndelo aún no tiene una alternativa de webhooks abierta para comercios. Soporte confirmó que está en su backlog "para el futuro cercano" sin ETA.
+
+**Diseño local-driven:**
+El cron parte de nuestra BD, no del catálogo de Vendelo. Esto garantiza que solo tocamos órdenes nuestras y que el costo de polling escala con nuestro volumen activo, no con el volumen total de Venndelo.
+
+```
+[Cloud Run cada 5 min]
+       ↓
+VendeloShipmentPollerCron.tick()
+       ↓
+IOrderRepository.findActiveVendeloOrders(50)
+   Filtros: vendeloOrderId NOT NULL
+            AND Order.status NOT IN ('DELIVERED','CANCELLED')
+            AND (shipment IS NULL OR shipment.status NOT IN ('DELIVERED','RETURNED','CANCELLED'))
+   Orden:   shipment.updatedAt ASC NULLS FIRST → fairness
+       ↓ por cada (con delay 100ms entre requests)
+IVendeloShippingPort.getOrder(vendeloOrderId) → GET /v1/admin/orders/{id}
+       ↓
+SyncShipmentStatus.execute({ orderId, vendelo_status, trackingNumber, carrier })
+   (use case existente — idempotente, atomic UPDATE WHERE)
+       ↓
+Log estructurado JSON: { cycle, batchSize, transitionsApplied, transitionsSkipped, errors, circuitState, durationMs }
+```
+
+**Cambios en la capa de dominio:**
+
+- `IVendeloShippingPort.getOrder(vendeloOrderId)` — nuevo método del puerto que retorna un `VendeloOrderSnapshot` con `{ id, status, trackingNumber, carrier }`. Los identificadores de estado de Vendelo coinciden 1:1 con nuestro enum `ShipmentStatus`, por lo que no hay traducción adicional.
+- `VendeloOrderNotFoundError` — error tipado para el caso 404 (Vendelo no conoce el ID). El cron lo distingue de fallos transitorios y continúa con el siguiente pedido sin abortar el batch.
+- `IOrderRepository.findActiveVendeloOrders(limit)` — método de consulta para el cron. Retorna `ActiveVendeloOrder[]` con `orderId`, `vendeloOrderId` y `currentShipmentStatus` (null si aún no se ha creado registro de Shipment para ese pedido).
+
+**Cambios en infraestructura:**
+
+- `VendeloService.getOrder()` hace `GET /v1/admin/orders/{id}` y mapea la respuesta de Venndelo al snapshot. Si el HttpClient lanza el error `Vendelo API 404: ...`, lo convierte a `VendeloOrderNotFoundError` para que el cron lo capture específicamente.
+- `PrismaOrderRepository.findActiveVendeloOrders()` implementa el query con JOIN implícito a `Shipment` vía la relación 1:1, con filtro `OR` para incluir tanto pedidos sin shipment aún como los activos en estados intermedios.
+
+**Cron en sí (`VendeloShipmentPollerCron`):**
+
+- Implementa `OnModuleInit`/`OnModuleDestroy` siguiendo el patrón existente de `VendeloOrderQueueService`, `WalletAlertCron` y `EmailQueueService`.
+- Lee `httpClient.getCircuitState()` antes de cada tick — si está en `OPEN`, skip cycle inmediatamente sin tocar BD ni Vendelo.
+- Captura excepciones no controladas con `Sentry.captureException` y tags `{ service: 'VendeloShipmentPoller' }`.
+- Logs estructurados JSON con la clave `service` para filtros en Cloud Logging — permite alertas tipo `service=VendeloShipmentPoller AND errors>=5`.
+- Método `tick()` público para invocación manual desde tests o futuros endpoints admin.
+
+**Garantías de concurrencia:**
+
+- Idempotencia entre instancias Cloud Run: `SyncShipmentStatus` usa `atomicUpdateStatus` con `WHERE status = currentStatus` — dos workers que llegan al mismo tiempo solo aplican una vez el cambio.
+- Filtro `vendeloOrderId IS NOT NULL` en BD garantiza que nunca tocamos pedidos ajenos.
+- Reads duplicados (mismas órdenes consultadas desde varias instancias) son safe — la API de Venndelo es read-only para este endpoint.
+
+**Configuración (variables de entorno nuevas, plain env vars):**
+
+- `VENDELO_POLL_ENABLED=true` — kill switch operativo para apagar el cron sin redeploy.
+- `VENDELO_POLL_INTERVAL_MS=300000` — 5 minutos entre ticks.
+- `VENDELO_POLL_BATCH_SIZE=50` — máximo de pedidos a procesar por ciclo.
+- `VENDELO_POLL_REQUEST_DELAY_MS=100` — delay entre cada GET a Vendelo dentro del mismo tick (rate limiting natural).
+
+Defaults sensatos para producción inicial — sin configurar nada en Cloud Run el cron arranca con estos valores. Las 4 quedaron documentadas en `apps/api/.env.example` y agregadas a `apps/api/.env` local.
+
+**Cobertura de tests:**
+
+12 casos en `apps/api/src/__tests__/VendeloShipmentPollerCron.test.ts` agrupados en 3 describe-blocks:
+
+- **Casos base** (4): sin pedidos activos no llama a Vendelo; con 3 pedidos llama getOrder 3 veces; aplica transición progresiva; skipped cuando no es progresiva.
+- **Resiliencia** (4): circuit breaker OPEN salta el ciclo; 404 de Vendelo no aborta el batch; error genérico en una orden no aborta el batch; fallo de BD se reporta sin llamar a Vendelo.
+- **Lifecycle** (2): `VENDELO_POLL_ENABLED=false` no arranca el `setInterval`; con enabled arranca y se limpia con `clearInterval` en destroy.
+
+Resultado: Domain 162/162, API 129/129 pasan.
+
+**Trade-offs aceptados:**
+
+- Latencia de hasta 5 min entre actualización en Venndelo y reflejo en nuestra BD. Para entregas COD que toman 2-3 días, invisible al cliente.
+- Cloud Scheduler + Pub/Sub para cron distribuido sería más robusto, pero overkill para una sola instancia de Cloud Run. Si más adelante hay autoscale a varias instancias, migramos. Documentado como deuda técnica.
+- Polling de novedades (`shipping/exceptions`) no se incluye en esta iteración — el admin las verifica manualmente en el panel cuando un pedido entra a `INCIDENT`. Se evaluará si automatizar en una iteración futura.
+
+---
+
+## 96. Hardening pre-launch — Wompi/Vendelo en producción, E2E automatizado
+
+**Qué se hizo:**
+Conjunto de cambios para que la pasarela Wompi y la integración Vendelo queden listas para el primer pago real. Se eliminó deuda heredada (MercadoPago, headers incorrectos, mocks de webhook) y se automatizó el flujo de prueba end-to-end.
+
+**Limpieza de MercadoPago como dependencia obligatoria:**
+
+- Se quitó `MP_ACCESS_TOKEN` del `assertEnvVars()` de `apps/api/src/main.ts`. Mercado Pago no se va a usar al lanzamiento (decisión del admin) y el placeholder rompía el próximo deploy.
+- Se removieron las secciones `MP_*` de `apps/api/.env.example`, `apps/web/.env.example`, `apps/api/.env` y `apps/web/.env.local`. Los servicios `MercadoPagoService` siguen presentes en código pero usan `?? ''` y no crashean en construcción.
+- Cuando se decida habilitar Mercado Pago como respaldo, basta con devolver las variables al `assertEnvVars()` y configurarlas en Cloud Run.
+
+**Configuración correcta de Wompi en producción:**
+
+- Se cambió `WOMPI_ENV` en Cloud Run de implícito (default `sandbox`) a explícito `production`, vía `gcloud run services update --update-env-vars`. Previamente la API estaba apuntando a `sandbox.wompi.co` aunque las keys en Secret Manager fueran `pub_prod_*`/`prv_prod_*`, lo que habría hecho imposible procesar pagos reales.
+- Se verificó que `SENTRY_DSN`, `INTERNAL_API_SECRET`, `WOMPI_INTEGRITY_SECRET` y `NEXT_PUBLIC_SENTRY_DSN` estuvieran en Vercel `production` — la API ya las tenía vía Secret Manager pero el frontend solo tenía `WOMPI_PUBLIC_KEY` y `WOMPI_ENV`. Sin esos tres, el widget Wompi no firma correctamente, el handshake NextAuth → NestJS no funciona y los errores de frontend no llegan a Sentry.
+- Se registró la URL `https://api.tiendah2r.com/payments/wompi/webhook` en el panel de Wompi (Configuraciones avanzadas → Seguimiento de transacciones).
+
+**Corrección del header del API de Venndelo:**
+
+- `VendeloHttpClient` estaba enviando `X-Vendelo-Api-Key` con una sola n; la doc oficial (`API_VENDELO_DOCUMENTACION.md`) especifica `X-Venndelo-Api-Key` con doble n. Esto causaba 401 silenciosos en todas las llamadas — explica por qué `WalletAlertCron` nunca disparó alertas.
+- Tras el fix se verificó conexión exitosa con `/v1/admin/check-auth`, `/v1/admin/wallet/get-wallet-balance` y `/v1/admin/region/cities`.
+
+**Cambio del modelo de seguridad del webhook de Venndelo:**
+
+- Soporte de Venndelo confirmó que los webhooks del Chatbot Connection no se firman criptográficamente. Como alternativa oficial, ofrecen el campo `metadata` que el comercio registra al crear la conexión — Venndelo lo echoes en cada webhook.
+- `VendeloWebhookGuard` fue reescrito para validar `metadata[].h2r_webhook_secret` contra `VENDELO_WEBHOOK_SECRET` con comparación timing-safe. Soporta el campo tanto en root como anidado bajo `data` por compatibilidad con cualquier formato futuro.
+- Tests reescritos (8 casos): acepta secret correcto en root y anidado, rechaza valores distintos, rechaza secret de longitud diferente, encuentra el secret entre múltiples items, dev mode con secret vacío permite paso, prod mode con secret vacío bloquea.
+- Se generó un nuevo `VENDELO_WEBHOOK_SECRET` con `openssl rand -hex 32` y se actualizó GCP Secret Manager (versión 3) + `apps/api/.env` local. El placeholder `placeholder-reemplazar-con-secret-real-de-vendelo` ya no existe.
+- Se creó `apps/api/scripts/register-vendelo-webhook.ts` que registra, lista o elimina la conexión Chatbot incluyendo el secret en metadata.
+
+**Limitante conocida — endpoint de chatbot reservado:**
+
+- Al ejecutar el script de registro con el API key del comercio, Venndelo responde `HTTP 422 — Provider id inválido` (code 10000). Soporte confirmó que `POST /v1/admin/chatbot/connections` hoy solo está abierto a proveedores como Lucidbot y Chatby — no a comercios regulares. La feature "webhooks para comercios" llegará "en el futuro cercano" pero sin ETA.
+- Como workaround se planificó un cron de polling (siguiente entrada en este historial).
+
+**Variables de entorno de Vendelo en Cloud Run:**
+
+- Se descubrió que Cloud Run solo tenía `VENDELO_API_KEY` y `VENDELO_WEBHOOK_SECRET` configurados — faltaban 10 variables que `VendeloService.createOrder()` lee con defaults inservibles (`Dirección de la tienda`, `05001000` Medellín, etc.). Sin estas, cada orden creada en Venndelo habría salido con dirección de pickup placeholder.
+- Se pushearon como plain env vars: `VENDELO_API_URL=https://api.venndelo.com` (la doble n no es typo, es la URL real), `VENDELO_STORE_NAME`, `VENDELO_STORE_PHONE`, `VENDELO_STORE_ADDRESS`, `VENDELO_STORE_CITY_CODE`, `VENDELO_STORE_SUBDIVISION_CODE`, `VENDELO_DEFAULT_WEIGHT_KG`, `VENDELO_DEFAULT_HEIGHT_CM`, `VENDELO_DEFAULT_WIDTH_CM`, `VENDELO_DEFAULT_LENGTH_CM`, `VENDELO_WALLET_ALERT_THRESHOLD`.
+- `VENDELO_STORE_ADDRESS` quedó con el placeholder literal `"Dirección de la tienda"` — debe actualizarse a la dirección real de la tienda física antes del primer pedido contraentrega.
+
+**Automatización del flujo E2E con Playwright:**
+
+- `apps/web/e2e/global-setup.ts` fue reescrito como setup project de Playwright (patrón `test as setup`) en lugar de hook `globalSetup`. Antes leía credenciales de env vars que no existían; ahora crea un usuario fresco por run vía POST `/auth/register`, scrapea el OTP del log del dev-server con regex (`[DEV] OTP para <email>: <code>`), llama `/auth/verify-email`, hace signIn vía POST `/api/auth/callback/credentials` con CSRF token y guarda `storageState` + `user-info.json` para los specs.
+- `apps/web/e2e/full-checkout.spec.ts` cubre catálogo → producto → carrito → checkout hasta el botón "Continuar al pago" (antes del widget Wompi). Mockea `/api/vendelo/cities` con Playwright `page.route()` porque la tabla `VendeloCity` está vacía en dev.
+- Razón del rediseño: React Compiler de Next.js 16 marca los inputs controlled como no hidratados durante varios segundos, lo que hace fallar `.fill()` y `pressSequentially()` consistentemente. Bypaseando el form de UI vía API se obtiene un E2E rápido y confiable.
+
+**Smoke test del webhook Wompi:**
+
+- `apps/web/scripts/test-wompi-flow.ts` orquesta el flujo completo end-to-end sin tráfico real a Wompi: login → crear orden PENDING vía `POST /orders` → firmar webhook con HMAC SHA256 usando `WOMPI_EVENTS_SECRET` local → enviar a `/payments/wompi/webhook` → verificar `stateChanged: true` → confirmar decremento de stock → segundo webhook idéntico para validar idempotencia (`stateChanged: false`).
+- Útil para regresiones del flujo de confirmación de pago sin necesidad de exponer un túnel ni interactuar con sandbox.
+
+**Tooling de E2E:**
+
+- `apps/web/scripts/codegen-with-header.ts` lanza Playwright codegen contra una URL configurable inyectando el header `X-E2E-Trace: playwright-codegen-checkout` en todas las requests. Permite identificar las requests del codegen en los logs del dev-server.
+- `apps/web/.gitignore` excluye `.vercel` y `.env*.local`.
+
+---
+
 ## 95. Sistema de autenticación con verificación de email por OTP
 
 **Qué se hizo:**

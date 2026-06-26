@@ -6,6 +6,8 @@ import { Result, ok, err, AppError } from '@/domain/shared/Result'
 
 export interface CreateOrderUseCaseInput {
   userId: string
+  // Intencionalmente sin `price`: el precio siempre se lee de la BD en el use case
+  // para prevenir manipulación de precios desde el cliente.
   items: Array<{ productId: string; quantity: number }>
   shippingAddress: ShippingAddress
   paymentProvider: PaymentProvider

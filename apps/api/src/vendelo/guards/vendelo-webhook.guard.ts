@@ -5,23 +5,43 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common'
-import { createHmac, timingSafeEqual } from 'crypto'
+import { timingSafeEqual } from 'crypto'
 import type { Request } from 'express'
 
 /**
  * Guard para el webhook del Chatbot Connection de Vendelo.
  *
- * Verificaciones en orden:
- *   1. HMAC-SHA256 del rawBody contra X-Vendelo-Signature (timing-safe)
- *   2. Ventana anti-replay de 5 minutos sobre X-Vendelo-Timestamp (si el header está presente)
+ * **Por qué validamos vía metadata y no HMAC:**
+ * Soporte de Venndelo confirmó (jun 2026) que aún no firman las llamadas del
+ * Chatbot Connection. Su alternativa oficial es usar el campo `metadata` que
+ * el comercio envía al crear la conexión — Venndelo lo incluye en cada
+ * webhook tal cual lo registramos. Lo usamos como secreto compartido:
  *
- * En desarrollo (NODE_ENV !== 'production') con VENDELO_WEBHOOK_SECRET vacío,
- * el guard deja pasar con warning para facilitar el testing local.
- * En producción, rechaza con 401 si el secret no está configurado.
+ *   1. Al registrar la conexión (`POST /v1/admin/chatbot/connections`)
+ *      enviamos `metadata: [{ "h2r_webhook_secret": <VENDELO_WEBHOOK_SECRET> }]`
+ *   2. Cada webhook que nos manda Venndelo trae ese metadata.
+ *   3. Este guard valida `metadata[].h2r_webhook_secret === VENDELO_WEBHOOK_SECRET`
+ *      con comparación timing-safe.
+ *
+ * Limitación: el secreto viaja en claro dentro del JSON (HTTPS lo protege en
+ * tránsito). Si Venndelo agrega firma real en el futuro, migramos a HMAC.
+ *
+ * En dev (NODE_ENV !== 'production') con secret vacío, el guard deja pasar
+ * con warning para facilitar testing local.
  */
 
-/** Ventana máxima de aceptación de webhooks en segundos (5 minutos) */
-const REPLAY_WINDOW_SECONDS = 5 * 60
+/** Key dentro del array `metadata` que contiene nuestro secreto compartido */
+const METADATA_SECRET_KEY = 'h2r_webhook_secret'
+
+interface VendeloMetadataItem {
+  [key: string]: unknown
+}
+
+interface VendeloWebhookBody {
+  metadata?: VendeloMetadataItem[]
+  // Algunos proveedores anidan metadata bajo data — soportamos ambos
+  data?: { metadata?: VendeloMetadataItem[] }
+}
 
 @Injectable()
 export class VendeloWebhookGuard implements CanActivate {
@@ -45,64 +65,58 @@ export class VendeloWebhookGuard implements CanActivate {
     }
 
     const req = context.switchToHttp().getRequest<Request>()
+    const body = (req.body ?? {}) as VendeloWebhookBody
 
-    this.verifySignature(req)
-    this.verifyTimestamp(req)
+    const provided = this.extractSecret(body)
+
+    if (!provided) {
+      this.logger.warn(
+        '[VendeloWebhookGuard] Webhook rechazado — falta metadata.h2r_webhook_secret. ' +
+        'Verifica que la conexión Chatbot quedó registrada con el metadata correcto.',
+      )
+      throw new UnauthorizedException('Metadata de webhook ausente')
+    }
+
+    if (!this.timingSafeStringEquals(provided, this.secret)) {
+      this.logger.warn('[VendeloWebhookGuard] Webhook rechazado — secret en metadata no coincide')
+      throw new UnauthorizedException('Secret de webhook inválido')
+    }
 
     return true
   }
 
-  private verifySignature(req: Request): void {
-    const signature = req.headers['x-vendelo-signature'] as string | undefined
+  /**
+   * Busca `h2r_webhook_secret` en el array `metadata` del payload.
+   * Soporta dos ubicaciones porque la doc de Venndelo no es explícita:
+   *   - root.metadata[]
+   *   - root.data.metadata[]
+   */
+  private extractSecret(body: VendeloWebhookBody): string | null {
+    const candidates: VendeloMetadataItem[] = [
+      ...(body.metadata ?? []),
+      ...(body.data?.metadata ?? []),
+    ]
 
-    if (!signature) {
-      throw new UnauthorizedException('Header X-Vendelo-Signature ausente')
+    for (const item of candidates) {
+      const value = item?.[METADATA_SECRET_KEY]
+      if (typeof value === 'string' && value.length > 0) return value
     }
-
-    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody
-    if (!rawBody) {
-      this.logger.error('[VendeloWebhookGuard] rawBody no disponible — verificar rawBody: true en main.ts')
-      throw new UnauthorizedException('Body crudo no disponible para verificación')
-    }
-
-    const expected = `sha256=${createHmac('sha256', this.secret).update(rawBody).digest('hex')}`
-
-    // timingSafeEqual previene timing attacks de fuerza bruta sobre la firma
-    const sigBuf = Buffer.from(signature)
-    const expBuf = Buffer.from(expected)
-
-    const valid =
-      sigBuf.length === expBuf.length &&
-      timingSafeEqual(sigBuf, expBuf)
-
-    if (!valid) {
-      this.logger.warn('[VendeloWebhookGuard] Firma inválida — posible webhook falso o secret desincronizado')
-      throw new UnauthorizedException('Firma de webhook inválida')
-    }
+    return null
   }
 
   /**
-   * Protección anti-replay usando X-Vendelo-Timestamp (segundos Unix).
-   * Solo actúa si el header está presente — mantiene compatibilidad con versiones
-   * de Vendelo que aún no lo envían.
+   * Comparación timing-safe de strings — previene timing attacks de fuerza bruta
+   * sobre el secreto. timingSafeEqual exige longitudes iguales, así que primero
+   * normalizamos al mismo tamaño con un secreto bogus si difieren.
    */
-  private verifyTimestamp(req: Request): void {
-    const tsHeader = req.headers['x-vendelo-timestamp'] as string | undefined
-    if (!tsHeader) return
-
-    const ts = Number(tsHeader)
-    if (!Number.isFinite(ts)) {
-      throw new UnauthorizedException('X-Vendelo-Timestamp tiene formato inválido')
+  private timingSafeStringEquals(a: string, b: string): boolean {
+    const aBuf = Buffer.from(a)
+    const bBuf = Buffer.from(b)
+    if (aBuf.length !== bBuf.length) {
+      // Aún hacemos una comparación timing-safe para no leakear longitud
+      timingSafeEqual(aBuf, Buffer.alloc(aBuf.length))
+      return false
     }
-
-    const nowSeconds = Math.floor(Date.now() / 1000)
-    const age = Math.abs(nowSeconds - ts)
-
-    if (age > REPLAY_WINDOW_SECONDS) {
-      this.logger.warn(
-        `[VendeloWebhookGuard] Webhook rechazado por replay — antigüedad ${age}s (máx ${REPLAY_WINDOW_SECONDS}s)`,
-      )
-      throw new UnauthorizedException('Webhook fuera de la ventana de tiempo permitida')
-    }
+    return timingSafeEqual(aBuf, bBuf)
   }
 }

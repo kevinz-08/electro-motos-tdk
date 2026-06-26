@@ -94,11 +94,21 @@ export class SyncShipmentStatus {
     return ok({ updated: true, newStatus: input.vendelo_status, userId: order.userId })
   }
 
-  /** Actualiza Order.status cuando el envío llega a un estado terminal del ciclo logístico. */
+  /**
+   * Actualiza Order.status cuando el envío llega a un estado que tiene representación
+   * en el enum OrderStatus del dominio.
+   *
+   * Estados intermedios (PREPARING, READY, INCIDENT) no sincronizan Order.status
+   * intencionalmente: OrderStatus no tiene esos valores y añadirlos requeriría una
+   * migración de schema. El cliente ve "Pago confirmado" (PAID) mientras el pedido
+   * se prepara, lo cual es correcto. Si se necesita visibilidad de estados intermedios
+   * en el frontend, la página de pedidos debe incluir shipment.status en su query.
+   */
   private async syncOrderStatus(orderId: string, shipmentStatus: ShipmentStatus): Promise<void> {
     const orderStatusMap: Partial<Record<ShipmentStatus, OrderStatus>> = {
-      SHIPPED: 'SHIPPED',
+      SHIPPED:   'SHIPPED',
       DELIVERED: 'DELIVERED',
+      RETURNED:  'CANCELLED', // Devolución = cancelación desde la perspectiva del pedido
       CANCELLED: 'CANCELLED',
     }
     const targetOrderStatus = orderStatusMap[shipmentStatus]

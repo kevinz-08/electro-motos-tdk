@@ -4,6 +4,9 @@ import {
   IVendeloShippingPort,
   ShipmentExceptionDetail,
   ExceptionResolution,
+  ShipmentStatus,
+  VendeloOrderNotFoundError,
+  VendeloOrderSnapshot,
 } from '@h2r/domain'
 import { VendeloHttpClient } from './VendeloHttpClient'
 
@@ -220,6 +223,30 @@ export class VendeloService implements IVendeloShippingPort {
       `/v1/admin/shipping/exceptions/${encodeURIComponent(id)}/resolve`,
       resolution,
     )
+  }
+
+  async getOrder(vendeloOrderId: string): Promise<VendeloOrderSnapshot> {
+    try {
+      const raw = await this.http.get<{
+        id: string
+        status: string
+        shipments?: Array<{ tracking_number?: string | null; carrier?: string | null; status?: string }>
+      }>(`/v1/admin/orders/${encodeURIComponent(vendeloOrderId)}`)
+      const firstShipment = raw.shipments?.[0]
+      return {
+        id: raw.id,
+        status: raw.status as ShipmentStatus,
+        trackingNumber: firstShipment?.tracking_number ?? null,
+        carrier: firstShipment?.carrier ?? null,
+      }
+    } catch (e) {
+      // El HttpClient lanza `Vendelo API 404: ...` cuando la orden no existe.
+      // Lo convertimos a un error de dominio tipado para que el caller lo maneje.
+      if (e instanceof Error && /Vendelo API 404/.test(e.message)) {
+        throw new VendeloOrderNotFoundError(vendeloOrderId)
+      }
+      throw e
+    }
   }
 
   // ── Métodos de administración sin lógica de dominio ───────────────────────

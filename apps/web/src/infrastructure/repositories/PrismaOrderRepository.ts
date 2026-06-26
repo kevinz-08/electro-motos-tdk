@@ -16,8 +16,10 @@ import {
   IOrderRepository,
   CreateOrderInput,
   PaymentTransitionResult,
+  ActiveVendeloOrder,
   Order,
   OrderStatus,
+  ShipmentStatus,
   OrderItem,
   Payment,
   ShippingAddress,
@@ -275,5 +277,33 @@ export class PrismaOrderRepository implements IOrderRepository {
       select: { id: true, vendeloOrderId: true },
     })
     return rows.map((r) => ({ id: r.id, vendeloOrderId: r.vendeloOrderId }))
+  }
+
+  async findActiveVendeloOrders(limit: number): Promise<ActiveVendeloOrder[]> {
+    const rows = await prisma.order.findMany({
+      where: {
+        vendeloOrderId: { not: null },
+        status: { notIn: ['DELIVERED', 'CANCELLED'] },
+        OR: [
+          { shipment: null },
+          { shipment: { status: { notIn: ['DELIVERED', 'RETURNED', 'CANCELLED'] } } },
+        ],
+      },
+      select: {
+        id: true,
+        vendeloOrderId: true,
+        shipment: { select: { status: true, updatedAt: true } },
+      },
+      orderBy: { shipment: { updatedAt: 'asc' } },
+      take: limit,
+    })
+
+    return rows
+      .filter((r): r is typeof r & { vendeloOrderId: string } => r.vendeloOrderId !== null)
+      .map((r) => ({
+        orderId: r.id,
+        vendeloOrderId: r.vendeloOrderId,
+        currentShipmentStatus: (r.shipment?.status as ShipmentStatus | undefined) ?? null,
+      }))
   }
 }

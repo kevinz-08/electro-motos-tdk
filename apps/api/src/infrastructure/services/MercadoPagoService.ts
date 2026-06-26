@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { MercadoPagoConfig, Preference, Payment as MPPayment } from 'mercadopago'
 import { IPaymentService, PaymentResult } from '@h2r/domain'
 import { Order, PaymentStatus } from '@h2r/domain'
@@ -80,12 +80,22 @@ export class MercadoPagoService implements IPaymentService {
       const v1 = parts['v1']
       if (!ts || !v1) return false
 
+      // Protección anti-replay: ventana de 10 minutos (600 segundos)
+      const tsNum = parseInt(ts, 10)
+      if (isNaN(tsNum)) return false
+      const nowSec = Math.floor(Date.now() / 1000)
+      if (Math.abs(nowSec - tsNum) > 600) return false
+
       const body = payload as { data?: { id?: string } }
       const dataId = body?.data?.id ?? ''
       const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
 
-      const expectedSignature = createHmac('sha256', this.webhookSecret).update(manifest).digest('hex')
-      return expectedSignature === v1
+      const expected = Buffer.from(
+        createHmac('sha256', this.webhookSecret).update(manifest).digest('hex'),
+      )
+      const received = Buffer.from(v1)
+      if (expected.length !== received.length) return false
+      return timingSafeEqual(expected, received)
     } catch {
       return false
     }

@@ -28,6 +28,7 @@ import { VendeloService } from './services/VendeloService'
 import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
 import { LogAlertNotificationService } from './services/LogAlertNotificationService'
 import { WompiReconciliationService } from './services/WompiReconciliationService'
+import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupService'
 
 @Module({
   imports: [PrismaModule],
@@ -54,6 +55,7 @@ import { WompiReconciliationService } from './services/WompiReconciliationServic
     LogAlertNotificationService,
     { provide: ALERT_NOTIFICATION_PORT, useClass: LogAlertNotificationService },
     WompiReconciliationService,
+    ExpiredOrdersCleanupService,
   ],
   exports: [
     INVENTORY_REPOSITORY,

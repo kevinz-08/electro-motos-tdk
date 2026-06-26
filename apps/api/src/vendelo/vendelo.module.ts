@@ -4,6 +4,7 @@ import { VendeloController } from './vendelo.controller'
 import { VendeloWebhookController } from './vendelo-webhook.controller'
 import { ShippingAdminService } from './services/shipping-admin.service'
 import { WalletAlertCron } from './services/WalletAlertCron'
+import { VendeloShipmentPollerCron } from './services/VendeloShipmentPollerCron'
 import { RecipientTrustEvaluator } from './trust/RecipientTrustEvaluator'
 import { OrderHistoryTrustStrategy } from './trust/strategies/OrderHistoryTrustStrategy'
 import { PhoneFormatTrustStrategy } from './trust/strategies/PhoneFormatTrustStrategy'
@@ -17,6 +18,7 @@ import type { IRecipientTrustStrategy } from '@h2r/domain'
   providers: [
     ShippingAdminService,
     WalletAlertCron,
+    VendeloShipmentPollerCron,
     OrderHistoryTrustStrategy,
     PhoneFormatTrustStrategy,
     AddressCompletenessTrustStrategy,

@@ -4,6 +4,85 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 97. Cron de polling de estados de envío Vendelo
+
+**Qué se hizo:**
+Se implementó un cron de polling que sincroniza periódicamente el estado de envíos activos contra la API de Vendelo. Workaround necesario porque `POST /v1/admin/chatbot/connections` está reservado a proveedores de chatbots (Lucidbot/Chatby) — no a comercios regulares — y Venndelo aún no tiene una alternativa de webhooks abierta para comercios. Soporte confirmó que está en su backlog "para el futuro cercano" sin ETA.
+
+**Diseño local-driven:**
+El cron parte de nuestra BD, no del catálogo de Vendelo. Esto garantiza que solo tocamos órdenes nuestras y que el costo de polling escala con nuestro volumen activo, no con el volumen total de Venndelo.
+
+```
+[Cloud Run cada 5 min]
+       ↓
+VendeloShipmentPollerCron.tick()
+       ↓
+IOrderRepository.findActiveVendeloOrders(50)
+   Filtros: vendeloOrderId NOT NULL
+            AND Order.status NOT IN ('DELIVERED','CANCELLED')
+            AND (shipment IS NULL OR shipment.status NOT IN ('DELIVERED','RETURNED','CANCELLED'))
+   Orden:   shipment.updatedAt ASC NULLS FIRST → fairness
+       ↓ por cada (con delay 100ms entre requests)
+IVendeloShippingPort.getOrder(vendeloOrderId) → GET /v1/admin/orders/{id}
+       ↓
+SyncShipmentStatus.execute({ orderId, vendelo_status, trackingNumber, carrier })
+   (use case existente — idempotente, atomic UPDATE WHERE)
+       ↓
+Log estructurado JSON: { cycle, batchSize, transitionsApplied, transitionsSkipped, errors, circuitState, durationMs }
+```
+
+**Cambios en la capa de dominio:**
+
+- `IVendeloShippingPort.getOrder(vendeloOrderId)` — nuevo método del puerto que retorna un `VendeloOrderSnapshot` con `{ id, status, trackingNumber, carrier }`. Los identificadores de estado de Vendelo coinciden 1:1 con nuestro enum `ShipmentStatus`, por lo que no hay traducción adicional.
+- `VendeloOrderNotFoundError` — error tipado para el caso 404 (Vendelo no conoce el ID). El cron lo distingue de fallos transitorios y continúa con el siguiente pedido sin abortar el batch.
+- `IOrderRepository.findActiveVendeloOrders(limit)` — método de consulta para el cron. Retorna `ActiveVendeloOrder[]` con `orderId`, `vendeloOrderId` y `currentShipmentStatus` (null si aún no se ha creado registro de Shipment para ese pedido).
+
+**Cambios en infraestructura:**
+
+- `VendeloService.getOrder()` hace `GET /v1/admin/orders/{id}` y mapea la respuesta de Venndelo al snapshot. Si el HttpClient lanza el error `Vendelo API 404: ...`, lo convierte a `VendeloOrderNotFoundError` para que el cron lo capture específicamente.
+- `PrismaOrderRepository.findActiveVendeloOrders()` implementa el query con JOIN implícito a `Shipment` vía la relación 1:1, con filtro `OR` para incluir tanto pedidos sin shipment aún como los activos en estados intermedios.
+
+**Cron en sí (`VendeloShipmentPollerCron`):**
+
+- Implementa `OnModuleInit`/`OnModuleDestroy` siguiendo el patrón existente de `VendeloOrderQueueService`, `WalletAlertCron` y `EmailQueueService`.
+- Lee `httpClient.getCircuitState()` antes de cada tick — si está en `OPEN`, skip cycle inmediatamente sin tocar BD ni Vendelo.
+- Captura excepciones no controladas con `Sentry.captureException` y tags `{ service: 'VendeloShipmentPoller' }`.
+- Logs estructurados JSON con la clave `service` para filtros en Cloud Logging — permite alertas tipo `service=VendeloShipmentPoller AND errors>=5`.
+- Método `tick()` público para invocación manual desde tests o futuros endpoints admin.
+
+**Garantías de concurrencia:**
+
+- Idempotencia entre instancias Cloud Run: `SyncShipmentStatus` usa `atomicUpdateStatus` con `WHERE status = currentStatus` — dos workers que llegan al mismo tiempo solo aplican una vez el cambio.
+- Filtro `vendeloOrderId IS NOT NULL` en BD garantiza que nunca tocamos pedidos ajenos.
+- Reads duplicados (mismas órdenes consultadas desde varias instancias) son safe — la API de Venndelo es read-only para este endpoint.
+
+**Configuración (variables de entorno nuevas, plain env vars):**
+
+- `VENDELO_POLL_ENABLED=true` — kill switch operativo para apagar el cron sin redeploy.
+- `VENDELO_POLL_INTERVAL_MS=300000` — 5 minutos entre ticks.
+- `VENDELO_POLL_BATCH_SIZE=50` — máximo de pedidos a procesar por ciclo.
+- `VENDELO_POLL_REQUEST_DELAY_MS=100` — delay entre cada GET a Vendelo dentro del mismo tick (rate limiting natural).
+
+Defaults sensatos para producción inicial — sin configurar nada en Cloud Run el cron arranca con estos valores. Las 4 quedaron documentadas en `apps/api/.env.example` y agregadas a `apps/api/.env` local.
+
+**Cobertura de tests:**
+
+12 casos en `apps/api/src/__tests__/VendeloShipmentPollerCron.test.ts` agrupados en 3 describe-blocks:
+
+- **Casos base** (4): sin pedidos activos no llama a Vendelo; con 3 pedidos llama getOrder 3 veces; aplica transición progresiva; skipped cuando no es progresiva.
+- **Resiliencia** (4): circuit breaker OPEN salta el ciclo; 404 de Vendelo no aborta el batch; error genérico en una orden no aborta el batch; fallo de BD se reporta sin llamar a Vendelo.
+- **Lifecycle** (2): `VENDELO_POLL_ENABLED=false` no arranca el `setInterval`; con enabled arranca y se limpia con `clearInterval` en destroy.
+
+Resultado: Domain 162/162, API 129/129 pasan.
+
+**Trade-offs aceptados:**
+
+- Latencia de hasta 5 min entre actualización en Venndelo y reflejo en nuestra BD. Para entregas COD que toman 2-3 días, invisible al cliente.
+- Cloud Scheduler + Pub/Sub para cron distribuido sería más robusto, pero overkill para una sola instancia de Cloud Run. Si más adelante hay autoscale a varias instancias, migramos. Documentado como deuda técnica.
+- Polling de novedades (`shipping/exceptions`) no se incluye en esta iteración — el admin las verifica manualmente en el panel cuando un pedido entra a `INCIDENT`. Se evaluará si automatizar en una iteración futura.
+
+---
+
 ## 96. Hardening pre-launch — Wompi/Vendelo en producción, E2E automatizado
 
 **Qué se hizo:**

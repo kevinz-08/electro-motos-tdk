@@ -10,6 +10,7 @@ import {
   OrderItem,
   Payment,
   ShippingAddress,
+  BuyerIdType,
   PaymentProvider,
   PaymentStatus,
   ShipmentStatus,
@@ -19,6 +20,7 @@ import { PrismaService } from '../database/prisma.service'
 type PrismaOrderRow = {
   id: string; userId: string; status: string; total: number
   shippingAddress: unknown; paymentProvider: string; createdAt: Date
+  buyerIdType: string; buyerIdNumber: string; buyerBusinessName: string | null
   items?: Array<{ id: string; orderId: string; productId: string; quantity: number; priceAtPurchase: number }>
   payment?: { id: string; orderId: string; provider: string; externalId: string | null; status: string; amount: number; createdAt: Date } | null
 }
@@ -52,6 +54,11 @@ function toDomain(o: PrismaOrderRow): Order {
     status: o.status as OrderStatus,
     total: o.total,
     shippingAddress: o.shippingAddress as unknown as ShippingAddress,
+    buyer: {
+      idType: o.buyerIdType as BuyerIdType,
+      idNumber: o.buyerIdNumber,
+      businessName: o.buyerBusinessName ?? undefined,
+    },
     paymentProvider: o.paymentProvider as PaymentProvider,
     createdAt: o.createdAt,
     items: o.items?.map(toDomainItem),
@@ -101,6 +108,9 @@ export class PrismaOrderRepository implements IOrderRepository {
         userId: input.userId,
         total: input.total,
         shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
+        buyerIdType: input.buyer.idType,
+        buyerIdNumber: input.buyer.idNumber,
+        buyerBusinessName: input.buyer.businessName ?? null,
         paymentProvider: input.paymentProvider,
         items: { create: input.items },
         payment: {

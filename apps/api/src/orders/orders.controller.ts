@@ -54,6 +54,7 @@ export class OrdersController {
       userId: user.id,
       items: dto.items,
       shippingAddress: dto.shippingAddress,
+      buyer: dto.buyer,
       paymentProvider: dto.paymentProvider,
     })
 

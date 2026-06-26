@@ -79,6 +79,11 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
         const domainOrder = {
           ...order,
           shippingAddress: order.shippingAddress as unknown as import('@h2r/domain').ShippingAddress,
+          buyer: {
+            idType: order.buyerIdType as import('@h2r/domain').BuyerIdType,
+            idNumber: order.buyerIdNumber,
+            businessName: order.buyerBusinessName ?? undefined,
+          },
           items: order.items.map((i) => ({
             id: i.id,
             orderId: i.orderId,

@@ -134,6 +134,7 @@ describe('OrdersController', () => {
         department: 'Cundinamarca',
         phone: '3001234567',
       },
+      buyer: { idType: 'CC' as const, idNumber: '1000123456' },
       paymentProvider: 'WOMPI' as const,
     }
 

@@ -8,7 +8,9 @@
       "WebFetch(domain:www.fpmoto.com)",
       "Bash(dir \"C:\\\\Users\\\\pagin\\\\VSC-Business\\\\electro-motos-tdk\\\\public\\\\assets\\\\bannerByCategory\")",
       "Bash(dir \"C:\\\\Users\\\\pagin\\\\VSC-Business\\\\electro-motos-tdk\\\\public\\\\assets\")",
-      "Bash(dir \"C:\\\\Users\\\\pagin\\\\VSC-Business\\\\electro-motos-tdk\\\\public\\\\assets\" /B)"
+      "Bash(dir \"C:\\\\Users\\\\pagin\\\\VSC-Business\\\\electro-motos-tdk\\\\public\\\\assets\" /B)",
+      "Bash(rm -f playwright/.auth/user.json playwright/.auth/user-info.json)",
+      "Bash(TUNNEL_URL=http://localhost:3000 DEV_LOG=/tmp/dev-server.log pnpm exec playwright test e2e/full-checkout.spec.ts --project=chromium-auth --reporter=list --headed)"
     ]
   }
 }

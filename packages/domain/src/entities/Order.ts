@@ -108,6 +108,30 @@ export interface Payment {
  * Se crea con status PENDING cuando el cliente confirma el checkout.
  * El status cambia a PAID cuando llega el webhook de la pasarela confirmando el pago.
  */
+/**
+ * Tipos de documento de identificación aceptados en Colombia.
+ *   CC         — Cédula de Ciudadanía (compradores nacionales)
+ *   CE         — Cédula de Extranjería (residentes extranjeros)
+ *   NIT        — Número de Identificación Tributaria (personas jurídicas / B2B)
+ *   PASAPORTE  — pasaporte para turistas o casos puntuales
+ */
+export type BuyerIdType = 'CC' | 'CE' | 'NIT' | 'PASAPORTE'
+
+/**
+ * Identificación tributaria/legal del comprador. Persiste en columnas separadas
+ * de Order (no dentro de shippingAddress) porque:
+ *   - El destinatario del envío y el comprador no siempre son la misma persona.
+ *   - Se usa para emitir el comprobante de venta y como identificación válida
+ *     en el pedido a Vendelo (reemplaza el hack histórico de usar el teléfono).
+ *   - El admin lo necesita en columnas indexables para reportes/declaraciones.
+ */
+export interface BuyerInfo {
+  idType: BuyerIdType
+  idNumber: string
+  /** Razón social — solo aplica cuando idType === 'NIT' (compras B2B). */
+  businessName?: string
+}
+
 export interface Order {
   /** ID único del pedido (cuid) */
   id: string
@@ -119,6 +143,8 @@ export interface Order {
   total: number
   /** Dirección de envío serializada como JSON en la base de datos */
   shippingAddress: ShippingAddress
+  /** Identificación tributaria del comprador (para comprobante y Vendelo) */
+  buyer: BuyerInfo
   /** Pasarela de pago seleccionada en el checkout */
   paymentProvider: PaymentProvider
   /** Fecha de creación del pedido */

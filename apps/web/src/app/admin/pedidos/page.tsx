@@ -69,6 +69,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
               <th className="text-right px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Total</th>
               <th className="text-center px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Estado</th>
               <th className="px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Cambiar estado</th>
+              <th className="px-4 py-3 font-semibold text-white/50 text-xs uppercase tracking-wide">Comprobante</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -95,6 +96,21 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                   </td>
                   <td className="px-4 py-3">
                     <OrderStatusSelect orderId={order.id} currentStatus={order.status} />
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <a
+                      href={`/api/orders/${order.id}/comprobante`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Descargar comprobante de venta"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    </a>
                   </td>
                 </tr>
               )

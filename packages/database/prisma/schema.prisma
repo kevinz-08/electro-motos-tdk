@@ -207,6 +207,15 @@ model Order {
   /// Timestamp del momento exacto en que el usuario marcó el checkbox de políticas en el checkout.
   /// Evidencia inmutable para disputas legales o auditorías de la SIC.
   policiesAcceptedAt DateTime?
+  /// Tipo de documento del comprador. Requerido para generar el comprobante de venta
+  /// y como identificación válida en el pedido Vendelo (reemplaza el hack del teléfono).
+  /// Valores: CC | CE | NIT | PASAPORTE
+  buyerIdType        String          @default("CC")
+  /// Número del documento del comprador. Texto porque NIT incluye dígito de verificación
+  /// (ej. "900123456-7") y CE puede contener letras.
+  buyerIdNumber      String          @default("")
+  /// Razón social — solo aplica cuando buyerIdType es NIT (compras B2B).
+  buyerBusinessName  String?
   createdAt          DateTime        @default(now())
   user               User            @relation(fields: [userId], references: [id])
   items              OrderItem[]

@@ -4,7 +4,7 @@
  * Implementado por PrismaOrderRepository en infrastructure/repositories/.
  * Los use cases CreateOrder y ConfirmPayment dependen de esta interfaz.
  */
-import { Order, OrderStatus, OrderItem, ShippingAddress, PaymentProvider, PaymentStatus } from '@/domain/entities/Order'
+import { Order, OrderStatus, OrderItem, ShippingAddress, BuyerInfo, PaymentProvider, PaymentStatus } from '@/domain/entities/Order'
 import { ShipmentStatus } from '@/domain/entities/Shipment'
 
 /**
@@ -29,6 +29,8 @@ export interface CreateOrderInput {
   items: Array<{ productId: string; quantity: number; priceAtPurchase: number }>
   /** Dirección de envío — se serializa como JSON en la BD */
   shippingAddress: ShippingAddress
+  /** Identificación tributaria del comprador (para comprobante + Vendelo). */
+  buyer: BuyerInfo
   /** Pasarela de pago seleccionada */
   paymentProvider: PaymentProvider
   /** Total del pedido en centavos COP (calculado por CreateOrder use case) */

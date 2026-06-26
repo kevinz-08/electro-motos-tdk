@@ -39,6 +39,7 @@ function makeOrder(overrides?: Partial<Order>): Order {
       department: 'Cundinamarca',
       phone: '3001234567',
     },
+    buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
     createdAt: new Date('2025-01-01'),
     ...overrides,
@@ -83,6 +84,7 @@ describe('CreateOrder', () => {
       userId: 'user-1',
       items: [{ productId: 'prod-1', quantity: 2 }],
       shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
       paymentProvider: 'WOMPI',
     })
 
@@ -111,6 +113,7 @@ describe('CreateOrder', () => {
       userId: 'user-1',
       items: [{ productId: 'prod-1', quantity: 3 }],
       shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
       paymentProvider: 'WOMPI',
     })
 
@@ -135,6 +138,7 @@ describe('CreateOrder', () => {
       userId: 'user-1',
       items: [{ productId: 'prod-1', quantity: 5 }],
       shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
       paymentProvider: 'WOMPI',
     })
 
@@ -155,6 +159,7 @@ describe('CreateOrder', () => {
       userId: 'user-1',
       items: [{ productId: 'prod-inexistente', quantity: 1 }],
       shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
       paymentProvider: 'WOMPI',
     })
 
@@ -171,6 +176,7 @@ describe('CreateOrder', () => {
       userId: 'user-1',
       items: [{ productId: 'prod-1', quantity: 0 }],
       shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
       paymentProvider: 'WOMPI',
     })
 
@@ -193,6 +199,7 @@ describe('CreateOrder', () => {
       userId: 'user-1',
       items: [{ productId: 'prod-1', quantity: 1 }],
       shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
       paymentProvider: 'WOMPI',
     })
 

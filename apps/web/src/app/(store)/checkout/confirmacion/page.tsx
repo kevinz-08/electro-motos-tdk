@@ -209,6 +209,19 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
 
         {/* ── Acciones ───────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
+          <a
+            href={`/api/orders/${order.id}/comprobante`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 inline-flex items-center justify-center gap-2 bg-sky-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-sky-600 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Descargar comprobante
+          </a>
           <Link
             href="/pedidos"
             className="flex-1 text-center bg-gray-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-700 transition-colors"
@@ -217,7 +230,7 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
           </Link>
           <Link
             href="/catalogo"
-            className="flex-1 text-center bg-white text-gray-900 border border-gray-300 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+            className="flex-1 inline-flex items-center justify-center bg-white text-gray-900 border border-gray-300 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors"
           >
             Seguir comprando
           </Link>

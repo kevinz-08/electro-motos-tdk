@@ -18,6 +18,7 @@ function makePendingOrder(overrides?: Partial<Order>): Order {
       department: 'Cundinamarca',
       phone: '3001234567',
     },
+    buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
     createdAt: new Date('2025-01-01'),
     items: [

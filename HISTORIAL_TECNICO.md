@@ -4,6 +4,133 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 99. Comprobante de venta on-demand + identificación tributaria del comprador
+
+**Qué se hizo:**
+Sistema completo de generación de comprobantes de venta como PDF on-demand, alimentado por nuevos campos de identificación tributaria del comprador que se capturan en el checkout. Se decidió este enfoque en vez de implementar facturación electrónica DIAN porque:
+
+- El admin maneja la facturación legal por su cuenta. Lo que necesita es un documento administrativo con todos los datos por cada venta para emitir la factura cuando alguien la pida.
+- Sin integración con Proveedor Tecnológico autorizado (PT) → sin costo recurrente (~$80-100k/mes que cobran Alegra, Siigo, etc.).
+- Implementación en ~6 horas vs 2-3 días de la integración DIAN completa.
+- Cuando se decida pasar a factura DIAN real, el endpoint del comprobante se reemplaza sin migración de archivos (porque no hay archivos: el PDF se genera siempre desde la BD).
+
+**Decisión: generar comprobante para TODOS los pedidos**
+
+Se discutieron dos alternativas: a) generar solo cuando el comprador lo pida en checkout, b) generar siempre para todos. Se eligió (b) por temas legales — el admin tiene registro de cada venta para auditoría DIAN futura, no hay escenarios de "lo perdí", y el cliente puede pedirlo 6 meses después y seguirá disponible. Como consecuencia, los campos de identificación del comprador son obligatorios en el checkout.
+
+**Datos de la tienda (issuer):**
+NIT 1007784964-5, razón social "H2R Online Store", dirección Carrera 21 #21-58 Bucaramanga, Santander. Hardcoded en el componente del PDF porque cambia muy raramente.
+
+**Datos del comprobante:**
+
+- Identificación: `CV-AC8WSTG6` (últimos 8 chars del orderId en mayúscula, sincronizado con el ID que el cliente ve en la confirmación).
+- Tabla de items con SKU, nombre, cantidad, precio unitario, subtotal.
+- Total directo (sin desglose de IVA — el admin compra con IVA incluido y no es responsable de IVA aún).
+- Bloque de pago con pasarela + reference + externalId de Wompi.
+- Pie con disclaimer aclarando que NO es factura electrónica DIAN y que para eso contactar al email del comercio.
+
+**Cambios en el dominio:**
+
+- Nuevo type `BuyerIdType` = `'CC' | 'CE' | 'NIT' | 'PASAPORTE'`.
+- Nueva interface `BuyerInfo` con `idType`, `idNumber` y `businessName` (este último opcional, solo aplica cuando idType === 'NIT' para B2B).
+- `Order.buyer` agregado a la entidad del dominio.
+- `IOrderRepository.CreateOrderInput.buyer` y `CreateOrderUseCaseInput.buyer` son ahora requeridos.
+
+**Migración de BD:**
+
+`20260626222415_add_buyer_identification_to_order` añade a la tabla `Order`:
+
+```sql
+ALTER TABLE "Order"
+  ADD COLUMN "buyerIdType"        TEXT NOT NULL DEFAULT 'CC',
+  ADD COLUMN "buyerIdNumber"      TEXT NOT NULL DEFAULT '',
+  ADD COLUMN "buyerBusinessName"  TEXT NULL;
+```
+
+Los defaults permiten que las órdenes históricas no rompan; las nuevas siempre reciben los valores reales del checkout. Aplicada en Neon producción.
+
+Se decidió persistir como 3 columnas separadas (no dentro del JSON de `shippingAddress`) porque:
+
+- El destinatario del envío y el comprador no siempre son la misma persona (ej. regalos, compras B2B).
+- Se usa para identificación válida en Vendelo (reemplaza el hack histórico).
+- El admin necesita columnas indexables para reportes y futuras declaraciones tributarias.
+
+**UI del checkout:**
+
+Sección nueva "Datos del comprador" entre los datos de envío y las políticas. Select de tipo de documento (por defecto CC, cubre el 95% de los casos B2C). Input de número con `inputMode="numeric"` cuando es CC, "text" en los otros casos. Campo de razón social aparece solo cuando idType === 'NIT'. Validación inline: idNumber con mínimo 5 chars, NIT requiere razón social.
+
+**Bonus — Identificación real en Vendelo:**
+
+Antes el `VendeloService.createOrder` enviaba `identification_type: 'CC', identification: addr.phone` porque no se recolectaba cédula. Ahora se envía la cédula/NIT real del comprador. PASAPORTE se mapea a CC porque la API de Vendelo no expone PASAPORTE como tipo válido; el número se conserva igual. Esto resuelve una deuda técnica documentada en la auditoría anterior y mejora la experiencia del repartidor que necesita la identificación real para entregas con verificación.
+
+**Generación del PDF:**
+
+- Librería: `@react-pdf/renderer ^4.5.1` (componente JSX que se renderiza a PDF, mismo paradigma de React).
+- `apps/web/src/lib/receipt/ReceiptPdf.tsx`: plantilla con `StyleSheet.create` con estilos similar a Tailwind aplicados a `View` y `Text`.
+- `apps/web/src/app/api/orders/[id]/comprobante/route.tsx`: endpoint `GET` que autoriza (dueño del pedido o ADMIN, 401/403/404 según el caso), carga la orden con items + product + payment + user, llama `renderToBuffer` y responde `Content-Type: application/pdf` con `Content-Disposition: inline` y `Cache-Control: private, no-store`.
+- No se almacena el PDF: si el formato cambia, los comprobantes históricos lo reflejan automáticamente.
+
+**Botones de descarga:**
+
+- `/checkout/confirmacion`: botón "Descargar comprobante" en azul sky-500 al lado de "Ver mis pedidos" y "Seguir comprando".
+- `/admin/pedidos`: nueva columna con botón compacto (ícono download) por cada fila para que el admin descargue cualquier comprobante.
+- Email: pendiente para una iteración futura (1 línea de código, se hará junto con el próximo cambio del email de confirmación).
+
+**Fix colateral — Endpoint del wallet de Vendelo:**
+
+Se aprovechó la sesión para arreglar un bug que aparecía en los logs cada arranque del API: `GET /v1/admin/wallet/balance → 404`. El path correcto per la documentación oficial (línea 71 de `API_VENDELO_DOCUMENTACION.md`) es `/v1/admin/wallet/get-wallet-balance`. Sin esto, el `WalletAlertCron` nunca podía consultar el saldo y disparaba una alerta CRITICAL espuria cada arranque.
+
+**Tests:** 162/162 dominio + 129/129 API pasan. Type-check de los 6 paquetes pasa.
+
+---
+
+## 98. Hotfixes post-launch — Wompi widget y dominio de Resend
+
+**Qué se hizo:**
+Dos bugs críticos detectados al hacer las primeras pruebas de checkout en producción.
+
+**Bug 1 — El botón "Pagar con Wompi" no aparecía:**
+
+Tras llenar los datos de envío y dar "Continuar al pago", la pantalla mostraba el header "Pago seguro con Wompi" pero ningún botón visible. Diagnóstico desde la consola del navegador:
+
+- El form `data-render="button"` se inyectaba correctamente en el DOM
+- `pub_prod_*`, `signature` y `redirectUrl` venían correctos del backend
+- `https://checkout.wompi.co/widget.js` cargaba (status 200)
+- `window.WidgetCheckout` quedaba definido como `function`
+- **Pero `Form innerHTML` quedaba vacío — Wompi no inyectaba el botón**
+
+Causa: el `widget.js` de Wompi escanea el DOM buscando `form[data-render="button"]` **solo en `DOMContentLoaded`**. Como en la SPA el form se crea dinámicamente al transicionar al paso "payment" (mucho después de `DOMContentLoaded`), el escaneo nunca lo encuentra. El comportamiento es silencioso, sin error.
+
+Fix en `apps/web/src/components/checkout/WompiWidget.tsx` (commit `22bcdc2`): se eliminó el enfoque basado en escaneo del DOM y se cambió a la API programática (`new window.WidgetCheckout({...}).open()`). Ahora se renderiza nuestro propio botón "Pagar con Wompi" y al click se instancia el widget con los params correctos. Wompi maneja el modal y el redirect al final.
+
+El componente también detecta si el script ya está cargado (`typeof window.WidgetCheckout === 'function'`) para evitar re-añadirlo en navegaciones internas, y queda como fallback un redirect directo a `checkout.wompi.co/p/` con los params en query string si el SDK no se puede instanciar.
+
+**Bug 2 — Ningún correo transaccional salía de Resend:**
+
+`ResendEmailService.constructor` lee `RESEND_FROM_EMAIL` con un fallback hardcoded a `no-reply@h2ronlinestore.co` (dominio que nunca existió como tal). En Cloud Run la variable nunca se configuró, así que se usaba el fallback. Resend rechazaba con HTTP 403 `domain not verified`.
+
+Impacto silencioso pero serio:
+
+- Ningún email de confirmación de pago se entregaba a clientes que pagaran (la cola `EmailQueueService` los marcaba como `FAILED` tras 3 retries).
+- **Más grave: los OTPs de registro tampoco salían**. En dev el código se loguea como `[DEV] OTP para <email>: <code>` pero en producción (`NODE_ENV === 'production'`) ese log no se imprime, por lo que el email era la única vía. Cualquier nuevo registro quedaba colgado esperando el código de verificación.
+
+Verificación contra la API de Resend:
+
+```
+no-reply@h2ronlinestore.co  → 403 "domain not verified"
+no-reply@tiendah2r.com      → 200 OK
+```
+
+Fix:
+
+- Cloud Run: `gcloud run services update --update-env-vars RESEND_FROM_EMAIL=no-reply@tiendah2r.com` (revisión `00025-mtr`).
+- `.github/workflows/ci.yml`: agregada `RESEND_FROM_EMAIL=no-reply@tiendah2r.com` al bloque `--update-env-vars` del deploy para que futuros despliegues preserven el valor.
+- `apps/api/.env.example`: corregido el default a `no-reply@tiendah2r.com` y añadido un comentario explicando la importancia de que el dominio del FROM esté verificado en `https://resend.com/domains`.
+
+Como el admin aún no había anunciado la tienda públicamente, no hay registros reales colgados ni emails pendientes que reencolar. Si esto sucediera en una etapa con tráfico real, habría que correr un script de re-enqueue sobre la tabla `EmailQueue` con `status='FAILED'`.
+
+---
+
 ## 97. Cron de polling de estados de envío Vendelo
 
 **Qué se hizo:**

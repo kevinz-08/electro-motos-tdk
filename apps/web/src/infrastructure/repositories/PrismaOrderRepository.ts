@@ -23,6 +23,7 @@ import {
   OrderItem,
   Payment,
   ShippingAddress,
+  BuyerIdType,
   PaymentProvider,
   PaymentStatus,
 } from '@h2r/domain'
@@ -65,6 +66,11 @@ function toDomain(
     status: o.status as OrderStatus,
     total: o.total,
     shippingAddress: o.shippingAddress as unknown as ShippingAddress,
+    buyer: {
+      idType: o.buyerIdType as BuyerIdType,
+      idNumber: o.buyerIdNumber,
+      businessName: o.buyerBusinessName ?? undefined,
+    },
     paymentProvider: o.paymentProvider as PaymentProvider,
     createdAt: o.createdAt,
     items: o.items?.map(toDomainItem),
@@ -125,6 +131,9 @@ export class PrismaOrderRepository implements IOrderRepository {
         total: input.total,
         // Cast necesario: ShippingAddress → Prisma.InputJsonValue (tipo opaco de Prisma para JSON)
         shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
+        buyerIdType: input.buyer.idType,
+        buyerIdNumber: input.buyer.idNumber,
+        buyerBusinessName: input.buyer.businessName ?? null,
         paymentProvider: input.paymentProvider,
         items: {
           create: input.items, // { productId, quantity, priceAtPurchase }[]

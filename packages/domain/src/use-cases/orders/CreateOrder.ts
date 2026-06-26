@@ -1,7 +1,7 @@
 import { IOrderRepository, CreateOrderInput } from '@/domain/repositories/IOrderRepository'
 import { IProductRepository } from '@/domain/repositories/IProductRepository'
 import { IPaymentService, PaymentResult } from '@/domain/services/IPaymentService'
-import { Order, ShippingAddress, PaymentProvider } from '@/domain/entities/Order'
+import { Order, ShippingAddress, BuyerInfo, PaymentProvider } from '@/domain/entities/Order'
 import { Result, ok, err, AppError } from '@/domain/shared/Result'
 
 export interface CreateOrderUseCaseInput {
@@ -10,6 +10,7 @@ export interface CreateOrderUseCaseInput {
   // para prevenir manipulación de precios desde el cliente.
   items: Array<{ productId: string; quantity: number }>
   shippingAddress: ShippingAddress
+  buyer: BuyerInfo
   paymentProvider: PaymentProvider
 }
 
@@ -91,6 +92,7 @@ export class CreateOrder {
         userId: input.userId,
         items: resolvedItems,
         shippingAddress: input.shippingAddress,
+        buyer: input.buyer,
         paymentProvider: input.paymentProvider,
         total,
       })

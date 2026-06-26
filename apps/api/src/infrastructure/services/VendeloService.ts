@@ -168,8 +168,13 @@ export class VendeloService implements IVendeloShippingPort {
         last_name: lastName,
         email: userEmail,
         phone: addr.phone,
-        identification_type: 'CC',
-        identification: addr.phone,
+        // Antes usábamos `phone` como hack porque no recolectábamos cédula.
+        // Ahora viene del checkout (Order.buyer) — identificación real del comprador
+        // que Vendelo necesita para emitir su guía y facilitar disputas.
+        // PASAPORTE se mapea a CC porque la API de Vendelo no expone PASAPORTE
+        // como tipo válido; el número se conserva igual.
+        identification_type: order.buyer.idType === 'PASAPORTE' ? 'CC' : order.buyer.idType,
+        identification: order.buyer.idNumber,
       },
       shipping_info: {
         first_name: firstName,
@@ -282,6 +287,8 @@ export class VendeloService implements IVendeloShippingPort {
   }
 
   async getWalletBalance(): Promise<{ balance: number; currency: string }> {
-    return this.http.get<{ balance: number; currency: string }>('/v1/admin/wallet/balance')
+    // Path oficial per API_VENDELO_DOCUMENTACION.md línea 71.
+    // No es `/v1/admin/wallet/balance` (eso devuelve 404).
+    return this.http.get<{ balance: number; currency: string }>('/v1/admin/wallet/get-wallet-balance')
   }
 }

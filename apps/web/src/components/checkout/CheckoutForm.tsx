@@ -39,6 +39,14 @@ interface ShippingFormData {
   notes: string
 }
 
+type BuyerIdType = 'CC' | 'CE' | 'NIT' | 'PASAPORTE'
+
+interface BuyerFormData {
+  idType: BuyerIdType
+  idNumber: string
+  businessName: string
+}
+
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -64,6 +72,11 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
     notes: '',
   })
   const [selectedCity, setSelectedCity] = useState<CityOption | null>(null)
+  const [buyer, setBuyer] = useState<BuyerFormData>({
+    idType: 'CC',
+    idNumber: '',
+    businessName: '',
+  })
 
   const cartTotal = total()
 
@@ -72,6 +85,14 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
 
     if (!selectedCity) {
       setError('Por favor selecciona una ciudad de la lista.')
+      return
+    }
+    if (buyer.idNumber.trim().length < 5) {
+      setError('Ingresa un número de documento válido (mínimo 5 caracteres).')
+      return
+    }
+    if (buyer.idType === 'NIT' && buyer.businessName.trim().length === 0) {
+      setError('Cuando el documento es NIT, la razón social es obligatoria.')
       return
     }
 
@@ -91,6 +112,11 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
           subdivisionCode: selectedCity.subdivisionCode,
           phone: form.phone,
           notes: form.notes || undefined,
+        },
+        buyer: {
+          idType: buyer.idType,
+          idNumber: buyer.idNumber.trim(),
+          ...(buyer.idType === 'NIT' && { businessName: buyer.businessName.trim() }),
         },
         paymentProvider: 'WOMPI',
         policiesAcceptedAt: new Date().toISOString(),
@@ -227,6 +253,68 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
                     placeholder="Instrucciones para el mensajero..."
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Datos del comprador — para comprobante de venta y Vendelo */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <h2 className="font-bold text-gray-900 mb-1">Datos del comprador</h2>
+              <p className="text-xs text-gray-500 mb-5">
+                Quedan registrados en el comprobante de venta. Si el comprador es una empresa, elige NIT.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="buyer-id-type" className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de documento *
+                  </label>
+                  <select
+                    id="buyer-id-type"
+                    value={buyer.idType}
+                    onChange={(e) => setBuyer({ ...buyer, idType: e.target.value as BuyerIdType })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400 bg-white"
+                  >
+                    <option value="CC">Cédula de Ciudadanía (CC)</option>
+                    <option value="CE">Cédula de Extranjería (CE)</option>
+                    <option value="NIT">NIT (empresa)</option>
+                    <option value="PASAPORTE">Pasaporte</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="buyer-id-number" className="block text-sm font-medium text-gray-700 mb-1">
+                    Número *
+                  </label>
+                  <input
+                    id="buyer-id-number"
+                    required
+                    aria-required="true"
+                    type="text"
+                    inputMode={buyer.idType === 'CC' ? 'numeric' : 'text'}
+                    value={buyer.idNumber}
+                    onChange={(e) => setBuyer({ ...buyer, idNumber: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
+                    placeholder={buyer.idType === 'NIT' ? '900123456-7' : '1000123456'}
+                  />
+                </div>
+
+                {buyer.idType === 'NIT' && (
+                  <div className="sm:col-span-3">
+                    <label htmlFor="buyer-business-name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Razón social *
+                    </label>
+                    <input
+                      id="buyer-business-name"
+                      required
+                      aria-required="true"
+                      type="text"
+                      value={buyer.businessName}
+                      onChange={(e) => setBuyer({ ...buyer, businessName: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
+                      placeholder="H2R Online Store S.A.S."
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

@@ -1,26 +1,20 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { createHmac } from 'crypto'
+import { describe, it, expect } from 'vitest'
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common'
 import { VendeloWebhookGuard } from '../vendelo/guards/vendelo-webhook.guard'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const TEST_SECRET = 'test-webhook-secret-32chars-min!!'
-const TEST_BODY = Buffer.from('{"event":"ORDER_SHIPPED","data":{}}')
+const SECRET_KEY = 'h2r_webhook_secret'
 
-function buildSignature(body: Buffer, secret: string): string {
-  return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`
+interface MockBody {
+  event?: string
+  data?: { metadata?: Array<Record<string, unknown>>; [k: string]: unknown }
+  metadata?: Array<Record<string, unknown>>
 }
 
-function buildNowSeconds(): number {
-  return Math.floor(Date.now() / 1000)
-}
-
-function makeContext(headers: Record<string, string | undefined>, rawBody: Buffer): ExecutionContext {
-  const req = {
-    headers,
-    rawBody,
-  }
+function makeContext(body: MockBody): ExecutionContext {
+  const req = { body }
   return {
     switchToHttp: () => ({ getRequest: () => req }),
   } as unknown as ExecutionContext
@@ -32,95 +26,93 @@ function makeGuard(secret = TEST_SECRET, isProd = true): VendeloWebhookGuard {
   return new VendeloWebhookGuard()
 }
 
-// ── Verificación de firma ─────────────────────────────────────────────────────
+// ── Validación de metadata.h2r_webhook_secret ─────────────────────────────────
 
-describe('VendeloWebhookGuard — verificación de firma', () => {
-  it('acepta una firma HMAC-SHA256 válida', () => {
+describe('VendeloWebhookGuard — validación por metadata', () => {
+  it('acepta cuando el metadata raíz contiene el secreto correcto', () => {
     const guard = makeGuard()
-    const sig = buildSignature(TEST_BODY, TEST_SECRET)
-    const ctx = makeContext({ 'x-vendelo-signature': sig }, TEST_BODY)
+    const ctx = makeContext({
+      event: 'ORDER_SHIPPED',
+      data: { external_order_id: 'order-123' },
+      metadata: [{ [SECRET_KEY]: TEST_SECRET }],
+    })
 
-    expect(() => guard.canActivate(ctx)).not.toThrow()
+    expect(guard.canActivate(ctx)).toBe(true)
   })
 
-  it('rechaza cuando la firma no coincide', () => {
+  it('acepta cuando el metadata anidado en data contiene el secreto correcto', () => {
     const guard = makeGuard()
-    const ctx = makeContext(
-      { 'x-vendelo-signature': 'sha256=invalida' },
-      TEST_BODY,
-    )
+    const ctx = makeContext({
+      event: 'ORDER_DELIVERED',
+      data: {
+        external_order_id: 'order-123',
+        metadata: [{ [SECRET_KEY]: TEST_SECRET }],
+      },
+    })
+
+    expect(guard.canActivate(ctx)).toBe(true)
+  })
+
+  it('rechaza cuando el secreto en metadata no coincide', () => {
+    const guard = makeGuard()
+    const ctx = makeContext({
+      event: 'ORDER_SHIPPED',
+      metadata: [{ [SECRET_KEY]: 'valor-incorrecto-de-otra-tienda' }],
+    })
 
     expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException)
   })
 
-  it('rechaza cuando falta el header X-Vendelo-Signature', () => {
+  it('rechaza cuando metadata no contiene la clave esperada', () => {
     const guard = makeGuard()
-    const ctx = makeContext({}, TEST_BODY)
+    const ctx = makeContext({
+      event: 'ORDER_SHIPPED',
+      metadata: [{ otro_campo: 'irrelevante' }],
+    })
 
     expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException)
   })
 
-  it('rechaza cuando rawBody no está disponible', () => {
+  it('rechaza cuando el payload no trae metadata en absoluto', () => {
     const guard = makeGuard()
-    const sig = buildSignature(TEST_BODY, TEST_SECRET)
-    const ctx = makeContext({ 'x-vendelo-signature': sig }, undefined as unknown as Buffer)
+    const ctx = makeContext({
+      event: 'ORDER_SHIPPED',
+      data: { external_order_id: 'order-123' },
+    })
 
     expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException)
   })
 
-  it('firma de un body diferente no pasa aunque el formato sea correcto', () => {
+  it('encuentra el secreto entre múltiples items de metadata', () => {
     const guard = makeGuard()
-    const otherBody = Buffer.from('{"event":"MANIPULATED"}')
-    const sig = buildSignature(otherBody, TEST_SECRET)
-    // Firma es del body manipulado pero el rawBody que llega es el original
-    const ctx = makeContext({ 'x-vendelo-signature': sig }, TEST_BODY)
+    const ctx = makeContext({
+      event: 'ORDER_SHIPPED',
+      metadata: [
+        { tracking_id: 'abc' },
+        { [SECRET_KEY]: TEST_SECRET },
+        { source: 'API' },
+      ],
+    })
 
-    expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException)
-  })
-})
-
-// ── Protección anti-replay ────────────────────────────────────────────────────
-
-describe('VendeloWebhookGuard — protección anti-replay', () => {
-  it('acepta un webhook con timestamp actual', () => {
-    const guard = makeGuard()
-    const sig = buildSignature(TEST_BODY, TEST_SECRET)
-    const ts = String(buildNowSeconds())
-    const ctx = makeContext(
-      { 'x-vendelo-signature': sig, 'x-vendelo-timestamp': ts },
-      TEST_BODY,
-    )
-
-    expect(() => guard.canActivate(ctx)).not.toThrow()
+    expect(guard.canActivate(ctx)).toBe(true)
   })
 
-  it('rechaza un webhook con timestamp de más de 5 minutos', () => {
+  it('no acepta un secreto vacío como válido', () => {
     const guard = makeGuard()
-    const sig = buildSignature(TEST_BODY, TEST_SECRET)
-    const staleTs = String(buildNowSeconds() - 6 * 60) // 6 minutos
-    const ctx = makeContext(
-      { 'x-vendelo-signature': sig, 'x-vendelo-timestamp': staleTs },
-      TEST_BODY,
-    )
+    const ctx = makeContext({
+      event: 'ORDER_SHIPPED',
+      metadata: [{ [SECRET_KEY]: '' }],
+    })
 
     expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException)
   })
 
-  it('acepta cuando X-Vendelo-Timestamp está ausente (compatibilidad con versiones antiguas de Vendelo)', () => {
+  it('no acepta un secreto de longitud distinta aunque empiece igual', () => {
     const guard = makeGuard()
-    const sig = buildSignature(TEST_BODY, TEST_SECRET)
-    const ctx = makeContext({ 'x-vendelo-signature': sig }, TEST_BODY)
-
-    expect(() => guard.canActivate(ctx)).not.toThrow()
-  })
-
-  it('rechaza cuando X-Vendelo-Timestamp tiene formato inválido', () => {
-    const guard = makeGuard()
-    const sig = buildSignature(TEST_BODY, TEST_SECRET)
-    const ctx = makeContext(
-      { 'x-vendelo-signature': sig, 'x-vendelo-timestamp': 'not-a-number' },
-      TEST_BODY,
-    )
+    const ctx = makeContext({
+      event: 'ORDER_SHIPPED',
+      metadata: [{ [SECRET_KEY]: TEST_SECRET + 'extra' }],
+    })
 
     expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException)
   })
@@ -129,16 +121,16 @@ describe('VendeloWebhookGuard — protección anti-replay', () => {
 // ── Modo desarrollo ───────────────────────────────────────────────────────────
 
 describe('VendeloWebhookGuard — modo desarrollo', () => {
-  it('permite requests sin firma en desarrollo cuando el secret está vacío', () => {
-    const guard = makeGuard('', false) // secret vacío, dev
-    const ctx = makeContext({}, TEST_BODY)
+  it('permite requests en desarrollo cuando el secret está vacío (sin importar metadata)', () => {
+    const guard = makeGuard('', false)
+    const ctx = makeContext({ event: 'ORDER_SHIPPED' })
 
     expect(guard.canActivate(ctx)).toBe(true)
   })
 
   it('bloquea en producción cuando el secret está vacío', () => {
-    const guard = makeGuard('', true) // secret vacío, prod
-    const ctx = makeContext({}, TEST_BODY)
+    const guard = makeGuard('', true)
+    const ctx = makeContext({ event: 'ORDER_SHIPPED' })
 
     expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException)
   })

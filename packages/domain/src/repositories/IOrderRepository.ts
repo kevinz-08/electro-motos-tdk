@@ -5,6 +5,7 @@
  * Los use cases CreateOrder y ConfirmPayment dependen de esta interfaz.
  */
 import { Order, OrderStatus, OrderItem, ShippingAddress, PaymentProvider, PaymentStatus } from '@/domain/entities/Order'
+import { ShipmentStatus } from '@/domain/entities/Shipment'
 
 /**
  * Resultado de `transitionFromPending`.
@@ -87,4 +88,31 @@ export interface IOrderRepository {
    * Los pedidos no encontrados no aparecen en la respuesta.
    */
   findVendeloOrderIdsBatch(orderIds: string[]): Promise<Array<{ id: string; vendeloOrderId: string | null }>>
+  /**
+   * Devuelve pedidos cuyo envío está vivo en Vendelo y necesita polling.
+   *
+   * Filtros aplicados:
+   *   - `vendeloOrderId IS NOT NULL` — solo pedidos ya enviados a Vendelo
+   *   - `Order.status NOT IN ('DELIVERED', 'CANCELLED')` — ignora terminales
+   *   - Si existe Shipment, `Shipment.status NOT IN ('DELIVERED', 'RETURNED', 'CANCELLED')`
+   *
+   * Orden de salida: `Shipment.updatedAt ASC NULLS FIRST` para que los más
+   * desactualizados (o sin shipment aún) se procesen primero. Esto garantiza
+   * fairness — ningún pedido se queda esperando indefinidamente.
+   *
+   * @param limit Máximo de pedidos a devolver en una llamada (batching).
+   */
+  findActiveVendeloOrders(limit: number): Promise<ActiveVendeloOrder[]>
+}
+
+/**
+ * Snapshot mínimo que el poller necesita por cada pedido vivo: el ID interno,
+ * el ID de Vendelo (para hacer GET), y el estado actual del envío (para
+ * detectar progresión).
+ */
+export interface ActiveVendeloOrder {
+  orderId: string
+  vendeloOrderId: string
+  /** null si todavía no se ha creado registro de Shipment para este pedido. */
+  currentShipmentStatus: ShipmentStatus | null
 }

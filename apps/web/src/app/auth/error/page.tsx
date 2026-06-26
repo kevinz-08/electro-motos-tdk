@@ -48,7 +48,9 @@ const DEFAULT_ERROR = {
 
 export default async function AuthErrorPage({ searchParams }: PageProps) {
   const { error } = await searchParams
-  const { message, hint } = (error && ERROR_MESSAGES[error]) ?? DEFAULT_ERROR
+  // Importante: usar `?:` y no `&&` porque `"" && X` retorna `""` y el
+  // destructure `.message`/`.hint` rompería sobre un string.
+  const { message, hint } = (error ? ERROR_MESSAGES[error] : undefined) ?? DEFAULT_ERROR
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4">

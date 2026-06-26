@@ -1,18 +1,27 @@
 'use client'
 
 /**
- * Widget de pago Wompi — estrategia dual:
+ * Widget de pago Wompi — implementación programática.
  *
- * 1. Intento principal: inyectar el form con data-* y cargar widget.js dinámicamente.
- *    Wompi's script escanea el DOM buscando [data-render="button"], por lo que
- *    funciona aunque el <script> se añada después del form (estrategia segura en React).
+ * **Por qué este enfoque:**
+ * Wompi expone dos formas de integrar el widget. El método con
+ * `<form data-render="button">` requiere que el form esté en el DOM ANTES
+ * de que `widget.js` dispare su escaneo en `DOMContentLoaded`. Como en
+ * SPAs el usuario navega a /checkout y luego transiciona al paso "payment",
+ * el form aparece mucho después de `DOMContentLoaded` y Wompi nunca lo
+ * encuentra (síntoma: form vacío y ningún botón).
  *
- * 2. Fallback automático (5 s): si el script no carga o el botón no aparece
- *    (e.g., bloqueador de anuncios, red lenta), se muestra un enlace de redirect
- *    a checkout.wompi.co/p/ — misma experiencia de pago, sin el widget embed.
+ * Solución: renderizamos nuestro propio botón y, al click, instanciamos
+ * `new window.WidgetCheckout({...})` con los params y llamamos a `.open()`.
+ * Wompi maneja el resto (modal, redirect al final).
+ *
+ * **Fallback automático:**
+ * Si `window.WidgetCheckout` no está disponible (script bloqueado, network),
+ * el botón redirige a `checkout.wompi.co/p/` con los params en la URL —
+ * misma experiencia de pago, sin modal embed.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 interface WompiWidgetProps {
   publicKey: string
@@ -22,65 +31,97 @@ interface WompiWidgetProps {
   redirectUrl: string
 }
 
-const WIDGET_TIMEOUT_MS = 5_000
+interface WompiCheckoutInstance {
+  open: (callback?: (result: unknown) => void) => void
+}
+
+declare global {
+  interface Window {
+    WidgetCheckout?: new (config: {
+      currency: 'COP'
+      amountInCents: number
+      reference: string
+      publicKey: string
+      signature: { integrity: string }
+      redirectUrl: string
+    }) => WompiCheckoutInstance
+  }
+}
+
+const WOMPI_SCRIPT_URL = 'https://checkout.wompi.co/widget.js'
 
 export function WompiWidget({ publicKey, amountInCents, reference, integritySignature, redirectUrl }: WompiWidgetProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [useFallback, setUseFallback] = useState(false)
+  const [scriptReady, setScriptReady] = useState(
+    typeof window !== 'undefined' && typeof window.WidgetCheckout === 'function',
+  )
+  const [scriptFailed, setScriptFailed] = useState(false)
 
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+    if (typeof window === 'undefined') return
+    if (typeof window.WidgetCheckout === 'function') {
+      setScriptReady(true)
+      return
+    }
 
-    container.innerHTML = ''
-
-    // Wompi's widget.js scans the DOM for form[data-render="button"].
-    // We create the form first, then append the script so the scanner finds it.
-    const form = document.createElement('form')
-    form.setAttribute('data-render', 'button')
-    form.setAttribute('data-public-key', publicKey)
-    form.setAttribute('data-currency', 'COP')
-    form.setAttribute('data-amount-in-cents', String(amountInCents))
-    form.setAttribute('data-reference', reference)
-    form.setAttribute('data-signature:integrity', integritySignature)
-    form.setAttribute('data-redirect-url', redirectUrl)
-    container.appendChild(form)
-
-    const timer = setTimeout(() => setUseFallback(true), WIDGET_TIMEOUT_MS)
+    // Si otro componente ya añadió el script, esperamos su load
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${WOMPI_SCRIPT_URL}"]`)
+    if (existing) {
+      const onLoad = () => setScriptReady(true)
+      const onError = () => setScriptFailed(true)
+      existing.addEventListener('load', onLoad)
+      existing.addEventListener('error', onError)
+      return () => {
+        existing.removeEventListener('load', onLoad)
+        existing.removeEventListener('error', onError)
+      }
+    }
 
     const script = document.createElement('script')
-    script.src = 'https://checkout.wompi.co/widget.js'
+    script.src = WOMPI_SCRIPT_URL
     script.async = true
-    script.onload = () => clearTimeout(timer)
-    script.onerror = () => { clearTimeout(timer); setUseFallback(true) }
-    container.appendChild(script)
+    script.onload = () => setScriptReady(true)
+    script.onerror = () => setScriptFailed(true)
+    document.body.appendChild(script)
+    // No removemos el script en cleanup — otros componentes/visitas pueden necesitarlo.
+  }, [])
 
-    return () => {
-      clearTimeout(timer)
-      container.innerHTML = ''
+  const handlePay = useCallback(() => {
+    // Fallback: si por alguna razón el SDK no cargó, redirect directo a Wompi.
+    // Es la misma transacción, solo sin la UX del modal.
+    if (typeof window.WidgetCheckout !== 'function') {
+      window.location.href = buildWompiUrl({ publicKey, amountInCents, reference, integritySignature, redirectUrl })
+      return
     }
-  }, [publicKey, amountInCents, reference, integritySignature, redirectUrl])
 
-  // Fallback: redirect directo a Wompi (misma experiencia de pago)
-  const fallbackUrl = buildWompiUrl({ publicKey, amountInCents, reference, integritySignature, redirectUrl })
+    const checkout = new window.WidgetCheckout({
+      currency: 'COP',
+      amountInCents,
+      reference,
+      publicKey,
+      signature: { integrity: integritySignature },
+      redirectUrl,
+    })
+    // El callback se invoca cuando Wompi cierra el modal — en flujo con
+    // redirectUrl, Wompi navega automáticamente a esa URL y no llega acá.
+    checkout.open(() => {
+      // No-op intencional. Si el usuario cancela, el modal se cierra y
+      // queda en esta misma página; podrá reintentar.
+    })
+  }, [publicKey, amountInCents, reference, integritySignature, redirectUrl])
 
   return (
     <div className="space-y-4">
-      {/* Widget embed — visible mientras useFallback es false */}
-      <div ref={containerRef} className={useFallback ? 'hidden' : 'min-h-[52px]'} />
-
-      {/* Fallback — visible si el script no cargó en 5 s */}
-      {useFallback && (
-        <a
-          href={fallbackUrl}
-          className="flex items-center justify-center gap-3 w-full bg-[#00b1eb] hover:bg-[#0099cc] text-white py-3.5 rounded-xl font-bold text-base transition-colors"
-        >
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
-          </svg>
-          Pagar con Wompi
-        </a>
-      )}
+      <button
+        type="button"
+        onClick={handlePay}
+        disabled={!scriptReady && !scriptFailed}
+        className="flex items-center justify-center gap-3 w-full bg-[#00b1eb] hover:bg-[#0099cc] text-white py-3.5 rounded-xl font-bold text-base transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
+        </svg>
+        {!scriptReady && !scriptFailed ? 'Cargando pasarela...' : 'Pagar con Wompi'}
+      </button>
 
       <p className="text-xs text-gray-400 text-center">
         🔒 Pago procesado por Wompi · Certificado PCI DSS
@@ -89,7 +130,7 @@ export function WompiWidget({ publicKey, amountInCents, reference, integritySign
   )
 }
 
-function buildWompiUrl(p: Omit<WompiWidgetProps, 'onSuccess'>): string {
+function buildWompiUrl(p: WompiWidgetProps): string {
   const url = new URL('https://checkout.wompi.co/p/')
   url.searchParams.set('public-key', p.publicKey)
   url.searchParams.set('currency', 'COP')

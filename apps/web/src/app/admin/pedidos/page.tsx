@@ -2,6 +2,8 @@ import { PrismaOrderRepository } from '@/infrastructure/repositories/PrismaOrder
 import { OrderStatus } from '@h2r/domain'
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect'
 import { OrderInfoModal } from '@/components/admin/OrderInfoModal'
+import { AdminHelpButton } from '@/components/admin/AdminHelpButton'
+import { pedidosHelpContent } from '@/components/admin/help-content/pedidos'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -41,7 +43,10 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-6">Pedidos</h1>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-white">Pedidos</h1>
+        <AdminHelpButton content={pedidosHelpContent} />
+      </div>
 
       {/* Filtros de estado */}
       <div className="flex gap-2 mb-6 flex-wrap">

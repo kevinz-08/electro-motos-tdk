@@ -4,6 +4,38 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 101. Cotización de envío Vendelo en carrito/checkout (6 fases)
+
+**Contexto:** Vendelo cobra el envío directamente al cliente al momento de la entrega (no nuestro Wompi) — sin un estimado previo, el cliente se sorprende y se queja del costo al recibir el pedido. Esta feature muestra un estimado informativo en `/carrito` y `/checkout` antes de pagar, sin afectar el monto que se cobra por Wompi.
+
+**Fase 1 — Domain:** `IVendeloShippingPort.quoteOrder()` + tipos `VendeloQuoteInput`/`VendeloQuoteResult`. Use case `QuoteShipping` (resuelve precios/stock desde la BD, nunca confía en el cliente — mismo patrón que `CreateOrder`). Si el subtotal alcanza `FREE_SHIPPING_THRESHOLD_CENTS` (nueva constante en `packages/domain/src/shared/constants.ts`), ni siquiera consulta a Vendelo y retorna 0 directo.
+
+**Fase 2 — Infrastructure:** `VendeloService.quoteOrder()` llama a `POST /v1/admin/orders/quotation`. Bug encontrado y corregido antes de producción: Vendelo responde montos en **pesos COP**, no centavos (confirmado comparando con `unit_price / 100` ya existente en `createOrder`) — se multiplica `x100` antes de devolver el resultado para mantener la convención de centavos del dominio.
+
+**Fase 3 — NestJS:** `POST /shipping/quote` público (`@Public()`, carrito de invitado) en `ShippingController`. DTO con regex DIVIPOLA (8 dígitos), subdivisión (2 dígitos), `items` (1-50, qty 1-99) — anti-tampering y anti-DoS. Rate limit adicional con `@Throttle({ default: { limit: 10, ttl: 60_000 } })`, que sobreescribe el perfil `default` del Throttler solo en esta ruta sin tocar la config global de 100/min. Se agregó `app.set('trust proxy', 1)` en `main.ts` — sin esto, el rate limit por IP detrás de Cloud Run vería la IP del balanceador, no la del cliente real.
+
+**Fase 4 — Next.js:** Proxy `/api/shipping/quote` con validación zod (fail fast antes de NestJS), timeout 8s, errores genéricos al cliente. `useShippingQuoteStore` (Zustand + `sessionStorage`, no `localStorage` — el estimado no debe sobrevivir entre sesiones) cachea por `${cityCode}-${items ordenados}` con TTL 5 min, compartido entre carrito y checkout. No se reimplementó rate-limit local: `rate-limit.ts` ya está documentado como no-op en serverless, la defensa real es el `ThrottlerGuard` de NestJS.
+
+**Fase 5 — UI carrito:** `ShippingQuoteCalculator` reusa `CitySelector` (se exportó `CityOption`). Debounce 500ms, recalcula con cambios del carrito, nunca bloquea "Finalizar pedido". La ciudad se persiste en el store de carrito (`selectedCity`/`setSelectedCity`, nuevo en `apps/web/src/lib/cart.ts`) para llegar preseleccionada a `/checkout`.
+
+**Fase 6 — UI checkout:** Lógica de debounce/fetch extraída a un hook compartido `useShippingQuote` (en `lib/shipping-quote.ts`) para no duplicarla entre carrito y checkout. `CheckoutForm` usa el `selectedCity` del store de carrito en vez de estado local (sincronización bidireccional). El resumen "Tu pedido" muestra el envío cotizado y un "Total estimado" con aclaración de que Vendelo cobra el envío directo — el monto cargado a Wompi no cambia.
+
+**Archivos creados:**
+
+- `packages/domain/src/shared/constants.ts`, `packages/domain/src/use-cases/shipping/QuoteShipping.ts`
+- `apps/api/src/shipping/` (controller, module, dto)
+- `apps/web/src/app/api/shipping/quote/route.ts`, `apps/web/src/lib/shipping-quote.ts`, `apps/web/src/components/store/ShippingQuoteCalculator.tsx`
+
+**Archivos modificados:** `IVendeloShippingPort.ts`, `VendeloService.ts`, `app.module.ts`, `main.ts`, `cart.ts`, `CitySelector.tsx` (export `CityOption`), `CheckoutForm.tsx`, `carrito/page.tsx`, `index.ts` (barrel domain).
+
+**Tests:** 8 nuevos en domain (`QuoteShipping`), 4 en `VendeloService`, 10 en NestJS (`ShippingController` + DTO). Suites completas en verde: domain 170, api 154+10, type-check limpio en los tres paquetes.
+
+**Commits:** `c2433d5`, `9a6a262`, `89897de`, `6350049`, `e7368d6`, `0ae66cd` (uno por fase, mismo PR).
+
+*Última actualización: 2026-06-29*
+
+---
+
 ## 100. Fix triplicación de órdenes Vendelo + nombre/SKU reales en line_items
 
 **Contexto:** Una compra real generó 3 órdenes duplicadas en Vendelo (timestamps 8:39, 8:39, 8:40 — segundos de distancia, no los 2 min del ciclo del `setInterval`). Además, los `line_items` enviados a Vendelo mostraban el cuid interno de Prisma (`Producto cmpyqnj44h0039...`) en vez del nombre y SKU comerciales reales.

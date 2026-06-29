@@ -577,6 +577,33 @@ Si la prueba tiene éxito, el circuito vuelve a `CLOSED`. Si falla, regresa a `O
 | Crear envío | `POST /shipments` | Crea la orden de despacho |
 | Estado del envío | `GET /shipments/{id}` | Consulta tracking |
 | Sincronizar estado | `PATCH /orders/:id/sync-shipment` | Actualiza estado desde Vendelo |
+| Cotizar envío | `POST /v1/admin/orders/quotation` | Estima el costo de envío sin crear el pedido |
+
+### Cotización de envío (carrito/checkout)
+
+`POST /shipping/quote` (NestJS, público vía `@Public()`) envuelve el use case `QuoteShipping`
+para mostrarle al cliente un estimado de envío **antes de pagar**. Es puramente informativo:
+Vendelo cobra el envío directamente al cliente al momento de la entrega, no nuestro Wompi — el
+monto cargado en el checkout no cambia. Si el subtotal del carrito alcanza
+`FREE_SHIPPING_THRESHOLD_CENTS`, ni siquiera se consulta a Vendelo.
+
+```
+/carrito, /checkout
+    │  useShippingQuote(city, items) — debounce 500ms, hook compartido
+    ↓
+POST /api/shipping/quote (Next.js)         ← valida con zod, timeout 8s
+    ↓
+POST /shipping/quote (NestJS)              ← @Throttle 10 req/min/IP + 100/min global
+    │  QuoteShipping use case               ← precios/stock siempre desde la BD
+    ↓
+VendeloService.quoteOrder()
+    ↓
+POST /v1/admin/orders/quotation (Vendelo)
+```
+
+Cache cliente en `useShippingQuoteStore` (Zustand + `sessionStorage`, TTL 5 min), compartida
+entre carrito y checkout por clave `${cityCode}-${items ordenados}`. La ciudad seleccionada se
+persiste en el store de carrito (`selectedCity`) para no pedirla dos veces.
 
 ---
 

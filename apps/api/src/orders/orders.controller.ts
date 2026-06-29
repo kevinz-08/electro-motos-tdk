@@ -13,6 +13,8 @@ import {
 import { MercadoPagoService } from '../infrastructure/services/MercadoPagoService'
 import { WompiService } from '../infrastructure/services/WompiService'
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
+import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
+import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CurrentUser, JwtUser } from '../auth/decorators/current-user.decorator'
@@ -31,6 +33,8 @@ export class OrdersController {
     @Inject(PAYMENT_SERVICE)    private readonly wompiService: IPaymentService,
     private readonly mercadoPagoService: MercadoPagoService,
     private readonly emailService: ResendEmailService,
+    private readonly emailQueue: EmailQueueService,
+    private readonly vendeloOrderQueue: VendeloOrderQueueService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -47,6 +51,17 @@ export class OrdersController {
         throw new ForbiddenException('Mercado Pago no está disponible en este momento')
       }
       paymentService = this.mercadoPagoService
+    }
+
+    if (dto.paymentProvider === 'COD') {
+      // Por defecto habilitado (sin fila aún en Settings) — el admin puede desactivarlo
+      // desde /admin/configuracion, que crea la fila en false.
+      const setting = await this.prisma.client.settings.findUnique({
+        where: { key: 'COD_ENABLED' },
+      })
+      if (setting && setting.value !== 'true') {
+        throw new ForbiddenException('Pago contra entrega no está disponible en este momento')
+      }
     }
 
     const useCase = new CreateOrder(this.orderRepo, this.productRepo, paymentService)
@@ -68,10 +83,18 @@ export class OrdersController {
       })
     }
 
-    // Fire-and-forget: nunca bloquea ni falla la respuesta del pedido
-    this.emailService
-      .sendOrderReceived(result.value.order, user.email)
-      .catch((e) => this.logger.error(`Email sendOrderReceived failed orderId=${result.value.order.id}: ${e}`))
+    if (dto.paymentProvider === 'COD') {
+      // COD no tiene webhook de pasarela que confirme el pago — el pedido ya nació
+      // PAID (CreateOrder lo confirmó al crearlo), así que disparamos aquí mismo
+      // los efectos secundarios que para pagos online dispara ConfirmPayment.
+      await this.emailQueue.enqueue(user.email, result.value.order.id)
+      await this.vendeloOrderQueue.enqueue(result.value.order.id)
+    } else {
+      // Fire-and-forget: nunca bloquea ni falla la respuesta del pedido
+      this.emailService
+        .sendOrderReceived(result.value.order, user.email)
+        .catch((e) => this.logger.error(`Email sendOrderReceived failed orderId=${result.value.order.id}: ${e}`))
+    }
 
     return result.value
   }

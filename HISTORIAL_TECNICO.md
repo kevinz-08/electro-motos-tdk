@@ -4,6 +4,29 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 105. Botón de ayuda contextual: /admin/categorias (cierre del rollout)
+
+**Contexto:** última sección pendiente del rollout de `AdminHelpButton` iniciado en `/admin/sync` (#103) y continuado en pedidos/stock/productos (#104). Se verificó directamente en `CategoryManager.tsx` (no solo por inspección superficial) el comportamiento real antes de escribir el contenido.
+
+**Hallazgos confirmados en el código:**
+
+- La jerarquía está limitada a 2 niveles por diseño de la propia UI: el `<select>` de "Categoría padre" (`CategoryManager.tsx`, dentro de `CategoryForm`) solo lista `rootCategories` (las que tienen `parentId === null`) — es imposible anidar una subcategoría dentro de otra desde este formulario, así que el riesgo de jerarquía circular que se había anotado en la exploración inicial no aplica en la práctica.
+- El slug se autogenera con cada tecla del nombre **solo al crear** (`handleNameChange`: `if (!isEdit) setField('slug', toSlug(value))`); al editar, el slug no se sincroniza con el nombre — hay que cambiarlo a mano.
+- El slug exige regex `^[a-z0-9]+(?:-[a-z0-9]+)*$` (minúsculas, números, guiones).
+- `admin-categories.controller.ts` (`DELETE /admin/categories/:id`) rechaza el borrado con `ConflictException` y un mensaje explícito si la categoría tiene productos o subcategorías asociadas — el frontend ya muestra ese error inline (`deleteError[cat.id]`), no es un fallo silencioso como se había anotado inicialmente.
+
+**Archivo creado:** `apps/web/src/components/admin/help-content/categorias.ts`
+
+**Archivo modificado:** `apps/web/src/components/admin/CategoryManager.tsx` (botón agregado junto a "+ Nueva categoría").
+
+**Validación:** type-check limpio, lint sin warnings nuevos, smoke test de `/admin/categorias` sin error 500.
+
+**Rama:** `feat/admin-help-tooltips`. Con esta entrada se completa el rollout de ayuda contextual a las 5 secciones identificadas como prioritarias (sync, pedidos, stock, productos, categorías). Dashboard, lista de Productos y Configuración quedaron fuera por bajo riesgo de confusión (ver hallazgos del agente de exploración referenciado en #104).
+
+*Última actualización: 2026-06-29*
+
+---
+
 ## 104. Botón de ayuda contextual: /admin/pedidos, /admin/stock, /admin/productos — y eliminación del CSV de stock
 
 **Contexto:** continuación del patrón `AdminHelpButton` iniciado en `/admin/sync` (#103). Un agente de exploración revisó las 7 páginas del panel admin para identificar cuáles tienen reglas de negocio no obvias; se priorizaron 4 secciones por nivel de riesgo de confusión para un admin no técnico: Pedidos (7/10), Stock (6/10), Producto Edit (6/10) y Categorías (5/10, pendiente). Esta entrada cubre las primeras 3.
@@ -4110,3 +4133,45 @@ Cloud Run fallaba al crear la revisión porque el secret `MERCADOPAGO_ACCESS_TOK
 - `ci: remove MERCADOPAGO_ACCESS_TOKEN from Cloud Run secrets`
 
 *Última actualización: 2026-06-12*
+
+---
+
+## 96. Implementación de pago contra entrega (COD) con Vendelo
+
+**Contexto:** Vendelo soporta `payment_method_code: 'COD' | 'EXTERNAL_PAYMENT'` tanto en
+`Create Order` como en `Quotation`, y el dominio ya modelaba ambos valores en `QuoteShipping`
+(cotización), pero ningún flujo real creaba pedidos COD: `VendeloService.createOrder()` mandaba
+`EXTERNAL_PAYMENT` hardcodeado y el checkout web nunca ofrecía la opción. El objetivo de esta
+sesión es exponer "pago contra entrega" como método de pago real end-to-end.
+
+**Decisión de diseño — ciclo de vida sin webhook de pasarela:** como en COD no existe ningún
+webhook de pago que confirme la transacción, el pedido se crea directamente con `status: PAID`
+(no `PENDING`) y el stock se descuenta en la misma transacción de creación — evita que el pedido
+quede colgado en `PENDING` y sea cancelado por el cleanup de pedidos abandonados. El encolado en
+Vendelo (`VendeloOrderQueueService`) y el email de confirmación se disparan directo desde
+`OrdersController` tras crear el pedido, en vez de esperar el webhook de Wompi/Mercado Pago.
+
+**Restock automático (gap preexistente, ahora corregido):** ningún flujo de pago restauraba el
+stock cuando un envío era rechazado en la puerta. Se agregó esa lógica a `SyncShipmentStatus`:
+al detectar transición de `Shipment.status` a `RETURNED` o `CANCELLED`, incrementa de vuelta el
+stock de cada `OrderItem` del pedido, de forma atómica e idempotente.
+
+**Sin restricciones de monto/ciudad para el MVP** — COD disponible en cualquier ciudad con
+cobertura Vendelo.
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma` — `COD` añadido al enum `PaymentProvider`
+- `packages/domain/src/use-cases/orders/CreateOrder.ts` — bifurcación por `paymentProvider`; rama COD crea el pedido ya `PAID` y decrementa stock sin pasar por `paymentService.createTransaction()`
+- `packages/domain/src/repositories/IOrderRepository.ts` — método `createPaidOrder()` añadido
+- `packages/domain/src/use-cases/shipping/SyncShipmentStatus.ts` — restock automático en `RETURNED`/`CANCELLED`
+- `apps/api/src/orders/dto/create-order.dto.ts` — `'COD'` añadido al enum validado de `paymentProvider`
+- `apps/api/src/orders/orders.controller.ts` — dispara email + cola Vendelo inmediatamente para pedidos COD
+- `apps/api/src/infrastructure/services/VendeloService.ts` — `payment_method_code` dinámico según `order.paymentProvider`
+- `apps/web/src/components/checkout/CheckoutForm.tsx` — selector de método de pago (online vs COD)
+- `apps/web/src/lib/shipping-quote.ts` — `paymentMethod` real en vez de `'EXTERNAL_PAYMENT'` hardcodeado
+- `apps/api/src/infrastructure/services/ResendEmailService.ts` — copy de `sendOrderConfirmation()` condicionado a `paymentProvider === 'COD'`
+
+**Estado al cierre de la sesión:** ver TODO list de la sesión para el detalle de qué quedó implementado vs pendiente.
+
+*Última actualización: 2026-06-29*

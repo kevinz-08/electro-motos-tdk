@@ -1038,7 +1038,7 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 ### Ayuda contextual (botón ⓘ)
 
 Las secciones del panel admin con flujos no obvios (`/admin/sync`, `/admin/pedidos`,
-`/admin/stock`, `/admin/productos/[id]`, `/admin/productos/nuevo`) tienen un botón ⓘ en la
+`/admin/stock`, `/admin/productos/[id]`, `/admin/productos/nuevo`, `/admin/categorias`) tienen un botón ⓘ en la
 esquina superior derecha que abre un modal explicando qué hace la sección y los pasos para
 usarla — pensado para casos donde la UI por sí sola no transmite el contexto necesario (ej.
 sincronización con un sistema externo, reglas de negocio silenciosas, límites no aplicados

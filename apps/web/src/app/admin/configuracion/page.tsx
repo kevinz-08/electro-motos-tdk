@@ -1,12 +1,16 @@
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { MercadoPagoToggle } from '@/components/admin/MercadoPagoToggle'
+import { CodToggle } from '@/components/admin/CodToggle'
 
 export default async function AdminConfigPage() {
-  const mpSetting = await prisma.settings.findUnique({
-    where: { key: 'MERCADOPAGO_ENABLED' },
-  })
+  const [mpSetting, codSetting] = await Promise.all([
+    prisma.settings.findUnique({ where: { key: 'MERCADOPAGO_ENABLED' } }),
+    prisma.settings.findUnique({ where: { key: 'COD_ENABLED' } }),
+  ])
 
   const mpEnabled = mpSetting?.value === 'true'
+  // Por defecto habilitado si no existe la fila aún — mismo fallback que orders.controller.ts.
+  const codEnabled = codSetting ? codSetting.value === 'true' : true
 
   return (
     <div>
@@ -46,6 +50,25 @@ export default async function AdminConfigPage() {
               </div>
               <MercadoPagoToggle enabled={mpEnabled} />
             </div>
+          </div>
+        </div>
+
+        {/* Métodos de pago alternativos */}
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <h2 className="font-bold text-white mb-1">Pago contra entrega</h2>
+          <p className="text-sm text-white/40 mb-6">
+            Si lo desactivas, los clientes dejan de ver la opción en el checkout — no se borra
+            ninguna funcionalidad, solo deja de ofrecerse hasta que lo reactives.
+          </p>
+
+          <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-lg">
+            <div>
+              <p className="font-semibold text-white">Pago contra entrega (COD)</p>
+              <p className="text-xs text-white/40">
+                El cliente paga en efectivo al repartidor de Vendelo al recibir su pedido
+              </p>
+            </div>
+            <CodToggle enabled={codEnabled} />
           </div>
         </div>
 

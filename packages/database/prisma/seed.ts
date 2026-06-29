@@ -256,6 +256,11 @@ async function main() {
     update: {},
     create: { key: 'MERCADOPAGO_ENABLED', value: 'false' },
   })
+  await prisma.settings.upsert({
+    where: { key: 'COD_ENABLED' },
+    update: {},
+    create: { key: 'COD_ENABLED', value: 'true' },
+  })
 
   // ─── Sample orders ────────────────────────────────────────────────────────
   const product1 = await prisma.product.findUnique({ where: { sku: 'FRE-BRE-FZ25-001' } })

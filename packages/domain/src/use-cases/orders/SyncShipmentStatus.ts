@@ -72,6 +72,7 @@ export class SyncShipmentStatus {
         carrier: input.carrier ?? null,
       })
       await this.syncOrderStatus(input.orderId, input.vendelo_status)
+      await this.maybeRestock(input.orderId, currentStatus, input.vendelo_status)
       return ok({ updated: true, newStatus: input.vendelo_status, userId: order.userId })
     }
 
@@ -91,7 +92,25 @@ export class SyncShipmentStatus {
     }
 
     await this.syncOrderStatus(input.orderId, input.vendelo_status)
+    await this.maybeRestock(input.orderId, currentStatus, input.vendelo_status)
     return ok({ updated: true, newStatus: input.vendelo_status, userId: order.userId })
+  }
+
+  /**
+   * Restaura el stock cuando un envío se rechaza en la puerta. Solo dispara en
+   * la transición de entrada a un estado "de devolución" (`RETURNED`/`CANCELLED`)
+   * — si el estado previo ya era uno de esos, no se repite (evita doble restock
+   * si, por ejemplo, CANCELLED es seguido por un evento RETURNED tardío).
+   */
+  private async maybeRestock(
+    orderId: string,
+    previousStatus: ShipmentStatus,
+    newStatus: ShipmentStatus,
+  ): Promise<void> {
+    const isRestoreStatus = (s: ShipmentStatus) => s === 'RETURNED' || s === 'CANCELLED'
+    if (isRestoreStatus(newStatus) && !isRestoreStatus(previousStatus)) {
+      await this.orderRepo.restockItems(orderId)
+    }
   }
 
   /**

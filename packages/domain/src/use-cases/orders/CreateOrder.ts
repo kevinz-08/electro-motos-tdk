@@ -16,13 +16,13 @@ export interface CreateOrderUseCaseInput {
 
 export interface CreateOrderOutput {
   order: Order
-  payment: PaymentResult
+  payment: PaymentResult | null
 }
 
 /**
  * Use case: Crear un pedido y preparar el pago.
  *
- * Flujo completo:
+ * Flujo para pasarelas online (WOMPI/MERCADO_PAGO):
  *   1. Para cada ítem: validar cantidad > 0, buscar el producto, verificar que esté activo,
  *      verificar que haya stock suficiente.
  *   2. Calcular el total sumando precio × cantidad de cada ítem.
@@ -30,10 +30,17 @@ export interface CreateOrderOutput {
  *   4. Llamar a la pasarela de pago para preparar la transacción.
  *   5. Retornar el pedido + los datos de la transacción (referencia, firma, etc.)
  *
- * IMPORTANTE: El stock NO se descuenta aquí. Se descuenta en ConfirmPayment
- * cuando el webhook de la pasarela confirma que el pago fue APPROVED.
+ * IMPORTANTE: El stock NO se descuenta aquí para pagos online. Se descuenta en
+ * ConfirmPayment cuando el webhook de la pasarela confirma que el pago fue APPROVED.
  * Razón: si se descontase aquí y el cliente abandona el pago, el stock quedaría
  * reducido incorrectamente.
+ *
+ * Flujo para COD (pago contra entrega):
+ *   No hay pasarela ni webhook que confirme el pago — el pedido se confirma al
+ *   crearse. Se inserta directamente con estado PAID y el stock se descuenta en
+ *   la misma transacción (`createPaidOrder`), evitando que el pedido quede
+ *   colgado en PENDING (sujeto al cleanup de pedidos abandonados). `payment` en
+ *   el output es `null`: no hay datos de transacción de pasarela que devolver.
  *
  * Este use case recibe las dependencias como parámetros del constructor
  * (inyección de dependencias), lo que facilita las pruebas unitarias con mocks.
@@ -85,17 +92,31 @@ export class CreateOrder {
       total += found.price * item.quantity
     }
 
+    const createInput = {
+      userId: input.userId,
+      items: resolvedItems,
+      shippingAddress: input.shippingAddress,
+      buyer: input.buyer,
+      paymentProvider: input.paymentProvider,
+      total,
+    }
+
+    // COD: no hay pasarela que esperar — el pedido se crea ya PAID y con el
+    // stock descontado en la misma transacción.
+    if (input.paymentProvider === 'COD') {
+      let order: Order
+      try {
+        order = await this.orderRepo.createPaidOrder(createInput)
+      } catch (e) {
+        return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
+      }
+      return ok({ order, payment: null })
+    }
+
     // 2. Crear orden en DB con estado PENDING
     let order: Order
     try {
-      order = await this.orderRepo.create({
-        userId: input.userId,
-        items: resolvedItems,
-        shippingAddress: input.shippingAddress,
-        buyer: input.buyer,
-        paymentProvider: input.paymentProvider,
-        total,
-      })
+      order = await this.orderRepo.create(createInput)
     } catch (e) {
       return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
     }

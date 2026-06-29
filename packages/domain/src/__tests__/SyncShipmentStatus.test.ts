@@ -45,6 +45,7 @@ function makeOrderRepo(order: Order | null): IOrderRepository {
   return {
     findById: vi.fn().mockResolvedValue(order),
     updateStatus: vi.fn().mockResolvedValue(undefined),
+    restockItems: vi.fn().mockResolvedValue(undefined),
   } as unknown as IOrderRepository
 }
 
@@ -186,6 +187,68 @@ describe('SyncShipmentStatus', () => {
       })
 
       expect(orderRepo.updateStatus).toHaveBeenCalledWith('order-1', 'CANCELLED')
+    })
+  })
+
+  describe('restock automático', () => {
+    it('restaura stock cuando el envío pasa a RETURNED desde SHIPPED', async () => {
+      const shipmentRepo = makeShipmentRepo(makeShipment({ status: 'SHIPPED' }))
+      const orderRepo = makeOrderRepo(makeOrder())
+
+      await new SyncShipmentStatus(shipmentRepo, orderRepo).execute({
+        orderId: 'order-1',
+        vendelo_status: 'RETURNED',
+      })
+
+      expect(orderRepo.restockItems).toHaveBeenCalledWith('order-1')
+    })
+
+    it('restaura stock cuando el envío pasa a CANCELLED desde READY', async () => {
+      const shipmentRepo = makeShipmentRepo(makeShipment({ status: 'READY' }))
+      const orderRepo = makeOrderRepo(makeOrder())
+
+      await new SyncShipmentStatus(shipmentRepo, orderRepo).execute({
+        orderId: 'order-1',
+        vendelo_status: 'CANCELLED',
+      })
+
+      expect(orderRepo.restockItems).toHaveBeenCalledWith('order-1')
+    })
+
+    it('NO restaura stock dos veces si CANCELLED es seguido de un evento RETURNED tardío', async () => {
+      const shipmentRepo = makeShipmentRepo(makeShipment({ status: 'CANCELLED' }))
+      const orderRepo = makeOrderRepo(makeOrder())
+
+      await new SyncShipmentStatus(shipmentRepo, orderRepo).execute({
+        orderId: 'order-1',
+        vendelo_status: 'RETURNED',
+      })
+
+      expect(orderRepo.restockItems).not.toHaveBeenCalled()
+    })
+
+    it('no restaura stock en transiciones que no son de devolución (ej. SHIPPED → DELIVERED)', async () => {
+      const shipmentRepo = makeShipmentRepo(makeShipment({ status: 'SHIPPED' }))
+      const orderRepo = makeOrderRepo(makeOrder())
+
+      await new SyncShipmentStatus(shipmentRepo, orderRepo).execute({
+        orderId: 'order-1',
+        vendelo_status: 'DELIVERED',
+      })
+
+      expect(orderRepo.restockItems).not.toHaveBeenCalled()
+    })
+
+    it('restaura stock cuando RETURNED llega como primer evento (sin shipment previo)', async () => {
+      const shipmentRepo = makeShipmentRepo(null)
+      const orderRepo = makeOrderRepo(makeOrder())
+
+      await new SyncShipmentStatus(shipmentRepo, orderRepo).execute({
+        orderId: 'order-1',
+        vendelo_status: 'RETURNED',
+      })
+
+      expect(orderRepo.restockItems).toHaveBeenCalledWith('order-1')
     })
   })
 

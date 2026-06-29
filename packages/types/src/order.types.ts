@@ -69,10 +69,10 @@ export interface PaymentInitResponse {
   currency: string
 }
 
-/** Respuesta de POST /orders */
+/** Respuesta de POST /orders. `payment` es null para pedidos COD — no hay transacción de pasarela. */
 export interface CreateOrderResponse {
   order: OrderResponse
-  payment: PaymentInitResponse
+  payment: PaymentInitResponse | null
 }
 
 /** Respuesta de PATCH /orders/:id/status */

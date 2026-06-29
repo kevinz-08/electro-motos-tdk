@@ -66,6 +66,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true })
   app.useLogger(structuredLogger)
 
+  // Cloud Run termina TLS y reenvía con X-Forwarded-For — sin esto, ThrottlerGuard
+  // (rate limit por IP) vería la IP del balanceador en vez de la del cliente real.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1)
+
   // Seguridad y compresión
   // En desarrollo, Swagger UI requiere scripts/estilos inline — relajamos CSP solo ahí
   app.use(

@@ -1032,6 +1032,7 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | `/admin/productos/[id]` | Formulario de edición con upload a Cloudinary |
 | `/admin/pedidos` | Todos los pedidos filtrados por estado |
 | `/admin/stock` | Productos con stock ≤ 5 + importación masiva CSV |
+| `/admin/sync` | Sincroniza stock y precio con el export `.xlsx` de Optimun (local físico) |
 | `/admin/configuracion` | Toggle para activar/desactivar Mercado Pago |
 
 ### Importación masiva de stock (CSV)
@@ -1043,6 +1044,22 @@ MOT-PIS-YBR125-001,10
 ```
 
 Ir a `/admin/stock` → **Importar CSV** → seleccionar archivo → confirmar.
+
+### Ayuda contextual (botón ⓘ)
+
+Algunas secciones del panel admin (empezando por `/admin/sync`) tienen un botón ⓘ en la
+esquina superior derecha que abre un modal explicando qué hace la sección y los pasos para
+usarla — pensado para flujos no obvios (ej. sincronización con un sistema externo) donde el
+admin necesita contexto que la UI por sí sola no transmite.
+
+Patrón reusable en `apps/web/src/components/admin/`:
+
+- `AdminHelpButton.tsx` — componente genérico (botón + modal accesible: cierre con Esc, click
+  fuera, o botón ✕). No requiere cambios para agregarlo a una nueva sección.
+- `help-content/<seccion>.ts` — un archivo por sección con `{ title, summary, steps[] }`.
+
+Para agregar ayuda a una nueva sección: crear `help-content/<seccion>.ts` y renderizar
+`<AdminHelpButton content={miSeccionHelpContent} />` junto al `<h1>` de la página.
 
 ---
 

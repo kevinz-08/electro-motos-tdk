@@ -4,6 +4,29 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 103. Botón de ayuda contextual en el panel admin — primera sección: /admin/sync
+
+**Contexto:** el admin no entendía cómo funcionaba `/admin/sync` (sincronización de stock/precio con el inventario del local físico vía Optimun) — no había ninguna explicación en la UI más allá de una línea de descripción. Se decidió agregar un botón ⓘ que abre un modal con la explicación y los pasos de uso, como patrón reusable para cubrir progresivamente las demás secciones del panel (Productos, Categorías, Pedidos, Stock, Configuración).
+
+**Componente reusable:** `AdminHelpButton.tsx` — botón + modal accesible (cierre con Esc, click fuera, o botón ✕), mismo patrón que `OrderInfoModal.tsx` (dark theme, `role="dialog"`, `aria-modal`). El contenido vive separado en `help-content/<sección>.ts` (`{ title, summary, steps[] }`) para que agregar ayuda a una nueva sección sea solo escribir el contenido, sin tocar el componente.
+
+**Contenido de `/admin/sync`:** explica que solo actualiza productos existentes (nunca crea ni elimina), que el algoritmo busca primero por código y luego por nombre si el código llega corrupto, que un precio en 0 en Optimun no sobreescribe el precio de la web, y que el proceso es repetible sin riesgo. Incluye 7 pasos numerados de uso. El paso 1 (export desde Optimun) quedó con texto genérico — no hay visibilidad del menú/botón real de Optimun desde este repo, pendiente que el equipo confirme el camino exacto para reemplazarlo.
+
+**Archivos creados:**
+
+- `apps/web/src/components/admin/AdminHelpButton.tsx`
+- `apps/web/src/components/admin/help-content/sync.ts`
+
+**Archivos modificados:** `apps/web/src/app/admin/sync/page.tsx` (botón agregado junto al `<h1>`).
+
+**Validación:** type-check y lint limpios (sin warnings nuevos). No se hizo click-through en navegador autenticado como ADMIN — el setup de Playwright del proyecto (`apps/web/e2e/global-setup.ts`) solo autentica usuarios con rol CUSTOMER, no existe fixture de sesión ADMIN para E2E. Se verificó que la ruta compila y no devuelve error 500 (smoke test con servidor de desarrollo activo). El patrón de interacción (Esc/click-fuera/botón ✕) es idéntico al de `OrderInfoModal.tsx`, ya en producción.
+
+**Rama:** `feat/admin-help-tooltips` (separada de `feat/admin-order-modal-addi-button-and-vendelo-quote` para no seguir acumulando features no relacionadas en una sola rama sin pushear).
+
+*Última actualización: 2026-06-29*
+
+---
+
 ## 102. Cotización de envío Vendelo en carrito/checkout (6 fases)
 
 **Contexto:** Vendelo cobra el envío directamente al cliente al momento de la entrega (no nuestro Wompi) — sin un estimado previo, el cliente se sorprende y se queja del costo al recibir el pedido. Esta feature muestra un estimado informativo en `/carrito` y `/checkout` antes de pagar, sin afectar el monto que se cobra por Wompi.

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { getDepartmentName, normalizeCityName } from '@/lib/colombia-divipola'
 
-interface CityOption {
+export interface CityOption {
   code: string
   name: string
   subdivisionCode: string

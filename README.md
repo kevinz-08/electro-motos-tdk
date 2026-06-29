@@ -577,6 +577,33 @@ Si la prueba tiene éxito, el circuito vuelve a `CLOSED`. Si falla, regresa a `O
 | Crear envío | `POST /shipments` | Crea la orden de despacho |
 | Estado del envío | `GET /shipments/{id}` | Consulta tracking |
 | Sincronizar estado | `PATCH /orders/:id/sync-shipment` | Actualiza estado desde Vendelo |
+| Cotizar envío | `POST /v1/admin/orders/quotation` | Estima el costo de envío sin crear el pedido |
+
+### Cotización de envío (carrito/checkout)
+
+`POST /shipping/quote` (NestJS, público vía `@Public()`) envuelve el use case `QuoteShipping`
+para mostrarle al cliente un estimado de envío **antes de pagar**. Es puramente informativo:
+Vendelo cobra el envío directamente al cliente al momento de la entrega, no nuestro Wompi — el
+monto cargado en el checkout no cambia. Si el subtotal del carrito alcanza
+`FREE_SHIPPING_THRESHOLD_CENTS`, ni siquiera se consulta a Vendelo.
+
+```
+/carrito, /checkout
+    │  useShippingQuote(city, items) — debounce 500ms, hook compartido
+    ↓
+POST /api/shipping/quote (Next.js)         ← valida con zod, timeout 8s
+    ↓
+POST /shipping/quote (NestJS)              ← @Throttle 10 req/min/IP + 100/min global
+    │  QuoteShipping use case               ← precios/stock siempre desde la BD
+    ↓
+VendeloService.quoteOrder()
+    ↓
+POST /v1/admin/orders/quotation (Vendelo)
+```
+
+Cache cliente en `useShippingQuoteStore` (Zustand + `sessionStorage`, TTL 5 min), compartida
+entre carrito y checkout por clave `${cityCode}-${items ordenados}`. La ciudad seleccionada se
+persiste en el store de carrito (`selectedCity`) para no pedirla dos veces.
 
 ---
 
@@ -614,6 +641,17 @@ EmailQueue { status: PENDING } — escrito en BD
 
 Idéntico patrón al `EmailQueueService` pero encola pedidos para despacho en Vendelo.
 Reintentos: 3 intentos con backoff 5 s → 30 s → 120 s.
+
+**Protección contra duplicados (defense in depth, evita el bug histórico de
+órdenes triplicadas en Vendelo):**
+
+1. **Guard de idempotencia** — si `order.vendeloOrderId` ya existe, se marca `SENT` sin volver a llamar a Vendelo.
+2. **Claim atómico de fila** — `updateMany({ where: { id, status: 'PENDING' } })` antes de procesar. Si `count === 0`, otra instancia de Cloud Run (o otro tick) ya la reclamó. La fila pasa a `PROCESSING` con `processingStartedAt`.
+3. **Sweeper de huérfanas** — al inicio de cada ciclo, libera (`PROCESSING → PENDING`) filas atascadas por más de 5 min, cubriendo el caso de un contenedor que crashea a mitad de proceso.
+4. **Commit idempotente** — el `update` final de `Order.vendeloOrderId` usa `updateMany({ where: { vendeloOrderId: null } })` en vez de `update` simple.
+5. **`VendeloHttpClient.post()` no reintenta en `5xx`** para `/v1/admin/orders` (parámetro `retryOn5xx: false`) — Vendelo no trata `external_order_id` como key única, así que un retry sobre un 5xx puede crear una orden duplicada si la primera request sí fue procesada. Sigue reintentando en `429` y errores de red.
+
+También carga `product: { select: { sku, name } }` al construir el `domainOrder`, para que `VendeloService` envíe el SKU y nombre comerciales reales en `line_items` (antes enviaba el cuid interno de Prisma).
 
 ### `WompiReconciliationService` — Reconciliación de pagos
 

@@ -160,4 +160,25 @@ describe('VendeloHttpClient — Retry en errores de red', () => {
     await expect(client.get('/test')).rejects.toThrow('400')
     expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('reintenta en 5xx por defecto (GET / POST sin opts)', async () => {
+    const fetchSpy = mockFetch([errorResponse(500), okResponse({ ok: true })])
+
+    await expect(client.post('/v1/admin/orders', {})).resolves.toBeDefined()
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('con retryOn5xx:false no reintenta en 5xx (evita duplicar órdenes Vendelo)', async () => {
+    const fetchSpy = mockFetch([errorResponse(500), okResponse({ ok: true })])
+
+    await expect(client.post('/v1/admin/orders', {}, { retryOn5xx: false })).rejects.toThrow('500')
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('con retryOn5xx:false sigue reintentando en 429 (rate limit)', async () => {
+    const fetchSpy = mockFetch([errorResponse(429), okResponse({ ok: true })])
+
+    await expect(client.post('/v1/admin/orders', {}, { retryOn5xx: false })).resolves.toBeDefined()
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
 })

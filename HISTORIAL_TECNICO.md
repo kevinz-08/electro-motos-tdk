@@ -4,7 +4,80 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
-## 99. Comprobante de venta on-demand + identificación tributaria del comprador
+## 102. Cotización de envío Vendelo en carrito/checkout (6 fases)
+
+**Contexto:** Vendelo cobra el envío directamente al cliente al momento de la entrega (no nuestro Wompi) — sin un estimado previo, el cliente se sorprende y se queja del costo al recibir el pedido. Esta feature muestra un estimado informativo en `/carrito` y `/checkout` antes de pagar, sin afectar el monto que se cobra por Wompi.
+
+**Fase 1 — Domain:** `IVendeloShippingPort.quoteOrder()` + tipos `VendeloQuoteInput`/`VendeloQuoteResult`. Use case `QuoteShipping` (resuelve precios/stock desde la BD, nunca confía en el cliente — mismo patrón que `CreateOrder`). Si el subtotal alcanza `FREE_SHIPPING_THRESHOLD_CENTS` (nueva constante en `packages/domain/src/shared/constants.ts`), ni siquiera consulta a Vendelo y retorna 0 directo.
+
+**Fase 2 — Infrastructure:** `VendeloService.quoteOrder()` llama a `POST /v1/admin/orders/quotation`. Bug encontrado y corregido antes de producción: Vendelo responde montos en **pesos COP**, no centavos (confirmado comparando con `unit_price / 100` ya existente en `createOrder`) — se multiplica `x100` antes de devolver el resultado para mantener la convención de centavos del dominio.
+
+**Fase 3 — NestJS:** `POST /shipping/quote` público (`@Public()`, carrito de invitado) en `ShippingController`. DTO con regex DIVIPOLA (8 dígitos), subdivisión (2 dígitos), `items` (1-50, qty 1-99) — anti-tampering y anti-DoS. Rate limit adicional con `@Throttle({ default: { limit: 10, ttl: 60_000 } })`, que sobreescribe el perfil `default` del Throttler solo en esta ruta sin tocar la config global de 100/min. Se agregó `app.set('trust proxy', 1)` en `main.ts` — sin esto, el rate limit por IP detrás de Cloud Run vería la IP del balanceador, no la del cliente real.
+
+**Fase 4 — Next.js:** Proxy `/api/shipping/quote` con validación zod (fail fast antes de NestJS), timeout 8s, errores genéricos al cliente. `useShippingQuoteStore` (Zustand + `sessionStorage`, no `localStorage` — el estimado no debe sobrevivir entre sesiones) cachea por `${cityCode}-${items ordenados}` con TTL 5 min, compartido entre carrito y checkout. No se reimplementó rate-limit local: `rate-limit.ts` ya está documentado como no-op en serverless, la defensa real es el `ThrottlerGuard` de NestJS.
+
+**Fase 5 — UI carrito:** `ShippingQuoteCalculator` reusa `CitySelector` (se exportó `CityOption`). Debounce 500ms, recalcula con cambios del carrito, nunca bloquea "Finalizar pedido". La ciudad se persiste en el store de carrito (`selectedCity`/`setSelectedCity`, nuevo en `apps/web/src/lib/cart.ts`) para llegar preseleccionada a `/checkout`.
+
+**Fase 6 — UI checkout:** Lógica de debounce/fetch extraída a un hook compartido `useShippingQuote` (en `lib/shipping-quote.ts`) para no duplicarla entre carrito y checkout. `CheckoutForm` usa el `selectedCity` del store de carrito en vez de estado local (sincronización bidireccional). El resumen "Tu pedido" muestra el envío cotizado y un "Total estimado" con aclaración de que Vendelo cobra el envío directo — el monto cargado a Wompi no cambia.
+
+**Archivos creados:**
+
+- `packages/domain/src/shared/constants.ts`, `packages/domain/src/use-cases/shipping/QuoteShipping.ts`
+- `apps/api/src/shipping/` (controller, module, dto)
+- `apps/web/src/app/api/shipping/quote/route.ts`, `apps/web/src/lib/shipping-quote.ts`, `apps/web/src/components/store/ShippingQuoteCalculator.tsx`
+
+**Archivos modificados:** `IVendeloShippingPort.ts`, `VendeloService.ts`, `app.module.ts`, `main.ts`, `cart.ts`, `CitySelector.tsx` (export `CityOption`), `CheckoutForm.tsx`, `carrito/page.tsx`, `index.ts` (barrel domain).
+
+**Tests:** 8 nuevos en domain (`QuoteShipping`), 4 en `VendeloService`, 10 en NestJS (`ShippingController` + DTO). Suites completas en verde: domain 170, api 154+10, type-check limpio en los tres paquetes.
+
+**Commits:** `c2433d5`, `9a6a262`, `89897de`, `6350049`, `e7368d6`, `0ae66cd` (uno por fase, mismo PR).
+
+*Última actualización: 2026-06-29*
+
+---
+
+## 101. Fix triplicación de órdenes Vendelo + nombre/SKU reales en line_items
+
+**Contexto:** Una compra real generó 3 órdenes duplicadas en Vendelo (timestamps 8:39, 8:39, 8:40 — segundos de distancia, no los 2 min del ciclo del `setInterval`). Además, los `line_items` enviados a Vendelo mostraban el cuid interno de Prisma (`Producto cmpyqnj44h0039...`) en vez del nombre y SKU comerciales reales.
+
+### Bug — Triplicación de órdenes (4 causas combinadas)
+
+- **Causa A:** `VendeloOrderQueueService.processNext()` leía filas `PENDING` con `findMany` y las procesaba en un loop sin reclamarlas antes de llamar a Vendelo — la fila seguía `PENDING` en DB durante todo el `createOrder()` (10-40s).
+- **Causa B:** Cloud Run puede escalar a 2-3 instancias simultáneas, cada una con su propio `setInterval`; sin lock de fila, todas agarran las mismas filas `PENDING`.
+- **Causa C (la dominante, según el patrón de timestamps en segundos):** `VendeloHttpClient` reintentaba en cualquier `5xx`, incluido el `POST /v1/admin/orders`. Vendelo no trata `external_order_id` como key única, así que cada retry tras un 5xx (aunque Vendelo ya hubiera procesado la primera request) creaba una orden adicional.
+- **Causa D:** No había guard que verificara `order.vendeloOrderId !== null` antes de volver a llamar a `createOrder`.
+
+**Solución por capas (defense in depth):**
+
+1. **Guard de idempotencia temprano** — si `order.vendeloOrderId` ya existe, la queue marca `SENT` y sale sin llamar a Vendelo.
+2. **Claim atómico de fila** — antes de procesar, `updateMany({ where: { id, status: 'PENDING' }, data: { status: 'PROCESSING', processingStartedAt } })`. Si `count === 0`, otro worker ya la reclamó. Migración Prisma `vendelo_queue_processing_lock` agrega `processingStartedAt DateTime?` a `VendeloOrderQueue` (columna nullable, backward-compatible). Un sweeper (`releaseOrphanedRows`) libera filas atascadas en `PROCESSING` por más de 5 min al inicio de cada `processNext()` — cubre el caso de un contenedor que crashea a mitad de proceso.
+3. **Commit idempotente** — el `$transaction` final usa `order.updateMany({ where: { id, vendeloOrderId: null }, data: { vendeloOrderId } })` en vez de `update`; si otra corrida ya lo escribió, `count === 0` y queda en el log.
+4. **`VendeloHttpClient` no reintenta en `5xx` para POST no idempotentes** — nuevo parámetro `retryOn5xx` en `post()` (default `true`, mantiene comportamiento existente para todos los demás endpoints). `VendeloService.createOrder()` pasa `retryOn5xx: false`. Sigue reintentando en `429` (rate limit) y errores de red antes de enviar el body, donde sí sabemos que la request no llegó al servidor.
+
+### Bug — Nombre/SKU mostraban el cuid interno
+
+`VendeloService.createOrder()` mapeaba `line_items` usando `item.productId` (cuid de Prisma) tanto para `name` como `sku`, porque `OrderItem` del dominio no cargaba la relación con `Product`. Se agregó un campo opcional `productSnapshot?: { sku, name }` a la interfaz `OrderItem` en `packages/domain/src/entities/Order.ts`. `VendeloOrderQueueService` ahora incluye `product: { select: { sku, name } }` en el query y lo mapea al `domainOrder`; `VendeloService` usa `item.productSnapshot?.name ?? \`Producto ${item.productId}\`` (fallback solo para callers legacy sin el snapshot).
+
+**Archivos modificados:**
+
+- `packages/domain/src/entities/Order.ts` — `productSnapshot?` agregado a `OrderItem`
+- `apps/api/src/infrastructure/services/VendeloService.ts` — `line_items` usa `productSnapshot`; `createOrder` pasa `retryOn5xx: false`
+- `apps/api/src/infrastructure/services/VendeloOrderQueueService.ts` — claim atómico, guard `vendeloOrderId`, sweeper de huérfanas, commit idempotente, include de `product`
+- `apps/api/src/infrastructure/services/VendeloHttpClient.ts` — parámetro `retryOn5xx` en `post()` y `request()`
+- `packages/database/prisma/schema.prisma` — `VendeloOrderQueue.processingStartedAt DateTime?`
+- `packages/database/prisma/migrations/20260629035822_vendelo_queue_processing_lock/` — migración aplicada en producción (Neon)
+- `apps/api/src/__tests__/VendeloOrderQueueService.test.ts` — nuevo, 8 tests (claim, guard, sweeper, commit idempotente, productSnapshot, backoff)
+- `apps/api/src/__tests__/VendeloHttpClient.test.ts` — 3 tests nuevos para `retryOn5xx`
+
+**Limpieza manual pendiente:** cancelar las 2 órdenes duplicadas en el panel de Vendelo (la orden con `vendeloOrderId` guardado en nuestra DB es la válida).
+
+**Validación post-deploy pendiente:** compra de prueba, verificar una sola orden en Vendelo con nombre/SKU reales, monitorear 48h.
+
+*Última actualización: 2026-06-29*
+
+---
+
+## 100. Comprobante de venta on-demand + identificación tributaria del comprador
 
 **Qué se hizo:**
 Sistema completo de generación de comprobantes de venta como PDF on-demand, alimentado por nuevos campos de identificación tributaria del comprador que se capturan en el checkout. Se decidió este enfoque en vez de implementar facturación electrónica DIAN porque:
@@ -84,7 +157,7 @@ Se aprovechó la sesión para arreglar un bug que aparecía en los logs cada arr
 
 ---
 
-## 98. Hotfixes post-launch — Wompi widget y dominio de Resend
+## 99. Hotfixes post-launch — Wompi widget y dominio de Resend
 
 **Qué se hizo:**
 Dos bugs críticos detectados al hacer las primeras pruebas de checkout en producción.
@@ -131,7 +204,7 @@ Como el admin aún no había anunciado la tienda públicamente, no hay registros
 
 ---
 
-## 97. Cron de polling de estados de envío Vendelo
+## 98. Cron de polling de estados de envío Vendelo
 
 **Qué se hizo:**
 Se implementó un cron de polling que sincroniza periódicamente el estado de envíos activos contra la API de Vendelo. Workaround necesario porque `POST /v1/admin/chatbot/connections` está reservado a proveedores de chatbots (Lucidbot/Chatby) — no a comercios regulares — y Venndelo aún no tiene una alternativa de webhooks abierta para comercios. Soporte confirmó que está en su backlog "para el futuro cercano" sin ETA.
@@ -210,7 +283,7 @@ Resultado: Domain 162/162, API 129/129 pasan.
 
 ---
 
-## 96. Hardening pre-launch — Wompi/Vendelo en producción, E2E automatizado
+## 97. Hardening pre-launch — Wompi/Vendelo en producción, E2E automatizado
 
 **Qué se hizo:**
 Conjunto de cambios para que la pasarela Wompi y la integración Vendelo queden listas para el primer pago real. Se eliminó deuda heredada (MercadoPago, headers incorrectos, mocks de webhook) y se automatizó el flujo de prueba end-to-end.
@@ -269,7 +342,7 @@ Conjunto de cambios para que la pasarela Wompi y la integración Vendelo queden 
 
 ---
 
-## 95. Sistema de autenticación con verificación de email por OTP
+## 96. Sistema de autenticación con verificación de email por OTP
 
 **Qué se hizo:**
 Se implementó un sistema completo de verificación de email mediante código OTP de 6 dígitos, integrado con el flujo de registro y login existente. La implementación se dividió en 3 sprints sobre la rama `feature/auth-system-implementation`.
@@ -3833,7 +3906,7 @@ Archivos modificados:
 
 ---
 
-## 46. Migración del backend de Railway a Google Cloud Run
+## 95. Migración del backend de Railway a Google Cloud Run
 
 **Rama:** `feat/google-cloud-migration`
 
@@ -3922,7 +3995,7 @@ Build con `docker build --file apps/api/Dockerfile --tag electro-motos-api:local
 
 ---
 
-### 46.3 Corrección de errores de lint que bloqueaban el CI
+### 95.3 Corrección de errores de lint que bloqueaban el CI
 
 **Contexto:** El CI (`.github/workflows/ci.yml`) falló en los primeros dos runs (`#30` y `#31`) porque el linter de la app web reportó errores preexistentes que la configuración del React Compiler convierte en errores de CI.
 
@@ -3948,7 +4021,7 @@ JSX contenía comillas literales `"` en el texto `Sin resultados para "{query}"`
 
 ---
 
-### 46.4 Corrección de errores de type-check y deploy en CI
+### 95.4 Corrección de errores de type-check y deploy en CI
 
 **Contexto:** El CI continuó fallando tras resolver el lint. Se identificaron dos errores de TypeScript en `apps/web` y dos errores de permisos GCP en el job de deploy.
 

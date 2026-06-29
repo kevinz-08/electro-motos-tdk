@@ -35,6 +35,7 @@ export * from './services/IRecipientTrustStrategy'
 
 // ── Shared ───────────────────────────────────────────────────────────────────
 export * from './shared/Result'
+export * from './shared/constants'
 
 // ── Use cases ────────────────────────────────────────────────────────────────
 export * from './use-cases/orders/ConfirmPayment'
@@ -46,4 +47,5 @@ export * from './use-cases/products/SyncStock'
 export * from './use-cases/products/UpdateStock'
 export * from './use-cases/products/UpsertProductDescription'
 export * from './use-cases/shipping/CreateShipments'
+export * from './use-cases/shipping/QuoteShipping'
 export * from './use-cases/shipping/ResolveShipmentException'

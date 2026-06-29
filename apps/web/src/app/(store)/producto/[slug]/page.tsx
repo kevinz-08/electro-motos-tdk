@@ -33,6 +33,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
 import { getCachedProductBySlug } from '@/lib/cache'
 import { AddToCartButton } from '@/components/store/AddToCartButton'
+import { PayWithAddiButton } from '@/components/store/PayWithAddiButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
 import {
   RecommendedProducts,
@@ -132,6 +133,9 @@ export default async function ProductPage({ params }: PageProps) {
             product={product}
             className="w-full bg-sky-400 text-black py-3 px-6 rounded-xl text-base font-bold hover:bg-sky-500 hover:text-white active:scale-95 transition-all mb-3"
           />
+
+          {/* Alternativa de pago — abre WhatsApp con consulta pre-armada */}
+          <PayWithAddiButton product={product} />
 
           <div className="text-sm text-gray-500 flex items-center gap-4 mt-4">
             <span>🔒 Pago seguro con Wompi</span>

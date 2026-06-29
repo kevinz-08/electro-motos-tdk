@@ -287,14 +287,18 @@ model EmailQueue {
 /// Se crea una entrada cuando un pago se confirma (APPROVED).
 /// VendeloOrderQueueService la procesa cada 2 min con backoff exponencial (5s→30s→120s).
 model VendeloOrderQueue {
-  id        String   @id @default(cuid())
-  orderId   String
-  attempts  Int      @default(0)
-  lastError String?
-  /// PENDING | SENT | FAILED
-  status    String   @default("PENDING")
-  createdAt DateTime @default(now())
-  nextRetry DateTime @default(now())
+  id                  String    @id @default(cuid())
+  orderId             String
+  attempts            Int       @default(0)
+  lastError           String?
+  /// PENDING | PROCESSING | SENT | FAILED
+  status              String    @default("PENDING")
+  createdAt           DateTime  @default(now())
+  nextRetry           DateTime  @default(now())
+  /// Marca de tiempo en que un worker reclamó la fila (status=PROCESSING).
+  /// El sweeper la libera (vuelve a PENDING) si pasan más de 5 min sin avance —
+  /// cubre el caso de un contenedor Cloud Run que crashea a mitad de proceso.
+  processingStartedAt DateTime?
 
   @@index([status, nextRetry])
 }

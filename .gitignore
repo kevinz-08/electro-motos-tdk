@@ -85,3 +85,5 @@ apps/web/test-results/
 # Documentos legales fuente (Word) — el contenido ya está en /legal/*.tsx
 politicas_pagina/
 
+# Documentacion y conteo de Codigo
+.VSCodeCounter

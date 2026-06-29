@@ -7,6 +7,8 @@ import { useCart } from '@/lib/cart'
 import { Trash2 } from 'lucide-react'
 import { cloudinaryUrl } from '@/lib/cloudinary'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ShippingQuoteCalculator } from '@/components/store/ShippingQuoteCalculator'
+import type { ShippingQuoteResult } from '@/lib/shipping-quote'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -17,11 +19,14 @@ function formatCOP(cents: number): string {
 }
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, clearCart } = useCart()
+  const { items, removeItem, updateQuantity, clearCart, selectedCity, setSelectedCity } = useCart()
   const [showConfirm, setShowConfirm] = useState(false)
+  const [shippingQuote, setShippingQuote] = useState<ShippingQuoteResult | null>(null)
 
   const cartTotal  = items.reduce((acc, i) => acc + i.product.price * i.quantity, 0)
   const itemsCount = items.reduce((acc, i) => acc + i.quantity, 0)
+  const shippingCost = shippingQuote && !shippingQuote.freeShipping ? shippingQuote.quotedShippingTotal : 0
+  const estimatedTotal = cartTotal + shippingCost
 
   // ── Carrito vacío ─────────────────────────────────────────────────────────
   if (items.length === 0) {
@@ -194,28 +199,24 @@ export default function CartPage() {
               </div>
 
               {/* Envío */}
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-500">Envío</span>
-                <span className="text-gray-400 italic">Calculado al finalizar</span>
-              </div>
-              <p className="text-xs text-gray-400 mb-1">
-                Gratis en compras mayores a $500.000 ·{' '}
-                <Link
-                  href="/legal/politica-de-envios"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline hover:text-sky-600 transition-colors"
-                >
-                  Ver política de envíos
-                </Link>
-              </p>
+              <ShippingQuoteCalculator
+                city={selectedCity}
+                onCityChange={setSelectedCity}
+                items={items.map((i) => ({ productId: i.product.id, quantity: i.quantity }))}
+                onQuoteChange={setShippingQuote}
+              />
 
               {/* Total */}
               <div className="border-t border-gray-100 mt-4 pt-4 mb-6">
                 <div className="flex justify-between items-baseline">
-                  <span className="font-bold text-gray-900">Total</span>
-                  <span className="text-xl font-black text-gray-900">{formatCOP(cartTotal)}</span>
+                  <span className="font-bold text-gray-900">
+                    {shippingCost > 0 ? 'Total estimado' : 'Total'}
+                  </span>
+                  <span className="text-xl font-black text-gray-900">{formatCOP(estimatedTotal)}</span>
                 </div>
+                {shippingCost > 0 && (
+                  <p className="text-xs text-gray-400 mt-1 text-right">Incluye envío estimado</p>
+                )}
               </div>
 
               {/* CTA principal */}

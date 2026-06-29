@@ -24,6 +24,32 @@ export interface VendeloOrderSnapshot {
 }
 
 /**
+ * Insumo para cotizar el envío de un pedido antes de que el cliente pague.
+ * Vendelo es quien cobra el envío al cliente (no nuestro Wompi) — esto es
+ * puramente informativo para que el cliente no se sorprenda al recibir el pedido.
+ */
+export interface VendeloQuoteInput {
+  /** Código DIVIPOLA de 8 dígitos del destino. Ej: "11001000" para Bogotá. */
+  shippingCityCode: string
+  /** Código de subdivisión de 2 dígitos. Ej: "11" */
+  shippingSubdivisionCode: string
+  /** Ítems a cotizar — peso/dimensiones se resuelven con los defaults configurados (VENDELO_DEFAULT_*). */
+  items: Array<{ productId: string; quantity: number }>
+  paymentMethod: 'COD' | 'EXTERNAL_PAYMENT'
+}
+
+/** Resultado de la cotización — montos en centavos COP. */
+export interface VendeloQuoteResult {
+  /** Lo que cobra Vendelo por el envío. */
+  quotedShippingTotal: number
+  /**
+   * Lo que asumiría el comprador en pagos COD (contra entrega). Siempre 0 para
+   * EXTERNAL_PAYMENT (nuestro único flujo hoy vía Wompi) — ver nota en VendeloService.quoteOrder.
+   */
+  assumedShippingTotal: number
+}
+
+/**
  * Puerto de dominio para las operaciones de envío logístico con Vendelo.
  *
  * Implementado por VendeloService en apps/api/src/infrastructure/services/.
@@ -50,4 +76,10 @@ export interface IVendeloShippingPort {
    *         debe loguear y continuar con el siguiente pedido, no fallar el batch.
    */
   getOrder(vendeloOrderId: string): Promise<VendeloOrderSnapshot>
+
+  /**
+   * Cotiza el costo de envío de un pedido sin crearlo. Usado por QuoteShipping
+   * para informar al cliente el estimado antes de pagar (carrito/checkout).
+   */
+  quoteOrder(input: VendeloQuoteInput): Promise<VendeloQuoteResult>
 }

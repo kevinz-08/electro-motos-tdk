@@ -71,7 +71,7 @@ interface VendeloCreateOrderBody {
     length: number
     dimensions_unit: 'cm'
   }>
-  payment_method_code: 'EXTERNAL_PAYMENT'
+  payment_method_code: 'COD' | 'EXTERNAL_PAYMENT'
   external_order_id: string
   confirmation_status: 'CONFIRMED'
   discounts: []
@@ -221,7 +221,7 @@ export class VendeloService implements IVendeloShippingPort {
         length: defaultLength,
         dimensions_unit: 'cm' as const,
       })),
-      payment_method_code: 'EXTERNAL_PAYMENT',
+      payment_method_code: order.paymentProvider === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT',
       external_order_id: order.id,
       confirmation_status: 'CONFIRMED',
       discounts: [],

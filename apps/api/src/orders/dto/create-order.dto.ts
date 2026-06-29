@@ -64,9 +64,9 @@ export class CreateOrderDto {
   @Type(() => BuyerInfoDto)
   buyer: BuyerInfoDto
 
-  @ApiProperty({ enum: ['WOMPI', 'MERCADO_PAGO'] })
-  @IsEnum(['WOMPI', 'MERCADO_PAGO'])
-  paymentProvider: 'WOMPI' | 'MERCADO_PAGO'
+  @ApiProperty({ enum: ['WOMPI', 'MERCADO_PAGO', 'COD'] })
+  @IsEnum(['WOMPI', 'MERCADO_PAGO', 'COD'])
+  paymentProvider: 'WOMPI' | 'MERCADO_PAGO' | 'COD'
 
   @ApiPropertyOptional({ description: 'ISO timestamp del momento en que el usuario aceptó las políticas en el checkout' })
   @IsOptional()

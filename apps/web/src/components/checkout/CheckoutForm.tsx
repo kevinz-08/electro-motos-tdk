@@ -3,18 +3,18 @@
 /**
  * Formulario de checkout en dos pasos:
  *
- * Paso 1 — "shipping": Recoge datos de envío. Al confirmar:
- *   a) POST /api/orders → crea el pedido con estado PENDING
- *   b) POST /api/payments/wompi/integrity → obtiene la firma SHA256 del servidor
- *
- * Paso 2 — "payment": Muestra el Widget de Wompi con los parámetros obtenidos.
- *   El Widget redirige a Wompi donde el cliente paga. El webhook /api/payments/wompi/webhook
- *   es quien confirma o rechaza el pago de forma asíncrona.
+ * Paso 1 — "shipping": Recoge datos de envío y el método de pago. Al confirmar:
+ *   - Pago online (WOMPI): POST /api/orders crea el pedido PENDING + inicia la
+ *     transacción → se avanza al paso "payment" para mostrar el Widget de Wompi.
+ *     El webhook /api/payments/wompi/webhook confirma o rechaza el pago de forma asíncrona.
+ *   - Pago contra entrega (COD): POST /api/orders crea el pedido ya confirmado
+ *     (no hay pasarela que esperar) → se redirige directo a /checkout/confirmacion.
  *
  * Nota: el precio en el formulario se muestra en pesos COP (display),
  * pero internamente todo se maneja en centavos.
  */
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import type { CreateOrderResponse } from '@h2r/types'
 import { useCart } from '@/lib/cart'
@@ -23,8 +23,12 @@ import { CitySelector } from './CitySelector'
 import { apiClient } from '@/lib/api-client'
 import { useShippingQuote } from '@/lib/shipping-quote'
 
+type PaymentMethod = 'WOMPI' | 'COD'
+
 interface CheckoutFormProps {
   userEmail: string
+  /** Si el admin desactivó COD en /admin/configuracion, la opción no se muestra. */
+  codEnabled: boolean
 }
 
 interface ShippingFormData {
@@ -50,12 +54,14 @@ function formatCOP(cents: number): string {
   }).format(cents / 100)
 }
 
-export function CheckoutForm({ userEmail }: CheckoutFormProps) {
+export function CheckoutForm({ userEmail, codEnabled }: CheckoutFormProps) {
   const { data: session } = useSession()
+  const router = useRouter()
   const { items, total, selectedCity, setSelectedCity } = useCart()
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping')
-  const [orderId, setOrderId] = useState<string | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('WOMPI')
   const [wompiParams, setWompiParams] = useState<CreateOrderResponse['payment'] | null>(null)
+  const [orderId, setOrderId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [acceptedPolicies, setAcceptedPolicies] = useState(false)
@@ -74,7 +80,8 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
 
   const cartTotal = total()
   const shippingItems = items.map((i) => ({ productId: i.product.id, quantity: i.quantity }))
-  const { quote: shippingQuote, loading: shippingLoading, error: shippingError } = useShippingQuote(selectedCity, shippingItems)
+  const quotePaymentMethod = paymentMethod === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT'
+  const { quote: shippingQuote, loading: shippingLoading, error: shippingError } = useShippingQuote(selectedCity, shippingItems, quotePaymentMethod)
   const shippingCost = shippingQuote && !shippingQuote.freeShipping ? shippingQuote.quotedShippingTotal : 0
 
   const handleSubmitShipping = async (e: React.FormEvent) => {
@@ -115,7 +122,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
           idNumber: buyer.idNumber.trim(),
           ...(buyer.idType === 'NIT' && { businessName: buyer.businessName.trim() }),
         },
-        paymentProvider: 'WOMPI',
+        paymentProvider: paymentMethod,
         policiesAcceptedAt: new Date().toISOString(),
       })
 
@@ -124,6 +131,12 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
       }
 
       const { order, payment } = orderRes.data
+
+      if (paymentMethod === 'COD') {
+        // El pedido COD ya nació confirmado — no hay widget de pago que mostrar.
+        router.push(`/checkout/confirmacion?orderId=${order.id}`)
+        return
+      }
 
       if (!payment?.publicKey) {
         throw new Error('Configuración de pago incompleta. Contacta al administrador.')
@@ -315,6 +328,56 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
               </div>
             </div>
 
+            {/* Método de pago — el selector solo se muestra si el admin habilitó COD */}
+            {codEnabled && (
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h2 className="font-bold text-gray-900 mb-1">Método de pago</h2>
+                <p className="text-xs text-gray-500 mb-5">
+                  Con pago contra entrega pagas en efectivo al repartidor cuando recibas tu pedido.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label
+                    className={`flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${
+                      paymentMethod === 'WOMPI' ? 'border-sky-400 bg-sky-50' : 'border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="WOMPI"
+                      checked={paymentMethod === 'WOMPI'}
+                      onChange={() => setPaymentMethod('WOMPI')}
+                      className="mt-0.5 accent-sky-500"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-900">Pago en línea</span>
+                      <span className="block text-xs text-gray-500">Tarjeta, Nequi, PSE o Bancolombia (Wompi)</span>
+                    </span>
+                  </label>
+
+                  <label
+                    className={`flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${
+                      paymentMethod === 'COD' ? 'border-sky-400 bg-sky-50' : 'border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="COD"
+                      checked={paymentMethod === 'COD'}
+                      onChange={() => setPaymentMethod('COD')}
+                      className="mt-0.5 accent-sky-500"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-900">Pago contra entrega</span>
+                      <span className="block text-xs text-gray-500">Pagas en efectivo al recibir tu pedido</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
+
             {error && (
               <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
                 {error}
@@ -377,7 +440,7 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
               aria-disabled={!acceptedPolicies}
               className="w-full bg-sky-500 text-white py-3 rounded-xl font-bold text-base hover:bg-sky-600 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? 'Procesando...' : 'Continuar al pago →'}
+              {loading ? 'Procesando...' : paymentMethod === 'COD' ? 'Confirmar pedido →' : 'Continuar al pago →'}
             </button>
           </form>
         ) : (

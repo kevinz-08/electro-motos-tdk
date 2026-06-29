@@ -1,6 +1,6 @@
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
-export type PaymentProvider = 'WOMPI' | 'MERCADO_PAGO'
+export type PaymentProvider = 'WOMPI' | 'MERCADO_PAGO' | 'COD'
 
 // ── Query params ──────────────────────────────────────────────────────────────
 

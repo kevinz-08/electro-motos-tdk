@@ -4172,6 +4172,33 @@ cobertura Vendelo.
 - `apps/web/src/lib/shipping-quote.ts` — `paymentMethod` real en vez de `'EXTERNAL_PAYMENT'` hardcodeado
 - `apps/api/src/infrastructure/services/ResendEmailService.ts` — copy de `sendOrderConfirmation()` condicionado a `paymentProvider === 'COD'`
 
-**Estado al cierre de la sesión:** ver TODO list de la sesión para el detalle de qué quedó implementado vs pendiente.
+**Estado al cierre de la sesión:** implementación end-to-end completa, 95/95 tests dominio + 157/157 tests API en verde, type-check limpio en `domain`/`api`/`web`.
+
+*Última actualización: 2026-06-29*
+
+---
+
+### 96.1 Toggle admin para activar/desactivar COD sin tocar código
+
+**Contexto:** El admin pidió poder desactivar el pago contra entrega desde `/admin/configuracion`
+como prueba — sin borrar ninguna funcionalidad, solo dejar de ofrecerla en el checkout mientras
+esté apagado. Se siguió el mismo patrón ya existente para `MERCADOPAGO_ENABLED`.
+
+**Diseño:** nueva fila en `Settings` con clave `COD_ENABLED`. A diferencia de Mercado Pago (que
+por defecto está deshabilitado si no existe la fila), COD se trata como **habilitado por defecto**
+cuando la fila no existe — consistente con que la feature ya estaba activa para todos los
+usuarios antes de este toggle.
+
+- `apps/api/src/admin/admin-settings.controller.ts` — `PATCH /admin/settings/cod` (`@Roles('ADMIN')`), mismo patrón que `toggleMercadoPago`
+- `apps/api/src/orders/orders.controller.ts` — antes de crear un pedido COD, verifica `COD_ENABLED`; si existe la fila y vale `'false'`, lanza `ForbiddenException` (403). Si no existe fila, permite (default-on)
+- `apps/web/src/components/admin/CodToggle.tsx` — switch UI, copiado de `MercadoPagoToggle.tsx` apuntando a `/admin/settings/cod`
+- `apps/web/src/app/admin/configuracion/page.tsx` — nueva sección "Pago contra entrega" con el toggle, lee el setting con el mismo fallback default-on
+- `apps/web/src/app/(store)/checkout/page.tsx` — lee `COD_ENABLED` por SSR (`{ prisma }` directo, sin round-trip a NestJS) y pasa `codEnabled` a `CheckoutForm`
+- `apps/web/src/components/checkout/CheckoutForm.tsx` — el selector de método de pago completo (no solo la opción COD) se oculta si `codEnabled === false`, dejando el flujo idéntico al de antes de la feature COD
+- `packages/database/prisma/seed.ts` — seed de `COD_ENABLED = 'true'` para entornos nuevos
+
+**Archivos de test:**
+
+- `apps/api/src/__tests__/orders.controller.test.ts` — casos: 403 si `COD_ENABLED=false`, permite si no existe la fila
 
 *Última actualización: 2026-06-29*

@@ -25,6 +25,7 @@ enum OrderStatus {
 enum PaymentProvider {
   WOMPI
   MERCADO_PAGO
+  COD
 }
 
 enum PaymentStatus {

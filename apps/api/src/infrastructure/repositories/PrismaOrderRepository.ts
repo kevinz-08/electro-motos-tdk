@@ -122,6 +122,50 @@ export class PrismaOrderRepository implements IOrderRepository {
     return toDomain(o)
   }
 
+  async createPaidOrder(input: CreateOrderInput): Promise<Order> {
+    const o = await this.prisma.client.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          userId: input.userId,
+          status: 'PAID',
+          total: input.total,
+          shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
+          buyerIdType: input.buyer.idType,
+          buyerIdNumber: input.buyer.idNumber,
+          buyerBusinessName: input.buyer.businessName ?? null,
+          paymentProvider: input.paymentProvider,
+          items: { create: input.items },
+          payment: {
+            create: { provider: input.paymentProvider, amount: input.total, status: 'APPROVED' },
+          },
+        },
+        include: { items: true, payment: true },
+      })
+
+      for (const { productId, quantity } of input.items) {
+        await tx.product.update({
+          where: { id: productId },
+          data: { stock: { decrement: quantity } },
+        })
+      }
+
+      return created
+    })
+    return toDomain(o)
+  }
+
+  async restockItems(orderId: string): Promise<void> {
+    await this.prisma.client.$transaction(async (tx) => {
+      const items = await tx.orderItem.findMany({ where: { orderId } })
+      for (const { productId, quantity } of items) {
+        await tx.product.update({
+          where: { id: productId },
+          data: { stock: { increment: quantity } },
+        })
+      }
+    })
+  }
+
   async updateStatus(id: string, status: OrderStatus): Promise<void> {
     await this.prisma.client.order.update({ where: { id }, data: { status } })
   }

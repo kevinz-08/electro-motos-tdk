@@ -105,6 +105,22 @@ export interface IOrderRepository {
    * @param limit Máximo de pedidos a devolver en una llamada (batching).
    */
   findActiveVendeloOrders(limit: number): Promise<ActiveVendeloOrder[]>
+  /**
+   * Crea un pedido COD ya confirmado: Order en estado PAID, Payment en estado
+   * APPROVED (provider COD, sin externalId — no hay transacción de pasarela) y
+   * el stock de cada ítem descontado, todo en una sola transacción.
+   *
+   * A diferencia de `create()`, no hay paso de autorización online que esperar:
+   * COD se confirma al momento de crear el pedido, por lo que no tiene sentido
+   * dejarlo en PENDING (quedaría sujeto al cleanup de pedidos abandonados).
+   */
+  createPaidOrder(input: CreateOrderInput): Promise<Order>
+  /**
+   * Restaura el stock de cada ítem del pedido — usado cuando un envío es
+   * rechazado en la puerta (Shipment.status → RETURNED/CANCELLED). El caller
+   * (`SyncShipmentStatus`) garantiza que se invoque una sola vez por pedido.
+   */
+  restockItems(orderId: string): Promise<void>
 }
 
 /**

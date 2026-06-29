@@ -14,8 +14,10 @@ export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'CANCEL
  * Pasarela de pago seleccionada en el checkout.
  * WOMPI es la principal (siempre disponible).
  * MERCADO_PAGO es el respaldo (se activa/desactiva desde Settings en el panel admin).
+ * COD ("Cash On Delivery") no es una pasarela — el pedido se confirma sin paso de
+ * autorización online y el cliente paga en efectivo al repartidor de Vendelo.
  */
-export type PaymentProvider = 'WOMPI' | 'MERCADO_PAGO'
+export type PaymentProvider = 'WOMPI' | 'MERCADO_PAGO' | 'COD'
 
 /**
  * Estados de pago según la nomenclatura oficial de Wompi.

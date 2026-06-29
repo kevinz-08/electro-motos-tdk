@@ -184,6 +184,42 @@ describe('CreateOrder', () => {
     if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
+  it('COD: crea el pedido vía createPaidOrder y no llama a paymentService', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price * 2, paymentProvider: 'COD', status: 'PAID' })
+
+    const productRepo = {
+      findById: vi.fn().mockResolvedValue(product),
+    } as unknown as IProductRepository
+
+    const createPaidOrder = vi.fn().mockResolvedValue(order)
+    const create = vi.fn()
+    const orderRepo = { createPaidOrder, create } as unknown as IOrderRepository
+
+    const createTransaction = vi.fn()
+    const paymentService = { createTransaction } as unknown as IPaymentService
+
+    const result = await new CreateOrder(orderRepo, productRepo, paymentService).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 2 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'COD',
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.order.status).toBe('PAID')
+      expect(result.value.payment).toBeNull()
+    }
+    expect(createPaidOrder).toHaveBeenCalledWith(expect.objectContaining({
+      total: product.price * 2,
+      paymentProvider: 'COD',
+    }))
+    expect(create).not.toHaveBeenCalled()
+    expect(createTransaction).not.toHaveBeenCalled()
+  })
+
   it('retorna err(VALIDATION_ERROR) cuando el producto está inactivo', async () => {
     const product = makeProduct({ isActive: false })
 

@@ -21,4 +21,15 @@ export class AdminSettingsController {
     })
     return { success: true, enabled: dto.enabled }
   }
+
+  @Patch('cod')
+  @ApiOperation({ summary: 'Habilitar o deshabilitar el pago contra entrega (COD)' })
+  async toggleCod(@Body() dto: ToggleSettingDto) {
+    await this.prisma.client.settings.upsert({
+      where: { key: 'COD_ENABLED' },
+      update: { value: dto.enabled ? 'true' : 'false' },
+      create: { key: 'COD_ENABLED', value: dto.enabled ? 'true' : 'false' },
+    })
+    return { success: true, enabled: dto.enabled }
+  }
 }

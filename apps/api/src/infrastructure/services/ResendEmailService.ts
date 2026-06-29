@@ -43,15 +43,20 @@ export class ResendEmailService {
   /** Email al confirmar que el pago fue APROBADO (estado PAID). */
   async sendOrderConfirmation(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
+    const isCod = order.paymentProvider === 'COD'
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: customerEmail,
-      subject: `¡Pago confirmado! Pedido #${order.id.slice(-8).toUpperCase()} 🏍️`,
+      subject: isCod
+        ? `¡Pedido confirmado! #${order.id.slice(-8).toUpperCase()} 🏍️`
+        : `¡Pago confirmado! Pedido #${order.id.slice(-8).toUpperCase()} 🏍️`,
       html: this.buildEmail({
         accentColor: '#16a34a',
         icon: '✅',
-        heading: '¡Pago confirmado!',
-        intro: 'Tu pedido fue aprobado y está siendo preparado para envío.',
+        heading: isCod ? '¡Pedido confirmado!' : '¡Pago confirmado!',
+        intro: isCod
+          ? 'Tu pedido fue confirmado y está siendo preparado para envío. Pagas en efectivo al repartidor cuando lo recibas.'
+          : 'Tu pedido fue aprobado y está siendo preparado para envío.',
         orderId: order.id,
         total: order.total,
         address: order.shippingAddress,

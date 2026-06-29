@@ -37,6 +37,7 @@ import { MercadoPagoService } from '../infrastructure/services/MercadoPagoServic
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
+import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
 import {
   ORDER_REPOSITORY,
   PRODUCT_REPOSITORY,
@@ -90,6 +91,7 @@ const mockPrismaClient = {
 }
 const mockMercadoPagoService = { initiate: vi.fn() }
 const mockEmailQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
+const mockVendeloOrderQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
 
 const mockUser: JwtUser = { id: 'user-1', email: 'user@test.com', role: 'CUSTOMER' }
 
@@ -107,6 +109,7 @@ async function buildController() {
       { provide: ResendEmailService, useValue: mockEmailService },
       { provide: PrismaService, useValue: { client: mockPrismaClient } },
       { provide: EmailQueueService, useValue: mockEmailQueue },
+      { provide: VendeloOrderQueueService, useValue: mockVendeloOrderQueue },
     ],
   }).compile()
 
@@ -163,6 +166,41 @@ describe('OrdersController', () => {
       await expect(
         controller.create({ ...dto, paymentProvider: 'MERCADO_PAGO' }, mockUser),
       ).rejects.toThrow(ForbiddenException)
+    })
+
+    it('COD: encola email y Vendelo inmediatamente en vez de sendOrderReceived', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'true' })
+      const { CreateOrder } = await import('@h2r/domain')
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return {
+          execute: vi.fn().mockResolvedValue({
+            ok: true,
+            value: { order: { ...mockOrder, status: 'PAID' }, payment: null },
+          }),
+        }
+      })
+
+      await controller.create({ ...dto, paymentProvider: 'COD' }, mockUser)
+
+      expect(mockEmailQueue.enqueue).toHaveBeenCalledWith(mockUser.email, mockOrder.id)
+      expect(mockVendeloOrderQueue.enqueue).toHaveBeenCalledWith(mockOrder.id)
+      expect(mockEmailService.sendOrderReceived).not.toHaveBeenCalled()
+    })
+
+    it('lanza ForbiddenException si se pide COD y el admin lo desactivó', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'false' })
+
+      await expect(
+        controller.create({ ...dto, paymentProvider: 'COD' }, mockUser),
+      ).rejects.toThrow(ForbiddenException)
+    })
+
+    it('permite COD cuando no existe fila en Settings (habilitado por defecto)', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce(null)
+
+      await expect(
+        controller.create({ ...dto, paymentProvider: 'COD' }, mockUser),
+      ).resolves.toBeDefined()
     })
   })
 

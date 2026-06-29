@@ -35,6 +35,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useSession } from 'next-auth/react'
 import { Product } from '@h2r/domain'
+import type { CityOption } from '@/components/checkout/CitySelector'
 
 /** Representa un ítem dentro del carrito con su producto y cantidad */
 export interface CartItem {
@@ -77,6 +78,15 @@ interface CartStore {
 
   /** Retorna el número total de unidades en el carrito (suma de todas las cantidades) */
   count: () => number
+
+  /**
+   * Ciudad de envío elegida en /carrito al cotizar el envío. Se persiste para
+   * que /checkout la tenga preseleccionada — el cliente no la vuelve a tipear.
+   */
+  selectedCity: CityOption | null
+
+  /** Actualiza la ciudad de envío seleccionada (o la limpia con null). */
+  setSelectedCity: (city: CityOption | null) => void
 }
 
 /**
@@ -144,6 +154,9 @@ function createCartStore(storageKey: string) {
 
         // Count = suma de unidades (no de líneas distintas)
         count: () => get().items.reduce((acc, i) => acc + i.quantity, 0),
+
+        selectedCity: null,
+        setSelectedCity: (city) => set({ selectedCity: city }),
       }),
       {
         name: storageKey, // Clave única en localStorage para este usuario

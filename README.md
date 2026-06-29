@@ -1031,18 +1031,33 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | `/admin/productos` | Lista de productos — crear, editar, eliminar |
 | `/admin/productos/[id]` | Formulario de edición con upload a Cloudinary |
 | `/admin/pedidos` | Todos los pedidos filtrados por estado |
-| `/admin/stock` | Productos con stock ≤ 5 + importación masiva CSV |
+| `/admin/stock` | Productos con stock ≤ 5, actualización individual de stock |
+| `/admin/sync` | Sincroniza stock y precio con el export `.xlsx` de Optimun (local físico) |
 | `/admin/configuracion` | Toggle para activar/desactivar Mercado Pago |
 
-### Importación masiva de stock (CSV)
+### Ayuda contextual (botón ⓘ)
 
-```csv
-sku,stock
-FRE-BRE-FZ25-001,50
-MOT-PIS-YBR125-001,10
-```
+Las secciones del panel admin con flujos no obvios (`/admin/sync`, `/admin/pedidos`,
+`/admin/stock`, `/admin/productos/[id]`, `/admin/productos/nuevo`, `/admin/categorias`) tienen un botón ⓘ en la
+esquina superior derecha que abre un modal explicando qué hace la sección y los pasos para
+usarla — pensado para casos donde la UI por sí sola no transmite el contexto necesario (ej.
+sincronización con un sistema externo, reglas de negocio silenciosas, límites no aplicados
+realmente).
 
-Ir a `/admin/stock` → **Importar CSV** → seleccionar archivo → confirmar.
+Patrón reusable en `apps/web/src/components/admin/`:
+
+- `AdminHelpButton.tsx` — componente genérico (botón + modal accesible: cierre con Esc, click
+  fuera, o botón ✕). No requiere cambios para agregarlo a una nueva sección.
+- `help-content/<seccion>.ts` — un archivo por sección con `{ title, summary, steps[] }`. Para
+  páginas con más de un modo (ej. producto nuevo vs. editar) se exportan varias variantes desde
+  el mismo archivo y la página elige cuál pasar al componente.
+
+**Nota:** la importación masiva de stock por CSV (`CsvStockImport`) se eliminó — quedó cubierta
+por `/admin/sync`, que sincroniza todo el inventario desde el export de Optimun en vez de un
+archivo CSV manual.
+
+Para agregar ayuda a una nueva sección: crear `help-content/<seccion>.ts` y renderizar
+`<AdminHelpButton content={miSeccionHelpContent} />` junto al `<h1>` de la página.
 
 ---
 

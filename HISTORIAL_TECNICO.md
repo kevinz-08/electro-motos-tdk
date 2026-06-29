@@ -4,6 +4,81 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 105. Botón de ayuda contextual: /admin/categorias (cierre del rollout)
+
+**Contexto:** última sección pendiente del rollout de `AdminHelpButton` iniciado en `/admin/sync` (#103) y continuado en pedidos/stock/productos (#104). Se verificó directamente en `CategoryManager.tsx` (no solo por inspección superficial) el comportamiento real antes de escribir el contenido.
+
+**Hallazgos confirmados en el código:**
+
+- La jerarquía está limitada a 2 niveles por diseño de la propia UI: el `<select>` de "Categoría padre" (`CategoryManager.tsx`, dentro de `CategoryForm`) solo lista `rootCategories` (las que tienen `parentId === null`) — es imposible anidar una subcategoría dentro de otra desde este formulario, así que el riesgo de jerarquía circular que se había anotado en la exploración inicial no aplica en la práctica.
+- El slug se autogenera con cada tecla del nombre **solo al crear** (`handleNameChange`: `if (!isEdit) setField('slug', toSlug(value))`); al editar, el slug no se sincroniza con el nombre — hay que cambiarlo a mano.
+- El slug exige regex `^[a-z0-9]+(?:-[a-z0-9]+)*$` (minúsculas, números, guiones).
+- `admin-categories.controller.ts` (`DELETE /admin/categories/:id`) rechaza el borrado con `ConflictException` y un mensaje explícito si la categoría tiene productos o subcategorías asociadas — el frontend ya muestra ese error inline (`deleteError[cat.id]`), no es un fallo silencioso como se había anotado inicialmente.
+
+**Archivo creado:** `apps/web/src/components/admin/help-content/categorias.ts`
+
+**Archivo modificado:** `apps/web/src/components/admin/CategoryManager.tsx` (botón agregado junto a "+ Nueva categoría").
+
+**Validación:** type-check limpio, lint sin warnings nuevos, smoke test de `/admin/categorias` sin error 500.
+
+**Rama:** `feat/admin-help-tooltips`. Con esta entrada se completa el rollout de ayuda contextual a las 5 secciones identificadas como prioritarias (sync, pedidos, stock, productos, categorías). Dashboard, lista de Productos y Configuración quedaron fuera por bajo riesgo de confusión (ver hallazgos del agente de exploración referenciado en #104).
+
+*Última actualización: 2026-06-29*
+
+---
+
+## 104. Botón de ayuda contextual: /admin/pedidos, /admin/stock, /admin/productos — y eliminación del CSV de stock
+
+**Contexto:** continuación del patrón `AdminHelpButton` iniciado en `/admin/sync` (#103). Un agente de exploración revisó las 7 páginas del panel admin para identificar cuáles tienen reglas de negocio no obvias; se priorizaron 4 secciones por nivel de riesgo de confusión para un admin no técnico: Pedidos (7/10), Stock (6/10), Producto Edit (6/10) y Categorías (5/10, pendiente). Esta entrada cubre las primeras 3.
+
+**Fase 1 — `/admin/pedidos`:** el modal explica que el selector "Cambiar estado" no valida transiciones (se puede marcar `DELIVERED` sin haber pasado por `PAID`, sin guard ni en frontend ni en `orders.controller.ts`), que el cambio es instantáneo sin confirmación, qué significa el campo `vendeloOrderId` (solo se llena cuando la cola ya creó el pedido en Vendelo), y que la gestión de envíos (etiquetas, recolección, novedades) **no tiene UI en esta pantalla** — existen los endpoints en `VendeloController` pero no están expuestos aquí.
+
+**Fase 2 — `/admin/stock`:** se eliminó la importación masiva por CSV (`CsvStockImport`), que quedó redundante con `/admin/sync` (cubre todo el inventario desde Optimun, no solo un archivo manual). Se confirmó que el endpoint `PATCH /admin/stock/bulk` no tenía otros consumidores ni tests, así que se eliminó completo en vez de dejarlo huérfano:
+
+- `apps/web/src/components/admin/CsvStockImport.tsx` (eliminado)
+- `apps/api/src/admin/admin-stock.controller.ts` (eliminado)
+- `apps/api/src/admin/dto/bulk-stock-update.dto.ts` (eliminado)
+- `apps/api/src/admin/admin.module.ts` (quitado el registro)
+
+El modal de ayuda explica el umbral fijo de 5 unidades, cómo actualizar stock fila por fila, y redirige a `/admin/sync` para actualizaciones masivas.
+
+**Fase 3/4 — `/admin/productos/[id]` y `/admin/productos/nuevo`:** son la misma página (`page.tsx` usa `id === 'nuevo'` como valor especial, no hay ruta separada) y el mismo componente `ProductEditForm`. El contenido de ayuda tiene dos variantes (`productoNuevoHelpContent` / `productoEditarHelpContent`) que comparten la mayoría de los pasos y la página elige cuál mostrar según si el producto existe. Explica: el slug se regenera en cada tecla del campo "Nombre" (se sobreescribe un slug personalizado si se sigue editando el nombre después), el precio se escribe en pesos sin centavos, el límite de 10 beneficios, que el texto "máximo 4 imágenes" **no se aplica realmente** (es solo una recomendación visual), y en modo edición la diferencia entre desactivar (reversible) y eliminar (permanente).
+
+**Archivos creados:** `help-content/pedidos.ts`, `help-content/stock.ts`, `help-content/producto.ts`.
+
+**Archivos modificados:** `admin/pedidos/page.tsx`, `admin/stock/page.tsx`, `admin/productos/[id]/page.tsx`.
+
+**Validación:** type-check limpio en `@h2r/web` y `@h2r/api`. Suite completa de `@h2r/api` en verde (154 tests) tras eliminar `AdminStockController` — sin tests rotos, no tenía cobertura propia. Lint sin warnings nuevos. Smoke test de las 3 rutas modificadas (sin error 500, redirect de auth esperado).
+
+**Rama:** `feat/admin-help-tooltips`.
+
+*Última actualización: 2026-06-29*
+
+---
+
+## 103. Botón de ayuda contextual en el panel admin — primera sección: /admin/sync
+
+**Contexto:** el admin no entendía cómo funcionaba `/admin/sync` (sincronización de stock/precio con el inventario del local físico vía Optimun) — no había ninguna explicación en la UI más allá de una línea de descripción. Se decidió agregar un botón ⓘ que abre un modal con la explicación y los pasos de uso, como patrón reusable para cubrir progresivamente las demás secciones del panel (Productos, Categorías, Pedidos, Stock, Configuración).
+
+**Componente reusable:** `AdminHelpButton.tsx` — botón + modal accesible (cierre con Esc, click fuera, o botón ✕), mismo patrón que `OrderInfoModal.tsx` (dark theme, `role="dialog"`, `aria-modal`). El contenido vive separado en `help-content/<sección>.ts` (`{ title, summary, steps[] }`) para que agregar ayuda a una nueva sección sea solo escribir el contenido, sin tocar el componente.
+
+**Contenido de `/admin/sync`:** explica que solo actualiza productos existentes (nunca crea ni elimina), que el algoritmo busca primero por código y luego por nombre si el código llega corrupto, que un precio en 0 en Optimun no sobreescribe el precio de la web, y que el proceso es repetible sin riesgo. Incluye 7 pasos numerados de uso. El paso 1 (export desde Optimun) quedó con texto genérico — no hay visibilidad del menú/botón real de Optimun desde este repo, pendiente que el equipo confirme el camino exacto para reemplazarlo.
+
+**Archivos creados:**
+
+- `apps/web/src/components/admin/AdminHelpButton.tsx`
+- `apps/web/src/components/admin/help-content/sync.ts`
+
+**Archivos modificados:** `apps/web/src/app/admin/sync/page.tsx` (botón agregado junto al `<h1>`).
+
+**Validación:** type-check y lint limpios (sin warnings nuevos). No se hizo click-through en navegador autenticado como ADMIN — el setup de Playwright del proyecto (`apps/web/e2e/global-setup.ts`) solo autentica usuarios con rol CUSTOMER, no existe fixture de sesión ADMIN para E2E. Se verificó que la ruta compila y no devuelve error 500 (smoke test con servidor de desarrollo activo). El patrón de interacción (Esc/click-fuera/botón ✕) es idéntico al de `OrderInfoModal.tsx`, ya en producción.
+
+**Rama:** `feat/admin-help-tooltips` (separada de `feat/admin-order-modal-addi-button-and-vendelo-quote` para no seguir acumulando features no relacionadas en una sola rama sin pushear).
+
+*Última actualización: 2026-06-29*
+
+---
+
 ## 102. Cotización de envío Vendelo en carrito/checkout (6 fases)
 
 **Contexto:** Vendelo cobra el envío directamente al cliente al momento de la entrega (no nuestro Wompi) — sin un estimado previo, el cliente se sorprende y se queja del costo al recibir el pedido. Esta feature muestra un estimado informativo en `/carrito` y `/checkout` antes de pagar, sin afectar el monto que se cobra por Wompi.
@@ -4058,3 +4133,45 @@ Cloud Run fallaba al crear la revisión porque el secret `MERCADOPAGO_ACCESS_TOK
 - `ci: remove MERCADOPAGO_ACCESS_TOKEN from Cloud Run secrets`
 
 *Última actualización: 2026-06-12*
+
+---
+
+## 96. Implementación de pago contra entrega (COD) con Vendelo
+
+**Contexto:** Vendelo soporta `payment_method_code: 'COD' | 'EXTERNAL_PAYMENT'` tanto en
+`Create Order` como en `Quotation`, y el dominio ya modelaba ambos valores en `QuoteShipping`
+(cotización), pero ningún flujo real creaba pedidos COD: `VendeloService.createOrder()` mandaba
+`EXTERNAL_PAYMENT` hardcodeado y el checkout web nunca ofrecía la opción. El objetivo de esta
+sesión es exponer "pago contra entrega" como método de pago real end-to-end.
+
+**Decisión de diseño — ciclo de vida sin webhook de pasarela:** como en COD no existe ningún
+webhook de pago que confirme la transacción, el pedido se crea directamente con `status: PAID`
+(no `PENDING`) y el stock se descuenta en la misma transacción de creación — evita que el pedido
+quede colgado en `PENDING` y sea cancelado por el cleanup de pedidos abandonados. El encolado en
+Vendelo (`VendeloOrderQueueService`) y el email de confirmación se disparan directo desde
+`OrdersController` tras crear el pedido, en vez de esperar el webhook de Wompi/Mercado Pago.
+
+**Restock automático (gap preexistente, ahora corregido):** ningún flujo de pago restauraba el
+stock cuando un envío era rechazado en la puerta. Se agregó esa lógica a `SyncShipmentStatus`:
+al detectar transición de `Shipment.status` a `RETURNED` o `CANCELLED`, incrementa de vuelta el
+stock de cada `OrderItem` del pedido, de forma atómica e idempotente.
+
+**Sin restricciones de monto/ciudad para el MVP** — COD disponible en cualquier ciudad con
+cobertura Vendelo.
+
+**Archivos modificados:**
+
+- `packages/database/prisma/schema.prisma` — `COD` añadido al enum `PaymentProvider`
+- `packages/domain/src/use-cases/orders/CreateOrder.ts` — bifurcación por `paymentProvider`; rama COD crea el pedido ya `PAID` y decrementa stock sin pasar por `paymentService.createTransaction()`
+- `packages/domain/src/repositories/IOrderRepository.ts` — método `createPaidOrder()` añadido
+- `packages/domain/src/use-cases/shipping/SyncShipmentStatus.ts` — restock automático en `RETURNED`/`CANCELLED`
+- `apps/api/src/orders/dto/create-order.dto.ts` — `'COD'` añadido al enum validado de `paymentProvider`
+- `apps/api/src/orders/orders.controller.ts` — dispara email + cola Vendelo inmediatamente para pedidos COD
+- `apps/api/src/infrastructure/services/VendeloService.ts` — `payment_method_code` dinámico según `order.paymentProvider`
+- `apps/web/src/components/checkout/CheckoutForm.tsx` — selector de método de pago (online vs COD)
+- `apps/web/src/lib/shipping-quote.ts` — `paymentMethod` real en vez de `'EXTERNAL_PAYMENT'` hardcodeado
+- `apps/api/src/infrastructure/services/ResendEmailService.ts` — copy de `sendOrderConfirmation()` condicionado a `paymentProvider === 'COD'`
+
+**Estado al cierre de la sesión:** ver TODO list de la sesión para el detalle de qué quedó implementado vs pendiente.
+
+*Última actualización: 2026-06-29*

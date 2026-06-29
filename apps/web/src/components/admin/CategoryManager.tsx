@@ -7,6 +7,8 @@ import { z } from 'zod'
 import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
 import { CACHE_TAGS } from '@/lib/cache-tags'
+import { AdminHelpButton } from './AdminHelpButton'
+import { categoriasHelpContent } from './help-content/categorias'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -348,12 +350,15 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
           <h1 className="text-2xl font-bold text-white">Categorías</h1>
           <p className="text-white/30 text-sm mt-0.5">{categories.length} categorías en total</p>
         </div>
-        <button
-          onClick={() => setModal({ type: 'create' })}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-500 transition-colors"
-        >
-          + Nueva categoría
-        </button>
+        <div className="flex items-center gap-2">
+          <AdminHelpButton content={categoriasHelpContent} />
+          <button
+            onClick={() => setModal({ type: 'create' })}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-500 transition-colors"
+          >
+            + Nueva categoría
+          </button>
+        </div>
       </div>
 
       {/* Tabla */}

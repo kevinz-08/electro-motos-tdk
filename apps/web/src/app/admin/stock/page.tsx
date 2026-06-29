@@ -1,6 +1,7 @@
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { StockUpdateForm } from '@/components/admin/StockUpdateForm'
-import { CsvStockImport } from '@/components/admin/CsvStockImport'
+import { AdminHelpButton } from '@/components/admin/AdminHelpButton'
+import { stockHelpContent } from '@/components/admin/help-content/stock'
 
 export default async function AdminStockPage() {
   const repo = new PrismaProductRepository()
@@ -10,7 +11,7 @@ export default async function AdminStockPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Stock bajo</h1>
-        <CsvStockImport />
+        <AdminHelpButton content={stockHelpContent} />
       </div>
 
       <p className="text-sm text-white/40 mb-6">

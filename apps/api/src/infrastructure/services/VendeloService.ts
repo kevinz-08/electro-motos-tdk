@@ -7,6 +7,8 @@ import {
   ShipmentStatus,
   VendeloOrderNotFoundError,
   VendeloOrderSnapshot,
+  VendeloQuoteInput,
+  VendeloQuoteResult,
 } from '@h2r/domain'
 import { VendeloHttpClient } from './VendeloHttpClient'
 
@@ -77,6 +79,26 @@ interface VendeloCreateOrderBody {
 
 export interface VendeloCreateOrderResponse {
   items: Array<{ id: string; [key: string]: unknown }>
+}
+
+interface VendeloQuotationBody {
+  pickup_info: { city_code: string; subdivision_code: string; country_code: string; postal_code: string }
+  shipping_info: { city_code: string; subdivision_code: string; country_code: string; postal_code: string }
+  line_items: Array<{
+    weight: number
+    weight_unit: 'kg'
+    height: number
+    width: number
+    length: number
+    dimensions_unit: 'cm'
+    quantity: number
+  }>
+  payment_method_code: 'COD' | 'EXTERNAL_PAYMENT'
+}
+
+interface VendeloQuotationResponse {
+  assumed_shipping_total: number
+  quoted_shipping_total: number
 }
 
 export type LabelFormat = 'LETTER_2PP' | 'LABEL_10x10' | 'LABEL_10x15'
@@ -210,6 +232,58 @@ export class VendeloService implements IVendeloShippingPort {
     // (no trata external_order_id como key única). Reintentar reintenta el lado
     // del cliente, no la queue, que ya tiene su propio guard de idempotencia.
     return this.http.post<VendeloCreateOrderResponse>('/v1/admin/orders', body, { retryOn5xx: false })
+  }
+
+  /**
+   * Cotiza el costo de envío sin crear el pedido — usado por QuoteShipping
+   * para informar al cliente antes de pagar. A diferencia de createOrder, esta
+   * llamada es idempotente (no tiene efectos secundarios en Vendelo), así que
+   * mantiene el retryOn5xx por defecto del HttpClient.
+   */
+  async quoteOrder(input: VendeloQuoteInput): Promise<VendeloQuoteResult> {
+    const pickupCityCode = process.env['VENDELO_STORE_CITY_CODE'] ?? '05001000'
+    const pickupSubdivision = process.env['VENDELO_STORE_SUBDIVISION_CODE'] ?? '02'
+
+    const defaultWeightKg = parseFloat(process.env['VENDELO_DEFAULT_WEIGHT_KG'] ?? '0.5')
+    const defaultHeight = parseInt(process.env['VENDELO_DEFAULT_HEIGHT_CM'] ?? '10', 10)
+    const defaultWidth = parseInt(process.env['VENDELO_DEFAULT_WIDTH_CM'] ?? '10', 10)
+    const defaultLength = parseInt(process.env['VENDELO_DEFAULT_LENGTH_CM'] ?? '10', 10)
+
+    const body: VendeloQuotationBody = {
+      pickup_info: {
+        city_code: pickupCityCode,
+        subdivision_code: pickupSubdivision,
+        country_code: 'CO',
+        postal_code: '',
+      },
+      shipping_info: {
+        city_code: input.shippingCityCode,
+        subdivision_code: input.shippingSubdivisionCode,
+        country_code: 'CO',
+        postal_code: '',
+      },
+      line_items: input.items.map((item) => ({
+        weight: defaultWeightKg,
+        weight_unit: 'kg' as const,
+        height: defaultHeight,
+        width: defaultWidth,
+        length: defaultLength,
+        dimensions_unit: 'cm' as const,
+        quantity: item.quantity,
+      })),
+      payment_method_code: input.paymentMethod,
+    }
+
+    this.logger.log(`Cotizando envío Vendelo hacia ${input.shippingCityCode}`)
+    const res = await this.http.post<VendeloQuotationResponse>('/v1/admin/orders/quotation', body)
+
+    // Vendelo responde en pesos COP (igual que unit_price en createOrder, que se
+    // divide /100 antes de enviarse) — multiplicamos x100 para devolver centavos,
+    // la convención de precios de todo el dominio (ver CLAUDE.md — Price Convention).
+    return {
+      quotedShippingTotal: res.quoted_shipping_total * 100,
+      assumedShippingTotal: res.assumed_shipping_total * 100,
+    }
   }
 
   // ── IVendeloShippingPort ────────────────────────────────────────────────────

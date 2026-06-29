@@ -15,10 +15,12 @@
  *   El estimado de envío no debe sobrevivir entre sesiones — si el cliente
  *   vuelve días después, los precios/tarifas pueden haber cambiado.
  */
+import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
 const TTL_MS = 5 * 60 * 1000 // 5 min — las tarifas de Vendelo no cambian con frecuencia
+const DEBOUNCE_MS = 500
 
 export interface ShippingQuoteRequestItem {
   productId: string
@@ -118,3 +120,68 @@ export const useShippingQuoteStore = create<ShippingQuoteStore>()(
     },
   ),
 )
+
+export interface UseShippingQuoteState {
+  quote: ShippingQuoteResult | null
+  loading: boolean
+  error: boolean
+}
+
+/**
+ * Hook compartido entre /carrito y /checkout: debounce 500ms, recalcula al
+ * cambiar ciudad o ítems, usa la cache de useShippingQuoteStore. Nunca lanza
+ * — un fallo solo se refleja en `error`, el caller decide cómo degradar.
+ */
+export function useShippingQuote(
+  city: { code: string; subdivisionCode: string } | null,
+  items: ShippingQuoteRequestItem[],
+): UseShippingQuoteState {
+  const fetchQuote = useShippingQuoteStore((s) => s.fetchQuote)
+  const getCached = useShippingQuoteStore((s) => s.getCached)
+  const [state, setState] = useState<UseShippingQuoteState>({ quote: null, loading: false, error: false })
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const itemsKey = items.map((i) => `${i.productId}x${i.quantity}`).sort().join('|')
+  const cityCode = city?.code ?? ''
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    if (!city || items.length === 0) {
+      setState({ quote: null, loading: false, error: false })
+      return
+    }
+
+    debounceRef.current = setTimeout(() => {
+      void (async () => {
+        const cacheKey = buildShippingQuoteCacheKey(city.code, items)
+        const cached = getCached(cacheKey)
+        if (cached) {
+          setState({ quote: cached, loading: false, error: false })
+          return
+        }
+
+        setState((prev) => ({ ...prev, loading: true, error: false }))
+        const result = await fetchQuote({
+          shippingCityCode: city.code,
+          shippingSubdivisionCode: city.subdivisionCode,
+          items,
+          paymentMethod: 'EXTERNAL_PAYMENT',
+        })
+
+        setState(
+          result
+            ? { quote: result, loading: false, error: false }
+            : { quote: null, loading: false, error: true },
+        )
+      })()
+    }, DEBOUNCE_MS)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cityCode/itemsKey ya resumen city/items
+  }, [cityCode, itemsKey])
+
+  return state
+}

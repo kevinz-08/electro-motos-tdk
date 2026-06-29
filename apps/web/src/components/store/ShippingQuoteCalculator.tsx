@@ -6,11 +6,9 @@
  * momento de la entrega, no nuestro Wompi — así que un fallo nunca debe
  * bloquear "Finalizar pedido", solo se omite el costo mostrado.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { CitySelector, type CityOption } from '@/components/checkout/CitySelector'
-import { useShippingQuoteStore, type ShippingQuoteResult } from '@/lib/shipping-quote'
-
-const DEBOUNCE_MS = 500
+import { useShippingQuote, type ShippingQuoteResult } from '@/lib/shipping-quote'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -29,65 +27,12 @@ interface ShippingQuoteCalculatorProps {
 }
 
 export function ShippingQuoteCalculator({ city, onCityChange, items, onQuoteChange }: ShippingQuoteCalculatorProps) {
-  const fetchQuote = useShippingQuoteStore((s) => s.fetchQuote)
-  const getCached = useShippingQuoteStore((s) => s.getCached)
-  const [quote, setQuote] = useState<ShippingQuoteResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Cantidad/items como string estable para detectar cambios reales del carrito
-  // sin disparar el efecto por una nueva referencia del array en cada render.
-  const itemsKey = items.map((i) => `${i.productId}x${i.quantity}`).sort().join('|')
+  const { quote, loading, error } = useShippingQuote(city, items)
 
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-
-    if (!city || items.length === 0) {
-      setQuote(null)
-      setError(false)
-      onQuoteChange?.(null)
-      return
-    }
-
-    debounceRef.current = setTimeout(() => {
-      void (async () => {
-        setError(false)
-
-        const cacheKey = `${city.code}-${itemsKey}`
-        const cached = getCached(cacheKey)
-        if (cached) {
-          setQuote(cached)
-          onQuoteChange?.(cached)
-          return
-        }
-
-        setLoading(true)
-        const result = await fetchQuote({
-          shippingCityCode: city.code,
-          shippingSubdivisionCode: city.subdivisionCode,
-          items,
-          paymentMethod: 'EXTERNAL_PAYMENT',
-        })
-        setLoading(false)
-
-        if (!result) {
-          setError(true)
-          setQuote(null)
-          onQuoteChange?.(null)
-          return
-        }
-
-        setQuote(result)
-        onQuoteChange?.(result)
-      })()
-    }, DEBOUNCE_MS)
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsKey ya resume `items`
-  }, [city, itemsKey])
+    onQuoteChange?.(quote)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo notificar al padre cuando cambia el quote
+  }, [quote])
 
   return (
     <div className="mb-1">

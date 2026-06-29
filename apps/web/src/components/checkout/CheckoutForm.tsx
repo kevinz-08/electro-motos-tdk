@@ -21,15 +21,10 @@ import { useCart } from '@/lib/cart'
 import { WompiWidget } from './WompiWidget'
 import { CitySelector } from './CitySelector'
 import { apiClient } from '@/lib/api-client'
+import { useShippingQuote } from '@/lib/shipping-quote'
 
 interface CheckoutFormProps {
   userEmail: string
-}
-
-interface CityOption {
-  code: string
-  name: string
-  subdivisionCode: string
 }
 
 interface ShippingFormData {
@@ -57,7 +52,7 @@ function formatCOP(cents: number): string {
 
 export function CheckoutForm({ userEmail }: CheckoutFormProps) {
   const { data: session } = useSession()
-  const { items, total } = useCart()
+  const { items, total, selectedCity, setSelectedCity } = useCart()
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping')
   const [orderId, setOrderId] = useState<string | null>(null)
   const [wompiParams, setWompiParams] = useState<CreateOrderResponse['payment'] | null>(null)
@@ -71,7 +66,6 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
     phone: '',
     notes: '',
   })
-  const [selectedCity, setSelectedCity] = useState<CityOption | null>(null)
   const [buyer, setBuyer] = useState<BuyerFormData>({
     idType: 'CC',
     idNumber: '',
@@ -79,6 +73,9 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
   })
 
   const cartTotal = total()
+  const shippingItems = items.map((i) => ({ productId: i.product.id, quantity: i.quantity }))
+  const { quote: shippingQuote, loading: shippingLoading, error: shippingError } = useShippingQuote(selectedCity, shippingItems)
+  const shippingCost = shippingQuote && !shippingQuote.freeShipping ? shippingQuote.quotedShippingTotal : 0
 
   const handleSubmitShipping = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -417,11 +414,31 @@ export function CheckoutForm({ userEmail }: CheckoutFormProps) {
               </div>
             ))}
           </div>
-          <div className="border-t border-gray-100 pt-4">
-            <div className="flex justify-between font-bold text-gray-900">
-              <span>Total</span>
-              <span>{formatCOP(cartTotal)}</span>
+          <div className="border-t border-gray-100 pt-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Envío</span>
+              {!selectedCity && <span className="text-gray-400 italic">Selecciona tu ciudad</span>}
+              {selectedCity && shippingLoading && <span className="text-gray-400">Calculando...</span>}
+              {selectedCity && !shippingLoading && shippingQuote && shippingQuote.freeShipping && (
+                <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs bg-green-50 px-2 py-0.5 rounded-full">
+                  🎉 ¡Envío gratis!
+                </span>
+              )}
+              {selectedCity && !shippingLoading && shippingQuote && !shippingQuote.freeShipping && (
+                <span className="text-gray-700 font-medium">{formatCOP(shippingQuote.quotedShippingTotal)}</span>
+              )}
+              {selectedCity && !shippingLoading && shippingError && (
+                <span className="text-gray-400 italic text-xs">No se pudo calcular ahora</span>
+              )}
             </div>
+
+            <div className="flex justify-between font-bold text-gray-900 pt-1">
+              <span>{shippingCost > 0 ? 'Total estimado' : 'Total'}</span>
+              <span>{formatCOP(cartTotal + shippingCost)}</span>
+            </div>
+            <p className="text-xs text-gray-400">
+              El envío lo cobra Vendelo directamente al recibir tu pedido — esto es solo un estimado.
+            </p>
           </div>
         </div>
       </div>

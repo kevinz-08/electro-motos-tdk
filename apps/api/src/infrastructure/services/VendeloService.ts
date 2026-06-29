@@ -188,8 +188,8 @@ export class VendeloService implements IVendeloShippingPort {
       },
       line_items: (order.items ?? []).map((item) => ({
         type: 'STANDARD' as const,
-        name: `Producto ${item.productId}`,
-        sku: item.productId,
+        name: item.productSnapshot?.name ?? `Producto ${item.productId}`,
+        sku: item.productSnapshot?.sku ?? item.productId,
         quantity: item.quantity,
         unit_price: item.priceAtPurchase / 100,
         weight: defaultWeightKg,
@@ -206,7 +206,10 @@ export class VendeloService implements IVendeloShippingPort {
     }
 
     this.logger.log(`Creando orden Vendelo para pedido interno ${order.id}`)
-    return this.http.post<VendeloCreateOrderResponse>('/v1/admin/orders', body)
+    // retryOn5xx: false — en un 5xx no sabemos si Vendelo ya creó la orden
+    // (no trata external_order_id como key única). Reintentar reintenta el lado
+    // del cliente, no la queue, que ya tiene su propio guard de idempotencia.
+    return this.http.post<VendeloCreateOrderResponse>('/v1/admin/orders', body, { retryOn5xx: false })
   }
 
   // ── IVendeloShippingPort ────────────────────────────────────────────────────

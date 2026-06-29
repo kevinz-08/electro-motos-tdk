@@ -74,6 +74,15 @@ export interface OrderItem {
    * Capturado por CreateOrder para preservar el histórico de precios.
    */
   priceAtPurchase: number
+  /**
+   * Datos del producto al momento de leer el pedido — opcional, solo presente
+   * cuando el caller hizo include de la relación product. Usado por VendeloService
+   * para reportar nombre/SKU reales en vez del productId (cuid) en line_items.
+   */
+  productSnapshot?: {
+    sku: string
+    name: string
+  }
 }
 
 /**

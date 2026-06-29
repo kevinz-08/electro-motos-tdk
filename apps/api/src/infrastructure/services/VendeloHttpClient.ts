@@ -5,6 +5,13 @@ interface RequestOptions {
   path: string
   body?: unknown
   attempt?: number
+  /**
+   * false para endpoints no idempotentes (ej. creación de orden): en un 5xx no
+   * sabemos si Vendelo ya procesó la request, así que reintentar puede crear
+   * un duplicado. 429 (rate limit) y errores de red antes de enviar el body
+   * siguen reintentándose porque ahí sí sabemos que no llegó al servidor.
+   */
+  retryOn5xx?: boolean
 }
 
 const MAX_ATTEMPTS = 4 // 1 initial + 3 retries
@@ -12,7 +19,8 @@ const RETRY_DELAYS_MS = [1_000, 2_000, 4_000]
 const TIMEOUT_MS = 10_000
 
 /** Reintenta en respuestas HTTP de error transitorio */
-const isRetryableStatus = (status: number) => status === 429 || status >= 500
+const isRetryableStatus = (status: number, retryOn5xx: boolean) =>
+  status === 429 || (retryOn5xx && status >= 500)
 
 /** Reintenta en errores de red (timeout, ECONNREFUSED, DNS) */
 const isRetryableError = (err: unknown): boolean => {
@@ -62,8 +70,8 @@ export class VendeloHttpClient {
     return this.request<T>({ method: 'GET', path })
   }
 
-  async post<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>({ method: 'POST', path, body })
+  async post<T>(path: string, body: unknown, opts?: { retryOn5xx?: boolean }): Promise<T> {
+    return this.request<T>({ method: 'POST', path, body, retryOn5xx: opts?.retryOn5xx ?? true })
   }
 
   async patch<T>(path: string, body: unknown): Promise<T> {
@@ -119,7 +127,7 @@ export class VendeloHttpClient {
 
   // ── HTTP request con retry ────────────────────────────────────────────────
 
-  private async request<T>({ method, path, body, attempt = 1 }: RequestOptions): Promise<T> {
+  private async request<T>({ method, path, body, attempt = 1, retryOn5xx = true }: RequestOptions): Promise<T> {
     this.checkCircuit()
 
     const controller = new AbortController()
@@ -141,11 +149,11 @@ export class VendeloHttpClient {
       const latency = Date.now() - start
       this.logger.log(`${method} ${path} → ${res.status} (${latency}ms)`)
 
-      if (isRetryableStatus(res.status) && attempt < MAX_ATTEMPTS) {
+      if (isRetryableStatus(res.status, retryOn5xx) && attempt < MAX_ATTEMPTS) {
         const delay = RETRY_DELAYS_MS[attempt - 1] ?? 4_000
         this.logger.warn(`Vendelo ${res.status} — reintentando en ${delay}ms (intento ${attempt}/${MAX_ATTEMPTS - 1})`)
         await this.sleep(delay)
-        return this.request<T>({ method, path, body, attempt: attempt + 1 })
+        return this.request<T>({ method, path, body, attempt: attempt + 1, retryOn5xx })
       }
 
       if (!res.ok) {
@@ -171,7 +179,7 @@ export class VendeloHttpClient {
           `Vendelo error de red (${err instanceof Error ? err.name : 'unknown'}) — reintentando en ${delay}ms (intento ${attempt}/${MAX_ATTEMPTS - 1})`,
         )
         await this.sleep(delay)
-        return this.request<T>({ method, path, body, attempt: attempt + 1 })
+        return this.request<T>({ method, path, body, attempt: attempt + 1, retryOn5xx })
       }
 
       if (isRetryableError(err)) {

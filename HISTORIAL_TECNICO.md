@@ -4,6 +4,47 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 100. Fix triplicación de órdenes Vendelo + nombre/SKU reales en line_items
+
+**Contexto:** Una compra real generó 3 órdenes duplicadas en Vendelo (timestamps 8:39, 8:39, 8:40 — segundos de distancia, no los 2 min del ciclo del `setInterval`). Además, los `line_items` enviados a Vendelo mostraban el cuid interno de Prisma (`Producto cmpyqnj44h0039...`) en vez del nombre y SKU comerciales reales.
+
+### Bug — Triplicación de órdenes (4 causas combinadas)
+
+- **Causa A:** `VendeloOrderQueueService.processNext()` leía filas `PENDING` con `findMany` y las procesaba en un loop sin reclamarlas antes de llamar a Vendelo — la fila seguía `PENDING` en DB durante todo el `createOrder()` (10-40s).
+- **Causa B:** Cloud Run puede escalar a 2-3 instancias simultáneas, cada una con su propio `setInterval`; sin lock de fila, todas agarran las mismas filas `PENDING`.
+- **Causa C (la dominante, según el patrón de timestamps en segundos):** `VendeloHttpClient` reintentaba en cualquier `5xx`, incluido el `POST /v1/admin/orders`. Vendelo no trata `external_order_id` como key única, así que cada retry tras un 5xx (aunque Vendelo ya hubiera procesado la primera request) creaba una orden adicional.
+- **Causa D:** No había guard que verificara `order.vendeloOrderId !== null` antes de volver a llamar a `createOrder`.
+
+**Solución por capas (defense in depth):**
+
+1. **Guard de idempotencia temprano** — si `order.vendeloOrderId` ya existe, la queue marca `SENT` y sale sin llamar a Vendelo.
+2. **Claim atómico de fila** — antes de procesar, `updateMany({ where: { id, status: 'PENDING' }, data: { status: 'PROCESSING', processingStartedAt } })`. Si `count === 0`, otro worker ya la reclamó. Migración Prisma `vendelo_queue_processing_lock` agrega `processingStartedAt DateTime?` a `VendeloOrderQueue` (columna nullable, backward-compatible). Un sweeper (`releaseOrphanedRows`) libera filas atascadas en `PROCESSING` por más de 5 min al inicio de cada `processNext()` — cubre el caso de un contenedor que crashea a mitad de proceso.
+3. **Commit idempotente** — el `$transaction` final usa `order.updateMany({ where: { id, vendeloOrderId: null }, data: { vendeloOrderId } })` en vez de `update`; si otra corrida ya lo escribió, `count === 0` y queda en el log.
+4. **`VendeloHttpClient` no reintenta en `5xx` para POST no idempotentes** — nuevo parámetro `retryOn5xx` en `post()` (default `true`, mantiene comportamiento existente para todos los demás endpoints). `VendeloService.createOrder()` pasa `retryOn5xx: false`. Sigue reintentando en `429` (rate limit) y errores de red antes de enviar el body, donde sí sabemos que la request no llegó al servidor.
+
+### Bug — Nombre/SKU mostraban el cuid interno
+
+`VendeloService.createOrder()` mapeaba `line_items` usando `item.productId` (cuid de Prisma) tanto para `name` como `sku`, porque `OrderItem` del dominio no cargaba la relación con `Product`. Se agregó un campo opcional `productSnapshot?: { sku, name }` a la interfaz `OrderItem` en `packages/domain/src/entities/Order.ts`. `VendeloOrderQueueService` ahora incluye `product: { select: { sku, name } }` en el query y lo mapea al `domainOrder`; `VendeloService` usa `item.productSnapshot?.name ?? \`Producto ${item.productId}\`` (fallback solo para callers legacy sin el snapshot).
+
+**Archivos modificados:**
+
+- `packages/domain/src/entities/Order.ts` — `productSnapshot?` agregado a `OrderItem`
+- `apps/api/src/infrastructure/services/VendeloService.ts` — `line_items` usa `productSnapshot`; `createOrder` pasa `retryOn5xx: false`
+- `apps/api/src/infrastructure/services/VendeloOrderQueueService.ts` — claim atómico, guard `vendeloOrderId`, sweeper de huérfanas, commit idempotente, include de `product`
+- `apps/api/src/infrastructure/services/VendeloHttpClient.ts` — parámetro `retryOn5xx` en `post()` y `request()`
+- `packages/database/prisma/schema.prisma` — `VendeloOrderQueue.processingStartedAt DateTime?`
+- `packages/database/prisma/migrations/20260629035822_vendelo_queue_processing_lock/` — migración aplicada en producción (Neon)
+- `apps/api/src/__tests__/VendeloOrderQueueService.test.ts` — nuevo, 8 tests (claim, guard, sweeper, commit idempotente, productSnapshot, backoff)
+- `apps/api/src/__tests__/VendeloHttpClient.test.ts` — 3 tests nuevos para `retryOn5xx`
+
+**Limpieza manual pendiente:** cancelar las 2 órdenes duplicadas en el panel de Vendelo (la orden con `vendeloOrderId` guardado en nuestra DB es la válida).
+
+**Validación post-deploy pendiente:** compra de prueba, verificar una sola orden en Vendelo con nombre/SKU reales, monitorear 48h.
+
+*Última actualización: 2026-06-29*
+
+---
+
 ## 99. Comprobante de venta on-demand + identificación tributaria del comprador
 
 **Qué se hizo:**

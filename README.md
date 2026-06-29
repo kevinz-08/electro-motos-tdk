@@ -615,6 +615,17 @@ EmailQueue { status: PENDING } — escrito en BD
 Idéntico patrón al `EmailQueueService` pero encola pedidos para despacho en Vendelo.
 Reintentos: 3 intentos con backoff 5 s → 30 s → 120 s.
 
+**Protección contra duplicados (defense in depth, evita el bug histórico de
+órdenes triplicadas en Vendelo):**
+
+1. **Guard de idempotencia** — si `order.vendeloOrderId` ya existe, se marca `SENT` sin volver a llamar a Vendelo.
+2. **Claim atómico de fila** — `updateMany({ where: { id, status: 'PENDING' } })` antes de procesar. Si `count === 0`, otra instancia de Cloud Run (o otro tick) ya la reclamó. La fila pasa a `PROCESSING` con `processingStartedAt`.
+3. **Sweeper de huérfanas** — al inicio de cada ciclo, libera (`PROCESSING → PENDING`) filas atascadas por más de 5 min, cubriendo el caso de un contenedor que crashea a mitad de proceso.
+4. **Commit idempotente** — el `update` final de `Order.vendeloOrderId` usa `updateMany({ where: { vendeloOrderId: null } })` en vez de `update` simple.
+5. **`VendeloHttpClient.post()` no reintenta en `5xx`** para `/v1/admin/orders` (parámetro `retryOn5xx: false`) — Vendelo no trata `external_order_id` como key única, así que un retry sobre un 5xx puede crear una orden duplicada si la primera request sí fue procesada. Sigue reintentando en `429` y errores de red.
+
+También carga `product: { select: { sku, name } }` al construir el `domainOrder`, para que `VendeloService` envíe el SKU y nombre comerciales reales en `line_items` (antes enviaba el cuid interno de Prisma).
+
 ### `WompiReconciliationService` — Reconciliación de pagos
 
 Cubre el escenario donde Wompi procesó el pago pero su webhook **nunca llegó** al servidor

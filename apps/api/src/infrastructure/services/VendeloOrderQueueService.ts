@@ -5,6 +5,7 @@ import { VendeloService } from './VendeloService'
 const PROCESS_INTERVAL_MS = 2 * 60 * 1000 // cada 2 minutos
 const MAX_ATTEMPTS = 3
 const BACKOFF_SECONDS = [5, 30, 120] // por intento fallido
+const ORPHAN_THRESHOLD_MS = 5 * 60 * 1000 // 5 min sin avance = contenedor crasheó
 
 @Injectable()
 export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
@@ -34,6 +35,8 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   async processNext(): Promise<void> {
+    await this.releaseOrphanedRows()
+
     const pending = await this.prisma.client.vendeloOrderQueue.findMany({
       where: { status: 'PENDING', nextRetry: { lte: new Date() } },
       take: 10,
@@ -48,10 +51,22 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
       // Prefijo de trazabilidad consistente: todos los logs de este item llevan orderId + queueId
       const ctx = `orderId=${item.orderId} queueId=${item.id} intento=${item.attempts + 1}/${MAX_ATTEMPTS}`
 
+      // Claim atómico: solo avanzamos si la fila SIGUE en PENDING. Si otra instancia
+      // de Cloud Run (u otro tick de este mismo proceso) ya la agarró, count === 0.
+      const claimed = await this.prisma.client.vendeloOrderQueue.updateMany({
+        where: { id: item.id, status: 'PENDING' },
+        data: { status: 'PROCESSING', processingStartedAt: new Date() },
+      })
+
+      if (claimed.count === 0) {
+        this.logger.warn(`[VendeloOrderQueue] Skip: fila ya reclamada por otro worker ${ctx}`)
+        continue
+      }
+
       try {
         const order = await this.prisma.client.order.findUnique({
           where: { id: item.orderId },
-          include: { items: true },
+          include: { items: { include: { product: { select: { sku: true, name: true } } } } },
         })
 
         if (!order) {
@@ -65,6 +80,19 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
             lastError: 'Pedido no encontrado en BD',
             attempts: item.attempts + 1,
           })
+          continue
+        }
+
+        // Guard de idempotencia: si el pedido ya tiene vendeloOrderId, ya se creó
+        // en Vendelo en una corrida anterior. No volver a llamar a createOrder.
+        if (order.vendeloOrderId) {
+          await this.prisma.client.vendeloOrderQueue.update({
+            where: { id: item.id },
+            data: { status: 'SENT', attempts: item.attempts + 1 },
+          })
+          this.logger.warn(
+            `[VendeloOrderQueue] Skip: pedido ya tenía vendeloOrderId=${order.vendeloOrderId} ${ctx}`,
+          )
           continue
         }
 
@@ -90,6 +118,7 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
             productId: i.productId,
             quantity: i.quantity,
             priceAtPurchase: i.priceAtPurchase,
+            productSnapshot: { sku: i.product.sku, name: i.product.name },
           })),
         } as import('@h2r/domain').Order
 
@@ -102,9 +131,12 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
             where: { id: item.id },
             data: { status: 'SENT', attempts: item.attempts + 1 },
           }),
+          // Guard de commit: solo actualiza si vendeloOrderId sigue NULL. Si otra
+          // corrida ya lo escribió antes que esta, count===0 y queda registrado
+          // en el log — la orden duplicada en Vendelo quedará sin tracking.
           ...(vendeloOrderId
-            ? [this.prisma.client.order.update({
-                where: { id: order.id },
+            ? [this.prisma.client.order.updateMany({
+                where: { id: order.id, vendeloOrderId: null },
                 data: { vendeloOrderId },
               })]
             : []),
@@ -121,7 +153,7 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
 
         await this.prisma.client.vendeloOrderQueue.update({
           where: { id: item.id },
-          data: { attempts, lastError: String(e), status, nextRetry },
+          data: { attempts, lastError: String(e), status, nextRetry, processingStartedAt: null },
         })
 
         if (status === 'FAILED') {
@@ -137,6 +169,21 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
           )
         }
       }
+    }
+  }
+
+  /**
+   * Libera filas atascadas en PROCESSING por más de 5 min — cubre el caso de un
+   * contenedor Cloud Run que crashea mid-process antes de actualizar el status.
+   */
+  private async releaseOrphanedRows(): Promise<void> {
+    const staleSince = new Date(Date.now() - ORPHAN_THRESHOLD_MS)
+    const released = await this.prisma.client.vendeloOrderQueue.updateMany({
+      where: { status: 'PROCESSING', processingStartedAt: { lt: staleSince } },
+      data: { status: 'PENDING', processingStartedAt: null },
+    })
+    if (released.count > 0) {
+      this.logger.warn(`[VendeloOrderQueue] Liberadas ${released.count} fila(s) huérfana(s) en PROCESSING`)
     }
   }
 

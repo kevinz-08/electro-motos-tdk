@@ -39,6 +39,7 @@ function formatDate(date: Date) {
 const PAYMENT_PROVIDER_LABEL: Record<string, string> = {
   WOMPI: 'Wompi',
   MERCADO_PAGO: 'Mercado Pago',
+  COD: 'Pago contra entrega',
 }
 
 // ─── Estado desconocido (sin orderId o pedido no encontrado) ──────────────────
@@ -78,6 +79,7 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
 
   const isPaid = order.status === 'PAID'
   const isPending = order.status === 'PENDING'
+  const isCod = order.paymentProvider === 'COD'
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -87,16 +89,20 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
 
         {/* ── Hero de estado ─────────────────────────────────────────────── */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">{isPaid ? '✅' : isPending ? '⏳' : '📦'}</div>
+          <div className="text-6xl mb-4">{isCod ? '📦' : isPaid ? '✅' : isPending ? '⏳' : '📦'}</div>
           <h1 className="text-3xl font-black text-gray-900 mb-2">
-            {isPaid ? '¡Pago confirmado!' : isPending ? 'Pago en procesamiento' : 'Pedido actualizado'}
+            {isCod
+              ? '¡Pedido confirmado!'
+              : isPaid ? '¡Pago confirmado!' : isPending ? 'Pago en procesamiento' : 'Pedido actualizado'}
           </h1>
           <p className="text-gray-500 max-w-sm mx-auto">
-            {isPaid
-              ? 'Tu pedido fue aprobado. Recibirás un email con los detalles.'
-              : isPending
-                ? 'Tu pago está siendo procesado. Te notificaremos cuando se confirme.'
-                : 'Revisa el estado de tu pedido a continuación.'}
+            {isCod
+              ? 'Pagas en efectivo al repartidor cuando recibas tu pedido. Recibirás un email con los detalles.'
+              : isPaid
+                ? 'Tu pedido fue aprobado. Recibirás un email con los detalles.'
+                : isPending
+                  ? 'Tu pago está siendo procesado. Te notificaremos cuando se confirme.'
+                  : 'Revisa el estado de tu pedido a continuación.'}
           </p>
         </div>
 
@@ -168,7 +174,9 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
 
           {/* Total */}
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-600">Total pagado</span>
+            <span className="text-sm font-semibold text-gray-600">
+              {isCod ? 'Total a pagar al recibir' : 'Total pagado'}
+            </span>
             <span className="text-xl font-black text-gray-900">{formatCOP(order.total)}</span>
           </div>
 

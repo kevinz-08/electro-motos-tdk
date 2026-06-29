@@ -45,17 +45,19 @@ interface CachedQuote extends ShippingQuoteResult {
 
 /**
  * Cache key estable sin importar el orden en que los ítems llegaron al carrito.
- * Ej: "11001000-prod1x2|prod2x1"
+ * Incluye el método de pago porque Vendelo cotiza distinto para COD vs prepago.
+ * Ej: "11001000-prod1x2|prod2x1-EXTERNAL_PAYMENT"
  */
 export function buildShippingQuoteCacheKey(
   cityCode: string,
   items: ShippingQuoteRequestItem[],
+  paymentMethod: 'COD' | 'EXTERNAL_PAYMENT' = 'EXTERNAL_PAYMENT',
 ): string {
   const itemsKey = items
     .map((i) => `${i.productId}x${i.quantity}`)
     .sort()
     .join('|')
-  return `${cityCode}-${itemsKey}`
+  return `${cityCode}-${itemsKey}-${paymentMethod}`
 }
 
 interface ShippingQuoteStore {
@@ -88,7 +90,7 @@ export const useShippingQuoteStore = create<ShippingQuoteStore>()(
       },
 
       fetchQuote: async (request) => {
-        const cacheKey = buildShippingQuoteCacheKey(request.shippingCityCode, request.items)
+        const cacheKey = buildShippingQuoteCacheKey(request.shippingCityCode, request.items, request.paymentMethod)
         const cached = get().getCached(cacheKey)
         if (cached) return cached
 
@@ -135,6 +137,7 @@ export interface UseShippingQuoteState {
 export function useShippingQuote(
   city: { code: string; subdivisionCode: string } | null,
   items: ShippingQuoteRequestItem[],
+  paymentMethod: 'COD' | 'EXTERNAL_PAYMENT' = 'EXTERNAL_PAYMENT',
 ): UseShippingQuoteState {
   const fetchQuote = useShippingQuoteStore((s) => s.fetchQuote)
   const getCached = useShippingQuoteStore((s) => s.getCached)
@@ -154,7 +157,7 @@ export function useShippingQuote(
 
     debounceRef.current = setTimeout(() => {
       void (async () => {
-        const cacheKey = buildShippingQuoteCacheKey(city.code, items)
+        const cacheKey = buildShippingQuoteCacheKey(city.code, items, paymentMethod)
         const cached = getCached(cacheKey)
         if (cached) {
           setState({ quote: cached, loading: false, error: false })
@@ -166,7 +169,7 @@ export function useShippingQuote(
           shippingCityCode: city.code,
           shippingSubdivisionCode: city.subdivisionCode,
           items,
-          paymentMethod: 'EXTERNAL_PAYMENT',
+          paymentMethod,
         })
 
         setState(
@@ -180,8 +183,8 @@ export function useShippingQuote(
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cityCode/itemsKey ya resumen city/items
-  }, [cityCode, itemsKey])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cityCode/itemsKey/paymentMethod ya resumen los inputs
+  }, [cityCode, itemsKey, paymentMethod])
 
   return state
 }

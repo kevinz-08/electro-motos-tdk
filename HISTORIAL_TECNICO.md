@@ -4,6 +4,35 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 104. Botón de ayuda contextual: /admin/pedidos, /admin/stock, /admin/productos — y eliminación del CSV de stock
+
+**Contexto:** continuación del patrón `AdminHelpButton` iniciado en `/admin/sync` (#103). Un agente de exploración revisó las 7 páginas del panel admin para identificar cuáles tienen reglas de negocio no obvias; se priorizaron 4 secciones por nivel de riesgo de confusión para un admin no técnico: Pedidos (7/10), Stock (6/10), Producto Edit (6/10) y Categorías (5/10, pendiente). Esta entrada cubre las primeras 3.
+
+**Fase 1 — `/admin/pedidos`:** el modal explica que el selector "Cambiar estado" no valida transiciones (se puede marcar `DELIVERED` sin haber pasado por `PAID`, sin guard ni en frontend ni en `orders.controller.ts`), que el cambio es instantáneo sin confirmación, qué significa el campo `vendeloOrderId` (solo se llena cuando la cola ya creó el pedido en Vendelo), y que la gestión de envíos (etiquetas, recolección, novedades) **no tiene UI en esta pantalla** — existen los endpoints en `VendeloController` pero no están expuestos aquí.
+
+**Fase 2 — `/admin/stock`:** se eliminó la importación masiva por CSV (`CsvStockImport`), que quedó redundante con `/admin/sync` (cubre todo el inventario desde Optimun, no solo un archivo manual). Se confirmó que el endpoint `PATCH /admin/stock/bulk` no tenía otros consumidores ni tests, así que se eliminó completo en vez de dejarlo huérfano:
+
+- `apps/web/src/components/admin/CsvStockImport.tsx` (eliminado)
+- `apps/api/src/admin/admin-stock.controller.ts` (eliminado)
+- `apps/api/src/admin/dto/bulk-stock-update.dto.ts` (eliminado)
+- `apps/api/src/admin/admin.module.ts` (quitado el registro)
+
+El modal de ayuda explica el umbral fijo de 5 unidades, cómo actualizar stock fila por fila, y redirige a `/admin/sync` para actualizaciones masivas.
+
+**Fase 3/4 — `/admin/productos/[id]` y `/admin/productos/nuevo`:** son la misma página (`page.tsx` usa `id === 'nuevo'` como valor especial, no hay ruta separada) y el mismo componente `ProductEditForm`. El contenido de ayuda tiene dos variantes (`productoNuevoHelpContent` / `productoEditarHelpContent`) que comparten la mayoría de los pasos y la página elige cuál mostrar según si el producto existe. Explica: el slug se regenera en cada tecla del campo "Nombre" (se sobreescribe un slug personalizado si se sigue editando el nombre después), el precio se escribe en pesos sin centavos, el límite de 10 beneficios, que el texto "máximo 4 imágenes" **no se aplica realmente** (es solo una recomendación visual), y en modo edición la diferencia entre desactivar (reversible) y eliminar (permanente).
+
+**Archivos creados:** `help-content/pedidos.ts`, `help-content/stock.ts`, `help-content/producto.ts`.
+
+**Archivos modificados:** `admin/pedidos/page.tsx`, `admin/stock/page.tsx`, `admin/productos/[id]/page.tsx`.
+
+**Validación:** type-check limpio en `@h2r/web` y `@h2r/api`. Suite completa de `@h2r/api` en verde (154 tests) tras eliminar `AdminStockController` — sin tests rotos, no tenía cobertura propia. Lint sin warnings nuevos. Smoke test de las 3 rutas modificadas (sin error 500, redirect de auth esperado).
+
+**Rama:** `feat/admin-help-tooltips`.
+
+*Última actualización: 2026-06-29*
+
+---
+
 ## 103. Botón de ayuda contextual en el panel admin — primera sección: /admin/sync
 
 **Contexto:** el admin no entendía cómo funcionaba `/admin/sync` (sincronización de stock/precio con el inventario del local físico vía Optimun) — no había ninguna explicación en la UI más allá de una línea de descripción. Se decidió agregar un botón ⓘ que abre un modal con la explicación y los pasos de uso, como patrón reusable para cubrir progresivamente las demás secciones del panel (Productos, Categorías, Pedidos, Stock, Configuración).

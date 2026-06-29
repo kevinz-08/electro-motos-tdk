@@ -4,7 +4,7 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
-## 101. Cotización de envío Vendelo en carrito/checkout (6 fases)
+## 102. Cotización de envío Vendelo en carrito/checkout (6 fases)
 
 **Contexto:** Vendelo cobra el envío directamente al cliente al momento de la entrega (no nuestro Wompi) — sin un estimado previo, el cliente se sorprende y se queja del costo al recibir el pedido. Esta feature muestra un estimado informativo en `/carrito` y `/checkout` antes de pagar, sin afectar el monto que se cobra por Wompi.
 
@@ -36,7 +36,7 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
-## 100. Fix triplicación de órdenes Vendelo + nombre/SKU reales en line_items
+## 101. Fix triplicación de órdenes Vendelo + nombre/SKU reales en line_items
 
 **Contexto:** Una compra real generó 3 órdenes duplicadas en Vendelo (timestamps 8:39, 8:39, 8:40 — segundos de distancia, no los 2 min del ciclo del `setInterval`). Además, los `line_items` enviados a Vendelo mostraban el cuid interno de Prisma (`Producto cmpyqnj44h0039...`) en vez del nombre y SKU comerciales reales.
 
@@ -77,7 +77,7 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
-## 99. Comprobante de venta on-demand + identificación tributaria del comprador
+## 100. Comprobante de venta on-demand + identificación tributaria del comprador
 
 **Qué se hizo:**
 Sistema completo de generación de comprobantes de venta como PDF on-demand, alimentado por nuevos campos de identificación tributaria del comprador que se capturan en el checkout. Se decidió este enfoque en vez de implementar facturación electrónica DIAN porque:
@@ -157,7 +157,7 @@ Se aprovechó la sesión para arreglar un bug que aparecía en los logs cada arr
 
 ---
 
-## 98. Hotfixes post-launch — Wompi widget y dominio de Resend
+## 99. Hotfixes post-launch — Wompi widget y dominio de Resend
 
 **Qué se hizo:**
 Dos bugs críticos detectados al hacer las primeras pruebas de checkout en producción.
@@ -204,7 +204,7 @@ Como el admin aún no había anunciado la tienda públicamente, no hay registros
 
 ---
 
-## 97. Cron de polling de estados de envío Vendelo
+## 98. Cron de polling de estados de envío Vendelo
 
 **Qué se hizo:**
 Se implementó un cron de polling que sincroniza periódicamente el estado de envíos activos contra la API de Vendelo. Workaround necesario porque `POST /v1/admin/chatbot/connections` está reservado a proveedores de chatbots (Lucidbot/Chatby) — no a comercios regulares — y Venndelo aún no tiene una alternativa de webhooks abierta para comercios. Soporte confirmó que está en su backlog "para el futuro cercano" sin ETA.
@@ -283,7 +283,7 @@ Resultado: Domain 162/162, API 129/129 pasan.
 
 ---
 
-## 96. Hardening pre-launch — Wompi/Vendelo en producción, E2E automatizado
+## 97. Hardening pre-launch — Wompi/Vendelo en producción, E2E automatizado
 
 **Qué se hizo:**
 Conjunto de cambios para que la pasarela Wompi y la integración Vendelo queden listas para el primer pago real. Se eliminó deuda heredada (MercadoPago, headers incorrectos, mocks de webhook) y se automatizó el flujo de prueba end-to-end.
@@ -342,7 +342,7 @@ Conjunto de cambios para que la pasarela Wompi y la integración Vendelo queden 
 
 ---
 
-## 95. Sistema de autenticación con verificación de email por OTP
+## 96. Sistema de autenticación con verificación de email por OTP
 
 **Qué se hizo:**
 Se implementó un sistema completo de verificación de email mediante código OTP de 6 dígitos, integrado con el flujo de registro y login existente. La implementación se dividió en 3 sprints sobre la rama `feature/auth-system-implementation`.
@@ -3906,7 +3906,7 @@ Archivos modificados:
 
 ---
 
-## 46. Migración del backend de Railway a Google Cloud Run
+## 95. Migración del backend de Railway a Google Cloud Run
 
 **Rama:** `feat/google-cloud-migration`
 
@@ -3995,7 +3995,7 @@ Build con `docker build --file apps/api/Dockerfile --tag electro-motos-api:local
 
 ---
 
-### 46.3 Corrección de errores de lint que bloqueaban el CI
+### 95.3 Corrección de errores de lint que bloqueaban el CI
 
 **Contexto:** El CI (`.github/workflows/ci.yml`) falló en los primeros dos runs (`#30` y `#31`) porque el linter de la app web reportó errores preexistentes que la configuración del React Compiler convierte en errores de CI.
 
@@ -4021,7 +4021,7 @@ JSX contenía comillas literales `"` en el texto `Sin resultados para "{query}"`
 
 ---
 
-### 46.4 Corrección de errores de type-check y deploy en CI
+### 95.4 Corrección de errores de type-check y deploy en CI
 
 **Contexto:** El CI continuó fallando tras resolver el lint. Se identificaron dos errores de TypeScript en `apps/web` y dos errores de permisos GCP en el job de deploy.
 

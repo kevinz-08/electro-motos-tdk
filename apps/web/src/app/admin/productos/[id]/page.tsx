@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { ProductEditForm } from '@/components/admin/ProductEditForm'
+import { AdminHelpButton } from '@/components/admin/AdminHelpButton'
+import { productoNuevoHelpContent, productoEditarHelpContent } from '@/components/admin/help-content/producto'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -55,9 +57,12 @@ export default async function EditProductPage({ params }: PageProps) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-6">
-        {foundProduct ? `Editar: ${foundProduct.name}` : 'Nuevo producto'}
-      </h1>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-white">
+          {foundProduct ? `Editar: ${foundProduct.name}` : 'Nuevo producto'}
+        </h1>
+        <AdminHelpButton content={foundProduct ? productoEditarHelpContent : productoNuevoHelpContent} />
+      </div>
       <ProductEditForm
         product={foundProduct ?? undefined}
         categories={categories}

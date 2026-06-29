@@ -20,6 +20,7 @@ electrónico. Los administradores gestionan productos, pedidos y stock desde un 
 7. [Flujo de pago con Wompi](#7-flujo-de-pago-con-wompi)
 8. [Flujo de pago con Mercado Pago](#8-flujo-de-pago-con-mercado-pago)
 9. [Integración de despacho con Vendelo](#9-integración-de-despacho-con-vendelo)
+   - [9.1 Pago contra entrega (COD)](#91-pago-contra-entrega-cod)
 10. [Servicios de background (colas y reconciliación)](#10-servicios-de-background-colas-y-reconciliación)
 11. [API NestJS — Referencia completa](#11-api-nestjs--referencia-completa)
 12. [Variables de entorno](#12-variables-de-entorno)
@@ -604,6 +605,39 @@ POST /v1/admin/orders/quotation (Vendelo)
 Cache cliente en `useShippingQuoteStore` (Zustand + `sessionStorage`, TTL 5 min), compartida
 entre carrito y checkout por clave `${cityCode}-${items ordenados}`. La ciudad seleccionada se
 persiste en el store de carrito (`selectedCity`) para no pedirla dos veces.
+
+### 9.1 Pago contra entrega (COD)
+
+Además de Wompi/Mercado Pago, el checkout ofrece **pago contra entrega** (`paymentProvider: 'COD'`)
+— el cliente paga en efectivo al repartidor de Vendelo, no a través de nuestra pasarela. Como no
+existe un webhook de pasarela que confirme el pago, el ciclo de vida del pedido es distinto:
+
+| Paso | Online (Wompi/MP) | COD |
+| --- | --- | --- |
+| Estado inicial del pedido | `PENDING` (espera webhook) | `PAID` (inmediato, sin paso de autorización) |
+| Descuento de stock | Al recibir webhook `APPROVED` | En la misma transacción de creación del pedido |
+| Encolado en Vendelo / email confirmación | Disparado por el webhook | Disparado directo desde `OrdersController` tras crear el pedido |
+| `payment_method_code` enviado a Vendelo | `EXTERNAL_PAYMENT` | `COD` |
+
+**Restock automático:** si Vendelo reporta el envío como `RETURNED` o `CANCELLED` (paquete
+rechazado en la puerta), `SyncShipmentStatus` restaura el stock de los `OrderItem` del pedido,
+de forma atómica e idempotente — aplica a cualquier método de pago, no solo COD.
+
+No hay restricción de monto ni de ciudad para ofrecer COD (MVP) — disponible en cualquier
+ciudad con cobertura Vendelo.
+
+**Toggle admin (`/admin/configuracion`):** el admin puede desactivar COD sin tocar código.
+Estado persistido en la tabla `Settings` (clave `COD_ENABLED`, mismo patrón que
+`MERCADOPAGO_ENABLED`). Si no existe la fila aún, se trata como **habilitado por defecto**.
+
+| Estado | Checkout (cliente) | `POST /orders` con `paymentProvider: 'COD'` |
+| --- | --- | --- |
+| Habilitado (o sin fila en Settings) | Muestra el selector "Pago en línea" / "Pago contra entrega" | Acepta el pedido |
+| Deshabilitado | Solo aparece "Pago en línea" — el selector ni se renderiza | `403 ForbiddenException` |
+
+No borra ninguna funcionalidad: el código de creación de pedidos COD, Vendelo y el webhook de
+envío siguen intactos — el toggle solo controla si se *ofrece* la opción. `PATCH /admin/settings/cod`
+(`AdminSettingsController`, `@Roles('ADMIN')`) escribe el setting; `CodToggle.tsx` es el switch en la UI.
 
 ---
 

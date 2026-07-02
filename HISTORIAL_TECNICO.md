@@ -4,6 +4,133 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 109. Modo híbrido controlado por admin — de checkbox de cliente a toggle global
+
+**Contexto:** a pedido explícito del usuario, el modo híbrido de #108 (producto pagado en línea,
+flete contraentrega) deja de ser una elección del cliente en el checkout y pasa a ser una política
+global que el admin activa/desactiva desde `/admin/configuracion`, con el mismo patrón que
+`COD_ENABLED` y `MERCADOPAGO_ENABLED`. Se preguntó explícitamente al usuario si el toggle debía
+reemplazar el checkbox o solo definir su valor por defecto — eligió **reemplazarlo**: el cliente ya
+no decide nada, el checkout solo muestra una nota informativa.
+
+**Nuevo setting: `SHIPPING_ONLINE_ENABLED`** (default habilitado si no existe la fila, mismo
+fallback que `COD_ENABLED`):
+- **Habilitado** (comportamiento de siempre) → el flete de pedidos `WOMPI`/`MERCADO_PAGO` se cobra
+  "en línea": Vendelo no recauda nada al entregar (`EXTERNAL_PAYMENT`), lo asume la billetera del
+  negocio.
+- **Deshabilitado** → **todos** los pedidos pagados en línea nacen con `shippingCod: true` — el
+  producto se sigue pagando por la pasarela como siempre, pero el flete se cobra en efectivo al
+  repartidor.
+- Si `COD_ENABLED` está deshabilitado (el repartidor no puede recaudar efectivo), este toggle
+  **no tiene efecto** — `orders.controller.ts` degrada a flete online en vez de bloquear el
+  checkout por una combinación de configuración conflictiva.
+
+**Cambios:**
+
+- **Backend** (`apps/api/src/admin/admin-settings.controller.ts`): nuevo endpoint
+  `PATCH /admin/settings/shipping-online` (reutiliza `ToggleSettingDto`, mismo patrón que `/cod`
+  y `/mercadopago`).
+- **`orders.controller.ts`**: `dto.shippingCod` **eliminado** — ya no lo envía el cliente. Para
+  pedidos no-COD, el controller consulta `SHIPPING_ONLINE_ENABLED` y `COD_ENABLED` en paralelo
+  (`Promise.all`) y calcula `shippingCod = !shippingOnlineEnabled && codEnabled` antes de llamar al
+  use case.
+- **`CreateOrderDto`**: se quita el campo `shippingCod` (el `ValidationPipe` global con
+  `forbidNonWhitelisted: true` habría rechazado la request si el frontend seguía enviándolo).
+- **`packages/types`**: `CreateOrderRequest.shippingCod` eliminado (ya no es parte del contrato
+  cliente→API). `OrderResponse.shippingCod` se mantiene — sigue siendo información válida sobre el
+  pedido ya creado.
+- **Admin UI**: `ShippingOnlineToggle.tsx` (copia exacta del patrón de `CodToggle.tsx`), integrado
+  en `/admin/configuracion` en una nueva tarjeta "Flete de pedidos pagados en línea".
+- **Checkout** (`CheckoutForm.tsx`): se elimina el checkbox y el estado `shippingCod` local. Se
+  agrega el prop `shippingOnlineEnabled` (leído en `checkout/page.tsx`, Server Component, mismo
+  patrón que `codEnabled`) y una variable derivada `shippingWillBeCod` que replica exactamente el
+  cálculo del backend para que la cotización de envío (`quotePaymentMethod`) y la nota informativa
+  mostrada al cliente coincidan con lo que el servidor realmente hará.
+
+**Tests actualizados:** `orders.controller.test.ts` — se reemplazaron los 2 tests que asumían
+`dto.shippingCod` (ya inválidos) por 3 tests nuevos que cubren los 3 casos de la matriz de settings
+(forzado a true, queda false por default, degrada a false cuando COD está deshabilitado). El mock
+de `settings.findUnique` pasó a encadenar `mockResolvedValueOnce` en el orden exacto del
+`Promise.all` del controller.
+
+**Validación:** `pnpm --filter @h2r/domain test` (182/182 ✅), `pnpm --filter @h2r/api test`
+(167/167 ✅), `pnpm type-check` en los 5 paquetes — todo en verde.
+
+**Rama:** `feat/vendelo-shipping-weight-dimensions` (work en curso, sin commitear).
+
+*Última actualización: 2026-07-02*
+
+---
+
+## 108. Modo híbrido — producto pagado en línea, flete contraentrega (Fase 2 Vendelo)
+
+**Contexto:** siguiendo la recomendación de soporte de Vendelo (confirmada en conversación con el
+usuario), se implementa un nuevo modo de pedido: el cliente paga el producto por WOMPI/Mercado
+Pago (flujo online normal), pero el flete se cobra en efectivo al repartidor de Vendelo en vez de
+descontarse de la billetera del negocio (que hoy paga el flete de todo pedido online vía
+`EXTERNAL_PAYMENT`). Objetivo: reducir la dependencia de saldo en la billetera Vendelo para
+pedidos con pago 100% online.
+
+**Decisión de diseño — flag ortogonal, no un tercer valor de `paymentProvider`:** se evaluó (y
+descartó) modelar esto como un nuevo valor `'HYBRID'` en el enum `PaymentProvider`. Se descartó
+porque `CreateOrder.execute()` usa `paymentProvider === 'COD'` para decidir si el pedido nace ya
+`PAID` (sin esperar pasarela) o si sigue el flujo `PENDING` → webhook → `PAID`. Un valor `HYBRID`
+en esa rama habría creado el pedido como `PAID` sin haber cobrado realmente el producto — un bug
+de negocio real. En cambio, se agregó `Order.shippingCod: boolean` (default `false`), ortogonal a
+`paymentProvider`: el pedido híbrido sigue el flujo online normal exacto (`PENDING` → webhook
+confirma pago → `PAID`, stock descontado solo en `APPROVED`), y el flag solo le indica a
+`VendeloService.createOrder()` cómo declarar el pedido ante Vendelo.
+
+**Cambios:**
+
+- **Prisma** (`schema.prisma`): `Order.shippingCod Boolean @default(false)` (migración
+  `20260702163250_add_order_shipping_cod`).
+- **Dominio** (`entities/Order.ts`, `repositories/IOrderRepository.ts`,
+  `use-cases/orders/CreateOrder.ts`): `Order.shippingCod`, `CreateOrderInput.shippingCod`,
+  `CreateOrderUseCaseInput.shippingCod?`. `CreateOrder.execute()` rechaza con `VALIDATION_ERROR`
+  si `shippingCod: true` se combina con `paymentProvider: 'COD'`.
+- **Repositorios Prisma** (api y web): `create()`/`createPaidOrder()`/`toDomain()` mapean el campo.
+- **`CreateOrderDto`**: `shippingCod?: boolean` opcional.
+- **`orders.controller.ts`**: el gate de `COD_ENABLED` ahora también aplica cuando
+  `dto.shippingCod` es true (mismo toggle — ambos dependen de que el repartidor pueda recaudar
+  efectivo). El flag se pasa al use case.
+- **`VendeloService.createOrder()`**: `payment_method_code` es `'COD'` cuando
+  `paymentProvider === 'COD' || order.shippingCod`; `unit_price` de los `line_items` se declara en
+  `0` cuando `shippingCod` es true (el producto ya está pagado — Coordinadora solo debe recaudar
+  el flete, no cobrar el producto otra vez).
+- **`VendeloOrderQueueService`**: no requirió cambios — `shippingCod` es una columna real de
+  `Order`, llega automáticamente en el spread `...order` sin tocar el `select`.
+- **Checkout** (`CheckoutForm.tsx`): checkbox "Pagar el envío contraentrega", visible solo cuando
+  el método de pago es "Pago en línea" (`WOMPI`) y COD está habilitado. La cotización de envío
+  (`quotePaymentMethod`) usa `'COD'` cuando el checkbox está marcado, para que el estimado
+  mostrado al cliente coincida con lo que Vendelo realmente cobrará.
+- **Panel admin**: badge ámbar "Flete contraentrega" en `OrderInfoModal.tsx` y en la tabla de
+  `/admin/pedidos` — distinto del badge de COD total, para que bodega/atención no confunda los
+  tres modos (100% online, COD total, flete contraentrega). `apps/web/src/app/api/admin/orders/[id]/route.ts`
+  expone `shippingCod` en la respuesta.
+- **`packages/types`**: `CreateOrderRequest.shippingCod?` y `OrderResponse.shippingCod`.
+
+**Tests nuevos:** `CreateOrder.test.ts` (persistencia del flag, rechazo de la combinación inválida,
+default `false`), `VendeloService.test.ts` (nuevo describe `createOrder` — 3 casos: online puro,
+COD total, híbrido con `unit_price: 0`), `orders.controller.test.ts` (paso del flag al use case,
+gate de `COD_ENABLED` con `shippingCod: true`).
+
+**Validación:** `pnpm --filter @h2r/domain test` (176/176 ✅), `pnpm --filter @h2r/api test`
+(161/161 ✅ antes de sumar los 4 tests nuevos, todos en verde después), `pnpm type-check` en los 5
+paquetes del monorepo — todo en verde. Migración aplicada contra la BD de desarrollo (Neon).
+
+**Pendiente:** validar el flujo end-to-end contra la API real de Vendelo (crear un pedido híbrido
+de prueba y confirmar en el panel de Venndelo que el recaudo mostrado es solo el valor del flete).
+También queda pendiente la pregunta abierta a soporte de Vendelo sobre un campo de valor declarado
+independiente del `unit_price` (para no perder cobertura de seguro en pedidos híbridos, donde
+`unit_price` se declara en 0).
+
+**Rama:** `feat/vendelo-shipping-weight-dimensions` (misma rama de la Fase 1, work en curso).
+
+*Última actualización: 2026-07-02*
+
+---
+
 ## 107. Cambio del default de peso/dimensiones Vendelo — de 0.5kg/10x10x10cm a 1kg/25x25x10cm
 
 **Contexto:** continuación de #106. A pedido explícito del usuario, mientras el catálogo existente

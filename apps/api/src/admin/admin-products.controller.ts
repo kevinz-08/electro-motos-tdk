@@ -50,6 +50,10 @@ export class AdminProductsController {
       categoryId: dto.categoryId,
       isActive: dto.isActive ?? true,
       images: dto.images ?? [],
+      weightKg: dto.weightKg ?? null,
+      heightCm: dto.heightCm ?? null,
+      widthCm: dto.widthCm ?? null,
+      lengthCm: dto.lengthCm ?? null,
     })
   }
 

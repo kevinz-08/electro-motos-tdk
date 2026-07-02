@@ -48,6 +48,7 @@ type PrismaProductRaw = {
   id: string; name: string; slug: string; description: string
   price: number; stock: number; sku: string; images: string[]
   isActive: boolean; categoryId: string; createdAt: Date | string; updatedAt: Date | string
+  weightKg: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null
 }
 
 type ChildCatRef = { id: string; name: string; slug: string }
@@ -72,6 +73,7 @@ function toDomain(p: PrismaProductRaw): Product {
     id: p.id, name: p.name, slug: p.slug, description: p.description,
     price: p.price, stock: p.stock, sku: p.sku, images: p.images,
     isActive: p.isActive, categoryId: p.categoryId,
+    weightKg: p.weightKg, heightCm: p.heightCm, widthCm: p.widthCm, lengthCm: p.lengthCm,
     createdAt: new Date(p.createdAt), updatedAt: new Date(p.updatedAt),
   }
 }

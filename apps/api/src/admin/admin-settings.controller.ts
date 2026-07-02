@@ -32,4 +32,18 @@ export class AdminSettingsController {
     })
     return { success: true, enabled: dto.enabled }
   }
+
+  @Patch('shipping-online')
+  @ApiOperation({
+    summary: 'Habilitar/deshabilitar que el flete de pedidos pagados en línea (WOMPI/MERCADO_PAGO) '
+      + 'se cobre en línea también. Deshabilitado = el flete de esos pedidos se cobra contraentrega.',
+  })
+  async toggleShippingOnline(@Body() dto: ToggleSettingDto) {
+    await this.prisma.client.settings.upsert({
+      where: { key: 'SHIPPING_ONLINE_ENABLED' },
+      update: { value: dto.enabled ? 'true' : 'false' },
+      create: { key: 'SHIPPING_ONLINE_ENABLED', value: dto.enabled ? 'true' : 'false' },
+    })
+    return { success: true, enabled: dto.enabled }
+  }
 }

@@ -639,6 +639,71 @@ No borra ninguna funcionalidad: el código de creación de pedidos COD, Vendelo 
 envío siguen intactos — el toggle solo controla si se *ofrece* la opción. `PATCH /admin/settings/cod`
 (`AdminSettingsController`, `@Roles('ADMIN')`) escribe el setting; `CodToggle.tsx` es el switch en la UI.
 
+### 9.2 Peso y dimensiones reales de envío
+
+`Product` tiene 4 campos opcionales — `weightKg`, `heightCm`, `widthCm`, `lengthCm` (nullable,
+cargados por el admin en `/admin/productos/[id]`, sección "Envío"). `VendeloService.createOrder()`
+y `.quoteOrder()` los usan como override del default genérico configurado por env var
+(`VENDELO_DEFAULT_WEIGHT_KG=1`, `VENDELO_DEFAULT_HEIGHT_CM=25`, `VENDELO_DEFAULT_WIDTH_CM=25`,
+`VENDELO_DEFAULT_LENGTH_CM=10`):
+
+```ts
+weight: productSnapshot.weightKg ?? defaultWeightKg
+```
+
+**Por qué existe esto:** antes, *todos* los productos usaban el mismo peso/dimensiones fijos sin
+importar qué se estuviera enviando. Coordinadora recalcula el flete real con el peso pesado en
+bodega al despachar — cualquier producto más pesado/grande que el default genérico generaba un
+flete real mayor al cotizado en el checkout, cobrando de más al negocio sobre lo ya cobrado al
+cliente. El default (1kg, 25x25x10cm) se eligió deliberadamente sobredimensionado — mientras el
+admin no cargue el dato real, es preferible sobreestimar el flete (margen a favor del negocio)
+que subestimarlo (pérdida).
+Mientras un producto no tenga estos campos cargados, sigue usando el default (comportamiento legacy,
+sin romper nada) — pero la cotización para ese producto seguirá siendo aproximada.
+
+`QuoteShipping` (cotización en carrito/checkout) resuelve estos campos desde la BD junto con el
+precio, así que el estimado que ve el cliente ya refleja el peso real si está cargado.
+
+### 9.3 Modo híbrido — producto pagado en línea, flete contraentrega
+
+`Order.shippingCod: boolean` (default `false`) es **ortogonal** a `paymentProvider` — permite que
+el producto se pague por WOMPI/MERCADO_PAGO (flujo online normal, con webhook de confirmación)
+mientras el flete se cobra en efectivo al repartidor de Vendelo en vez de descontarse de la
+billetera del negocio.
+
+**No es una elección del cliente** — es una política global controlada por el admin desde
+`/admin/configuracion` con el toggle **"Flete pagado en línea"** (setting `SHIPPING_ONLINE_ENABLED`,
+default habilitado). El checkout no tiene checkbox: `orders.controller.ts` calcula `shippingCod`
+automáticamente para todo pedido `WOMPI`/`MERCADO_PAGO` — el cliente solo ve una nota informativa
+si el flete le tocará contraentrega.
+
+```
+paymentProvider=COD                          → todo el pedido es contraentrega (payment_method_code:
+                                                'COD', unit_price real — Coordinadora recauda producto + flete)
+paymentProvider=WOMPI/MP,
+SHIPPING_ONLINE_ENABLED=true (default)       → shippingCod=false, todo pagado en línea
+                                                (payment_method_code: 'EXTERNAL_PAYMENT')
+paymentProvider=WOMPI/MP,
+SHIPPING_ONLINE_ENABLED=false, COD_ENABLED=true → shippingCod=true forzado — producto pagado en línea,
+                                                flete contraentrega (payment_method_code: 'COD',
+                                                unit_price: 0 en los line_items)
+paymentProvider=WOMPI/MP,
+SHIPPING_ONLINE_ENABLED=false, COD_ENABLED=false → shippingCod=false — degrada a flete online en vez
+                                                de bloquear el checkout (el repartidor no puede
+                                                recaudar efectivo si COD está deshabilitado)
+```
+
+`shippingCod: true` es **inválido** junto con `paymentProvider: 'COD'` — `CreateOrder.execute()`
+lo rechaza con `VALIDATION_ERROR` (sería redundante, el pedido entero ya es contraentrega). En la
+práctica `orders.controller.ts` nunca genera esa combinación porque calcula `shippingCod` solo en
+la rama no-COD.
+
+El flujo de vida del pedido híbrido es idéntico al 100% online (`PENDING` → webhook confirma →
+`PAID`, stock se descuenta solo tras `APPROVED`) — `shippingCod` no cambia cuándo se confirma el
+pedido, solo qué le dice `VendeloService.createOrder()` a Vendelo sobre el recaudo. El panel admin
+(`/admin/pedidos` y el modal de detalle) muestra un badge "Flete contraentrega" quemado en ámbar
+para distinguirlo de COD total.
+
 ---
 
 ## 10. Servicios de background (colas y reconciliación)

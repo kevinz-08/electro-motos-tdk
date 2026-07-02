@@ -45,6 +45,7 @@ export async function GET(
     status: order.status,
     total: order.total,
     paymentProvider: order.paymentProvider,
+    shippingCod: order.shippingCod,
     vendeloOrderId: order.vendeloOrderId,
     policiesAcceptedAt: order.policiesAcceptedAt,
     buyer: {

@@ -49,7 +49,7 @@ export function CodToggle({ enabled: initial }: CodToggleProps) {
     <button
       onClick={toggle}
       disabled={loading}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
         enabled ? 'bg-green-500' : 'bg-gray-300'
       }`}
       role="switch"

@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator'
+import { IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 
 export class UpdateProductDto {
@@ -11,4 +11,12 @@ export class UpdateProductDto {
   @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsString({ each: true }) images?: string[]
+  @ApiPropertyOptional({ description: 'Peso real embalado en kg (para cotización Vendelo)', minimum: 0 })
+  @IsOptional() @IsNumber() @Min(0) weightKg?: number
+  @ApiPropertyOptional({ description: 'Alto real embalado en cm', minimum: 0 })
+  @IsOptional() @IsInt() @Min(0) heightCm?: number
+  @ApiPropertyOptional({ description: 'Ancho real embalado en cm', minimum: 0 })
+  @IsOptional() @IsInt() @Min(0) widthCm?: number
+  @ApiPropertyOptional({ description: 'Largo real embalado en cm', minimum: 0 })
+  @IsOptional() @IsInt() @Min(0) lengthCm?: number
 }

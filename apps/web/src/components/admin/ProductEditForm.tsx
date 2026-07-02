@@ -60,6 +60,10 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
     sku: product?.sku ?? '',
     categoryId: product?.categoryId ?? (categories[0]?.id ?? ''),
     isActive: product?.isActive ?? true,
+    weightKg: product?.weightKg != null ? String(product.weightKg) : '',
+    heightCm: product?.heightCm != null ? String(product.heightCm) : '',
+    widthCm: product?.widthCm != null ? String(product.widthCm) : '',
+    lengthCm: product?.lengthCm != null ? String(product.lengthCm) : '',
   })
 
   // ── Beneficios ────────────────────────────────────────────────────────────
@@ -111,6 +115,10 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
       price: Math.round(parseFloat(form.price) * 100),
       stock: parseInt(form.stock, 10),
       images,
+      weightKg: form.weightKg.trim() ? parseFloat(form.weightKg) : undefined,
+      heightCm: form.heightCm.trim() ? parseInt(form.heightCm, 10) : undefined,
+      widthCm: form.widthCm.trim() ? parseInt(form.widthCm, 10) : undefined,
+      lengthCm: form.lengthCm.trim() ? parseInt(form.lengthCm, 10) : undefined,
     }
 
     const client = apiClient(session?.user?.accessToken)
@@ -342,6 +350,71 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
           <label htmlFor="isActive" className="text-sm font-medium text-white/70">
             Producto activo (visible en el catálogo)
           </label>
+        </div>
+      </div>
+
+      {/* ── Envío (Vendelo) ── */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+        <h2 className="text-sm font-semibold text-white/40 uppercase tracking-widest">
+          Envío
+        </h2>
+        <p className="text-xs text-white/30">
+          Peso y dimensiones reales embalados. Si se dejan vacíos, la cotización de envío
+          usa un valor por defecto genérico que puede no coincidir con el flete real cobrado.
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-1">Peso (kg)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.weightKg}
+              onChange={(e) => setForm({ ...form, weightKg: e.target.value })}
+              className={INPUT_CLASS}
+              placeholder="0.5"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-1">Alto (cm)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.heightCm}
+              onChange={(e) => setForm({ ...form, heightCm: e.target.value })}
+              className={INPUT_CLASS}
+              placeholder="10"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-1">Ancho (cm)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.widthCm}
+              onChange={(e) => setForm({ ...form, widthCm: e.target.value })}
+              className={INPUT_CLASS}
+              placeholder="10"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-1">Largo (cm)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.lengthCm}
+              onChange={(e) => setForm({ ...form, lengthCm: e.target.value })}
+              className={INPUT_CLASS}
+              placeholder="10"
+            />
+          </div>
         </div>
       </div>
 

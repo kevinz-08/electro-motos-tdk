@@ -202,6 +202,55 @@ describe('OrdersController', () => {
         controller.create({ ...dto, paymentProvider: 'COD' }, mockUser),
       ).resolves.toBeDefined()
     })
+
+    // shippingCod ya no lo envía el cliente — orders.controller.ts lo calcula a partir
+    // de dos settings: SHIPPING_ONLINE_ENABLED (política global) y COD_ENABLED (si el
+    // repartidor puede recaudar efectivo). El orden de mockResolvedValueOnce sigue el
+    // orden del Promise.all en el controller: [SHIPPING_ONLINE_ENABLED, COD_ENABLED].
+
+    it('shippingCod: se fuerza a true cuando SHIPPING_ONLINE_ENABLED está deshabilitado y COD sigue habilitado', async () => {
+      mockPrismaClient.settings.findUnique
+        .mockResolvedValueOnce({ value: 'false' }) // SHIPPING_ONLINE_ENABLED
+        .mockResolvedValueOnce({ value: 'true' })  // COD_ENABLED
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+
+      await controller.create(dto, mockUser)
+
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: true }))
+    })
+
+    it('shippingCod: queda false cuando SHIPPING_ONLINE_ENABLED está habilitado (o sin fila)', async () => {
+      mockPrismaClient.settings.findUnique
+        .mockResolvedValueOnce(null)               // SHIPPING_ONLINE_ENABLED sin fila → default true
+        .mockResolvedValueOnce({ value: 'true' })  // COD_ENABLED
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+
+      await controller.create(dto, mockUser)
+
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: false }))
+    })
+
+    it('shippingCod: no se fuerza si COD_ENABLED está deshabilitado — degrada a flete online sin lanzar excepción', async () => {
+      mockPrismaClient.settings.findUnique
+        .mockResolvedValueOnce({ value: 'false' }) // SHIPPING_ONLINE_ENABLED off
+        .mockResolvedValueOnce({ value: 'false' }) // COD_ENABLED off — repartidor no puede recaudar
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+
+      await expect(controller.create(dto, mockUser)).resolves.toBeDefined()
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: false }))
+    })
   })
 
   describe('PATCH /orders/:id/status — updateStatus()', () => {

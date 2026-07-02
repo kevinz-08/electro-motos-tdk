@@ -15,14 +15,22 @@ export default async function CheckoutPage() {
   const session = await auth()
   if (!session?.user) redirect('/auth/login?callbackUrl=/checkout')
 
-  const codSetting = await prisma.settings.findUnique({ where: { key: 'COD_ENABLED' } })
+  const [codSetting, shippingOnlineSetting] = await Promise.all([
+    prisma.settings.findUnique({ where: { key: 'COD_ENABLED' } }),
+    prisma.settings.findUnique({ where: { key: 'SHIPPING_ONLINE_ENABLED' } }),
+  ])
   // Por defecto habilitado si no existe la fila aún — mismo fallback que orders.controller.ts.
   const codEnabled = codSetting ? codSetting.value === 'true' : true
+  const shippingOnlineEnabled = shippingOnlineSetting ? shippingOnlineSetting.value === 'true' : true
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Finalizar compra</h1>
-      <CheckoutForm userEmail={session.user.email ?? ''} codEnabled={codEnabled} />
+      <CheckoutForm
+        userEmail={session.user.email ?? ''}
+        codEnabled={codEnabled}
+        shippingOnlineEnabled={shippingOnlineEnabled}
+      />
     </div>
   )
 }

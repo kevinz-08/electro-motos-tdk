@@ -4,6 +4,62 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 107. Cambio del default de peso/dimensiones Vendelo — de 0.5kg/10x10x10cm a 1kg/25x25x10cm
+
+**Contexto:** continuación de #106. A pedido explícito del usuario, mientras el catálogo existente
+no tenga peso/dimensiones reales cargados por producto, el default genérico usado por
+`VendeloService` pasa de `0.5kg / 10x10x10cm` a `1kg / 25(alto) x 25(ancho) x 10(largo) cm`.
+Criterio: sobreestimar el flete por defecto es preferible a subestimarlo — un default más grande
+reduce el riesgo de que Coordinadora cobre de más sobre lo cotizado al cliente (la causa raíz de #106).
+
+**Cambios:**
+
+- `apps/api/src/infrastructure/services/VendeloService.ts` — literal de fallback en `createOrder()`
+  y `quoteOrder()`: `'0.5'/'10'/'10'/'10'` → `'1'/'25'/'25'/'10'` (usado solo si la env var no está seteada).
+- `apps/api/.env` (local, no versionado) y `apps/api/.env.example` — valores actualizados.
+- `.github/workflows/ci.yml` — `--update-env-vars` del deploy a Cloud Run actualizado con los
+  mismos valores. **Efecto en producción:** el próximo deploy a través de este workflow sobrescribirá
+  la env var en Cloud Run con el nuevo default.
+- `apps/api/src/__tests__/VendeloService.test.ts` — el test de "usa el default" ahora verifica
+  1/25/25/10 sin env var seteada; se agregó un test separado que confirma que un valor custom de
+  env var sigue teniendo prioridad sobre el literal hardcodeado.
+
+**Validación:** `pnpm --filter @h2r/api exec vitest run src/__tests__/VendeloService.test.ts` (8/8 ✅).
+
+**Rama:** `main`.
+
+*Última actualización: 2026-07-02*
+
+---
+
+## 106. Peso y dimensiones reales por producto — fix de discrepancia entre flete cotizado y flete cobrado por Vendelo
+
+**Contexto:** el usuario reportó que al procesar el pago del envío en el panel de Venndelo ("Pagar envío e imprimir Rótulos"), el monto cobrado a la billetera no coincidía con el valor mostrado/cotizado previamente. Se investigó el código de `VendeloService.ts` y se confirmó la causa raíz: `createOrder()` y `quoteOrder()` usaban un peso y dimensiones **fijos y hardcodeados para todos los productos** (`VENDELO_DEFAULT_WEIGHT_KG=0.5`, `VENDELO_DEFAULT_{HEIGHT,WIDTH,LENGTH}_CM=10`), sin importar el producto real que se estuviera enviando. `Product` en el schema de Prisma no tenía ningún campo de peso/dimensiones. Como Coordinadora recalcula el flete real con el peso pesado en bodega al despachar, cualquier producto distinto a una caja de 10x10x10cm/0.5kg generaba un flete real mayor al cotizado — cobrando de más al negocio sobre lo ya cobrado al cliente en el checkout.
+
+**Cambios:**
+
+- **Prisma** (`packages/database/prisma/schema.prisma`): se agregaron `weightKg Float?`, `heightCm Int?`, `widthCm Int?`, `lengthCm Int?` a `Product` (migración `20260702155853_add_product_weight_dimensions`, nullable — productos existentes quedan en `null` hasta que un admin los cargue).
+- **Dominio** (`packages/domain/src/entities/Product.ts`, `Order.ts`, `IVendeloShippingPort.ts`): `Product` expone los 4 campos (`number | null`); `OrderItem.productSnapshot` y `VendeloQuoteInput.items` los llevan como opcionales para que `VendeloService` los use como override del default.
+- **Repositorios Prisma** (`apps/api/.../PrismaProductRepository.ts`, `apps/web/.../PrismaProductRepository.ts`, `apps/api/.../PrismaStockSyncRepository.ts`): mapean los 4 campos en `toDomain()`/`save()`/`update()`.
+- **Admin** (`create-product.dto.ts`, `update-product.dto.ts`, `admin-products.controller.ts`, `ProductEditForm.tsx`): nueva sección "Envío" en el formulario con 4 inputs opcionales (peso en kg, alto/ancho/largo en cm).
+- **`VendeloService.ts`** (`createOrder()` y `quoteOrder()`): usa `productSnapshot.weightKg ?? defaultWeightKg` (y equivalentes) en vez del default fijo. Si el admin no cargó el dato, sigue cayendo al default configurado por env var — sin romper productos legacy.
+- **`VendeloOrderQueueService.ts`**: el `select` de `product` al armar `productSnapshot` ahora incluye los 4 campos.
+- **`QuoteShipping.ts`** (use case de cotización en checkout/carrito): ahora resuelve el peso/dimensiones reales del producto vía `productRepo.findById()` y los pasa a `shippingPort.quoteOrder()`, en vez de dejar que `VendeloService` use siempre el default.
+
+**Nota de alcance:** esto corrige la causa raíz (cotización inexacta), pero **no resuelve el histórico** — pedidos ya despachados antes de este cambio mantienen la discrepancia y no son corregibles retroactivamente vía API. Tampoco carga datos para el catálogo existente: los productos actuales seguirán usando el default hasta que un admin edite cada uno con su peso/dimensiones reales.
+
+**Archivos modificados:** ver lista arriba — 13 archivos de código + 1 migración Prisma. Tests actualizados: `VendeloService.test.ts` (2 casos nuevos: default vs. peso real), `VendeloOrderQueueService.test.ts` (1 caso nuevo: productSnapshot con dimensiones), `QuoteShipping.test.ts` (1 caso nuevo + fix de aserción existente), `CreateOrder.test.ts` y `SyncStock.test.ts` (factories `makeProduct` actualizadas con los 4 campos nuevos, requeridos por el tipo `Product`).
+
+**Validación:** `pnpm --filter @h2r/domain test` (168/168), `pnpm --filter @h2r/api test` (160/160), `pnpm type-check` en los 5 paquetes del monorepo — todo en verde. Migración aplicada contra la BD de desarrollo (Neon).
+
+**Pendiente (Fase 2, no incluida en este cambio):** modo híbrido "producto pagado online + flete contraentrega" — ver conversación con soporte de Vendelo sobre `payment_method_code: 'COD'` con `unit_price: 0` en los ítems para que el recaudo COD sea solo el flete.
+
+**Rama:** `main` (trabajo directo, sin rama de feature).
+
+*Última actualización: 2026-07-02*
+
+---
+
 ## 105. Botón de ayuda contextual: /admin/categorias (cierre del rollout)
 
 **Contexto:** última sección pendiente del rollout de `AdminHelpButton` iniciado en `/admin/sync` (#103) y continuado en pedidos/stock/productos (#104). Se verificó directamente en `CategoryManager.tsx` (no solo por inspección superficial) el comportamiento real antes de escribir el contenido.

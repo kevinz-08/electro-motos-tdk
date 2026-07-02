@@ -33,8 +33,19 @@ export interface VendeloQuoteInput {
   shippingCityCode: string
   /** Código de subdivisión de 2 dígitos. Ej: "11" */
   shippingSubdivisionCode: string
-  /** Ítems a cotizar — peso/dimensiones se resuelven con los defaults configurados (VENDELO_DEFAULT_*). */
-  items: Array<{ productId: string; quantity: number }>
+  /**
+   * Ítems a cotizar. weightKg/heightCm/widthCm/lengthCm son el peso/dimensiones
+   * reales del producto (cargados por el admin) — si vienen null/undefined,
+   * VendeloService cae a los defaults configurados (VENDELO_DEFAULT_*).
+   */
+  items: Array<{
+    productId: string
+    quantity: number
+    weightKg?: number | null
+    heightCm?: number | null
+    widthCm?: number | null
+    lengthCm?: number | null
+  }>
   paymentMethod: 'COD' | 'EXTERNAL_PAYMENT'
 }
 

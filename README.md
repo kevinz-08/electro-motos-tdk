@@ -639,6 +639,31 @@ No borra ninguna funcionalidad: el código de creación de pedidos COD, Vendelo 
 envío siguen intactos — el toggle solo controla si se *ofrece* la opción. `PATCH /admin/settings/cod`
 (`AdminSettingsController`, `@Roles('ADMIN')`) escribe el setting; `CodToggle.tsx` es el switch en la UI.
 
+### 9.2 Peso y dimensiones reales de envío
+
+`Product` tiene 4 campos opcionales — `weightKg`, `heightCm`, `widthCm`, `lengthCm` (nullable,
+cargados por el admin en `/admin/productos/[id]`, sección "Envío"). `VendeloService.createOrder()`
+y `.quoteOrder()` los usan como override del default genérico configurado por env var
+(`VENDELO_DEFAULT_WEIGHT_KG=1`, `VENDELO_DEFAULT_HEIGHT_CM=25`, `VENDELO_DEFAULT_WIDTH_CM=25`,
+`VENDELO_DEFAULT_LENGTH_CM=10`):
+
+```ts
+weight: productSnapshot.weightKg ?? defaultWeightKg
+```
+
+**Por qué existe esto:** antes, *todos* los productos usaban el mismo peso/dimensiones fijos sin
+importar qué se estuviera enviando. Coordinadora recalcula el flete real con el peso pesado en
+bodega al despachar — cualquier producto más pesado/grande que el default genérico generaba un
+flete real mayor al cotizado en el checkout, cobrando de más al negocio sobre lo ya cobrado al
+cliente. El default (1kg, 25x25x10cm) se eligió deliberadamente sobredimensionado — mientras el
+admin no cargue el dato real, es preferible sobreestimar el flete (margen a favor del negocio)
+que subestimarlo (pérdida).
+Mientras un producto no tenga estos campos cargados, sigue usando el default (comportamiento legacy,
+sin romper nada) — pero la cotización para ese producto seguirá siendo aproximada.
+
+`QuoteShipping` (cotización en carrito/checkout) resuelve estos campos desde la BD junto con el
+precio, así que el estimado que ve el cliente ya refleja el peso real si está cargado.
+
 ---
 
 ## 10. Servicios de background (colas y reconciliación)

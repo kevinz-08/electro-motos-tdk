@@ -84,6 +84,12 @@ export interface OrderItem {
   productSnapshot?: {
     sku: string
     name: string
+    /** Peso/dimensiones reales embalados. null si el admin no los cargó —
+     *  VendeloService cae a los defaults VENDELO_DEFAULT_* en ese caso. */
+    weightKg?: number | null
+    heightCm?: number | null
+    widthCm?: number | null
+    lengthCm?: number | null
   }
 }
 

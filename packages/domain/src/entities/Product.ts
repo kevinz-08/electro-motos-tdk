@@ -49,6 +49,15 @@ export interface Product {
   images: string[]
   /** Si es false, el producto no aparece en el catálogo público */
   isActive: boolean
+  /** Peso real embalado en kilogramos. null si el admin no lo ha cargado —
+   *  VendeloService usa VENDELO_DEFAULT_WEIGHT_KG como fallback en ese caso. */
+  weightKg: number | null
+  /** Alto real embalado en centímetros. Mismo fallback que weightKg. */
+  heightCm: number | null
+  /** Ancho real embalado en centímetros. Mismo fallback que weightKg. */
+  widthCm: number | null
+  /** Largo real embalado en centímetros. Mismo fallback que weightKg. */
+  lengthCm: number | null
   /** ID de la categoría a la que pertenece (FK hacia Category) */
   categoryId: string
   /** Fecha de creación del registro */

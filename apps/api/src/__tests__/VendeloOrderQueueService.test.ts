@@ -36,7 +36,14 @@ interface OrderRow {
     productId: string
     quantity: number
     priceAtPurchase: number
-    product: { sku: string; name: string }
+    product: {
+      sku: string
+      name: string
+      weightKg?: number | null
+      heightCm?: number | null
+      widthCm?: number | null
+      lengthCm?: number | null
+    }
   }>
 }
 
@@ -160,6 +167,23 @@ describe('VendeloOrderQueueService', () => {
 
     const [domainOrder] = vendeloServiceMock.createOrder.mock.calls[0] as [{ items: Array<{ productSnapshot?: { sku: string; name: string } }> }]
     expect(domainOrder.items[0].productSnapshot).toEqual({ sku: 'SKU-REAL-001', name: 'Bujía NGK' })
+  })
+
+  it('pasa el peso/dimensiones reales del producto en el productSnapshot cuando existen', async () => {
+    prismaMock.client.vendeloOrderQueue.findMany.mockResolvedValue([makeQueueRow()])
+    prismaMock.client.order.findUnique.mockResolvedValue(makeOrderRow({
+      items: [{
+        id: 'item-001', orderId: 'order-001', productId: 'prod-cuid-xyz', quantity: 1, priceAtPurchase: 50_000,
+        product: { sku: 'SKU-REAL-001', name: 'Bujía NGK', weightKg: 3.2, heightCm: 20, widthCm: 15, lengthCm: 30 },
+      }],
+    }))
+
+    await service.processNext()
+
+    const [domainOrder] = vendeloServiceMock.createOrder.mock.calls[0] as [{
+      items: Array<{ productSnapshot?: { weightKg?: number | null; heightCm?: number | null; widthCm?: number | null; lengthCm?: number | null } }>
+    }]
+    expect(domainOrder.items[0].productSnapshot).toMatchObject({ weightKg: 3.2, heightCm: 20, widthCm: 15, lengthCm: 30 })
   })
 
   // ── Causa B: segundo worker agarra la misma fila ─────────────────────────

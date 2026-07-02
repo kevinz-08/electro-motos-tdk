@@ -153,6 +153,12 @@ model Product {
   sku                   String                    @unique
   images                String[]
   isActive              Boolean                   @default(true)
+  /// Peso real del producto embalado — usado en cotización y creación de pedido Vendelo.
+  /// Null hasta que un admin lo cargue; VendeloService cae a VENDELO_DEFAULT_WEIGHT_KG.
+  weightKg              Float?
+  heightCm              Int?
+  widthCm               Int?
+  lengthCm              Int?
   categoryId            String
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt

@@ -41,6 +41,15 @@ export class QuoteShipping {
 
     let cartTotal = 0
 
+    const resolvedItems: Array<{
+      productId: string
+      quantity: number
+      weightKg: number | null
+      heightCm: number | null
+      widthCm: number | null
+      lengthCm: number | null
+    }> = []
+
     for (const item of input.items) {
       if (item.quantity <= 0) {
         return err(new AppError('VALIDATION_ERROR', 'La cantidad debe ser mayor a 0'))
@@ -56,6 +65,14 @@ export class QuoteShipping {
       }
 
       cartTotal += product.price * item.quantity
+      resolvedItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        weightKg: product.weightKg,
+        heightCm: product.heightCm,
+        widthCm: product.widthCm,
+        lengthCm: product.lengthCm,
+      })
     }
 
     const freeShipping = cartTotal >= FREE_SHIPPING_THRESHOLD_CENTS
@@ -68,7 +85,7 @@ export class QuoteShipping {
       const quote = await this.shippingPort.quoteOrder({
         shippingCityCode: input.shippingCityCode,
         shippingSubdivisionCode: input.shippingSubdivisionCode,
-        items: input.items,
+        items: resolvedItems,
         paymentMethod: input.paymentMethod,
       })
       return ok({ quotedShippingTotal: quote.quotedShippingTotal, freeShipping: false })

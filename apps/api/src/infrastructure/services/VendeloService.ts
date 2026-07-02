@@ -170,9 +170,9 @@ export class VendeloService implements IVendeloShippingPort {
     const pickupCityCode = process.env['VENDELO_STORE_CITY_CODE'] ?? '05001000'
     const pickupSubdivision = process.env['VENDELO_STORE_SUBDIVISION_CODE'] ?? '02'
 
-    const defaultWeightKg = parseFloat(process.env['VENDELO_DEFAULT_WEIGHT_KG'] ?? '0.5')
-    const defaultHeight = parseInt(process.env['VENDELO_DEFAULT_HEIGHT_CM'] ?? '10', 10)
-    const defaultWidth = parseInt(process.env['VENDELO_DEFAULT_WIDTH_CM'] ?? '10', 10)
+    const defaultWeightKg = parseFloat(process.env['VENDELO_DEFAULT_WEIGHT_KG'] ?? '1')
+    const defaultHeight = parseInt(process.env['VENDELO_DEFAULT_HEIGHT_CM'] ?? '25', 10)
+    const defaultWidth = parseInt(process.env['VENDELO_DEFAULT_WIDTH_CM'] ?? '25', 10)
     const defaultLength = parseInt(process.env['VENDELO_DEFAULT_LENGTH_CM'] ?? '10', 10)
 
     const body: VendeloCreateOrderBody = {
@@ -214,11 +214,14 @@ export class VendeloService implements IVendeloShippingPort {
         sku: item.productSnapshot?.sku ?? item.productId,
         quantity: item.quantity,
         unit_price: item.priceAtPurchase / 100,
-        weight: defaultWeightKg,
+        // Peso/dimensiones reales del producto si el admin los cargó — si no,
+        // caemos al default genérico (ver comentario en class doc: causa de
+        // discrepancia entre el flete cotizado y el flete real cobrado por Vendelo).
+        weight: item.productSnapshot?.weightKg ?? defaultWeightKg,
         weight_unit: 'kg' as const,
-        height: defaultHeight,
-        width: defaultWidth,
-        length: defaultLength,
+        height: item.productSnapshot?.heightCm ?? defaultHeight,
+        width: item.productSnapshot?.widthCm ?? defaultWidth,
+        length: item.productSnapshot?.lengthCm ?? defaultLength,
         dimensions_unit: 'cm' as const,
       })),
       payment_method_code: order.paymentProvider === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT',
@@ -244,9 +247,9 @@ export class VendeloService implements IVendeloShippingPort {
     const pickupCityCode = process.env['VENDELO_STORE_CITY_CODE'] ?? '05001000'
     const pickupSubdivision = process.env['VENDELO_STORE_SUBDIVISION_CODE'] ?? '02'
 
-    const defaultWeightKg = parseFloat(process.env['VENDELO_DEFAULT_WEIGHT_KG'] ?? '0.5')
-    const defaultHeight = parseInt(process.env['VENDELO_DEFAULT_HEIGHT_CM'] ?? '10', 10)
-    const defaultWidth = parseInt(process.env['VENDELO_DEFAULT_WIDTH_CM'] ?? '10', 10)
+    const defaultWeightKg = parseFloat(process.env['VENDELO_DEFAULT_WEIGHT_KG'] ?? '1')
+    const defaultHeight = parseInt(process.env['VENDELO_DEFAULT_HEIGHT_CM'] ?? '25', 10)
+    const defaultWidth = parseInt(process.env['VENDELO_DEFAULT_WIDTH_CM'] ?? '25', 10)
     const defaultLength = parseInt(process.env['VENDELO_DEFAULT_LENGTH_CM'] ?? '10', 10)
 
     const body: VendeloQuotationBody = {
@@ -263,11 +266,13 @@ export class VendeloService implements IVendeloShippingPort {
         postal_code: '',
       },
       line_items: input.items.map((item) => ({
-        weight: defaultWeightKg,
+        // Mismo criterio que createOrder(): peso/dimensiones reales del producto si
+        // existen, si no el default genérico configurado por env var.
+        weight: item.weightKg ?? defaultWeightKg,
         weight_unit: 'kg' as const,
-        height: defaultHeight,
-        width: defaultWidth,
-        length: defaultLength,
+        height: item.heightCm ?? defaultHeight,
+        width: item.widthCm ?? defaultWidth,
+        length: item.lengthCm ?? defaultLength,
         dimensions_unit: 'cm' as const,
         quantity: item.quantity,
       })),

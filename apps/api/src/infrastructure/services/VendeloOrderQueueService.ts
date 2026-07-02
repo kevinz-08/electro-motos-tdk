@@ -66,7 +66,15 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
       try {
         const order = await this.prisma.client.order.findUnique({
           where: { id: item.orderId },
-          include: { items: { include: { product: { select: { sku: true, name: true } } } } },
+          include: {
+            items: {
+              include: {
+                product: {
+                  select: { sku: true, name: true, weightKg: true, heightCm: true, widthCm: true, lengthCm: true },
+                },
+              },
+            },
+          },
         })
 
         if (!order) {
@@ -118,7 +126,14 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
             productId: i.productId,
             quantity: i.quantity,
             priceAtPurchase: i.priceAtPurchase,
-            productSnapshot: { sku: i.product.sku, name: i.product.name },
+            productSnapshot: {
+              sku: i.product.sku,
+              name: i.product.name,
+              weightKg: i.product.weightKg,
+              heightCm: i.product.heightCm,
+              widthCm: i.product.widthCm,
+              lengthCm: i.product.lengthCm,
+            },
           })),
         } as import('@h2r/domain').Order
 

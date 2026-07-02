@@ -36,6 +36,10 @@ function toDomain(
     sku: p.sku,
     images: p.images,        // array de URLs de Cloudinary
     isActive: p.isActive,
+    weightKg: p.weightKg,
+    heightCm: p.heightCm,
+    widthCm: p.widthCm,
+    lengthCm: p.lengthCm,
     categoryId: p.categoryId,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
@@ -212,6 +216,10 @@ export class PrismaProductRepository implements IProductRepository {
         sku: data.sku,
         images: data.images,
         isActive: data.isActive,
+        weightKg: data.weightKg ?? null,
+        heightCm: data.heightCm ?? null,
+        widthCm: data.widthCm ?? null,
+        lengthCm: data.lengthCm ?? null,
         categoryId: data.categoryId,
         compatible: data.compatible
           // Omitimos el id al crear — Prisma genera uno nuevo
@@ -239,6 +247,10 @@ export class PrismaProductRepository implements IProductRepository {
         ...(data.sku !== undefined && { sku: data.sku }),
         ...(data.images !== undefined && { images: data.images }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.weightKg !== undefined && { weightKg: data.weightKg }),
+        ...(data.heightCm !== undefined && { heightCm: data.heightCm }),
+        ...(data.widthCm !== undefined && { widthCm: data.widthCm }),
+        ...(data.lengthCm !== undefined && { lengthCm: data.lengthCm }),
         ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
       },
       include: { compatible: true },

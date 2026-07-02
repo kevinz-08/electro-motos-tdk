@@ -18,6 +18,10 @@ function makeProduct(overrides?: Partial<Product>): Product {
     sku: 'BAT-12V',
     images: [],
     isActive: true,
+    weightKg: null,
+    heightCm: null,
+    widthCm: null,
+    lengthCm: null,
     categoryId: 'cat-1',
     createdAt: new Date('2025-01-01'),
     updatedAt: new Date('2025-01-01'),
@@ -52,9 +56,25 @@ describe('QuoteShipping', () => {
     expect(shippingPort.quoteOrder).toHaveBeenCalledWith({
       shippingCityCode: '11001000',
       shippingSubdivisionCode: '11',
-      items: BASE_INPUT.items,
+      items: [{ productId: 'prod-1', quantity: 1, weightKg: null, heightCm: null, widthCm: null, lengthCm: null }],
       paymentMethod: 'EXTERNAL_PAYMENT',
     })
+  })
+
+  it('pasa el peso/dimensiones reales del producto al shippingPort cuando existen', async () => {
+    const product = makeProduct({ weightKg: 3.2, heightCm: 20, widthCm: 15, lengthCm: 30 })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const shippingPort = {
+      quoteOrder: vi.fn().mockResolvedValue({ quotedShippingTotal: 900000, assumedShippingTotal: 0 }),
+    } as unknown as IVendeloShippingPort
+
+    await new QuoteShipping(productRepo, shippingPort).execute(BASE_INPUT)
+
+    expect(shippingPort.quoteOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [{ productId: 'prod-1', quantity: 1, weightKg: 3.2, heightCm: 20, widthCm: 15, lengthCm: 30 }],
+      }),
+    )
   })
 
   it('retorna VALIDATION_ERROR si items está vacío', async () => {

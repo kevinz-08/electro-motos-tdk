@@ -13,6 +13,7 @@ type PrismaRow = {
   id: string; name: string; slug: string; description: string
   price: number; stock: number; sku: string; images: string[]
   isActive: boolean; categoryId: string; createdAt: Date; updatedAt: Date
+  weightKg: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null
 }
 
 function toDomain(p: PrismaRow): Product {
@@ -20,6 +21,7 @@ function toDomain(p: PrismaRow): Product {
     id: p.id, name: p.name, slug: p.slug, description: p.description,
     price: p.price, stock: p.stock, sku: p.sku, images: p.images,
     isActive: p.isActive, categoryId: p.categoryId,
+    weightKg: p.weightKg, heightCm: p.heightCm, widthCm: p.widthCm, lengthCm: p.lengthCm,
     createdAt: p.createdAt, updatedAt: p.updatedAt,
   }
 }

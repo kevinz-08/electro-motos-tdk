@@ -200,7 +200,10 @@ describe('VendeloService — createOrder', () => {
     )
   })
 
-  it('modo híbrido (WOMPI + shippingCod:true): payment_method_code COD con unit_price en 0 (producto ya pagado)', async () => {
+  it('modo híbrido (WOMPI + shippingCod:true): payment_method_code COD con unit_price real y descuento del subtotal', async () => {
+    // Vendelo rechaza (500 "invalid values") un pedido COD con unit_price:0 —
+    // probado en producción. El recaudo neto se anula con `discounts`, no con
+    // unit_price:0. Ver comentario en VendeloService.createOrder().
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
@@ -210,9 +213,22 @@ describe('VendeloService — createOrder', () => {
       '/v1/admin/orders',
       expect.objectContaining({
         payment_method_code: 'COD',
-        line_items: [expect.objectContaining({ unit_price: 0 })],
+        line_items: [expect.objectContaining({ unit_price: 25000 })],
+        discounts: [expect.objectContaining({ amount: 50000 })], // 25000 * quantity 2
       }),
       expect.anything(),
     )
+  })
+
+  it('COD total y pago 100% online no agregan descuentos (discounts vacío)', async () => {
+    const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
+    const service = new VendeloService(http)
+
+    await service.createOrder(makeOrder({ paymentProvider: 'COD', shippingCod: false }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: false }), 'cliente@test.com')
+
+    for (const call of (http.post as ReturnType<typeof vi.fn>).mock.calls) {
+      expect((call[1] as { discounts: unknown[] }).discounts).toEqual([])
+    }
   })
 })

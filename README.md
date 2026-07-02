@@ -686,7 +686,8 @@ SHIPPING_ONLINE_ENABLED=true (default)       → shippingCod=false, todo pagado 
 paymentProvider=WOMPI/MP,
 SHIPPING_ONLINE_ENABLED=false, COD_ENABLED=true → shippingCod=true forzado — producto pagado en línea,
                                                 flete contraentrega (payment_method_code: 'COD',
-                                                unit_price: 0 en los line_items)
+                                                unit_price real + discounts anula el subtotal —
+                                                NUNCA unit_price:0, Vendelo lo rechaza con 500)
 paymentProvider=WOMPI/MP,
 SHIPPING_ONLINE_ENABLED=false, COD_ENABLED=false → shippingCod=false — degrada a flete online en vez
                                                 de bloquear el checkout (el repartidor no puede
@@ -703,6 +704,13 @@ El flujo de vida del pedido híbrido es idéntico al 100% online (`PENDING` → 
 pedido, solo qué le dice `VendeloService.createOrder()` a Vendelo sobre el recaudo. El panel admin
 (`/admin/pedidos` y el modal de detalle) muestra un badge "Flete contraentrega" quemado en ámbar
 para distinguirlo de COD total.
+
+**⚠️ Schema de `discounts` no verificado con Vendelo.** `API_VENDELO_DOCUMENTACION.md` no documenta
+los campos de `ApiCreateOrderDiscount` — `{ description, amount }` es una suposición razonable, no
+confirmada. Probado en producción: `unit_price: 0` en un pedido `payment_method_code: 'COD'` es
+rechazado por Vendelo (`500 "The entity Order has invalid values"`) — por eso se usa `discounts`
+para anular el subtotal en vez de declarar el producto en $0. Pendiente: repetir la prueba
+end-to-end con el fix y, si Vendelo también rechaza `discounts`, pedirle a soporte el shape exacto.
 
 ---
 

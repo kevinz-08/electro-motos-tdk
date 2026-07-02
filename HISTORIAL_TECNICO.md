@@ -4,6 +4,57 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 111. Fallback seguro — modo híbrido pausado hasta confirmar el campo de recaudo con Vendelo
+
+**Contexto:** el segundo intento (#110, usando `discounts` para anular el subtotal) también fue
+rechazado por Vendelo, esta vez con `404 "El tipo de descuento no es válido"`. Se escaló a soporte
+de Vendelo con el error exacto. Su respuesta confirmó dos cosas:
+
+1. **`discounts` no es el mecanismo correcto** — dijeron explícitamente "no uses el campo
+   discounts para ajustar el subtotal a cero".
+2. La forma soportada es crear el pedido con `payment_method_code: 'COD'` pero fijando el **monto
+   a recaudar** (no el `unit_price` del producto) igual solo al valor del flete — pero **no dieron
+   el nombre real del campo**, solo sugirieron variantes sin confirmar
+   (`amount_to_collect`, `amount_recaudo`, "o campo equivalente"). Ofrecieron escalar a un
+   especialista técnico para el JSON exacto.
+
+**Decisión:** no se intentó un tercer campo a ciegas. Razón: si se envía `payment_method_code: 'COD'`
+con `unit_price` real y sin ningún mecanismo de recaudo parcial, Vendelo recaudaría el
+**subtotal completo + flete** en la entrega — un pedido híbrido cuyo producto el cliente ya pagó
+en línea terminaría cobrándose en efectivo otra vez. Es un riesgo de doble cobro real al cliente,
+no solo un pedido que falla silenciosamente (que era el peor caso hasta ahora).
+
+**Fix (fallback temporal):** `VendeloService.createOrder()` deja de traducir `order.shippingCod`
+a `payment_method_code: 'COD'`. Mientras no se confirme el campo real:
+
+```ts
+payment_method_code: order.paymentProvider === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT'
+// shippingCod ya no participa acá
+```
+
+Efecto práctico: los pedidos híbridos (`shippingCod: true`) se envían a Vendelo como pago 100% en
+línea — el negocio vuelve a asumir el costo del flete desde su billetera (comportamiento previo a
+la entrada #108), pero **nadie le cobra de más al cliente**. El campo `Order.shippingCod` sigue
+existiendo, persistiéndose y mostrándose en el admin (badge "Flete contraentrega") — la UI/toggle
+de admin no cambia, solo la traducción hacia Vendelo queda pausada.
+
+**Pendiente — desbloquea el modo híbrido real:**
+
+1. Aceptar la escalación de Vendelo a soporte técnico avanzado y obtener el JSON/nombre de campo exacto.
+2. Actualizar `VendeloService.createOrder()` con el campo real una vez confirmado.
+3. Reencolar manualmente los pedidos huérfanos que quedaron `FAILED` en `VendeloOrderQueue`
+   durante las pruebas de #110/#111 (stock ya descontado, `PAID`/`APPROVED`, pero sin
+   `vendeloOrderId` — no se reintentan solos).
+
+**Tests:** `VendeloService.test.ts` actualizado — el test de "modo híbrido" ahora confirma
+`EXTERNAL_PAYMENT` + `discounts: []` (no `COD`). `pnpm --filter @h2r/api test` (169/169 ✅).
+
+**Rama:** `fix/vendelo-hybrid-safe-fallback`.
+
+*Última actualización: 2026-07-02*
+
+---
+
 ## 110. Fix real de producción — Vendelo rechaza unit_price:0 en pedidos COD
 
 **Contexto:** el usuario probó el modo híbrido en producción (checkout real: pago en línea +

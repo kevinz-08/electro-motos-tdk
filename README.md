@@ -705,12 +705,20 @@ pedido, solo qué le dice `VendeloService.createOrder()` a Vendelo sobre el reca
 (`/admin/pedidos` y el modal de detalle) muestra un badge "Flete contraentrega" quemado en ámbar
 para distinguirlo de COD total.
 
-**⚠️ Schema de `discounts` no verificado con Vendelo.** `API_VENDELO_DOCUMENTACION.md` no documenta
-los campos de `ApiCreateOrderDiscount` — `{ description, amount }` es una suposición razonable, no
-confirmada. Probado en producción: `unit_price: 0` en un pedido `payment_method_code: 'COD'` es
-rechazado por Vendelo (`500 "The entity Order has invalid values"`) — por eso se usa `discounts`
-para anular el subtotal en vez de declarar el producto en $0. Pendiente: repetir la prueba
-end-to-end con el fix y, si Vendelo también rechaza `discounts`, pedirle a soporte el shape exacto.
+**⚠️ PAUSADO — el recaudo del modo híbrido no está implementado todavía en Vendelo.** Se probaron
+en producción dos formas de limitar el recaudo COD solo al flete, y Vendelo rechazó ambas:
+`unit_price: 0` en los `line_items` (`500 "The entity Order has invalid values"`) y `discounts`
+para anular el subtotal (`404 "El tipo de descuento no es válido"`, y soporte confirmó
+explícitamente que `discounts` no es el mecanismo correcto). Soporte de Vendelo indicó que existe
+un campo de "monto a recaudar" separado del `unit_price`, pero no confirmó el nombre exacto
+(mencionaron `amount_to_collect`/`amount_recaudo`/"campo equivalente", sin certeza) — se escaló a
+soporte técnico avanzado para obtener el JSON real.
+
+**Fallback de seguridad activo:** hasta confirmar el campo real, `VendeloService.createOrder()`
+**ignora `order.shippingCod`** y envía todo pedido no-COD como `EXTERNAL_PAYMENT` — el negocio
+asume el flete desde su billetera (comportamiento previo a este feature), pero nunca se le cobra
+de más al cliente. `Order.shippingCod` se sigue persistiendo y mostrando en el admin; solo la
+traducción hacia Vendelo queda pausada. Ver `HISTORIAL_TECNICO.md` #111.
 
 ---
 

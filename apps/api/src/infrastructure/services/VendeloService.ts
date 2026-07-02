@@ -229,19 +229,10 @@ export class VendeloService implements IVendeloShippingPort {
         length: item.productSnapshot?.lengthCm ?? defaultLength,
         dimensions_unit: 'cm' as const,
       })),
-      // FALLBACK TEMPORAL (ver HISTORIAL_TECNICO.md #111): el modo híbrido
-      // (order.shippingCod) debería declarar payment_method_code:'COD' con un
-      // recaudo limitado solo al flete, pero soporte de Vendelo confirmó que
-      // `unit_price:0` y `discounts` (nuestros dos intentos) están mal — y no
-      // dieron el nombre real del campo de "monto a recaudar" (mencionaron
-      // "amount_to_collect, amount_recaudo, o campo equivalente" sin confirmar
-      // cuál). Hasta tener el campo real confirmado, NO tratamos shippingCod
-      // como COD: si lo hiciéramos con unit_price real y sin descuento,
-      // Coordinadora recaudaría el producto EN EFECTIVO otra vez encima del
-      // pago online ya hecho — un doble cobro real al cliente. Mientras tanto,
-      // shippingCod se ignora acá y el pedido va como EXTERNAL_PAYMENT
-      // (el negocio asume el flete desde la billetera, comportamiento previo
-      // a esta función) — sigue siendo 100% seguro para el cliente.
+      // El flete de pedidos no-COD siempre se paga desde la billetera del negocio
+      // ante Vendelo (EXTERNAL_PAYMENT) — ese costo se recupera del cliente sumándolo
+      // al cobro de Wompi/MercadoPago en CreateOrder.execute() (ver Order.shippingTotal),
+      // no acá. Este servicio no necesita saber si el flete se cobró en línea o no.
       payment_method_code: order.paymentProvider === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT',
       external_order_id: order.id,
       confirmation_status: 'CONFIRMED',

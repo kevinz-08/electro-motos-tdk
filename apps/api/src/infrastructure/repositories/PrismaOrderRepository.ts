@@ -19,7 +19,7 @@ import { PrismaService } from '../database/prisma.service'
 
 type PrismaOrderRow = {
   id: string; userId: string; status: string; total: number
-  shippingAddress: unknown; paymentProvider: string; shippingCod: boolean; createdAt: Date
+  shippingAddress: unknown; paymentProvider: string; shippingTotal: number; createdAt: Date
   buyerIdType: string; buyerIdNumber: string; buyerBusinessName: string | null
   items?: Array<{ id: string; orderId: string; productId: string; quantity: number; priceAtPurchase: number }>
   payment?: { id: string; orderId: string; provider: string; externalId: string | null; status: string; amount: number; createdAt: Date } | null
@@ -53,6 +53,7 @@ function toDomain(o: PrismaOrderRow): Order {
     userId: o.userId,
     status: o.status as OrderStatus,
     total: o.total,
+    shippingTotal: o.shippingTotal,
     shippingAddress: o.shippingAddress as unknown as ShippingAddress,
     buyer: {
       idType: o.buyerIdType as BuyerIdType,
@@ -60,7 +61,6 @@ function toDomain(o: PrismaOrderRow): Order {
       businessName: o.buyerBusinessName ?? undefined,
     },
     paymentProvider: o.paymentProvider as PaymentProvider,
-    shippingCod: o.shippingCod,
     createdAt: o.createdAt,
     items: o.items?.map(toDomainItem),
     payment: o.payment ? toDomainPayment(o.payment) : undefined,
@@ -113,7 +113,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         buyerIdNumber: input.buyer.idNumber,
         buyerBusinessName: input.buyer.businessName ?? null,
         paymentProvider: input.paymentProvider,
-        shippingCod: input.shippingCod,
+        shippingTotal: input.shippingTotal,
         items: { create: input.items },
         payment: {
           create: { provider: input.paymentProvider, amount: input.total },
@@ -136,7 +136,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           buyerIdNumber: input.buyer.idNumber,
           buyerBusinessName: input.buyer.businessName ?? null,
           paymentProvider: input.paymentProvider,
-          shippingCod: input.shippingCod,
+          shippingTotal: input.shippingTotal,
           items: { create: input.items },
           payment: {
             create: { provider: input.paymentProvider, amount: input.total, status: 'APPROVED' },

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { CreateOrder } from '@/domain/use-cases/orders/CreateOrder'
+import { QuoteShipping } from '@/domain/use-cases/shipping/QuoteShipping'
+import { ok, err, AppError } from '@/domain/shared/Result'
 import type { IOrderRepository } from '@/domain/repositories/IOrderRepository'
 import type { IProductRepository } from '@/domain/repositories/IProductRepository'
 import type { IPaymentService } from '@/domain/services/IPaymentService'
@@ -45,7 +47,7 @@ function makeOrder(overrides?: Partial<Order>): Order {
     },
     buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
-    shippingCod: false,
+    shippingTotal: 0,
     createdAt: new Date('2025-01-01'),
     ...overrides,
   }
@@ -57,7 +59,14 @@ const SHIPPING = {
   city: 'Bogotá',
   department: 'Cundinamarca',
   phone: '3001234567',
+  cityCode: '11001000',
+  subdivisionCode: '11',
 } as const
+
+/** Mock mínimo de QuoteShipping — evita instanciar la clase real con sus dependencias. */
+function makeQuoteShippingMock(result: Awaited<ReturnType<QuoteShipping['execute']>>) {
+  return { execute: vi.fn().mockResolvedValue(result) } as unknown as QuoteShipping
+}
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -248,62 +257,129 @@ describe('CreateOrder', () => {
     if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  it('shippingCod: pasa el flag a orderRepo.create y sigue el flujo online normal (PENDING, con pasarela)', async () => {
+  // ── chargeShippingOnline: sumar el flete cotizado al cobro online ──────────
+
+  it('chargeShippingOnline: suma el flete cotizado al total y lo persiste en shippingTotal', async () => {
     const product = makeProduct()
-    const order = makeOrder({ total: product.price * 2, shippingCod: true })
-
-    const productRepo = {
-      findById: vi.fn().mockResolvedValue(product),
-    } as unknown as IProductRepository
-
+    const order = makeOrder({ total: product.price * 2 + 9000, shippingTotal: 9000 })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
     const create = vi.fn().mockResolvedValue(order)
     const orderRepo = { create } as unknown as IOrderRepository
-
     const paymentService = {
       createTransaction: vi.fn().mockResolvedValue({
         externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
         amountInCents: order.total, currency: 'COP',
       }),
     } as unknown as IPaymentService
+    const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 9000, freeShipping: false }))
 
-    const result = await new CreateOrder(orderRepo, productRepo, paymentService).execute({
+    const result = await new CreateOrder(orderRepo, productRepo, paymentService, quoteShipping).execute({
       userId: 'user-1',
       items: [{ productId: 'prod-1', quantity: 2 }],
       shippingAddress: SHIPPING,
       buyer: { idType: 'CC', idNumber: '1000123456' },
       paymentProvider: 'WOMPI',
-      shippingCod: true,
+      chargeShippingOnline: true,
     })
 
     expect(result.ok).toBe(true)
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: true }))
-    expect(paymentService.createTransaction).toHaveBeenCalled()
+    if (result.ok) expect(result.value.shippingQuoteFallback).toBe(false)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      total: product.price * 2 + 9000,
+      shippingTotal: 9000,
+    }))
   })
 
-  it('retorna err(VALIDATION_ERROR) cuando shippingCod:true se combina con paymentProvider COD', async () => {
-    const result = await new CreateOrder(
-      {} as IOrderRepository,
-      { findById: vi.fn() } as unknown as IProductRepository,
-      {} as IPaymentService,
-    ).execute({
+  it('chargeShippingOnline: freeShipping deja shippingTotal en 0', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+    const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 0, freeShipping: true }))
+
+    await new CreateOrder(orderRepo, productRepo, paymentService, quoteShipping).execute({
       userId: 'user-1',
       items: [{ productId: 'prod-1', quantity: 1 }],
       shippingAddress: SHIPPING,
       buyer: { idType: 'CC', idNumber: '1000123456' },
-      paymentProvider: 'COD',
-      shippingCod: true,
+      paymentProvider: 'WOMPI',
+      chargeShippingOnline: true,
     })
 
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ shippingTotal: 0, total: product.price }))
   })
 
-  it('shippingCod por defecto es false cuando no se envía', async () => {
+  it('chargeShippingOnline: si QuoteShipping falla, degrada a shippingTotal 0 y marca shippingQuoteFallback', async () => {
     const product = makeProduct()
     const order = makeOrder({ total: product.price })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
     const create = vi.fn().mockResolvedValue(order)
     const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+    const quoteShipping = makeQuoteShippingMock(err(new AppError('INTERNAL_ERROR', 'Vendelo caído')))
+
+    const result = await new CreateOrder(orderRepo, productRepo, paymentService, quoteShipping).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+      chargeShippingOnline: true,
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.shippingQuoteFallback).toBe(true)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ shippingTotal: 0 }))
+  })
+
+  it('chargeShippingOnline: sin cityCode/subdivisionCode degrada a shippingTotal 0 sin llamar a QuoteShipping', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price })
     const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+    const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 9000, freeShipping: false }))
+    const incompleteAddress = { ...SHIPPING, cityCode: undefined, subdivisionCode: undefined }
+
+    const result = await new CreateOrder(orderRepo, productRepo, paymentService, quoteShipping).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: incompleteAddress,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+      chargeShippingOnline: true,
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.shippingQuoteFallback).toBe(true)
+    expect(quoteShipping.execute).not.toHaveBeenCalled()
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ shippingTotal: 0 }))
+  })
+
+  it('chargeShippingOnline: sin quoteShipping inyectado (constructor de 3 args) degrada sin lanzar', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
     const paymentService = {
       createTransaction: vi.fn().mockResolvedValue({
         externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
@@ -311,14 +387,69 @@ describe('CreateOrder', () => {
       }),
     } as unknown as IPaymentService
 
-    await new CreateOrder(orderRepo, productRepo, paymentService).execute({
+    // Sin 4º argumento — mismo patrón que el resto de los tests de este archivo.
+    const result = await new CreateOrder(orderRepo, productRepo, paymentService).execute({
       userId: 'user-1',
       items: [{ productId: 'prod-1', quantity: 1 }],
       shippingAddress: SHIPPING,
       buyer: { idType: 'CC', idNumber: '1000123456' },
       paymentProvider: 'WOMPI',
+      chargeShippingOnline: true,
     })
 
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: false }))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.shippingQuoteFallback).toBe(true)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ shippingTotal: 0 }))
+  })
+
+  it('chargeShippingOnline: el tope maxShippingChargeCents recorta el monto cotizado', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price + 5000, shippingTotal: 5000 })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+    const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 50000, freeShipping: false }))
+
+    await new CreateOrder(orderRepo, productRepo, paymentService, quoteShipping).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+      chargeShippingOnline: true,
+      maxShippingChargeCents: 5000,
+    })
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      shippingTotal: 5000,
+      total: product.price + 5000,
+    }))
+  })
+
+  it('paymentProvider COD con chargeShippingOnline:true igual deja shippingTotal en 0 (guard explícito)', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price, paymentProvider: 'COD', status: 'PAID' })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const createPaidOrder = vi.fn().mockResolvedValue(order)
+    const orderRepo = { createPaidOrder } as unknown as IOrderRepository
+    const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 9000, freeShipping: false }))
+
+    await new CreateOrder(orderRepo, productRepo, {} as IPaymentService, quoteShipping).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'COD',
+      chargeShippingOnline: true,
+    })
+
+    expect(quoteShipping.execute).not.toHaveBeenCalled()
+    expect(createPaidOrder).toHaveBeenCalledWith(expect.objectContaining({ shippingTotal: 0 }))
   })
 })

@@ -20,7 +20,7 @@ function makePendingOrder(overrides?: Partial<Order>): Order {
     },
     buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
-    shippingCod: false,
+    shippingTotal: 0,
     createdAt: new Date('2025-01-01'),
     items: [
       { id: 'item-1', orderId: 'order-1', productId: 'prod-1', quantity: 2, priceAtPurchase: 2500000 },

@@ -32,7 +32,7 @@ function makeOrder(overrides?: Partial<Order>): Order {
     },
     buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
-    shippingCod: false,
+    shippingTotal: 0,
     createdAt: new Date('2025-01-01'),
     items: [{
       id: 'item-1', orderId: 'order-1', productId: 'prod-1', quantity: 2, priceAtPurchase: 2500000,
@@ -168,11 +168,11 @@ describe('VendeloService — createOrder', () => {
     delete process.env['VENDELO_STORE_SUBDIVISION_CODE']
   })
 
-  it('pago 100% online (WOMPI, shippingCod false): EXTERNAL_PAYMENT con el precio real del producto', async () => {
+  it('pago 100% online (WOMPI): EXTERNAL_PAYMENT con el precio real del producto', async () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
-    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: false }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI' }), 'cliente@test.com')
 
     expect(http.post).toHaveBeenCalledWith(
       '/v1/admin/orders',
@@ -188,7 +188,7 @@ describe('VendeloService — createOrder', () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
-    await service.createOrder(makeOrder({ paymentProvider: 'COD', shippingCod: false }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'COD' }), 'cliente@test.com')
 
     expect(http.post).toHaveBeenCalledWith(
       '/v1/admin/orders',
@@ -200,36 +200,24 @@ describe('VendeloService — createOrder', () => {
     )
   })
 
-  it('FALLBACK TEMPORAL: modo híbrido (shippingCod:true) se envía como EXTERNAL_PAYMENT, no COD', async () => {
-    // Soporte de Vendelo confirmó que unit_price:0 (intento 1) y discounts
-    // (intento 2) están mal, y no dio el nombre real del campo de recaudo.
-    // Hasta tenerlo confirmado, shippingCod se ignora en VendeloService para
-    // evitar que Coordinadora recaude el producto en efectivo otra vez encima
-    // del pago online ya hecho (doble cobro real al cliente). Ver
-    // HISTORIAL_TECNICO.md #111.
+  it('payment_method_code no depende de shippingTotal — el flete cobrado en línea no cambia cómo se le habla a Vendelo', async () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
-    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: true }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingTotal: 0 }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingTotal: 9000, total: 259000 }), 'cliente@test.com')
 
-    expect(http.post).toHaveBeenCalledWith(
-      '/v1/admin/orders',
-      expect.objectContaining({
-        payment_method_code: 'EXTERNAL_PAYMENT',
-        line_items: [expect.objectContaining({ unit_price: 25000 })],
-        discounts: [],
-      }),
-      expect.anything(),
-    )
+    for (const call of (http.post as ReturnType<typeof vi.fn>).mock.calls) {
+      expect((call[1] as { payment_method_code: string }).payment_method_code).toBe('EXTERNAL_PAYMENT')
+    }
   })
 
   it('discounts siempre vacío, sin importar el modo', async () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
-    await service.createOrder(makeOrder({ paymentProvider: 'COD', shippingCod: false }), 'cliente@test.com')
-    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: false }), 'cliente@test.com')
-    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: true }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'COD' }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI' }), 'cliente@test.com')
 
     for (const call of (http.post as ReturnType<typeof vi.fn>).mock.calls) {
       expect((call[1] as { discounts: unknown[] }).discounts).toEqual([])

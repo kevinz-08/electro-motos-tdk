@@ -156,21 +156,24 @@ export interface Order {
   userId: string
   /** Estado actual del ciclo de vida del pedido */
   status: OrderStatus
-  /** Total del pedido en centavos COP (suma de priceAtPurchase × quantity de cada ítem) */
+  /**
+   * Total cobrado/adeudado en centavos COP: suma de priceAtPurchase × quantity de
+   * cada ítem, más `shippingTotal` cuando el flete se cobró en línea. Para COD o
+   * cuando el flete no se cobra en línea, es solo el subtotal de productos.
+   */
   total: number
+  /**
+   * Componente de flete en centavos COP incluido en `total`. 0 = el negocio absorbió
+   * el flete (pedido COD, toggle SHIPPING_ONLINE_ENABLED desactivado, o falla al
+   * cotizar — ver CreateOrder.execute()).
+   */
+  shippingTotal: number
   /** Dirección de envío serializada como JSON en la base de datos */
   shippingAddress: ShippingAddress
   /** Identificación tributaria del comprador (para comprobante y Vendelo) */
   buyer: BuyerInfo
   /** Pasarela de pago seleccionada en el checkout */
   paymentProvider: PaymentProvider
-  /**
-   * true = el producto se paga por paymentProvider (WOMPI/MERCADO_PAGO) pero el flete se
-   * paga en efectivo al repartidor de Vendelo, en vez de descontarse de la billetera del
-   * negocio. Ortogonal a paymentProvider — siempre false cuando paymentProvider es 'COD'
-   * (el pedido entero ya es contraentrega, el flag sería redundante).
-   */
-  shippingCod: boolean
   /** Fecha de creación del pedido */
   createdAt: Date
   /** Ítems del pedido. Opcional — depende de si el query los incluye (include: { items: true }) */

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { VendeloService } from '../infrastructure/services/VendeloService'
 import type { VendeloHttpClient } from '../infrastructure/services/VendeloHttpClient'
-import type { VendeloQuoteInput } from '@h2r/domain'
+import type { VendeloQuoteInput, Order } from '@h2r/domain'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -14,6 +14,32 @@ const BASE_INPUT: VendeloQuoteInput = {
 
 function makeHttpClientMock(response: unknown) {
   return { post: vi.fn().mockResolvedValue(response) } as unknown as VendeloHttpClient
+}
+
+function makeOrder(overrides?: Partial<Order>): Order {
+  return {
+    id: 'order-1',
+    userId: 'user-1',
+    status: 'PENDING',
+    total: 5000000,
+    shippingAddress: {
+      fullName: 'Carlos Pérez',
+      address: 'Calle 123 #45-67',
+      city: 'Bogotá',
+      phone: '3001234567',
+      cityCode: '11001000',
+      subdivisionCode: '11',
+    },
+    buyer: { idType: 'CC', idNumber: '1000123456' },
+    paymentProvider: 'WOMPI',
+    shippingCod: false,
+    createdAt: new Date('2025-01-01'),
+    items: [{
+      id: 'item-1', orderId: 'order-1', productId: 'prod-1', quantity: 2, priceAtPurchase: 2500000,
+      productSnapshot: { sku: 'SKU-1', name: 'Bujía NGK' },
+    }],
+    ...overrides,
+  }
 }
 
 describe('VendeloService — quoteOrder', () => {
@@ -126,6 +152,67 @@ describe('VendeloService — quoteOrder', () => {
       expect.objectContaining({
         line_items: [expect.objectContaining({ weight: 3.2, height: 20, width: 15, length: 30 })],
       }),
+    )
+  })
+})
+
+describe('VendeloService — createOrder', () => {
+  beforeEach(() => {
+    process.env['VENDELO_STORE_CITY_CODE'] = '05001000'
+    process.env['VENDELO_STORE_SUBDIVISION_CODE'] = '02'
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    delete process.env['VENDELO_STORE_CITY_CODE']
+    delete process.env['VENDELO_STORE_SUBDIVISION_CODE']
+  })
+
+  it('pago 100% online (WOMPI, shippingCod false): EXTERNAL_PAYMENT con el precio real del producto', async () => {
+    const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
+    const service = new VendeloService(http)
+
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: false }), 'cliente@test.com')
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/v1/admin/orders',
+      expect.objectContaining({
+        payment_method_code: 'EXTERNAL_PAYMENT',
+        line_items: [expect.objectContaining({ unit_price: 25000 })], // 2500000 centavos / 100
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('COD total: payment_method_code COD con el precio real del producto (recauda todo)', async () => {
+    const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
+    const service = new VendeloService(http)
+
+    await service.createOrder(makeOrder({ paymentProvider: 'COD', shippingCod: false }), 'cliente@test.com')
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/v1/admin/orders',
+      expect.objectContaining({
+        payment_method_code: 'COD',
+        line_items: [expect.objectContaining({ unit_price: 25000 })],
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('modo híbrido (WOMPI + shippingCod:true): payment_method_code COD con unit_price en 0 (producto ya pagado)', async () => {
+    const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
+    const service = new VendeloService(http)
+
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: true }), 'cliente@test.com')
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/v1/admin/orders',
+      expect.objectContaining({
+        payment_method_code: 'COD',
+        line_items: [expect.objectContaining({ unit_price: 0 })],
+      }),
+      expect.anything(),
     )
   })
 })

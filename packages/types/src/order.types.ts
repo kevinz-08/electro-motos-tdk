@@ -52,6 +52,8 @@ export interface OrderResponse {
   total: number
   shippingAddress: ShippingAddress
   paymentProvider: PaymentProvider
+  /** true = producto pagado por paymentProvider, flete contraentrega. */
+  shippingCod: boolean
   items: OrderItemResponse[]
   createdAt: string
   updatedAt?: string

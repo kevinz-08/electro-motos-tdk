@@ -33,6 +33,8 @@ export interface CreateOrderInput {
   buyer: BuyerInfo
   /** Pasarela de pago seleccionada */
   paymentProvider: PaymentProvider
+  /** true = producto pagado por paymentProvider, flete contraentrega. Ver Order.shippingCod. */
+  shippingCod: boolean
   /** Total del pedido en centavos COP (calculado por CreateOrder use case) */
   total: number
 }

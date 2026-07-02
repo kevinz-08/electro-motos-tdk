@@ -209,6 +209,10 @@ model Order {
   total              Int             // centavos COP
   shippingAddress    Json
   paymentProvider    PaymentProvider
+  /// true = el producto se paga por paymentProvider (WOMPI/MERCADO_PAGO) pero el flete se
+  /// paga en efectivo al repartidor de Vendelo, no desde la billetera del negocio. Ortogonal
+  /// a paymentProvider — siempre false cuando paymentProvider es 'COD' (sería redundante).
+  shippingCod        Boolean         @default(false)
   /// ID del pedido creado en Vendelo API. Null hasta que VendeloOrderQueueService lo procesa.
   vendeloOrderId     String?
   /// Timestamp del momento exacto en que el usuario marcó el checkbox de políticas en el checkout.

@@ -12,6 +12,11 @@ export interface CreateOrderUseCaseInput {
   shippingAddress: ShippingAddress
   buyer: BuyerInfo
   paymentProvider: PaymentProvider
+  /**
+   * true = producto pagado por paymentProvider, flete contraentrega. Solo válido con
+   * paymentProvider WOMPI/MERCADO_PAGO — ver validación en execute(). Default false.
+   */
+  shippingCod?: boolean
 }
 
 export interface CreateOrderOutput {
@@ -42,6 +47,12 @@ export interface CreateOrderOutput {
  *   colgado en PENDING (sujeto al cleanup de pedidos abandonados). `payment` en
  *   el output es `null`: no hay datos de transacción de pasarela que devolver.
  *
+ * Flujo híbrido (`shippingCod: true` con paymentProvider WOMPI/MERCADO_PAGO):
+ *   Sigue el flujo online normal (PENDING → webhook confirma → PAID) — el flag solo
+ *   se persiste en el pedido para que VendeloService sepa cobrar el flete contraentrega
+ *   (payment_method_code: 'COD' con unit_price en 0) en vez de descontarlo de la
+ *   billetera del negocio. Inválido junto con paymentProvider 'COD' (ver validación).
+ *
  * Este use case recibe las dependencias como parámetros del constructor
  * (inyección de dependencias), lo que facilita las pruebas unitarias con mocks.
  */
@@ -53,6 +64,12 @@ export class CreateOrder {
   ) {}
 
   async execute(input: CreateOrderUseCaseInput): Promise<Result<CreateOrderOutput>> {
+    if (input.shippingCod && input.paymentProvider === 'COD') {
+      return err(
+        new AppError('VALIDATION_ERROR', 'shippingCod no aplica cuando el pedido entero ya es contraentrega'),
+      )
+    }
+
     // 1. Validar stock y calcular total
     const resolvedItems: Array<{
       productId: string
@@ -98,6 +115,7 @@ export class CreateOrder {
       shippingAddress: input.shippingAddress,
       buyer: input.buyer,
       paymentProvider: input.paymentProvider,
+      shippingCod: input.shippingCod ?? false,
       total,
     }
 

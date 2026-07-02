@@ -213,7 +213,10 @@ export class VendeloService implements IVendeloShippingPort {
         name: item.productSnapshot?.name ?? `Producto ${item.productId}`,
         sku: item.productSnapshot?.sku ?? item.productId,
         quantity: item.quantity,
-        unit_price: item.priceAtPurchase / 100,
+        // Modo híbrido (shippingCod): el producto ya se pagó por paymentProvider —
+        // se declara en $0 para que Coordinadora solo recaude el flete, no el producto
+        // otra vez. En COD total o pago 100% online, se declara el precio real.
+        unit_price: order.shippingCod ? 0 : item.priceAtPurchase / 100,
         // Peso/dimensiones reales del producto si el admin los cargó — si no,
         // caemos al default genérico (ver comentario en class doc: causa de
         // discrepancia entre el flete cotizado y el flete real cobrado por Vendelo).
@@ -224,7 +227,9 @@ export class VendeloService implements IVendeloShippingPort {
         length: item.productSnapshot?.lengthCm ?? defaultLength,
         dimensions_unit: 'cm' as const,
       })),
-      payment_method_code: order.paymentProvider === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT',
+      // COD total o flete-contraentrega (shippingCod) → Coordinadora recauda en la
+      // entrega. Pago 100% online → EXTERNAL_PAYMENT, ya se pagó todo por adelantado.
+      payment_method_code: order.paymentProvider === 'COD' || order.shippingCod ? 'COD' : 'EXTERNAL_PAYMENT',
       external_order_id: order.id,
       confirmation_status: 'CONFIRMED',
       discounts: [],

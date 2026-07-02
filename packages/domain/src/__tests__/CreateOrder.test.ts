@@ -45,6 +45,7 @@ function makeOrder(overrides?: Partial<Order>): Order {
     },
     buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
+    shippingCod: false,
     createdAt: new Date('2025-01-01'),
     ...overrides,
   }
@@ -245,5 +246,79 @@ describe('CreateOrder', () => {
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('shippingCod: pasa el flag a orderRepo.create y sigue el flujo online normal (PENDING, con pasarela)', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price * 2, shippingCod: true })
+
+    const productRepo = {
+      findById: vi.fn().mockResolvedValue(product),
+    } as unknown as IProductRepository
+
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+
+    const result = await new CreateOrder(orderRepo, productRepo, paymentService).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 2 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+      shippingCod: true,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: true }))
+    expect(paymentService.createTransaction).toHaveBeenCalled()
+  })
+
+  it('retorna err(VALIDATION_ERROR) cuando shippingCod:true se combina con paymentProvider COD', async () => {
+    const result = await new CreateOrder(
+      {} as IOrderRepository,
+      { findById: vi.fn() } as unknown as IProductRepository,
+      {} as IPaymentService,
+    ).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'COD',
+      shippingCod: true,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('shippingCod por defecto es false cuando no se envía', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price })
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+
+    await new CreateOrder(orderRepo, productRepo, paymentService).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+    })
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: false }))
   })
 })

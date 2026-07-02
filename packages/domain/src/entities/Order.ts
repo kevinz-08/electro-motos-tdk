@@ -164,6 +164,13 @@ export interface Order {
   buyer: BuyerInfo
   /** Pasarela de pago seleccionada en el checkout */
   paymentProvider: PaymentProvider
+  /**
+   * true = el producto se paga por paymentProvider (WOMPI/MERCADO_PAGO) pero el flete se
+   * paga en efectivo al repartidor de Vendelo, en vez de descontarse de la billetera del
+   * negocio. Ortogonal a paymentProvider — siempre false cuando paymentProvider es 'COD'
+   * (el pedido entero ya es contraentrega, el flag sería redundante).
+   */
+  shippingCod: boolean
   /** Fecha de creación del pedido */
   createdAt: Date
   /** Ítems del pedido. Opcional — depende de si el query los incluye (include: { items: true }) */

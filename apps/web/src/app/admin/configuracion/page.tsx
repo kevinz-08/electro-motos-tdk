@@ -90,7 +90,7 @@ export default async function AdminConfigPage() {
               <p className="text-xs text-white/40">
                 Activo: el flete lo asume la billetera del negocio ante Vendelo. Desactivado: el
                 cliente paga el flete en efectivo al repartidor al recibir su pedido (requiere
-                "Pago contra entrega" habilitado arriba — si no, este toggle no tiene efecto).
+                &ldquo;Pago contra entrega&rdquo; habilitado arriba — si no, este toggle no tiene efecto).
               </p>
             </div>
             <ShippingOnlineToggle enabled={shippingOnlineEnabled} />

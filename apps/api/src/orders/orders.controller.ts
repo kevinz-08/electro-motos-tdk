@@ -53,6 +53,8 @@ export class OrdersController {
       paymentService = this.mercadoPagoService
     }
 
+    let shippingCod = false
+
     if (dto.paymentProvider === 'COD') {
       // Por defecto habilitado (sin fila aún en Settings) — el admin puede desactivarlo
       // desde /admin/configuracion, que crea la fila en false.
@@ -62,6 +64,22 @@ export class OrdersController {
       if (setting && setting.value !== 'true') {
         throw new ForbiddenException('Pago contra entrega no está disponible en este momento')
       }
+    } else {
+      // Pedido pagado en línea (WOMPI/MERCADO_PAGO): si el admin desactivó
+      // SHIPPING_ONLINE_ENABLED, el flete de TODOS estos pedidos se cobra
+      // contraentrega en vez de descontarse de la billetera Vendelo. Es una
+      // política global del negocio, no una elección del cliente — se calcula
+      // acá, el DTO ya no acepta shippingCod desde el frontend.
+      const [shippingOnlineSetting, codSetting] = await Promise.all([
+        this.prisma.client.settings.findUnique({ where: { key: 'SHIPPING_ONLINE_ENABLED' } }),
+        this.prisma.client.settings.findUnique({ where: { key: 'COD_ENABLED' } }),
+      ])
+      const shippingOnlineEnabled = !shippingOnlineSetting || shippingOnlineSetting.value === 'true'
+      const codEnabled = !codSetting || codSetting.value === 'true'
+      // Solo forzamos flete contraentrega si el repartidor puede recaudar efectivo
+      // (COD_ENABLED) — si no, degradamos a flete online en vez de bloquear el
+      // checkout por una combinación de configuración conflictiva.
+      shippingCod = !shippingOnlineEnabled && codEnabled
     }
 
     const useCase = new CreateOrder(this.orderRepo, this.productRepo, paymentService)
@@ -71,6 +89,7 @@ export class OrdersController {
       shippingAddress: dto.shippingAddress,
       buyer: dto.buyer,
       paymentProvider: dto.paymentProvider,
+      shippingCod,
     })
 
     if (!result.ok) throw result.error

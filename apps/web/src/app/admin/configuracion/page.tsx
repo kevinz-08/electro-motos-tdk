@@ -1,16 +1,19 @@
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { MercadoPagoToggle } from '@/components/admin/MercadoPagoToggle'
 import { CodToggle } from '@/components/admin/CodToggle'
+import { ShippingOnlineToggle } from '@/components/admin/ShippingOnlineToggle'
 
 export default async function AdminConfigPage() {
-  const [mpSetting, codSetting] = await Promise.all([
+  const [mpSetting, codSetting, shippingOnlineSetting] = await Promise.all([
     prisma.settings.findUnique({ where: { key: 'MERCADOPAGO_ENABLED' } }),
     prisma.settings.findUnique({ where: { key: 'COD_ENABLED' } }),
+    prisma.settings.findUnique({ where: { key: 'SHIPPING_ONLINE_ENABLED' } }),
   ])
 
   const mpEnabled = mpSetting?.value === 'true'
   // Por defecto habilitado si no existe la fila aún — mismo fallback que orders.controller.ts.
   const codEnabled = codSetting ? codSetting.value === 'true' : true
+  const shippingOnlineEnabled = shippingOnlineSetting ? shippingOnlineSetting.value === 'true' : true
 
   return (
     <div>
@@ -41,8 +44,8 @@ export default async function AdminConfigPage() {
             </div>
 
             {/* Mercado Pago — toggle */}
-            <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-lg">
-              <div>
+            <div className="flex items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-lg">
+              <div className="min-w-0">
                 <p className="font-semibold text-white">Mercado Pago</p>
                 <p className="text-xs text-white/40">
                   Pasarela de respaldo · Actívalo en caso de incidente en Wompi
@@ -61,14 +64,36 @@ export default async function AdminConfigPage() {
             ninguna funcionalidad, solo deja de ofrecerse hasta que lo reactives.
           </p>
 
-          <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-lg">
-            <div>
+          <div className="flex items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-lg">
+            <div className="min-w-0">
               <p className="font-semibold text-white">Pago contra entrega (COD)</p>
               <p className="text-xs text-white/40">
                 El cliente paga en efectivo al repartidor de Vendelo al recibir su pedido
               </p>
             </div>
             <CodToggle enabled={codEnabled} />
+          </div>
+        </div>
+
+        {/* Flete de pedidos pagados en línea */}
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <h2 className="font-bold text-white mb-1">Flete de pedidos pagados en línea</h2>
+          <p className="text-sm text-white/40 mb-6">
+            Aplica solo a pedidos pagados por Wompi/Mercado Pago (no a Pago contra entrega, que
+            ya es 100% contraentrega). El producto siempre se paga en línea — esto solo decide
+            quién asume el costo del flete.
+          </p>
+
+          <div className="flex items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-lg">
+            <div className="min-w-0">
+              <p className="font-semibold text-white">Flete pagado en línea</p>
+              <p className="text-xs text-white/40">
+                Activo: el flete lo asume la billetera del negocio ante Vendelo. Desactivado: el
+                cliente paga el flete en efectivo al repartidor al recibir su pedido (requiere
+                "Pago contra entrega" habilitado arriba — si no, este toggle no tiene efecto).
+              </p>
+            </div>
+            <ShippingOnlineToggle enabled={shippingOnlineEnabled} />
           </div>
         </div>
 

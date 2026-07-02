@@ -29,6 +29,13 @@ interface CheckoutFormProps {
   userEmail: string
   /** Si el admin desactivó COD en /admin/configuracion, la opción no se muestra. */
   codEnabled: boolean
+  /**
+   * Política global (no elegible por el cliente): si el admin la desactivó en
+   * /admin/configuracion, todos los pedidos pagados en línea (WOMPI) nacen con
+   * el flete contraentrega en vez de cobrarse desde la billetera del negocio.
+   * Solo se usa para mostrar una nota informativa — el backend decide el valor real.
+   */
+  shippingOnlineEnabled: boolean
 }
 
 interface ShippingFormData {
@@ -54,7 +61,7 @@ function formatCOP(cents: number): string {
   }).format(cents / 100)
 }
 
-export function CheckoutForm({ userEmail, codEnabled }: CheckoutFormProps) {
+export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: CheckoutFormProps) {
   const { data: session } = useSession()
   const router = useRouter()
   const { items, total, selectedCity, setSelectedCity } = useCart()
@@ -80,7 +87,11 @@ export function CheckoutForm({ userEmail, codEnabled }: CheckoutFormProps) {
 
   const cartTotal = total()
   const shippingItems = items.map((i) => ({ productId: i.product.id, quantity: i.quantity }))
-  const quotePaymentMethod = paymentMethod === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT'
+  // Mismo cálculo que orders.controller.ts: si el admin desactivó el flete online (y COD
+  // sigue habilitado para que el repartidor pueda recaudar), todo pedido WOMPI nace con
+  // flete contraentrega — no es una elección del cliente, es política global del negocio.
+  const shippingWillBeCod = paymentMethod === 'COD' || (!shippingOnlineEnabled && codEnabled)
+  const quotePaymentMethod = shippingWillBeCod ? 'COD' : 'EXTERNAL_PAYMENT'
   const { quote: shippingQuote, loading: shippingLoading, error: shippingError } = useShippingQuote(selectedCity, shippingItems, quotePaymentMethod)
   const shippingCost = shippingQuote && !shippingQuote.freeShipping ? shippingQuote.quotedShippingTotal : 0
 
@@ -375,6 +386,19 @@ export function CheckoutForm({ userEmail, codEnabled }: CheckoutFormProps) {
                     </span>
                   </label>
                 </div>
+
+                {/* Nota informativa — no es una elección del cliente, es una política global
+                    del negocio (toggle "Flete pagado en línea" en /admin/configuracion). */}
+                {paymentMethod === 'WOMPI' && shippingWillBeCod && (
+                  <div className="mt-3 flex items-start gap-3 border border-dashed border-amber-300 bg-amber-50 rounded-lg px-4 py-3">
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-900">El flete se paga contraentrega</span>
+                      <span className="block text-xs text-gray-500">
+                        Pagas el producto ahora en línea y el flete en efectivo al repartidor cuando recibas tu pedido
+                      </span>
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

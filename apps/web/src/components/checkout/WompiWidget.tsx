@@ -19,6 +19,15 @@
  * Si `window.WidgetCheckout` no está disponible (script bloqueado, network),
  * el botón redirige a `checkout.wompi.co/p/` con los params en la URL —
  * misma experiencia de pago, sin modal embed.
+ *
+ * **Navegación tras el pago:**
+ * El `redirectUrl` que recibe `WidgetCheckout` solo es usado por Wompi para
+ * el flujo de redirección 3DS/PSE dentro del propio modal — no navega la
+ * página del comercio al cerrar. Por eso el callback de `.open()` navega
+ * manualmente a `redirectUrl` cuando detecta que hubo un intento de
+ * transacción (el usuario completó el flujo de pago, sin importar el
+ * resultado final). Si el usuario cierra el modal sin intentar pagar, no
+ * hay `transaction` en el resultado y se queda en /checkout para reintentar.
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -101,11 +110,16 @@ export function WompiWidget({ publicKey, amountInCents, reference, integritySign
       signature: { integrity: integritySignature },
       redirectUrl,
     })
-    // El callback se invoca cuando Wompi cierra el modal — en flujo con
-    // redirectUrl, Wompi navega automáticamente a esa URL y no llega acá.
-    checkout.open(() => {
-      // No-op intencional. Si el usuario cancela, el modal se cierra y
-      // queda en esta misma página; podrá reintentar.
+    // El callback se invoca cuando Wompi cierra el modal, tanto si el pago
+    // se completó (aprobado, pendiente o rechazado) como si el usuario lo
+    // cerró manualmente. Solo navegamos a la confirmación si hubo un
+    // intento real de transacción; si no, el usuario queda en /checkout
+    // para reintentar.
+    checkout.open((result) => {
+      const transaction = (result as { transaction?: { id?: string } } | undefined)?.transaction
+      if (transaction?.id) {
+        window.location.href = redirectUrl
+      }
     })
   }, [publicKey, amountInCents, reference, integritySignature, redirectUrl])
 

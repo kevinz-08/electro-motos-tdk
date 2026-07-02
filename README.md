@@ -664,61 +664,51 @@ sin romper nada) — pero la cotización para ese producto seguirá siendo aprox
 `QuoteShipping` (cotización en carrito/checkout) resuelve estos campos desde la BD junto con el
 precio, así que el estimado que ve el cliente ya refleja el peso real si está cargado.
 
-### 9.3 Modo híbrido — producto pagado en línea, flete contraentrega
+### 9.3 Flete cobrado en línea junto con el producto
 
-`Order.shippingCod: boolean` (default `false`) es **ortogonal** a `paymentProvider` — permite que
-el producto se pague por WOMPI/MERCADO_PAGO (flujo online normal, con webhook de confirmación)
-mientras el flete se cobra en efectivo al repartidor de Vendelo en vez de descontarse de la
-billetera del negocio.
+En vez de que el negocio absorba el costo del flete (comportamiento legado, siempre así antes de
+esta función), el cliente puede pagar **producto + envío en un solo cargo** de Wompi/Mercado Pago.
+El negocio le sigue pagando a Vendelo el flete desde su billetera al despachar (sin cambios ahí) —
+ahora recupera ese costo del cliente en vez de asumirlo en silencio.
 
-**No es una elección del cliente** — es una política global controlada por el admin desde
-`/admin/configuracion` con el toggle **"Flete pagado en línea"** (setting `SHIPPING_ONLINE_ENABLED`,
-default habilitado). El checkout no tiene checkbox: `orders.controller.ts` calcula `shippingCod`
-automáticamente para todo pedido `WOMPI`/`MERCADO_PAGO` — el cliente solo ve una nota informativa
-si el flete le tocará contraentrega.
+Reemplaza el intento anterior de que Vendelo recaudara *solo el flete* en efectivo al entregar
+(`Order.shippingCod`, ver historial abajo) — Vendelo rechazó las dos formas probadas de lograrlo, así
+que se abandonó esa vía y en su lugar se suma el flete al cobro que ya funciona de forma confiable.
+
+**Política global, no elección del cliente** — controlada por el admin desde `/admin/configuracion`
+con el toggle **"Flete pagado en línea"** (setting `SHIPPING_ONLINE_ENABLED`, **default
+desactivado** — deliberado, para no empezar a cobrar flete extra sin opt-in explícito). El checkout
+no tiene checkbox: `orders.controller.ts` lee el setting y decide para todo pedido `WOMPI`/`MERCADO_PAGO`.
 
 ```
-paymentProvider=COD                          → todo el pedido es contraentrega (payment_method_code:
-                                                'COD', unit_price real — Coordinadora recauda producto + flete)
-paymentProvider=WOMPI/MP,
-SHIPPING_ONLINE_ENABLED=true (default)       → shippingCod=false, todo pagado en línea
-                                                (payment_method_code: 'EXTERNAL_PAYMENT')
-paymentProvider=WOMPI/MP,
-SHIPPING_ONLINE_ENABLED=false, COD_ENABLED=true → shippingCod=true forzado — producto pagado en línea,
-                                                flete contraentrega (payment_method_code: 'COD',
-                                                unit_price real + discounts anula el subtotal —
-                                                NUNCA unit_price:0, Vendelo lo rechaza con 500)
-paymentProvider=WOMPI/MP,
-SHIPPING_ONLINE_ENABLED=false, COD_ENABLED=false → shippingCod=false — degrada a flete online en vez
-                                                de bloquear el checkout (el repartidor no puede
-                                                recaudar efectivo si COD está deshabilitado)
+SHIPPING_ONLINE_ENABLED=false (default) → comportamiento legado: shippingTotal=0, el negocio
+                                           absorbe el flete desde su billetera Vendelo
+SHIPPING_ONLINE_ENABLED=true            → CreateOrder cotiza el flete (delegando en QuoteShipping,
+                                           misma lógica de peso real + umbral de envío gratis) y lo
+                                           suma al total: total = productSubtotal + shippingTotal
 ```
 
-`shippingCod: true` es **inválido** junto con `paymentProvider: 'COD'` — `CreateOrder.execute()`
-lo rechaza con `VALIDATION_ERROR` (sería redundante, el pedido entero ya es contraentrega). En la
-práctica `orders.controller.ts` nunca genera esa combinación porque calcula `shippingCod` solo en
-la rama no-COD.
+`Order.total` pasa a significar el **total cobrado** (producto + flete cuando se cobra en línea) —
+así `WompiService`/`MercadoPagoService`/`ConfirmPayment`, que ya leen `order.total` directamente,
+funcionan sin ningún cambio de código. `Order.shippingTotal` (nuevo campo, default `0`) guarda el
+componente de flete por separado, para desglosarlo en el comprobante y el panel admin.
 
-El flujo de vida del pedido híbrido es idéntico al 100% online (`PENDING` → webhook confirma →
-`PAID`, stock se descuenta solo tras `APPROVED`) — `shippingCod` no cambia cuándo se confirma el
-pedido, solo qué le dice `VendeloService.createOrder()` a Vendelo sobre el recaudo. El panel admin
-(`/admin/pedidos` y el modal de detalle) muestra un badge "Flete contraentrega" quemado en ámbar
-para distinguirlo de COD total.
+**Falla segura — nunca bloquea el checkout:** si falta `cityCode`/`subdivisionCode` en la dirección,
+si la cotización a Vendelo falla, o si el flete cotizado supera `MAX_SHIPPING_CHARGE_CENTS`
+(tope defensivo, $50.000 COP por defecto), `CreateOrder.execute()` degrada a `shippingTotal: 0` — el
+pedido se crea igual y el negocio absorbe el flete como en el caso legado. `CreateOrderOutput.shippingQuoteFallback`
+señala cuándo pasó esto para que `orders.controller.ts` lo loggee como warning.
 
-**⚠️ PAUSADO — el recaudo del modo híbrido no está implementado todavía en Vendelo.** Se probaron
-en producción dos formas de limitar el recaudo COD solo al flete, y Vendelo rechazó ambas:
-`unit_price: 0` en los `line_items` (`500 "The entity Order has invalid values"`) y `discounts`
-para anular el subtotal (`404 "El tipo de descuento no es válido"`, y soporte confirmó
-explícitamente que `discounts` no es el mecanismo correcto). Soporte de Vendelo indicó que existe
-un campo de "monto a recaudar" separado del `unit_price`, pero no confirmó el nombre exacto
-(mencionaron `amount_to_collect`/`amount_recaudo`/"campo equivalente", sin certeza) — se escaló a
-soporte técnico avanzado para obtener el JSON real.
+`CreateOrder` compone el use case `QuoteShipping` ya existente (constructor 4º parámetro
+**opcional**, para no romper instanciaciones de 3 argumentos que no cobran flete en línea) — no
+duplica la lógica de cotización, peso real por producto, ni el umbral de envío gratis.
 
-**Fallback de seguridad activo:** hasta confirmar el campo real, `VendeloService.createOrder()`
-**ignora `order.shippingCod`** y envía todo pedido no-COD como `EXTERNAL_PAYMENT` — el negocio
-asume el flete desde su billetera (comportamiento previo a este feature), pero nunca se le cobra
-de más al cliente. `Order.shippingCod` se sigue persistiendo y mostrando en el admin; solo la
-traducción hacia Vendelo queda pausada. Ver `HISTORIAL_TECNICO.md` #111.
+El comprobante de venta y el modal de detalle en `/admin/pedidos` desglosan Subtotal / Envío / Total
+cuando `shippingTotal > 0`, para que los números siempre cuadren.
+
+**Rollout:** al desplegar esta función se borró cualquier fila `SHIPPING_ONLINE_ENABLED` existente
+en `Settings` (el toggle traía un significado distinto de un intento anterior) — todo ambiente
+arranca en el default seguro (desactivado) hasta que el admin lo active manualmente.
 
 ---
 

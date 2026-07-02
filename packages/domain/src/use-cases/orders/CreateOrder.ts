@@ -2,6 +2,7 @@ import { IOrderRepository, CreateOrderInput } from '@/domain/repositories/IOrder
 import { IProductRepository } from '@/domain/repositories/IProductRepository'
 import { IPaymentService, PaymentResult } from '@/domain/services/IPaymentService'
 import { Order, ShippingAddress, BuyerInfo, PaymentProvider } from '@/domain/entities/Order'
+import { QuoteShipping } from '@/domain/use-cases/shipping/QuoteShipping'
 import { Result, ok, err, AppError } from '@/domain/shared/Result'
 
 export interface CreateOrderUseCaseInput {
@@ -13,15 +14,31 @@ export interface CreateOrderUseCaseInput {
   buyer: BuyerInfo
   paymentProvider: PaymentProvider
   /**
-   * true = producto pagado por paymentProvider, flete contraentrega. Solo válido con
-   * paymentProvider WOMPI/MERCADO_PAGO — ver validación en execute(). Default false.
+   * true = si el pedido es online (WOMPI/MERCADO_PAGO), cotizar el flete y sumarlo
+   * al monto cobrado por la pasarela. Lo calcula el caller (orders.controller.ts)
+   * a partir de Settings.SHIPPING_ONLINE_ENABLED — no es una elección del cliente.
+   * Ignorado para paymentProvider 'COD' (el flete de COD nunca se cobra en línea).
    */
-  shippingCod?: boolean
+  chargeShippingOnline?: boolean
+  /**
+   * Tope defensivo en centavos COP para el flete a cobrar en línea — protege al
+   * cliente de una cotización de Vendelo anormalmente alta. Ignorado si
+   * chargeShippingOnline es false/undefined. El paquete domain no lee env vars;
+   * el caller (NestJS) lo resuelve y lo pasa acá.
+   */
+  maxShippingChargeCents?: number
 }
 
 export interface CreateOrderOutput {
   order: Order
   payment: PaymentResult | null
+  /**
+   * true = se pidió cobrar el flete en línea (chargeShippingOnline) pero no se pudo
+   * cotizar (dirección incompleta, QuoteShipping falló, o no había collaborator
+   * inyectado) — el pedido se creó igual con shippingTotal 0 (el negocio absorbe
+   * el flete, igual que el comportamiento legado). El caller debe loguearlo.
+   */
+  shippingQuoteFallback: boolean
 }
 
 /**
@@ -30,10 +47,15 @@ export interface CreateOrderOutput {
  * Flujo para pasarelas online (WOMPI/MERCADO_PAGO):
  *   1. Para cada ítem: validar cantidad > 0, buscar el producto, verificar que esté activo,
  *      verificar que haya stock suficiente.
- *   2. Calcular el total sumando precio × cantidad de cada ítem.
- *   3. Crear el pedido en la BD con estado PENDING.
- *   4. Llamar a la pasarela de pago para preparar la transacción.
- *   5. Retornar el pedido + los datos de la transacción (referencia, firma, etc.)
+ *   2. Calcular el subtotal de productos sumando precio × cantidad de cada ítem.
+ *   3. Si chargeShippingOnline: cotizar el flete (delegando a QuoteShipping, que ya
+ *      resuelve peso/dimensiones reales y el umbral de envío gratis) y sumarlo al total
+ *      — así Wompi/MercadoPago cobran producto + flete en un solo cargo. Cualquier falla
+ *      al cotizar degrada a shippingTotal 0 (nunca bloquea el checkout).
+ *   4. Crear la orden en la BD con estado PENDING.
+ *   5. Llamar a la pasarela de pago para preparar la transacción — ya lee `order.total`
+ *      (que incluye el flete si aplica), sin necesidad de tocar WompiService/MercadoPagoService.
+ *   6. Retornar el pedido + los datos de la transacción (referencia, firma, etc.)
  *
  * IMPORTANTE: El stock NO se descuenta aquí para pagos online. Se descuenta en
  * ConfirmPayment cuando el webhook de la pasarela confirma que el pago fue APPROVED.
@@ -46,38 +68,31 @@ export interface CreateOrderOutput {
  *   la misma transacción (`createPaidOrder`), evitando que el pedido quede
  *   colgado en PENDING (sujeto al cleanup de pedidos abandonados). `payment` en
  *   el output es `null`: no hay datos de transacción de pasarela que devolver.
- *
- * Flujo híbrido (`shippingCod: true` con paymentProvider WOMPI/MERCADO_PAGO):
- *   Sigue el flujo online normal (PENDING → webhook confirma → PAID) — el flag solo
- *   se persiste en el pedido para que VendeloService sepa cobrar el flete contraentrega
- *   (payment_method_code: 'COD' con unit_price en 0) en vez de descontarlo de la
- *   billetera del negocio. Inválido junto con paymentProvider 'COD' (ver validación).
+ *   El flete de COD nunca se cobra en línea (Vendelo lo recauda en efectivo
+ *   directamente al entregar) — shippingTotal siempre queda en 0.
  *
  * Este use case recibe las dependencias como parámetros del constructor
  * (inyección de dependencias), lo que facilita las pruebas unitarias con mocks.
+ * `quoteShipping` es opcional para no romper instanciaciones existentes de 3
+ * argumentos que no necesitan cobrar flete en línea.
  */
 export class CreateOrder {
   constructor(
     private readonly orderRepo: IOrderRepository,
     private readonly productRepo: IProductRepository,
     private readonly paymentService: IPaymentService,
+    private readonly quoteShipping?: QuoteShipping,
   ) {}
 
   async execute(input: CreateOrderUseCaseInput): Promise<Result<CreateOrderOutput>> {
-    if (input.shippingCod && input.paymentProvider === 'COD') {
-      return err(
-        new AppError('VALIDATION_ERROR', 'shippingCod no aplica cuando el pedido entero ya es contraentrega'),
-      )
-    }
-
-    // 1. Validar stock y calcular total
+    // 1. Validar stock y calcular el subtotal de productos
     const resolvedItems: Array<{
       productId: string
       quantity: number
       priceAtPurchase: number
     }> = []
 
-    let total = 0
+    let productSubtotal = 0
 
     for (const item of input.items) {
       if (item.quantity <= 0) {
@@ -106,16 +121,50 @@ export class CreateOrder {
         quantity: item.quantity,
         priceAtPurchase: found.price,
       })
-      total += found.price * item.quantity
+      productSubtotal += found.price * item.quantity
     }
 
-    const createInput = {
+    // 2. Cotizar el flete si corresponde, sumarlo al total cobrado en línea.
+    // Cualquier motivo de no poder cotizar degrada a shippingTotal 0 en vez de
+    // bloquear el checkout (el negocio absorbe el flete, comportamiento legado).
+    let shippingTotal = 0
+    let shippingQuoteFallback = false
+
+    if (input.chargeShippingOnline && input.paymentProvider !== 'COD') {
+      const cityCode = input.shippingAddress.cityCode
+      const subdivisionCode = input.shippingAddress.subdivisionCode
+
+      if (!cityCode || !subdivisionCode || !this.quoteShipping) {
+        shippingQuoteFallback = true
+      } else {
+        const quoteResult = await this.quoteShipping.execute({
+          shippingCityCode: cityCode,
+          shippingSubdivisionCode: subdivisionCode,
+          items: input.items,
+          paymentMethod: 'EXTERNAL_PAYMENT',
+        })
+
+        if (!quoteResult.ok) {
+          shippingQuoteFallback = true
+        } else if (!quoteResult.value.freeShipping) {
+          const quoted = quoteResult.value.quotedShippingTotal
+          shippingTotal = input.maxShippingChargeCents !== undefined
+            ? Math.min(quoted, input.maxShippingChargeCents)
+            : quoted
+        }
+        // freeShipping true → shippingTotal queda en 0, correctamente (no es fallback)
+      }
+    }
+
+    const total = productSubtotal + shippingTotal
+
+    const createInput: CreateOrderInput = {
       userId: input.userId,
       items: resolvedItems,
       shippingAddress: input.shippingAddress,
       buyer: input.buyer,
       paymentProvider: input.paymentProvider,
-      shippingCod: input.shippingCod ?? false,
+      shippingTotal,
       total,
     }
 
@@ -128,10 +177,10 @@ export class CreateOrder {
       } catch (e) {
         return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
       }
-      return ok({ order, payment: null })
+      return ok({ order, payment: null, shippingQuoteFallback: false })
     }
 
-    // 2. Crear orden en DB con estado PENDING
+    // 3. Crear orden en DB con estado PENDING
     let order: Order
     try {
       order = await this.orderRepo.create(createInput)
@@ -139,7 +188,8 @@ export class CreateOrder {
       return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
     }
 
-    // 3. Iniciar transacción en la pasarela
+    // 4. Iniciar transacción en la pasarela — lee order.total, que ya incluye
+    // el flete cuando corresponde.
     let paymentResult: PaymentResult
     try {
       paymentResult = await this.paymentService.createTransaction(order)
@@ -147,6 +197,6 @@ export class CreateOrder {
       return err(new AppError('PAYMENT_ERROR', 'Error al iniciar el pago', e))
     }
 
-    return ok({ order, payment: paymentResult })
+    return ok({ order, payment: paymentResult, shippingQuoteFallback })
   }
 }

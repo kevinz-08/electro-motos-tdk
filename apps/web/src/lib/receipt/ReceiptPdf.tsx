@@ -114,7 +114,8 @@ export interface ReceiptData {
     city: string
   }
   items: ReceiptItem[]
-  total: number       // centavos COP
+  total: number         // centavos COP — total cobrado (productos + envío si aplica)
+  shippingTotal: number // centavos COP — 0 si el negocio absorbió el flete
   payment: {
     provider: string
     externalId: string | null
@@ -238,6 +239,18 @@ export function ReceiptPdf({ data }: { data: ReceiptData }) {
 
         {/* ── Totales ──────────────────────────────────────────────── */}
         <View style={styles.totalsBlock}>
+          {data.shippingTotal > 0 && (
+            <>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Subtotal productos:</Text>
+                <Text style={styles.totalValue}>{formatCOP(data.total - data.shippingTotal)}</Text>
+              </View>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Envío:</Text>
+                <Text style={styles.totalValue}>{formatCOP(data.shippingTotal)}</Text>
+              </View>
+            </>
+          )}
           <View style={styles.totalRow}>
             <Text style={[styles.totalLabel, styles.totalFinal]}>Total:</Text>
             <Text style={[styles.totalValue, styles.totalFinal]}>

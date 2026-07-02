@@ -87,13 +87,13 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
 
   const cartTotal = total()
   const shippingItems = items.map((i) => ({ productId: i.product.id, quantity: i.quantity }))
-  // Mismo cálculo que orders.controller.ts: si el admin desactivó el flete online (y COD
-  // sigue habilitado para que el repartidor pueda recaudar), todo pedido WOMPI nace con
-  // flete contraentrega — no es una elección del cliente, es política global del negocio.
-  const shippingWillBeCod = paymentMethod === 'COD' || (!shippingOnlineEnabled && codEnabled)
-  const quotePaymentMethod = shippingWillBeCod ? 'COD' : 'EXTERNAL_PAYMENT'
+  const quotePaymentMethod = paymentMethod === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT'
   const { quote: shippingQuote, loading: shippingLoading, error: shippingError } = useShippingQuote(selectedCity, shippingItems, quotePaymentMethod)
   const shippingCost = shippingQuote && !shippingQuote.freeShipping ? shippingQuote.quotedShippingTotal : 0
+  // Si el admin activó "Flete pagado en línea", el estimado de arriba es lo que
+  // realmente va a cobrar Wompi junto al producto (CreateOrder lo recalcula server-side
+  // con la misma lógica) — no es solo informativo como en el resto de los casos.
+  const chargingShippingOnline = paymentMethod === 'WOMPI' && shippingOnlineEnabled
 
   const handleSubmitShipping = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -389,12 +389,12 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
 
                 {/* Nota informativa — no es una elección del cliente, es una política global
                     del negocio (toggle "Flete pagado en línea" en /admin/configuracion). */}
-                {paymentMethod === 'WOMPI' && shippingWillBeCod && (
-                  <div className="mt-3 flex items-start gap-3 border border-dashed border-amber-300 bg-amber-50 rounded-lg px-4 py-3">
+                {chargingShippingOnline && (
+                  <div className="mt-3 flex items-start gap-3 border border-dashed border-sky-300 bg-sky-50 rounded-lg px-4 py-3">
                     <span>
-                      <span className="block text-sm font-semibold text-gray-900">El flete se paga contraentrega</span>
+                      <span className="block text-sm font-semibold text-gray-900">El envío se paga junto con tu pedido</span>
                       <span className="block text-xs text-gray-500">
-                        Pagas el producto ahora en línea y el flete en efectivo al repartidor cuando recibas tu pedido
+                        El valor del flete se suma a tu pago en línea — no tienes que pagar nada más al recibir tu pedido
                       </span>
                     </span>
                   </div>
@@ -520,12 +520,14 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
             </div>
 
             <div className="flex justify-between font-bold text-gray-900 pt-1">
-              <span>{shippingCost > 0 ? 'Total estimado' : 'Total'}</span>
+              <span>{chargingShippingOnline ? 'Total a pagar (incluye envío)' : shippingCost > 0 ? 'Total estimado' : 'Total'}</span>
               <span>{formatCOP(cartTotal + shippingCost)}</span>
             </div>
-            <p className="text-xs text-gray-400">
-              El envío lo cobra Vendelo directamente al recibir tu pedido — esto es solo un estimado.
-            </p>
+            {!chargingShippingOnline && (
+              <p className="text-xs text-gray-400">
+                El envío lo cobra Vendelo directamente al recibir tu pedido — esto es solo un estimado.
+              </p>
+            )}
           </div>
         </div>
       </div>

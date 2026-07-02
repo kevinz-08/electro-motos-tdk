@@ -93,13 +93,15 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                     <span className="text-xs font-medium text-white/50">
                       {providerLabels[order.paymentProvider] ?? order.paymentProvider}
                     </span>
-                    {order.shippingCod && (
-                      <span className="ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400">
-                        Flete COD
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-white">
+                    {formatCOP(order.total)}
+                    {order.shippingTotal > 0 && (
+                      <span className="block text-xs font-normal text-white/30">
+                        incl. envío {formatCOP(order.shippingTotal)}
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right font-bold text-white">{formatCOP(order.total)}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${sc.color}`}>
                       {sc.label}

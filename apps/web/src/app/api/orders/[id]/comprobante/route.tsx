@@ -74,6 +74,7 @@ export async function GET(
       subtotal: it.priceAtPurchase * it.quantity,
     })),
     total: order.total,
+    shippingTotal: order.shippingTotal,
     payment: {
       provider: order.paymentProvider,
       externalId: order.payment?.externalId ?? null,

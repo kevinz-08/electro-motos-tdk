@@ -13,7 +13,9 @@ export default async function AdminConfigPage() {
   const mpEnabled = mpSetting?.value === 'true'
   // Por defecto habilitado si no existe la fila aún — mismo fallback que orders.controller.ts.
   const codEnabled = codSetting ? codSetting.value === 'true' : true
-  const shippingOnlineEnabled = shippingOnlineSetting ? shippingOnlineSetting.value === 'true' : true
+  // Default FALSE si no existe la fila — no empezar a cobrar flete extra sin
+  // opt-in explícito del admin (mismo criterio que orders.controller.ts).
+  const shippingOnlineEnabled = shippingOnlineSetting?.value === 'true'
 
   return (
     <div>
@@ -80,17 +82,16 @@ export default async function AdminConfigPage() {
           <h2 className="font-bold text-white mb-1">Flete de pedidos pagados en línea</h2>
           <p className="text-sm text-white/40 mb-6">
             Aplica solo a pedidos pagados por Wompi/Mercado Pago (no a Pago contra entrega, que
-            ya es 100% contraentrega). El producto siempre se paga en línea — esto solo decide
-            quién asume el costo del flete.
+            ya cobra todo en efectivo). Desactivado por defecto.
           </p>
 
           <div className="flex items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-lg">
             <div className="min-w-0">
               <p className="font-semibold text-white">Flete pagado en línea</p>
               <p className="text-xs text-white/40">
-                Activo: el flete lo asume la billetera del negocio ante Vendelo. Desactivado: el
-                cliente paga el flete en efectivo al repartidor al recibir su pedido (requiere
-                &ldquo;Pago contra entrega&rdquo; habilitado arriba — si no, este toggle no tiene efecto).
+                Activo: el flete cotizado se suma al cobro de Wompi/Mercado Pago — el cliente
+                paga producto + envío en un solo cargo. Desactivado (default): el negocio absorbe
+                el flete desde su billetera de Vendelo, como hasta ahora.
               </p>
             </div>
             <ShippingOnlineToggle enabled={shippingOnlineEnabled} />

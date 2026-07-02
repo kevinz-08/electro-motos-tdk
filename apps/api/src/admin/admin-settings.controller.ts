@@ -35,8 +35,8 @@ export class AdminSettingsController {
 
   @Patch('shipping-online')
   @ApiOperation({
-    summary: 'Habilitar/deshabilitar que el flete de pedidos pagados en línea (WOMPI/MERCADO_PAGO) '
-      + 'se cobre en línea también. Deshabilitado = el flete de esos pedidos se cobra contraentrega.',
+    summary: 'Habilitar/deshabilitar que el flete de pedidos pagados en línea se sume al cobro de '
+      + 'Wompi/MercadoPago. Deshabilitado (default) = el negocio absorbe el flete desde su billetera Vendelo.',
   })
   async toggleShippingOnline(@Body() dto: ToggleSettingDto) {
     await this.prisma.client.settings.upsert({

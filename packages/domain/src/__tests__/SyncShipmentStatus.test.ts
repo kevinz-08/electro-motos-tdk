@@ -22,7 +22,7 @@ function makeOrder(overrides?: Partial<Order>): Order {
     },
     buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
-    shippingCod: false,
+    shippingTotal: 0,
     createdAt: new Date('2025-01-01'),
     ...overrides,
   }

@@ -74,11 +74,9 @@ interface VendeloCreateOrderBody {
   payment_method_code: 'COD' | 'EXTERNAL_PAYMENT'
   external_order_id: string
   confirmation_status: 'CONFIRMED'
-  // Schema NO documentado en API_VENDELO_DOCUMENTACION.md (solo aparece como
-  // "array (ApiCreateOrderDiscount)" sin campos). `description`/`amount` es una
-  // suposición razonable, pendiente de confirmar con soporte Vendelo — ver
-  // VendeloService.createOrder() para el caso de uso (modo híbrido).
-  discounts: Array<{ description: string; amount: number }>
+  // Siempre [] por ahora — ver comentario en createOrder() sobre por qué no
+  // usamos este campo para el modo híbrido (schema no confirmado por Vendelo).
+  discounts: []
 }
 
 export interface VendeloCreateOrderResponse {
@@ -219,8 +217,7 @@ export class VendeloService implements IVendeloShippingPort {
         quantity: item.quantity,
         // Siempre el precio real — probado en producción que Vendelo rechaza
         // (500 "invalid values") un pedido payment_method_code:'COD' con
-        // unit_price:0. El recaudo neto en modo híbrido se anula con `discounts`
-        // más abajo, no declarando el producto en $0.
+        // unit_price:0.
         unit_price: item.priceAtPurchase / 100,
         // Peso/dimensiones reales del producto si el admin los cargó — si no,
         // caemos al default genérico (ver comentario en class doc: causa de
@@ -232,24 +229,14 @@ export class VendeloService implements IVendeloShippingPort {
         length: item.productSnapshot?.lengthCm ?? defaultLength,
         dimensions_unit: 'cm' as const,
       })),
-      // COD total o flete-contraentrega (shippingCod) → Coordinadora recauda en la
-      // entrega. Pago 100% online → EXTERNAL_PAYMENT, ya se pagó todo por adelantado.
-      payment_method_code: order.paymentProvider === 'COD' || order.shippingCod ? 'COD' : 'EXTERNAL_PAYMENT',
+      // El flete de pedidos no-COD siempre se paga desde la billetera del negocio
+      // ante Vendelo (EXTERNAL_PAYMENT) — ese costo se recupera del cliente sumándolo
+      // al cobro de Wompi/MercadoPago en CreateOrder.execute() (ver Order.shippingTotal),
+      // no acá. Este servicio no necesita saber si el flete se cobró en línea o no.
+      payment_method_code: order.paymentProvider === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT',
       external_order_id: order.id,
       confirmation_status: 'CONFIRMED',
-      // Modo híbrido: el producto ya se pagó por paymentProvider, así que se
-      // descuenta el 100% del subtotal para que el recaudo neto en la entrega
-      // sea solo el flete. Schema de descuento NO documentado por Vendelo —
-      // ver comentario en VendeloCreateOrderBody.discounts.
-      discounts: order.shippingCod
-        ? [{
-            description: 'Producto pagado en línea — solo se recauda el flete',
-            amount: (order.items ?? []).reduce(
-              (sum, item) => sum + (item.priceAtPurchase / 100) * item.quantity,
-              0,
-            ),
-          }]
-        : [],
+      discounts: [],
     }
 
     this.logger.log(`Creando orden Vendelo para pedido interno ${order.id}`)

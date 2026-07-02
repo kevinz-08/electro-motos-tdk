@@ -48,12 +48,12 @@ export interface OrderResponse {
   id: string
   userId: string
   status: OrderStatus
-  /** Total en centavos COP */
+  /** Total cobrado en centavos COP (incluye envío cuando se cobró en línea) */
   total: number
+  /** Componente de envío en centavos COP incluido en `total`. 0 si el negocio absorbió el flete. */
+  shippingTotal: number
   shippingAddress: ShippingAddress
   paymentProvider: PaymentProvider
-  /** true = producto pagado por paymentProvider, flete contraentrega. */
-  shippingCod: boolean
   items: OrderItemResponse[]
   createdAt: string
   updatedAt?: string

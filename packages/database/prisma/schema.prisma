@@ -206,13 +206,16 @@ model Order {
   id                 String          @id @default(cuid())
   userId             String
   status             OrderStatus     @default(PENDING)
-  total              Int             // centavos COP
+  /// centavos COP — total cobrado/adeudado: subtotal de productos + shippingTotal
+  /// cuando el flete se cobró en línea (ver shippingTotal). Para COD o cuando el
+  /// flete no se cobra en línea, es solo el subtotal de productos.
+  total              Int
+  /// centavos COP — componente de flete incluido en `total`. 0 = el negocio absorbió
+  /// el flete (pedido COD, toggle SHIPPING_ONLINE_ENABLED desactivado, o falla al
+  /// cotizar — ver CreateOrder.execute()).
+  shippingTotal      Int             @default(0)
   shippingAddress    Json
   paymentProvider    PaymentProvider
-  /// true = el producto se paga por paymentProvider (WOMPI/MERCADO_PAGO) pero el flete se
-  /// paga en efectivo al repartidor de Vendelo, no desde la billetera del negocio. Ortogonal
-  /// a paymentProvider — siempre false cuando paymentProvider es 'COD' (sería redundante).
-  shippingCod        Boolean         @default(false)
   /// ID del pedido creado en Vendelo API. Null hasta que VendeloOrderQueueService lo procesa.
   vendeloOrderId     String?
   /// Timestamp del momento exacto en que el usuario marcó el checkbox de políticas en el checkout.

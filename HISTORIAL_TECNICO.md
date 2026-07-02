@@ -4,6 +4,143 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 112. Cobrar el flete en línea junto con el producto — reemplaza el modo híbrido
+
+**Contexto:** tras el fallback seguro de #111 (Vendelo rechazó las dos formas probadas de recaudo
+parcial COD), el usuario propuso una alternativa más simple: en vez de pedirle a Vendelo un recaudo
+que no soportan, sumar el flete cotizado al monto que ya cobra Wompi/Mercado Pago de forma
+confiable. El cliente paga producto + envío en un solo cargo online; el negocio le sigue pagando a
+Vendelo el flete desde su billetera al despachar (sin cambios ahí), pero ahora lo recupera del
+cliente en vez de absorberlo en silencio. Esto vuelve obsoleto `Order.shippingCod` y todo el
+mecanismo del modo híbrido — se elimina como limpieza de esta misma tarea.
+
+Se usó `/plan` (EnterPlanMode) dado el alcance: cambios en Prisma, dominio, 3 capas de
+infraestructura, checkout, comprobante y panel admin, todos relacionados con dinero real. Se
+lanzaron 3 agentes de exploración en paralelo (firma de integridad Wompi, uso de `Order.total` en
+dashboards/comprobantes, flujo actual de `orders.controller.ts`) + 1 agente de diseño antes de
+escribir el plan final, que el usuario aprobó explícitamente con 2 decisiones de negocio
+confirmadas: reset del toggle `SHIPPING_ONLINE_ENABLED` existente al desplegar, y tope defensivo de
+$50.000 COP por pedido.
+
+**Diseño:**
+
+- `Order.total` pasa a significar el **total cobrado** (producto + flete cuando se cobra en línea)
+  — `WompiService`/`MercadoPagoService`/`ConfirmPayment` ya leen `order.total` directamente, así que
+  funcionan sin ningún cambio de código.
+- Nuevo campo `Order.shippingTotal Int @default(0)` — componente de flete incluido en `total`, para
+  desglosarlo en comprobante/admin. `0` = negocio absorbió el flete (COD, toggle apagado, o falla
+  de cotización).
+- `Order.shippingCod` **eliminado** (migración `DROP COLUMN`) junto con todo lo que lo consumía.
+- El toggle admin `SHIPPING_ONLINE_ENABLED` (mismo Settings key, mismo componente
+  `ShippingOnlineToggle.tsx`, mismo endpoint `PATCH /admin/settings/shipping-online`) se reutiliza
+  con nuevo significado: **activado** = el flete se suma al cobro online; **desactivado (nuevo
+  default)** = comportamiento legado. El default cambió de `true` a `false` deliberadamente — el
+  significado anterior era distinto (modo híbrido), así que se **borró cualquier fila existente en
+  Settings como parte de la migración** para que ningún ambiente arranque cobrando flete de sorpresa.
+- `CreateOrder` gana un 4º parámetro de constructor **opcional** `quoteShipping?: QuoteShipping` —
+  compone el use case ya existente (peso real por producto, umbral de envío gratis) en vez de
+  duplicar su lógica. Opcional para no romper los `new CreateOrder(...)` de 3 argumentos que ya
+  existían en tests.
+- Falla segura: si falta `cityCode`/`subdivisionCode`, si `QuoteShipping` falla, o si no hay
+  `quoteShipping` inyectado → `shippingTotal = 0` (nunca bloquea el checkout). Tope defensivo
+  `MAX_SHIPPING_CHARGE_CENTS` (default 5.000.000 centavos = $50.000 COP) recorta cualquier
+  cotización anormalmente alta. `CreateOrderOutput.shippingQuoteFallback: boolean` señala el
+  fallback para que `orders.controller.ts` lo loggee como warning.
+
+**Cambios por capa:**
+
+- **Prisma**: migración `remove_shipping_cod_add_shipping_total` — `DROP COLUMN shippingCod`,
+  `ADD COLUMN shippingTotal Int DEFAULT 0`, más `DELETE FROM Settings WHERE key = 'SHIPPING_ONLINE_ENABLED'`
+  en el mismo archivo de migración (se ejecuta automáticamente en cualquier ambiente vía
+  `prisma migrate deploy`).
+- **Dominio**: `Order.ts`, `IOrderRepository.ts` (`CreateOrderInput`), `CreateOrder.ts` (lógica
+  central descrita arriba).
+- **Infraestructura**: `PrismaOrderRepository.ts` (api y web) — `toDomain()`/`create()`/`createPaidOrder()`
+  mapean `shippingTotal` en vez de `shippingCod`. Los métodos de revenue (`getTodayRevenue`,
+  `getMonthRevenue`, `getWeeklyRevenueSeries`) no cambiaron — ahora suman ventas brutas incluyendo
+  flete de pedidos que lo cobraron en línea, no solo producto (cambio de semántica documentado, sin
+  tocar las queries).
+- **NestJS**: `orders.controller.ts` inyecta `VENDELO_SHIPPING_PORT` (mismo token que
+  `shipping.controller.ts`) y arma `new QuoteShipping(productRepo, shippingPort)` para pasárselo a
+  `CreateOrder`. `VendeloService.ts` sin cambios funcionales — solo se limpiaron los comentarios que
+  mencionaban `shippingCod`/fallback temporal (`payment_method_code` nunca dependió de esto para
+  nada más que `paymentProvider`).
+- **Checkout**: `CheckoutForm.tsx` — se quitó `shippingWillBeCod` y la nota de "flete contraentrega"
+  del modo híbrido; nueva nota "El envío se paga junto con tu pedido" cuando el toggle está activo;
+  el resumen muestra "Total a pagar (incluye envío)" sin el disclaimer de Vendelo cuando aplica.
+- **Comprobante**: `ReceiptPdf.tsx` + la ruta de comprobante — desglosan Subtotal productos / Envío
+  / Total cuando `shippingTotal > 0`, para que la suma de ítems siempre cuadre con el total mostrado.
+- **Admin**: `pedidos/page.tsx` y `OrderInfoModal.tsx` — se quitaron los badges "Flete COD"/"Flete
+  contraentrega" del modo híbrido; se agregó indicador "incl. envío" y desglose Subtotal/Envío/Total
+  donde corresponde.
+- **Tipos**: `OrderResponse.shippingCod` → `OrderResponse.shippingTotal`.
+
+**Tests:** se reemplazaron todos los tests de `shippingCod`/modo híbrido por una suite nueva
+cubriendo: cotización exitosa suma al total, `freeShipping` dejando `shippingTotal` en 0, fallback
+por falla de `QuoteShipping`, fallback por dirección incompleta (sin llamar a `QuoteShipping`),
+fallback sin `quoteShipping` inyectado, recorte por `maxShippingChargeCents`, y guard explícito de
+que COD nunca cobra flete en línea aunque se pida. `pnpm --filter @h2r/domain test` (190/190 ✅),
+`pnpm --filter @h2r/api test` (170/170 ✅), `pnpm type-check` limpio en los 5 paquetes, `pnpm --filter
+@h2r/web lint` sin errores nuevos (22 warnings preexistentes, no relacionados).
+
+**Rama:** `feat/charge-shipping-online` (renombrada desde `fix/vendelo-hybrid-safe-fallback`, que
+nunca llegó a mergearse — esta feature la reemplaza por completo).
+
+*Última actualización: 2026-07-02*
+
+---
+
+## 111. Fallback seguro — modo híbrido pausado hasta confirmar el campo de recaudo con Vendelo
+
+**Contexto:** el segundo intento (#110, usando `discounts` para anular el subtotal) también fue
+rechazado por Vendelo, esta vez con `404 "El tipo de descuento no es válido"`. Se escaló a soporte
+de Vendelo con el error exacto. Su respuesta confirmó dos cosas:
+
+1. **`discounts` no es el mecanismo correcto** — dijeron explícitamente "no uses el campo
+   discounts para ajustar el subtotal a cero".
+2. La forma soportada es crear el pedido con `payment_method_code: 'COD'` pero fijando el **monto
+   a recaudar** (no el `unit_price` del producto) igual solo al valor del flete — pero **no dieron
+   el nombre real del campo**, solo sugirieron variantes sin confirmar
+   (`amount_to_collect`, `amount_recaudo`, "o campo equivalente"). Ofrecieron escalar a un
+   especialista técnico para el JSON exacto.
+
+**Decisión:** no se intentó un tercer campo a ciegas. Razón: si se envía `payment_method_code: 'COD'`
+con `unit_price` real y sin ningún mecanismo de recaudo parcial, Vendelo recaudaría el
+**subtotal completo + flete** en la entrega — un pedido híbrido cuyo producto el cliente ya pagó
+en línea terminaría cobrándose en efectivo otra vez. Es un riesgo de doble cobro real al cliente,
+no solo un pedido que falla silenciosamente (que era el peor caso hasta ahora).
+
+**Fix (fallback temporal):** `VendeloService.createOrder()` deja de traducir `order.shippingCod`
+a `payment_method_code: 'COD'`. Mientras no se confirme el campo real:
+
+```ts
+payment_method_code: order.paymentProvider === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT'
+// shippingCod ya no participa acá
+```
+
+Efecto práctico: los pedidos híbridos (`shippingCod: true`) se envían a Vendelo como pago 100% en
+línea — el negocio vuelve a asumir el costo del flete desde su billetera (comportamiento previo a
+la entrada #108), pero **nadie le cobra de más al cliente**. El campo `Order.shippingCod` sigue
+existiendo, persistiéndose y mostrándose en el admin (badge "Flete contraentrega") — la UI/toggle
+de admin no cambia, solo la traducción hacia Vendelo queda pausada.
+
+**Pendiente — desbloquea el modo híbrido real:**
+
+1. Aceptar la escalación de Vendelo a soporte técnico avanzado y obtener el JSON/nombre de campo exacto.
+2. Actualizar `VendeloService.createOrder()` con el campo real una vez confirmado.
+3. Reencolar manualmente los pedidos huérfanos que quedaron `FAILED` en `VendeloOrderQueue`
+   durante las pruebas de #110/#111 (stock ya descontado, `PAID`/`APPROVED`, pero sin
+   `vendeloOrderId` — no se reintentan solos).
+
+**Tests:** `VendeloService.test.ts` actualizado — el test de "modo híbrido" ahora confirma
+`EXTERNAL_PAYMENT` + `discounts: []` (no `COD`). `pnpm --filter @h2r/api test` (169/169 ✅).
+
+**Rama:** `fix/vendelo-hybrid-safe-fallback`.
+
+*Última actualización: 2026-07-02*
+
+---
+
 ## 110. Fix real de producción — Vendelo rechaza unit_price:0 en pedidos COD
 
 **Contexto:** el usuario probó el modo híbrido en producción (checkout real: pago en línea +

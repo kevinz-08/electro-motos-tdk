@@ -32,7 +32,7 @@ function makeOrder(overrides?: Partial<Order>): Order {
     },
     buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
-    shippingCod: false,
+    shippingTotal: 0,
     createdAt: new Date('2025-01-01'),
     items: [{
       id: 'item-1', orderId: 'order-1', productId: 'prod-1', quantity: 2, priceAtPurchase: 2500000,
@@ -168,11 +168,11 @@ describe('VendeloService — createOrder', () => {
     delete process.env['VENDELO_STORE_SUBDIVISION_CODE']
   })
 
-  it('pago 100% online (WOMPI, shippingCod false): EXTERNAL_PAYMENT con el precio real del producto', async () => {
+  it('pago 100% online (WOMPI): EXTERNAL_PAYMENT con el precio real del producto', async () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
-    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: false }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI' }), 'cliente@test.com')
 
     expect(http.post).toHaveBeenCalledWith(
       '/v1/admin/orders',
@@ -188,7 +188,7 @@ describe('VendeloService — createOrder', () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
-    await service.createOrder(makeOrder({ paymentProvider: 'COD', shippingCod: false }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'COD' }), 'cliente@test.com')
 
     expect(http.post).toHaveBeenCalledWith(
       '/v1/admin/orders',
@@ -200,32 +200,24 @@ describe('VendeloService — createOrder', () => {
     )
   })
 
-  it('modo híbrido (WOMPI + shippingCod:true): payment_method_code COD con unit_price real y descuento del subtotal', async () => {
-    // Vendelo rechaza (500 "invalid values") un pedido COD con unit_price:0 —
-    // probado en producción. El recaudo neto se anula con `discounts`, no con
-    // unit_price:0. Ver comentario en VendeloService.createOrder().
+  it('payment_method_code no depende de shippingTotal — el flete cobrado en línea no cambia cómo se le habla a Vendelo', async () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
-    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: true }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingTotal: 0 }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingTotal: 9000, total: 259000 }), 'cliente@test.com')
 
-    expect(http.post).toHaveBeenCalledWith(
-      '/v1/admin/orders',
-      expect.objectContaining({
-        payment_method_code: 'COD',
-        line_items: [expect.objectContaining({ unit_price: 25000 })],
-        discounts: [expect.objectContaining({ amount: 50000 })], // 25000 * quantity 2
-      }),
-      expect.anything(),
-    )
+    for (const call of (http.post as ReturnType<typeof vi.fn>).mock.calls) {
+      expect((call[1] as { payment_method_code: string }).payment_method_code).toBe('EXTERNAL_PAYMENT')
+    }
   })
 
-  it('COD total y pago 100% online no agregan descuentos (discounts vacío)', async () => {
+  it('discounts siempre vacío, sin importar el modo', async () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)
 
-    await service.createOrder(makeOrder({ paymentProvider: 'COD', shippingCod: false }), 'cliente@test.com')
-    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', shippingCod: false }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'COD' }), 'cliente@test.com')
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI' }), 'cliente@test.com')
 
     for (const call of (http.post as ReturnType<typeof vi.fn>).mock.calls) {
       expect((call[1] as { discounts: unknown[] }).discounts).toEqual([])

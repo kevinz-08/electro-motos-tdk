@@ -18,13 +18,14 @@ vi.mock('@h2r/domain', async (importOriginal) => {
     IOrderRepository: undefined,
     IProductRepository: undefined,
     IPaymentService: undefined,
+    IVendeloShippingPort: undefined,
     OrderStatus: undefined,
     // Usar function() (no arrow) para que sea compatible con `new CreateOrder(...)`
     CreateOrder: vi.fn().mockImplementation(function () {
       return {
         execute: vi.fn().mockResolvedValue({
           ok: true,
-          value: { order: mockOrder, payment: mockPayment },
+          value: { order: mockOrder, payment: mockPayment, shippingQuoteFallback: false },
         }),
       }
     }),
@@ -42,6 +43,7 @@ import {
   ORDER_REPOSITORY,
   PRODUCT_REPOSITORY,
   PAYMENT_SERVICE,
+  VENDELO_SHIPPING_PORT,
 } from '../infrastructure/injection-tokens'
 import type { JwtUser } from '../auth/decorators/current-user.decorator'
 
@@ -92,6 +94,7 @@ const mockPrismaClient = {
 const mockMercadoPagoService = { initiate: vi.fn() }
 const mockEmailQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
 const mockVendeloOrderQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
+const mockShippingPort = { quoteOrder: vi.fn(), createShipments: vi.fn() }
 
 const mockUser: JwtUser = { id: 'user-1', email: 'user@test.com', role: 'CUSTOMER' }
 
@@ -104,6 +107,7 @@ async function buildController() {
       { provide: ORDER_REPOSITORY, useValue: mockOrderRepo },
       { provide: PRODUCT_REPOSITORY, useValue: mockProductRepo },
       { provide: PAYMENT_SERVICE, useValue: mockWompiService },
+      { provide: VENDELO_SHIPPING_PORT, useValue: mockShippingPort },
       { provide: WompiService, useValue: mockWompiService },
       { provide: MercadoPagoService, useValue: mockMercadoPagoService },
       { provide: ResendEmailService, useValue: mockEmailService },
@@ -143,7 +147,7 @@ describe('OrdersController', () => {
 
     it('devuelve el pedido y los parámetros de pago cuando el use case tiene éxito', async () => {
       const result = await controller.create(dto, mockUser)
-      expect(result).toEqual({ order: mockOrder, payment: mockPayment })
+      expect(result).toEqual({ order: mockOrder, payment: mockPayment, shippingQuoteFallback: false })
     })
 
     it('lanza el error del dominio cuando el use case falla', async () => {
@@ -175,7 +179,7 @@ describe('OrdersController', () => {
         return {
           execute: vi.fn().mockResolvedValue({
             ok: true,
-            value: { order: { ...mockOrder, status: 'PAID' }, payment: null },
+            value: { order: { ...mockOrder, status: 'PAID' }, payment: null, shippingQuoteFallback: false },
           }),
         }
       })
@@ -203,53 +207,75 @@ describe('OrdersController', () => {
       ).resolves.toBeDefined()
     })
 
-    // shippingCod ya no lo envía el cliente — orders.controller.ts lo calcula a partir
-    // de dos settings: SHIPPING_ONLINE_ENABLED (política global) y COD_ENABLED (si el
-    // repartidor puede recaudar efectivo). El orden de mockResolvedValueOnce sigue el
-    // orden del Promise.all en el controller: [SHIPPING_ONLINE_ENABLED, COD_ENABLED].
+    // chargeShippingOnline lo calcula orders.controller.ts a partir de un único
+    // setting (SHIPPING_ONLINE_ENABLED) — default FALSE si no existe la fila
+    // (no empezar a cobrar flete extra sin opt-in explícito del admin).
 
-    it('shippingCod: se fuerza a true cuando SHIPPING_ONLINE_ENABLED está deshabilitado y COD sigue habilitado', async () => {
-      mockPrismaClient.settings.findUnique
-        .mockResolvedValueOnce({ value: 'false' }) // SHIPPING_ONLINE_ENABLED
-        .mockResolvedValueOnce({ value: 'true' })  // COD_ENABLED
+    it('chargeShippingOnline: true cuando SHIPPING_ONLINE_ENABLED está habilitado', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'true' })
       const { CreateOrder } = await import('@h2r/domain')
-      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment } })
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment, shippingQuoteFallback: false } })
       vi.mocked(CreateOrder).mockImplementationOnce(function () {
         return { execute }
       })
 
       await controller.create(dto, mockUser)
 
-      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: true }))
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ chargeShippingOnline: true }))
     })
 
-    it('shippingCod: queda false cuando SHIPPING_ONLINE_ENABLED está habilitado (o sin fila)', async () => {
-      mockPrismaClient.settings.findUnique
-        .mockResolvedValueOnce(null)               // SHIPPING_ONLINE_ENABLED sin fila → default true
-        .mockResolvedValueOnce({ value: 'true' })  // COD_ENABLED
+    it('chargeShippingOnline: false cuando no existe la fila (default seguro)', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce(null)
       const { CreateOrder } = await import('@h2r/domain')
-      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment } })
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment, shippingQuoteFallback: false } })
       vi.mocked(CreateOrder).mockImplementationOnce(function () {
         return { execute }
       })
 
       await controller.create(dto, mockUser)
 
-      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: false }))
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ chargeShippingOnline: false }))
     })
 
-    it('shippingCod: no se fuerza si COD_ENABLED está deshabilitado — degrada a flete online sin lanzar excepción', async () => {
-      mockPrismaClient.settings.findUnique
-        .mockResolvedValueOnce({ value: 'false' }) // SHIPPING_ONLINE_ENABLED off
-        .mockResolvedValueOnce({ value: 'false' }) // COD_ENABLED off — repartidor no puede recaudar
+    it('chargeShippingOnline: false cuando SHIPPING_ONLINE_ENABLED está explícitamente deshabilitado', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'false' })
       const { CreateOrder } = await import('@h2r/domain')
-      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment } })
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment, shippingQuoteFallback: false } })
       vi.mocked(CreateOrder).mockImplementationOnce(function () {
         return { execute }
       })
 
-      await expect(controller.create(dto, mockUser)).resolves.toBeDefined()
-      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ shippingCod: false }))
+      await controller.create(dto, mockUser)
+
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ chargeShippingOnline: false }))
+    })
+
+    it('COD nunca lee SHIPPING_ONLINE_ENABLED — solo COD_ENABLED', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'true' }) // COD_ENABLED
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: { ...mockOrder, status: 'PAID' }, payment: null, shippingQuoteFallback: false } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+
+      await controller.create({ ...dto, paymentProvider: 'COD' }, mockUser)
+
+      expect(mockPrismaClient.settings.findUnique).toHaveBeenCalledTimes(1)
+      expect(mockPrismaClient.settings.findUnique).toHaveBeenCalledWith({ where: { key: 'COD_ENABLED' } })
+    })
+
+    it('shippingQuoteFallback:true dispara un warning en el logger', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'true' })
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment, shippingQuoteFallback: true } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+      const warnSpy = vi.spyOn(controller['logger'], 'warn')
+
+      await controller.create(dto, mockUser)
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(mockOrder.id))
     })
   })
 

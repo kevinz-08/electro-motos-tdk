@@ -21,7 +21,9 @@ export default async function CheckoutPage() {
   ])
   // Por defecto habilitado si no existe la fila aún — mismo fallback que orders.controller.ts.
   const codEnabled = codSetting ? codSetting.value === 'true' : true
-  const shippingOnlineEnabled = shippingOnlineSetting ? shippingOnlineSetting.value === 'true' : true
+  // Default FALSE si no existe la fila — no empezar a cobrar flete extra sin
+  // opt-in explícito del admin (mismo criterio que orders.controller.ts).
+  const shippingOnlineEnabled = shippingOnlineSetting?.value === 'true'
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

@@ -4,6 +4,60 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 110. Fix real de producción — Vendelo rechaza unit_price:0 en pedidos COD
+
+**Contexto:** el usuario probó el modo híbrido en producción (checkout real: pago en línea +
+"Flete pagado en línea" desactivado). El pedido se creó correctamente (`PAID`/`APPROVED` en
+nuestro sistema) pero **nunca llegó al panel de Venndelo**. Se investigó consultando directamente
+`VendeloOrderQueue` en la BD de producción: el pedido se encoló, pero agotó sus 3 reintentos con
+`status: FAILED` y este error real de Vendelo:
+
+```
+Vendelo API 500: {"errors":[{"code":"500","message":"The entity Order has invalid values"}]}
+```
+
+**Causa raíz:** comparando contra un pedido anterior exitoso (mismo producto/comprador,
+`shippingCod: false`, sí tiene `vendeloOrderId`), la única diferencia estructural era
+`unit_price: 0` en los `line_items` — la implementación original de #108 (siguiendo la sugerencia
+informal de soporte de Vendelo) declaraba el producto en $0 para que el recaudo COD fuera solo el
+flete. **Vendelo rechaza esto**: un pedido `payment_method_code: 'COD'` con `unit_price: 0`
+dispara la validación "invalid values" de su lado (razonable desde su negocio — no tiene sentido
+un recaudo contraentrega de producto en $0).
+
+**Fix:** `VendeloService.createOrder()` ahora **siempre** declara el `unit_price` real del
+producto. Para anular el recaudo neto del producto en modo híbrido, se usa el array `discounts`
+del payload en vez de `unit_price: 0`:
+
+```ts
+discounts: order.shippingCod
+  ? [{ description: 'Producto pagado en línea — solo se recauda el flete', amount: subtotalReal }]
+  : []
+```
+
+**⚠️ Advertencia — schema no verificado:** `API_VENDELO_DOCUMENTACION.md` no documenta el shape de
+`ApiCreateOrderDiscount` (solo aparece como `array (ApiCreateOrderDiscount)` sin campos). Los
+nombres `description`/`amount` son una suposición razonable basada en APIs similares, **no
+confirmada con soporte de Vendelo ni probada aún contra la API real**. Falta:
+1. Probar un pedido híbrido de prueba con este payload contra Vendelo real y confirmar que el
+   recaudo mostrado en su panel es solo el flete.
+2. Si Vendelo rechaza el schema de `discounts`, preguntar a soporte el shape exacto (idealmente
+   pidiendo también confirmación explícita de que un descuento del 100% del subtotal es la forma
+   correcta de lograr "producto pagado, flete contraentrega" — la sugerencia original de soporte
+   mencionaba `unit_price` en $0, que ya se confirmó que no funciona).
+
+**Archivos:** `apps/api/src/infrastructure/services/VendeloService.ts` (`VendeloCreateOrderBody.discounts`
+tipado, `createOrder()`), `apps/api/src/__tests__/VendeloService.test.ts` (test actualizado +
+test nuevo confirmando `discounts: []` en COD total/pago online puro).
+
+**Validación:** `pnpm --filter @h2r/api test` (168/168 ✅), type-check limpio. **No validado aún
+contra la API real de Vendelo** — pendiente de que el usuario repita la prueba end-to-end.
+
+**Rama:** `feat/vendelo-shipping-improvements`.
+
+*Última actualización: 2026-07-02*
+
+---
+
 ## 109. Modo híbrido controlado por admin — de checkbox de cliente a toggle global
 
 **Contexto:** a pedido explícito del usuario, el modo híbrido de #108 (producto pagado en línea,

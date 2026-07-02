@@ -74,7 +74,11 @@ interface VendeloCreateOrderBody {
   payment_method_code: 'COD' | 'EXTERNAL_PAYMENT'
   external_order_id: string
   confirmation_status: 'CONFIRMED'
-  discounts: []
+  // Schema NO documentado en API_VENDELO_DOCUMENTACION.md (solo aparece como
+  // "array (ApiCreateOrderDiscount)" sin campos). `description`/`amount` es una
+  // suposición razonable, pendiente de confirmar con soporte Vendelo — ver
+  // VendeloService.createOrder() para el caso de uso (modo híbrido).
+  discounts: Array<{ description: string; amount: number }>
 }
 
 export interface VendeloCreateOrderResponse {
@@ -213,10 +217,11 @@ export class VendeloService implements IVendeloShippingPort {
         name: item.productSnapshot?.name ?? `Producto ${item.productId}`,
         sku: item.productSnapshot?.sku ?? item.productId,
         quantity: item.quantity,
-        // Modo híbrido (shippingCod): el producto ya se pagó por paymentProvider —
-        // se declara en $0 para que Coordinadora solo recaude el flete, no el producto
-        // otra vez. En COD total o pago 100% online, se declara el precio real.
-        unit_price: order.shippingCod ? 0 : item.priceAtPurchase / 100,
+        // Siempre el precio real — probado en producción que Vendelo rechaza
+        // (500 "invalid values") un pedido payment_method_code:'COD' con
+        // unit_price:0. El recaudo neto en modo híbrido se anula con `discounts`
+        // más abajo, no declarando el producto en $0.
+        unit_price: item.priceAtPurchase / 100,
         // Peso/dimensiones reales del producto si el admin los cargó — si no,
         // caemos al default genérico (ver comentario en class doc: causa de
         // discrepancia entre el flete cotizado y el flete real cobrado por Vendelo).
@@ -232,7 +237,19 @@ export class VendeloService implements IVendeloShippingPort {
       payment_method_code: order.paymentProvider === 'COD' || order.shippingCod ? 'COD' : 'EXTERNAL_PAYMENT',
       external_order_id: order.id,
       confirmation_status: 'CONFIRMED',
-      discounts: [],
+      // Modo híbrido: el producto ya se pagó por paymentProvider, así que se
+      // descuenta el 100% del subtotal para que el recaudo neto en la entrega
+      // sea solo el flete. Schema de descuento NO documentado por Vendelo —
+      // ver comentario en VendeloCreateOrderBody.discounts.
+      discounts: order.shippingCod
+        ? [{
+            description: 'Producto pagado en línea — solo se recauda el flete',
+            amount: (order.items ?? []).reduce(
+              (sum, item) => sum + (item.priceAtPurchase / 100) * item.quantity,
+              0,
+            ),
+          }]
+        : [],
     }
 
     this.logger.log(`Creando orden Vendelo para pedido interno ${order.id}`)

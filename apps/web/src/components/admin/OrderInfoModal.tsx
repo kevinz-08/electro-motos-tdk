@@ -19,8 +19,8 @@ interface OrderDetails {
   createdAt: string
   status: string
   total: number
+  shippingTotal: number
   paymentProvider: string
-  shippingCod: boolean
   vendeloOrderId: string | null
   policiesAcceptedAt: string | null
   buyer: { idType: string; idNumber: string; businessName: string | null }
@@ -179,8 +179,8 @@ export function OrderInfoModal({ orderId }: { orderId: string }) {
                       {data.shipment && (
                         <Pill label={`Envío: ${data.shipment.status}`} color={STATUS_COLOR[data.shipment.status]} />
                       )}
-                      {data.shippingCod && (
-                        <Pill label="Flete contraentrega" color="bg-amber-500/20 text-amber-400" />
+                      {data.shippingTotal > 0 && (
+                        <Pill label="Envío pagado en línea" color="bg-sky-500/20 text-sky-400" />
                       )}
                     </div>
                   </Section>
@@ -240,6 +240,18 @@ export function OrderInfoModal({ orderId }: { orderId: string }) {
                           ))}
                         </tbody>
                         <tfoot className="bg-white/5">
+                          {data.shippingTotal > 0 && (
+                            <>
+                              <tr>
+                                <td colSpan={4} className="px-3 py-1.5 text-right text-white/50">Subtotal productos</td>
+                                <td className="px-3 py-1.5 text-right text-white/70">{formatCOP(data.total - data.shippingTotal)}</td>
+                              </tr>
+                              <tr>
+                                <td colSpan={4} className="px-3 py-1.5 text-right text-white/50">Envío</td>
+                                <td className="px-3 py-1.5 text-right text-white/70">{formatCOP(data.shippingTotal)}</td>
+                              </tr>
+                            </>
+                          )}
                           <tr>
                             <td colSpan={4} className="px-3 py-2 text-right font-semibold text-white/60">Total</td>
                             <td className="px-3 py-2 text-right font-bold text-white text-base">{formatCOP(data.total)}</td>

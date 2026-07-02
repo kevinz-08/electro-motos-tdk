@@ -20,6 +20,7 @@ interface OrderDetails {
   status: string
   total: number
   paymentProvider: string
+  shippingCod: boolean
   vendeloOrderId: string | null
   policiesAcceptedAt: string | null
   buyer: { idType: string; idNumber: string; businessName: string | null }
@@ -177,6 +178,9 @@ export function OrderInfoModal({ orderId }: { orderId: string }) {
                       )}
                       {data.shipment && (
                         <Pill label={`Envío: ${data.shipment.status}`} color={STATUS_COLOR[data.shipment.status]} />
+                      )}
+                      {data.shippingCod && (
+                        <Pill label="Flete contraentrega" color="bg-amber-500/20 text-amber-400" />
                       )}
                     </div>
                   </Section>

@@ -140,7 +140,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
                     Envío a {order.shippingCity}, {order.shippingDepartment}
                   </p>
                   <div className="flex items-center gap-4">
-                    <InvoiceDownloadButton order={order} />
+                    <InvoiceDownloadButton orderId={order.id} />
                     <Link
                       href={`/checkout/confirmacion?orderId=${order.id}`}
                       className="text-xs font-semibold text-sky-600 hover:text-sky-800 transition-colors"

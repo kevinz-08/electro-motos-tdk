@@ -130,7 +130,7 @@ const ISSUER = {
   nit: '1007784964-5',
   address: 'Carrera 21 #21-58, Bucaramanga, Santander',
   email: 'h2ronlinestore@gmail.com',
-  phone: '+57 315 292 6690',
+  phone: '+57 315 292 6609',
 }
 
 function formatCOP(cents: number): string {

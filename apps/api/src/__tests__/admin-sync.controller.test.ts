@@ -26,6 +26,7 @@ const SYNC_REPORT: SyncReport = {
   notFound:      [],
   fixedByNombre: [],
   skippedPrice:  [],
+  updatedItems:  [],
   executedAt:    new Date(),
   durationMs:    12,
 }
@@ -70,28 +71,28 @@ async function buildController(
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('AdminSyncController.syncStock', () => {
+describe('AdminSyncController.previewStock', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   // ── Validación del archivo ─────────────────────────────────────────────────
 
   it('lanza BadRequestException si no se adjunta ningún archivo', async () => {
     const { controller } = await buildController()
-    await expect(controller.syncStock(undefined)).rejects.toThrow(BadRequestException)
+    await expect(controller.previewStock(undefined)).rejects.toThrow(BadRequestException)
   })
 
   it('lanza BadRequestException si el file está presente pero sin buffer', async () => {
     const { controller } = await buildController()
     const badFile = { buffer: undefined as unknown as Buffer, originalname: 'test.xlsx' }
-    await expect(controller.syncStock(badFile)).rejects.toThrow(BadRequestException)
+    await expect(controller.previewStock(badFile)).rejects.toThrow(BadRequestException)
   })
 
   it('propaga BadRequestException del parser cuando el archivo es inválido', async () => {
     const parser = { parse: vi.fn().mockImplementation(() => { throw new BadRequestException('Columna inválida') }) }
     const { controller } = await buildController(parser)
 
-    await expect(controller.syncStock(makeFile())).rejects.toThrow(BadRequestException)
-    await expect(controller.syncStock(makeFile())).rejects.toThrow('Columna inválida')
+    await expect(controller.previewStock(makeFile())).rejects.toThrow(BadRequestException)
+    await expect(controller.previewStock(makeFile())).rejects.toThrow('Columna inválida')
   })
 
   // ── Flujo exitoso ──────────────────────────────────────────────────────────
@@ -107,7 +108,7 @@ describe('AdminSyncController.syncStock', () => {
     })
     const { controller } = await buildController(makeParser(), syncRepo)
 
-    const result = await controller.syncStock(makeFile())
+    const result = await controller.previewStock(makeFile())
 
     expect(result.updated).toBe(1)
     expect(result.notFound).toHaveLength(0)
@@ -130,7 +131,7 @@ describe('AdminSyncController.syncStock', () => {
     })
     const { controller } = await buildController(parser, syncRepoFull)
 
-    await controller.syncStock({ buffer: buf, originalname: 'test.xlsx' })
+    await controller.previewStock({ buffer: buf, originalname: 'test.xlsx' })
 
     expect(parser.parse).toHaveBeenCalledWith(buf)
   })
@@ -146,7 +147,7 @@ describe('AdminSyncController.syncStock', () => {
     })
     const { controller } = await buildController(makeParser([PARSED_ROW]), syncRepo)
 
-    const result = await controller.syncStock(makeFile())
+    const result = await controller.previewStock(makeFile())
 
     // Stock y precio idénticos al producto → unchanged, no write
     expect(result.unchanged).toBe(1)
@@ -161,7 +162,7 @@ describe('AdminSyncController.syncStock', () => {
     const { controller } = await buildController(parser)
 
     try {
-      await controller.syncStock(makeFile())
+      await controller.previewStock(makeFile())
       expect.fail('debería haber lanzado')
     } catch (e) {
       expect(e).toBeInstanceOf(HttpException)
@@ -176,7 +177,7 @@ describe('AdminSyncController.syncStock', () => {
     const { controller } = await buildController(makeParser(), syncRepo)
 
     try {
-      await controller.syncStock(makeFile())
+      await controller.previewStock(makeFile())
       expect.fail('debería haber lanzado')
     } catch (e) {
       expect(e).toBeInstanceOf(HttpException)
@@ -193,7 +194,7 @@ describe('AdminSyncController.syncStock', () => {
     })
     const { controller } = await buildController(makeParser(), syncRepo)
 
-    const result = await controller.syncStock(makeFile())
+    const result = await controller.previewStock(makeFile())
 
     expect(result.notFound).toHaveLength(1)
     expect(result.notFound[0]).toMatchObject({ codigo: '9-00017' })
@@ -213,7 +214,7 @@ describe('AdminSyncController.syncStock', () => {
     })
     const { controller } = await buildController(makeParser([corruptRow]), syncRepo)
 
-    const result = await controller.syncStock(makeFile())
+    const result = await controller.previewStock(makeFile())
 
     expect(result.fixedByNombre).toHaveLength(1)
     expect(result.fixedByNombre[0]).toMatchObject({ codigoCorrupto: 'ene-23' })
@@ -232,7 +233,7 @@ describe('AdminSyncController.syncStock', () => {
     })
     const { controller } = await buildController(makeParser([zeroDetalRow]), syncRepo)
 
-    const result = await controller.syncStock(makeFile())
+    const result = await controller.previewStock(makeFile())
 
     expect(result.skippedPrice).toContain('9-00017')
   })
@@ -250,11 +251,60 @@ describe('AdminSyncController.syncStock', () => {
     })
     const { controller } = await buildController(makeParser(), syncRepo)
 
-    const r1 = await controller.syncStock(makeFile())
-    const r2 = await controller.syncStock(makeFile())
+    const r1 = await controller.previewStock(makeFile())
+    const r2 = await controller.previewStock(makeFile())
 
     expect(r1.updated).toBe(r2.updated)
     expect(r1.unchanged).toBe(r2.unchanged)
     expect(syncRepo.bulkUpdateStockAndPrice).not.toHaveBeenCalled()
+  })
+
+  // ── previewStock nunca escribe en BD ───────────────────────────────────────
+
+  it('previewStock nunca llama a bulkUpdateStockAndPrice, incluso con cambios detectados', async () => {
+    const product = {
+      id: 'prod-1', name: 'CAPUCHON BUJIA XRE 300', slug: 'capuchon', description: '',
+      price: 2_000_000, stock: 1, sku: '9-00017', images: [], isActive: true,
+      categoryId: 'cat-1', createdAt: new Date(), updatedAt: new Date(),
+    }
+    const syncRepo = makeSyncRepo({
+      findBySkus: vi.fn().mockResolvedValue(new Map([['9-00017', product]])),
+    })
+    const { controller } = await buildController(makeParser(), syncRepo)
+
+    const result = await controller.previewStock(makeFile())
+
+    expect(result.updated).toBe(1)
+    expect(result.updatedItems).toHaveLength(1)
+    expect(syncRepo.bulkUpdateStockAndPrice).not.toHaveBeenCalled()
+  })
+})
+
+describe('AdminSyncController.applyStock', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('escribe las actualizaciones confirmadas en BD y retorna appliedCount', async () => {
+    const syncRepo = makeSyncRepo()
+    const { controller } = await buildController(makeParser(), syncRepo)
+
+    const result = await controller.applyStock({
+      updates: [{ productId: 'prod-1', stock: 5, price: 2_500_000 }],
+    })
+
+    expect(syncRepo.bulkUpdateStockAndPrice).toHaveBeenCalledWith([
+      { productId: 'prod-1', stock: 5, price: 2_500_000 },
+    ])
+    expect(result).toEqual({ appliedCount: 1 })
+  })
+
+  it('lanza HttpException 500 si bulkUpdateStockAndPrice falla', async () => {
+    const syncRepo = makeSyncRepo({
+      bulkUpdateStockAndPrice: vi.fn().mockRejectedValue(new Error('DB timeout')),
+    })
+    const { controller } = await buildController(makeParser(), syncRepo)
+
+    await expect(
+      controller.applyStock({ updates: [{ productId: 'prod-1', stock: 5 }] }),
+    ).rejects.toThrow(HttpException)
   })
 })

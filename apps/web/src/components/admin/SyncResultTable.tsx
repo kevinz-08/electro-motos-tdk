@@ -6,6 +6,14 @@ interface Props {
   report: SyncReport
 }
 
+function formatCOP(cents: number): string {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+  }).format(cents / 100)
+}
+
 export function SyncResultTable({ report }: Props) {
   const totalProcessed = report.updated + report.unchanged + report.notFound.length
 
@@ -22,16 +30,64 @@ export function SyncResultTable({ report }: Props) {
 
       {/* ── Metadata ──────────────────────────────────────────────────── */}
       <p className="text-xs text-white/30">
-        Ejecutado en {report.durationMs} ms ·{' '}
+        Calculado en {report.durationMs} ms ·{' '}
         {new Date(report.executedAt).toLocaleString('es-CO')}
       </p>
 
+      {/* ── Productos a actualizar ───────────────────────────────────────── */}
+      <Section title={`Productos a actualizar (${report.updatedItems.length})`} color="green" defaultOpen>
+        {report.updatedItems.length === 0 ? (
+          <p className="text-xs text-white/40">Ningún producto tiene cambios de stock o precio.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10">
+                <Th>SKU</Th>
+                <Th>Producto</Th>
+                <Th>Stock</Th>
+                <Th>Precio</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {report.updatedItems.map((item) => (
+                <tr key={item.productId} className="hover:bg-white/5">
+                  <td className="px-3 py-2 font-mono text-xs text-white/50">{item.sku}</td>
+                  <td className="px-3 py-2 text-white/70">{item.name}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {item.oldStock === item.newStock ? (
+                      <span className="text-white/30">{item.newStock}</span>
+                    ) : (
+                      <span>
+                        <span className="text-white/30 line-through">{item.oldStock}</span>{' '}
+                        <span className="text-green-400 font-semibold">→ {item.newStock}</span>
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {item.newPrice === null || item.oldPrice === item.newPrice ? (
+                      <span className="text-white/30">{formatCOP(item.oldPrice)}</span>
+                    ) : (
+                      <span>
+                        <span className="text-white/30 line-through">{formatCOP(item.oldPrice)}</span>{' '}
+                        <span className="text-green-400 font-semibold">→ {formatCOP(item.newPrice)}</span>
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Section>
+
       {/* ── Corregidos por nombre ──────────────────────────────────────── */}
-      {report.fixedByNombre.length > 0 && (
-        <Section title={`Resueltos por nombre (${report.fixedByNombre.length})`} color="amber">
-          <p className="text-xs text-white/40 mb-3">
-            El código llegó corrupto desde Optimun y se encontró el producto por nombre.
-          </p>
+      <Section title={`Resueltos por nombre (${report.fixedByNombre.length})`} color="amber">
+        <p className="text-xs text-white/40 mb-3">
+          El código llegó corrupto desde Optimun y se encontró el producto por nombre.
+        </p>
+        {report.fixedByNombre.length === 0 ? (
+          <p className="text-xs text-white/40">Ningún producto necesitó resolverse por nombre.</p>
+        ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10">
@@ -48,16 +104,18 @@ export function SyncResultTable({ report }: Props) {
               ))}
             </tbody>
           </table>
-        </Section>
-      )}
+        )}
+      </Section>
 
       {/* ── Precio omitido (DETAL = 0) ────────────────────────────────── */}
-      {report.skippedPrice.length > 0 && (
-        <Section title={`Precio no actualizado — DETAL 0 en Optimun (${report.skippedPrice.length})`} color="blue">
-          <p className="text-xs text-white/40 mb-3">
-            Estos productos no tienen precio configurado en el sistema local.
-            El precio de la web no fue modificado.
-          </p>
+      <Section title={`Precio no actualizado — DETAL 0 en Optimun (${report.skippedPrice.length})`} color="blue">
+        <p className="text-xs text-white/40 mb-3">
+          Estos productos no tienen precio configurado en el sistema local.
+          El precio de la web no se modificará.
+        </p>
+        {report.skippedPrice.length === 0 ? (
+          <p className="text-xs text-white/40">Ningún producto tiene DETAL en 0.</p>
+        ) : (
           <div className="flex flex-wrap gap-2">
             {report.skippedPrice.map(sku => (
               <span key={sku} className="font-mono text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-white/50">
@@ -65,15 +123,17 @@ export function SyncResultTable({ report }: Props) {
               </span>
             ))}
           </div>
-        </Section>
-      )}
+        )}
+      </Section>
 
       {/* ── No encontrados ────────────────────────────────────────────── */}
-      {report.notFound.length > 0 && (
-        <Section title={`No encontrados en la tienda (${report.notFound.length})`} color="red">
-          <p className="text-xs text-white/40 mb-3">
-            Estos productos existen en Optimun pero no en la tienda web. No se crearon.
-          </p>
+      <Section title={`No encontrados en la tienda (${report.notFound.length})`} color="red">
+        <p className="text-xs text-white/40 mb-3">
+          Estos productos existen en Optimun pero no en la tienda web. No se crearán.
+        </p>
+        {report.notFound.length === 0 ? (
+          <p className="text-xs text-white/40">Todos los productos del export existen en la tienda.</p>
+        ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10">
@@ -90,8 +150,8 @@ export function SyncResultTable({ report }: Props) {
               ))}
             </tbody>
           </table>
-        </Section>
-      )}
+        )}
+      </Section>
     </div>
   )
 }
@@ -126,10 +186,12 @@ function Section({
   title,
   color,
   children,
+  defaultOpen = false,
 }: {
   title: string
   color: 'green' | 'red' | 'amber' | 'blue'
   children: React.ReactNode
+  defaultOpen?: boolean
 }) {
   const border = {
     green: 'border-green-500/20',
@@ -146,10 +208,18 @@ function Section({
   }[color]
 
   return (
-    <div className={`bg-white/[0.03] border ${border} rounded-xl p-4`}>
-      <h3 className={`text-sm font-semibold mb-3 ${titleColor}`}>{title}</h3>
-      {children}
-    </div>
+    <details className={`bg-white/[0.03] border ${border} rounded-xl p-4 group`} open={defaultOpen}>
+      <summary className={`text-sm font-semibold ${titleColor} cursor-pointer select-none list-none flex items-center gap-2`}>
+        <svg
+          className="w-3.5 h-3.5 transition-transform group-open:rotate-90 shrink-0"
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        {title}
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
   )
 }
 

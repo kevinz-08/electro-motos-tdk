@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getOrderHistory } from '@/lib/queries/getOrderHistory'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
 import { InvoiceDownloadButton } from '@/components/store/InvoiceDownloadButton'
+import { OrderItemThumbnail } from '@/components/store/OrderItemThumbnail'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getPaginationPages } from '@/lib/pagination'
 
@@ -95,22 +95,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
                   <ul className="space-y-3">
                     {order.items.map((item) => (
                       <li key={item.id} className="flex items-center gap-4">
-                        {/* Thumbnail */}
-                        {item.productImage ? (
-                          <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                            <Image
-                              src={item.productImage}
-                              alt={item.productName}
-                              fill
-                              className="object-cover"
-                              sizes="56px"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 text-xl">
-                            🛒
-                          </div>
-                        )}
+                        <OrderItemThumbnail src={item.productImage} alt={item.productName} />
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
@@ -140,7 +125,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
                     Envío a {order.shippingCity}, {order.shippingDepartment}
                   </p>
                   <div className="flex items-center gap-4">
-                    <InvoiceDownloadButton order={order} />
+                    <InvoiceDownloadButton orderId={order.id} />
                     <Link
                       href={`/checkout/confirmacion?orderId=${order.id}`}
                       className="text-xs font-semibold text-sky-600 hover:text-sky-800 transition-colors"

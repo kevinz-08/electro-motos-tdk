@@ -12,8 +12,8 @@ export default function AdminSyncPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Sincronizar inventario</h1>
           <p className="text-sm text-white/40 mt-1">
-            Actualiza el stock y precio de los productos de la tienda con el export de Optimun.
-            Solo se modifican productos que ya existen en la tienda.
+            Revisa el stock y precio del export de Optimun antes de aplicarlos a la tienda.
+            Solo se modifican productos que ya existen — nada se guarda hasta que confirmes.
           </p>
         </div>
         <AdminHelpButton content={syncHelpContent} />

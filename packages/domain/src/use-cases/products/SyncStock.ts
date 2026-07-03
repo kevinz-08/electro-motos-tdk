@@ -48,6 +48,20 @@ export type SyncReport = {
    * Permite auditar qué productos tienen precio sin configurar en el local.
    */
   readonly skippedPrice: ReadonlyArray<string>
+  /**
+   * Detalle de cada producto que cambió (o cambiaría, en modo preview) —
+   * incluye valores antes/después para mostrar en el reporte al admin.
+   * `newPrice: null` significa que el precio no se tocó (DETAL era 0).
+   */
+  readonly updatedItems: ReadonlyArray<{
+    productId: string
+    sku: string
+    name: string
+    oldStock: number
+    newStock: number
+    oldPrice: number
+    newPrice: number | null
+  }>
   readonly executedAt: Date
   readonly durationMs: number
 }
@@ -69,11 +83,18 @@ export type SyncReport = {
  *     en Optimun no mutan el precio de la web.
  *   - **Batch-first.** Máximo 3 queries a BD por ejecución, independiente del número
  *     de productos en el export.
+ *   - **Modo preview.** Con `{ apply: false }` calcula el reporte completo sin
+ *     escribir en BD — permite que el admin revise los cambios antes de confirmarlos.
  */
 export class SyncStock {
   constructor(private readonly syncRepo: IStockSyncRepository) {}
 
-  async execute(items: StockSyncItem[]): Promise<Result<SyncReport>> {
+  async execute(
+    items: StockSyncItem[],
+    options?: { apply?: boolean },
+  ): Promise<Result<SyncReport>> {
+    const apply = options?.apply ?? true
+
     if (items.length === 0) {
       return err(new AppError('VALIDATION_ERROR', 'No se recibieron ítems para sincronizar'))
     }
@@ -121,6 +142,7 @@ export class SyncStock {
       notFound:       [] as { codigo: string; nombre: string }[],
       fixedByNombre:  [] as { codigoCorrupto: string; nombreMatch: string }[],
       skippedPrice:   [] as string[],
+      updatedItems:   [] as SyncReport['updatedItems'][number][],
     }
 
     const updates: StockSyncUpdate[] = []
@@ -155,11 +177,22 @@ export class SyncStock {
       }
 
       updates.push({ productId: product.id, stock: item.stock, price: newPrice })
+      report.updatedItems.push({
+        productId: product.id,
+        sku:       product.sku,
+        name:      product.name,
+        oldStock:  product.stock,
+        newStock:  item.stock,
+        oldPrice:  product.price,
+        newPrice:  newPrice ?? null,
+      })
       report.updated++
     }
 
     // ── Paso 5: escribir en BD (una sola transacción) ─────────────────────────
-    if (updates.length > 0) {
+    // En modo preview (apply: false) el reporte se calcula igual pero no se
+    // persiste — el admin decide si confirma con una llamada posterior.
+    if (apply && updates.length > 0) {
       try {
         await this.syncRepo.bulkUpdateStockAndPrice(updates)
       } catch (e) {

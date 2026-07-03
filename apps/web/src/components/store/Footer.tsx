@@ -194,11 +194,11 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="tel:+573152926690"
+                  href="tel:+573152926609"
                   className="flex items-start gap-2.5 text-sm hover:text-sky-400 transition-colors duration-150"
                 >
                   <PhoneIcon />
-                  <span>+57 315 292 6690</span>
+                  <span>+57 315 292 6609</span>
                 </a>
               </li>
               <li>

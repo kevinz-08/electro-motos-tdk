@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getOrderConfirmation } from '@/lib/queries/getOrderConfirmation'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
+import { OrderItemThumbnail } from '@/components/store/OrderItemThumbnail'
 import { CartCleaner } from '@/components/checkout/CartCleaner'
 import { OrderStatusPoller } from '@/components/checkout/OrderStatusPoller'
 
@@ -133,22 +133,7 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
             <ul className="space-y-4">
               {order.items.map((item) => (
                 <li key={item.id} className="flex items-center gap-4">
-                  {/* Thumbnail */}
-                  {item.productImage ? (
-                    <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-gray-100 shrink-0">
-                      <Image
-                        src={item.productImage}
-                        alt={item.productName}
-                        fill
-                        className="object-cover"
-                        sizes="56px"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 text-2xl">
-                      🛒
-                    </div>
-                  )}
+                  <OrderItemThumbnail src={item.productImage} alt={item.productName} />
 
                   {/* Descripción */}
                   <div className="flex-1 min-w-0">

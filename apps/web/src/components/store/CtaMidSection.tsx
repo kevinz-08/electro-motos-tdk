@@ -24,7 +24,7 @@ export function CtaMidSection() {
             </svg>
           </Link>
           <a
-            href={`https://wa.me/573152926690?text=${encodeURIComponent('Hola, necesito ayuda para encontrar un repuesto para mi moto')}`}
+            href={`https://wa.me/573152926609?text=${encodeURIComponent('Hola, necesito ayuda para encontrar un repuesto para mi moto')}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 border-2 border-white/30 text-white font-semibold px-8 py-3.5 rounded-xl text-base hover:bg-white/10 hover:border-white/60 transition-all duration-200"

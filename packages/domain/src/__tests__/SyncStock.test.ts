@@ -368,6 +368,59 @@ describe('SyncStock.execute', () => {
     })
   })
 
+  // ── Modo preview (apply: false) ────────────────────────────────────────────
+
+  it('en modo preview calcula el reporte pero no escribe en BD', async () => {
+    const product = makeProduct({ stock: 1, price: 2_000_000 })
+    repo = makeRepo({
+      findBySkus: vi.fn().mockResolvedValue(new Map([['9-00017', product]])),
+    })
+    useCase = new SyncStock(repo)
+
+    const result = await useCase.execute([makeItem({ stock: 5, detal: 2_500_000 })], { apply: false })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.updated).toBe(1)
+    expect(repo.bulkUpdateStockAndPrice).not.toHaveBeenCalled()
+  })
+
+  it('el reporte incluye updatedItems con valores antes/después', async () => {
+    const product = makeProduct({ id: 'prod-1', sku: '9-00017', name: 'CAPUCHON BUJIA XRE 300', stock: 1, price: 2_000_000 })
+    repo = makeRepo({
+      findBySkus: vi.fn().mockResolvedValue(new Map([['9-00017', product]])),
+    })
+    useCase = new SyncStock(repo)
+
+    const result = await useCase.execute([makeItem({ stock: 5, detal: 2_500_000 })], { apply: false })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.updatedItems).toEqual([{
+      productId: 'prod-1',
+      sku: '9-00017',
+      name: 'CAPUCHON BUJIA XRE 300',
+      oldStock: 1,
+      newStock: 5,
+      oldPrice: 2_000_000,
+      newPrice: 2_500_000,
+    }])
+  })
+
+  it('updatedItems reporta newPrice null cuando DETAL era 0', async () => {
+    const product = makeProduct({ stock: 1, price: 2_500_000 })
+    repo = makeRepo({
+      findBySkus: vi.fn().mockResolvedValue(new Map([['9-00017', product]])),
+    })
+    useCase = new SyncStock(repo)
+
+    const result = await useCase.execute([makeItem({ stock: 5, detal: 0 })])
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.updatedItems[0]?.newPrice).toBeNull()
+  })
+
   // ── Reporte ───────────────────────────────────────────────────────────────
 
   it('el reporte incluye executedAt como Date y durationMs >= 0', async () => {

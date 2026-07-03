@@ -16,10 +16,11 @@ export const syncHelpContent: AdminHelpContent = {
   steps: [
     'En Optimun: exporta el inventario en formato Excel (.xlsx).',
     'Verifica que el archivo tenga las columnas CODIGO, NOMBRE PRODUCTO, EXISTENCIAS y DETAL — si falta alguna, el sistema te dirá cuál y rechazará el archivo.',
-    'En esta página, haz clic en el recuadro punteado (o arrastra el archivo) para subir el .xlsx.',
-    'Espera el resultado: verás cuántos productos se actualizaron, cuántos quedaron igual y cuáles no se encontraron.',
+    'En esta página, haz clic en el recuadro punteado (o arrastra el archivo) para subir el .xlsx. Esto solo LEE el archivo y calcula los cambios — todavía no se guarda nada en la tienda.',
+    'Revisa la vista previa: cada sección (Productos a actualizar, Resueltos por nombre, Precio no actualizado, No encontrados) se despliega al hacer clic. "Productos a actualizar" muestra el stock y precio actual junto al nuevo valor.',
     'Revisa "No encontrados": son productos que existen en Optimun pero no en la tienda web. No se crean automáticamente — agrégalos manualmente en Productos si corresponde.',
-    'Revisa "Precio no actualizado": son productos donde Optimun tiene el precio en 0 — la web conservó el precio actual a propósito, para no borrar un precio válido por error.',
+    'Revisa "Precio no actualizado": son productos donde Optimun tiene el precio en 0 — la web conservará el precio actual a propósito, para no borrar un precio válido por error.',
+    'Cuando la vista previa se vea correcta, haz clic en "Guardar cambios" para aplicar las actualizaciones a la tienda. Si algo se ve mal, haz clic en "Descartar" y no se modifica nada.',
     'Puedes repetir el proceso cuando quieras: subir el mismo archivo dos veces no duplica ni daña nada.',
   ],
 }

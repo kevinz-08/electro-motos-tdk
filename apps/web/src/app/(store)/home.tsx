@@ -43,7 +43,7 @@ const HERO_BANNERS = [
     src: '/assets/heroBanners/hero_banner4.png',
     title: '¿Necesitas un servicio técnico?',
     description: 'Te ayudamos con diagnóstico y soporte para tu moto.',
-    cta: { label: 'Contáctanos', href: `https://wa.me/573152926690` },
+    cta: { label: 'Contáctanos', href: `https://wa.me/573152926609` },
   },
 ]
 

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   HttpCode,
   HttpException,
@@ -16,6 +17,7 @@ import { IStockSyncRepository, StockSyncItem, SyncReport, SyncStock } from '@h2r
 import { Roles } from '../auth/decorators/roles.decorator'
 import { INVENTORY_REPOSITORY } from '../infrastructure/injection-tokens'
 import { SyncFileParserService } from '../infrastructure/services/SyncFileParserService'
+import { ApplySyncDto } from './dto/apply-sync.dto'
 
 // Keeps HTTP status mapping local to this layer — the domain never speaks HTTP.
 const DOMAIN_TO_HTTP: Record<string, number> = {
@@ -41,17 +43,16 @@ export class AdminSyncController {
   ) {}
 
   /**
-   * Sincroniza stock y precio de los productos de la web con el export de Optimun.
+   * Calcula el diff de stock y precio entre el export de Optimun y la web —
+   * SIN escribir en BD. El admin revisa el reporte y confirma con `POST /stock/apply`.
    *
    * Acepta el archivo .xlsx generado por Optimun (exportación estándar de inventario).
-   * Solo actualiza productos existentes en la web — nunca crea ni elimina.
-   * La invalidación de caché se realiza como best-effort: si falla, el TTL
-   * del caché expira normalmente sin afectar el resultado de la sincronización.
+   * Solo considera productos existentes en la web — nunca crea ni elimina.
    */
-  @Post('stock')
+  @Post('stock/preview')
   @HttpCode(HttpStatus.OK)
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Sincronizar stock y precio desde export de Optimun (.xlsx)' })
+  @ApiOperation({ summary: 'Calcular el diff de stock/precio desde export de Optimun (.xlsx), sin aplicar' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -64,7 +65,7 @@ export class AdminSyncController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_FILE_BYTES } }),
   )
-  async syncStock(
+  async previewStock(
     @UploadedFile() file: { buffer: Buffer; originalname: string } | undefined,
   ): Promise<SyncReport> {
     if (!file?.buffer) {
@@ -80,16 +81,37 @@ export class AdminSyncController {
       detal:  r.detal,
     }))
 
-    const result = await new SyncStock(this.syncRepo).execute(items)
+    const result = await new SyncStock(this.syncRepo).execute(items, { apply: false })
 
     if (!result.ok) {
       const status = DOMAIN_TO_HTTP[result.error.code] ?? HttpStatus.INTERNAL_SERVER_ERROR
       throw new HttpException(result.error.message, status)
     }
 
+    return result.value
+  }
+
+  /**
+   * Confirma y escribe en BD los cambios previamente calculados por `POST /stock/preview`.
+   * El cliente reenvía los `updatedItems` del reporte (mapeados a productId/stock/price) —
+   * esta ruta no vuelve a leer el .xlsx.
+   */
+  @Post('stock/apply')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Aplicar los cambios de stock/precio confirmados por el admin' })
+  async applyStock(@Body() dto: ApplySyncDto): Promise<{ appliedCount: number }> {
+    try {
+      await this.syncRepo.bulkUpdateStockAndPrice(dto.updates)
+    } catch (e) {
+      throw new HttpException(
+        e instanceof Error ? e.message : 'Error al escribir actualizaciones de stock en la BD',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+
     this.invalidateProductCache()
 
-    return result.value
+    return { appliedCount: dto.updates.length }
   }
 
   // ── Private ─────────────────────────────────────────────────────────────────

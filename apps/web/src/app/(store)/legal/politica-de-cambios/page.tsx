@@ -101,12 +101,12 @@ export default function PoliticaDeCambiosPage() {
           <p className="text-gray-700 mb-3">
             El Cliente debe comunicarse a través de nuestro WhatsApp{' '}
             <a
-              href="https://wa.me/573152926690"
+              href="https://wa.me/573152926609"
               className="text-sky-600 underline hover:text-sky-700"
               target="_blank"
               rel="noopener noreferrer"
             >
-              +57 315 292 6690
+              +57 315 292 6609
             </a>{' '}
             para que el área encargada pueda proceder a analizar el caso, indicando:
           </p>
@@ -201,12 +201,12 @@ export default function PoliticaDeCambiosPage() {
             </a>{' '}
             o por WhatsApp al{' '}
             <a
-              href="https://wa.me/573152926690"
+              href="https://wa.me/573152926609"
               className="text-sky-600 underline hover:text-sky-700"
               target="_blank"
               rel="noopener noreferrer"
             >
-              +57 315 292 6690
+              +57 315 292 6609
             </a>
             .
           </p>

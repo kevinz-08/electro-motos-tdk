@@ -211,11 +211,15 @@ export class PrismaOrderRepository implements IOrderRepository {
     })
   }
 
+  /**
+   * Ingresos del día actual: cualquier pedido confirmado (status distinto de
+   * PENDING/CANCELLED) — un pedido sigue "pagado" al pasar a SHIPPED/DELIVERED.
+   */
   async getTodayRevenue(): Promise<number> {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const result = await this.prisma.client.order.aggregate({
-      where: { status: 'PAID', createdAt: { gte: today } },
+      where: { status: { notIn: ['PENDING', 'CANCELLED'] }, createdAt: { gte: today } },
       _sum: { total: true },
     })
     return result._sum.total ?? 0

@@ -254,7 +254,8 @@ export class PrismaOrderRepository implements IOrderRepository {
   }
 
   /**
-   * Calcula los ingresos del día actual (pedidos con status PAID).
+   * Calcula los ingresos del día actual (pedidos ya confirmados: cualquier status
+   * salvo PENDING/CANCELLED — un pedido sigue "pagado" al pasar a SHIPPED/DELIVERED).
    * Retorna el total en centavos COP. Usado en el dashboard admin.
    */
   async getTodayRevenue(): Promise<number> {
@@ -263,7 +264,7 @@ export class PrismaOrderRepository implements IOrderRepository {
 
     const result = await prisma.order.aggregate({
       where: {
-        status: 'PAID',
+        status: { notIn: ['PENDING', 'CANCELLED'] },
         createdAt: { gte: today },
       },
       _sum: { total: true },
@@ -276,14 +277,14 @@ export class PrismaOrderRepository implements IOrderRepository {
     return prisma.order.count({ where: { status: 'PENDING' } })
   }
 
-  /** Ingresos del mes en curso (pedidos PAID desde el día 1 del mes). */
+  /** Ingresos del mes en curso (pedidos confirmados desde el día 1 del mes, ver getTodayRevenue). */
   async getMonthRevenue(): Promise<number> {
     const firstDay = new Date()
     firstDay.setDate(1)
     firstDay.setHours(0, 0, 0, 0)
 
     const result = await prisma.order.aggregate({
-      where: { status: 'PAID', createdAt: { gte: firstDay } },
+      where: { status: { notIn: ['PENDING', 'CANCELLED'] }, createdAt: { gte: firstDay } },
       _sum: { total: true },
     })
     return result._sum.total ?? 0

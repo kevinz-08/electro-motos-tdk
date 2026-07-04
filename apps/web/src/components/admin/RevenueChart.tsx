@@ -54,6 +54,8 @@ export function RevenueChart({ data }: RevenueChartProps) {
           tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.3)', fontFamily: 'inherit' }}
           axisLine={false}
           tickLine={false}
+          interval="preserveStartEnd"
+          minTickGap={24}
         />
         <YAxis
           tickFormatter={(v) => formatCOP(v)}

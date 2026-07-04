@@ -3,6 +3,7 @@ import { Plus, Search } from 'lucide-react'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { DeleteProductButton } from '@/components/admin/DeleteProductButton'
+import { CategoryFilterSelect } from '@/components/admin/CategoryFilterSelect'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -13,7 +14,7 @@ function formatCOP(cents: number): string {
 }
 
 interface PageProps {
-  searchParams: Promise<{ search?: string; page?: string }>
+  searchParams: Promise<{ search?: string; category?: string; page?: string }>
 }
 
 export default async function AdminProductosPage({ searchParams }: PageProps) {
@@ -21,14 +22,31 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
   const page = Number(params.page ?? 1)
 
   const repo = new PrismaProductRepository()
-  const { items, total, limit } = await repo.findAll({
-    search: params.search,
-    page,
-    limit: 20,
-  })
+  const [{ items, total, limit }, categories] = await Promise.all([
+    repo.findAll({
+      search: params.search,
+      categorySlug: params.category,
+      page,
+      limit: 20,
+    }),
+    prisma.category.findMany(),
+  ])
 
-  const categories = await prisma.category.findMany()
   const totalPages = Math.ceil(total / limit)
+
+  // Árbol de categorías (padre + subcategorías) para el dropdown de filtro,
+  // derivado de la misma consulta plana que ya se usa para mostrar el nombre en la tabla.
+  const categoryTree = categories
+    .filter((c) => c.parentId === null)
+    .map((p) => ({
+      slug: p.slug,
+      name: p.name,
+      children: categories
+        .filter((c) => c.parentId === p.id)
+        .map((c) => ({ slug: c.slug, name: c.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="space-y-6">
@@ -50,19 +68,23 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      {/* ── Search ─────────────────────────────────────────────────────── */}
-      <form method="GET">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 pointer-events-none" />
-          <input
-            type="text"
-            name="search"
-            defaultValue={params.search}
-            placeholder="Buscar por nombre, SKU..."
-            className="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
-          />
-        </div>
-      </form>
+      {/* ── Search + filtro de categoría ──────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <form method="GET" className="flex-1 min-w-[240px] max-w-sm">
+          {params.category && <input type="hidden" name="category" value={params.category} />}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 pointer-events-none" />
+            <input
+              type="text"
+              name="search"
+              defaultValue={params.search}
+              placeholder="Buscar por nombre, SKU..."
+              className="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
+            />
+          </div>
+        </form>
+        <CategoryFilterSelect categories={categoryTree} currentSlug={params.category} />
+      </div>
 
       {/* ── Tabla ──────────────────────────────────────────────────────── */}
       <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
@@ -132,7 +154,11 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
 
         {items.length === 0 && (
           <div className="py-20 text-center text-sm text-white/20">
-            {params.search ? `Sin resultados para "${params.search}"` : 'No hay productos aún'}
+            {params.search
+              ? `Sin resultados para "${params.search}"`
+              : params.category
+              ? 'Sin productos en esta categoría'
+              : 'No hay productos aún'}
           </div>
         )}
       </div>
@@ -143,7 +169,11 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
           {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/productos?${new URLSearchParams({ ...(params.search ? { search: params.search } : {}), page: String(p) })}`}
+              href={`/admin/productos?${new URLSearchParams({
+                ...(params.search ? { search: params.search } : {}),
+                ...(params.category ? { category: params.category } : {}),
+                page: String(p),
+              })}`}
               className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all ${
                 p === page
                   ? 'bg-white text-black'

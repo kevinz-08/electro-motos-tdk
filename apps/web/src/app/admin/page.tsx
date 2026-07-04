@@ -1,8 +1,15 @@
 import Link from 'next/link'
 import { TrendingUp, Clock, AlertTriangle, ShoppingBag, ArrowRight, Dot } from 'lucide-react'
-import { PrismaOrderRepository } from '@/infrastructure/repositories/PrismaOrderRepository'
+import { PrismaOrderRepository, type RevenueRange } from '@/infrastructure/repositories/PrismaOrderRepository'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
 import { RevenueChart } from '@/components/admin/RevenueChart'
+
+const RANGE_OPTIONS: Array<{ value: RevenueRange; label: string }> = [
+  { value: '2w', label: '2 semanas' },
+  { value: '1m', label: '1 mes' },
+  { value: '3m', label: '3 meses' },
+  { value: 'all', label: 'Histórico' },
+]
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -20,7 +27,16 @@ const statusConfig: Record<string, { label: string; dot: string }> = {
   CANCELLED: { label: 'Cancelado', dot: 'bg-red-400' },
 }
 
-export default async function AdminDashboard() {
+interface PageProps {
+  searchParams: Promise<{ range?: string }>
+}
+
+export default async function AdminDashboard({ searchParams }: PageProps) {
+  const params = await searchParams
+  const range: RevenueRange = RANGE_OPTIONS.some((o) => o.value === params.range)
+    ? (params.range as RevenueRange)
+    : '2w'
+
   const orderRepo = new PrismaOrderRepository()
   const productRepo = new PrismaProductRepository()
 
@@ -29,7 +45,7 @@ export default async function AdminDashboard() {
     monthRevenue,
     pendingCount,
     totalOrders,
-    weeklySeries,
+    revenueSeries,
     lowStockProducts,
     recentOrders,
   ] = await Promise.all([
@@ -37,7 +53,7 @@ export default async function AdminDashboard() {
     orderRepo.getMonthRevenue(),
     orderRepo.getPendingCount(),
     orderRepo.getTotalCount(),
-    orderRepo.getWeeklyRevenueSeries(),
+    orderRepo.getRevenueSeries(range),
     productRepo.findLowStock(5),
     orderRepo.findAll({ limit: 6 }),
   ])
@@ -112,10 +128,27 @@ export default async function AdminDashboard() {
               <p className="text-[11px] font-semibold tracking-[0.14em] text-white/30 uppercase mb-1">
                 Ingresos
               </p>
-              <p className="text-sm text-white/60">Últimos 7 días</p>
+              <p className="text-sm text-white/60">
+                {RANGE_OPTIONS.find((o) => o.value === range)?.label}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              {RANGE_OPTIONS.map((o) => (
+                <Link
+                  key={o.value}
+                  href={o.value === '2w' ? '/admin' : `/admin?range=${o.value}`}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                    o.value === range
+                      ? 'bg-white text-black'
+                      : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+                  }`}
+                >
+                  {o.label}
+                </Link>
+              ))}
             </div>
           </div>
-          <RevenueChart data={weeklySeries} />
+          <RevenueChart data={revenueSeries} />
         </div>
 
         {/* Stock bajo — 1/3 */}

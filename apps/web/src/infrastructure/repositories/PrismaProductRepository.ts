@@ -88,7 +88,8 @@ export class PrismaProductRepository implements IProductRepository {
    * Lista productos con filtros opcionales y paginación.
    *
    * Construcción del filtro `where`:
-   * - Siempre filtra isActive: true.
+   * - Filtra isActive: true, salvo que `includeInactive: true` (uso exclusivo del panel admin,
+   *   que necesita ver también los productos desactivados para poder gestionarlos).
    * - `inStock: true` agrega `stock > 0`.
    * - `categorySlug` soporta jerarquía de dos niveles:
    *     Si el slug es una categoría PADRE, incluye automáticamente los IDs
@@ -147,7 +148,7 @@ export class PrismaProductRepository implements IProductRepository {
     }
 
     const where: Record<string, unknown> = {
-      isActive: true,
+      ...(!filters.includeInactive && { isActive: true }),
       ...(filters.inStock  && { stock: { gt: 0 } }),
       ...(filters.minPrice !== undefined && { price: { gte: filters.minPrice } }),
       ...(filters.maxPrice !== undefined && { price: { lte: filters.maxPrice } }),

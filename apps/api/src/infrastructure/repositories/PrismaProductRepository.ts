@@ -76,7 +76,7 @@ export class PrismaProductRepository implements IProductRepository {
     }
 
     const where = {
-      isActive: true,
+      ...(!filters.includeInactive && { isActive: true }),
       ...(filters.inStock  && { stock: { gt: 0 } }),
       ...(categoryIdFilter && { categoryId: categoryIdFilter }),
       ...(filters.search && {

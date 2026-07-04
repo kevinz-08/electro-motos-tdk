@@ -221,7 +221,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   }
 
   // === VISTA LANDING ===
-  const { parentsRaw, allProducts, countRows } = await getCachedCatalogLanding()
+  const { parentsRaw, productsByCategory, countRows } = await getCachedCatalogLanding()
 
   const parentEntries = parentsRaw.map((p) => ({
     parent: p,
@@ -231,8 +231,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   const countByCatId = new Map(countRows.map((r) => [r.categoryId, r._count]))
 
   const categoriesRaw = parentEntries.map(({ parent, ids }) => {
-    const idSet = new Set(ids)
-    const products = allProducts.filter((p) => idSet.has(p.categoryId)).slice(0, 8)
+    const products = productsByCategory[parent.id] ?? []
     const productCount = ids.reduce((sum, id) => sum + (countByCatId.get(id) ?? 0), 0)
     return {
       id: parent.id,

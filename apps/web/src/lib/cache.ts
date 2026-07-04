@@ -57,6 +57,9 @@ export const getCachedFeaturedProducts = unstable_cache(
 
 // ── Catalog landing ───────────────────────────────────────────────────────────
 
+/** Cuántos productos se muestran por sección de categoría padre en el landing. */
+const LANDING_PRODUCTS_PER_CATEGORY = 8
+
 export type CachedLandingData = {
   parentsRaw: Array<{
     id: string
@@ -65,19 +68,24 @@ export type CachedLandingData = {
     description: string | null
     children: Array<{ id: string }>
   }>
-  allProducts: Array<{
+  /** Hasta `LANDING_PRODUCTS_PER_CATEGORY` productos por categoría padre, ya recortados en la query. */
+  productsByCategory: Record<string, Array<{
     id: string; name: string; slug: string; description: string
     price: number; stock: number; sku: string; images: string[]
     isActive: boolean; categoryId: string
     createdAt: string; updatedAt: string
-  }>
+  }>>
   countRows: Array<{ categoryId: string; _count: number }>
 }
 
 /**
  * Datos para la vista landing del catálogo (sin filtros).
- * Retorna las 3 queries del catálogo como datos crudos; la página ensambla
+ * Retorna las queries del catálogo como datos crudos; la página ensambla
  * la vista final en memoria sin tocar la DB.
+ *
+ * Los productos se piden con `take: LANDING_PRODUCTS_PER_CATEGORY` por categoría padre
+ * (una query por padre, en paralelo) en vez de traer todo el catálogo activo con stock
+ * de una sola vez — esa query sin límite no escalaba con el crecimiento del catálogo.
  */
 export const getCachedCatalogLanding = unstable_cache(
   async (): Promise<CachedLandingData> => {
@@ -92,11 +100,20 @@ export const getCachedCatalogLanding = unstable_cache(
       ...p.children.map((c) => c.id),
     ])
 
-    const [allProducts, countRows] = await Promise.all([
-      prisma.product.findMany({
-        where: { isActive: true, stock: { gt: 0 }, categoryId: { in: allCategoryIds } },
-        orderBy: { createdAt: 'desc' },
-      }),
+    const [productsByParent, countRows] = await Promise.all([
+      Promise.all(
+        parentsRaw.map((p) =>
+          prisma.product.findMany({
+            where: {
+              isActive: true,
+              stock: { gt: 0 },
+              categoryId: { in: [p.id, ...p.children.map((c) => c.id)] },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: LANDING_PRODUCTS_PER_CATEGORY,
+          }),
+        ),
+      ),
       prisma.product.groupBy({
         by: ['categoryId'],
         where: { isActive: true, categoryId: { in: allCategoryIds } },
@@ -104,13 +121,18 @@ export const getCachedCatalogLanding = unstable_cache(
       }),
     ])
 
+    const productsByCategory: CachedLandingData['productsByCategory'] = {}
+    parentsRaw.forEach((p, i) => {
+      productsByCategory[p.id] = productsByParent[i].map((prod) => ({
+        ...prod,
+        createdAt: prod.createdAt.toISOString(),
+        updatedAt: prod.updatedAt.toISOString(),
+      }))
+    })
+
     return {
       parentsRaw,
-      allProducts: allProducts.map((p) => ({
-        ...p,
-        createdAt: p.createdAt.toISOString(),
-        updatedAt: p.updatedAt.toISOString(),
-      })),
+      productsByCategory,
       countRows: countRows.map((r) => ({
         categoryId: r.categoryId,
         _count: r._count,

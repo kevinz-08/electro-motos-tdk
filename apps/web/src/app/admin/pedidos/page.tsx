@@ -4,6 +4,7 @@ import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect'
 import { OrderInfoModal } from '@/components/admin/OrderInfoModal'
 import { AdminHelpButton } from '@/components/admin/AdminHelpButton'
 import { pedidosHelpContent } from '@/components/admin/help-content/pedidos'
+import { getPaginationPages } from '@/lib/pagination'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -35,11 +36,13 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
   const page = Number(params.page ?? 1)
 
   const repo = new PrismaOrderRepository()
-  const orders = await repo.findAll({
-    status: params.status as OrderStatus | undefined,
-    page,
-    limit: 20,
-  })
+  const status = params.status as OrderStatus | undefined
+  const limit = 20
+  const [orders, total] = await Promise.all([
+    repo.findAll({ status, page, limit }),
+    repo.countAll({ status }),
+  ])
+  const totalPages = Math.ceil(total / limit)
 
   return (
     <div>
@@ -137,6 +140,34 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
           <div className="text-center py-12 text-white/30">No hay pedidos</div>
         )}
       </div>
+
+      {/* ── Paginación ─────────────────────────────────────────────────── */}
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1.5 mt-6 flex-wrap">
+          {getPaginationPages(page, totalPages).map((p, i) =>
+            p === '...' ? (
+              <span key={`ellipsis-${i}`} className="w-8 h-8 flex items-center justify-center text-xs text-white/20 select-none">
+                ···
+              </span>
+            ) : (
+              <a
+                key={p}
+                href={`/admin/pedidos?${new URLSearchParams({
+                  ...(params.status ? { status: params.status } : {}),
+                  page: String(p),
+                })}`}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all ${
+                  p === page
+                    ? 'bg-white text-black'
+                    : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+                }`}
+              >
+                {p}
+              </a>
+            ),
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -166,6 +166,11 @@ model Product {
   compatible            MotorcycleCompatibility[]
   orderItems            OrderItem[]
   structuredDescription ProductDescription?
+
+  /// Cubre el filtro mas comun del catalogo y del admin: por categoria, activos, con stock.
+  @@index([categoryId, isActive, stock])
+  /// Cubre listados ordenados por fecha (mas recientes primero) filtrando solo activos.
+  @@index([isActive, createdAt])
 }
 
 model ProductDescription {
@@ -235,6 +240,11 @@ model Order {
   items              OrderItem[]
   payment            Payment?
   shipment           Shipment?
+
+  /// Cubre el filtro de /admin/pedidos y las agregaciones de ingresos del dashboard
+  /// (getTodayRevenue, getMonthRevenue, getRevenueSeries), que siempre filtran por
+  /// status y ordenan/agrupan por createdAt.
+  @@index([status, createdAt])
 }
 
 /// Envío asociado a un pedido. Se crea cuando Vendelo dispara el primer webhook

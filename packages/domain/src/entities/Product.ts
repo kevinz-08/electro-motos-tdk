@@ -84,6 +84,8 @@ export interface ProductFilters {
   maxPrice?: number
   /** Si es true, solo retorna productos con stock > 0 */
   inStock?: boolean
+  /** Si es true, incluye también productos con isActive: false. Uso exclusivo del panel admin. */
+  includeInactive?: boolean
   /** Número de página para paginación. Empieza en 1. Default: 1 */
   page?: number
   /** Cantidad de productos por página. Default: 12 */

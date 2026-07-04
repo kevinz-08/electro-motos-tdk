@@ -26,6 +26,7 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
     repo.findAll({
       search: params.search,
       categorySlug: params.category,
+      includeInactive: true,
       page,
       limit: 20,
     }),

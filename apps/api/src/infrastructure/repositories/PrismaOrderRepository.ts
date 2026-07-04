@@ -103,6 +103,13 @@ export class PrismaOrderRepository implements IOrderRepository {
     return orders.map(toDomain)
   }
 
+  /** Cuenta pedidos que matchean los mismos filtros que `findAll`, sin paginar. */
+  async countAll(filters?: { status?: OrderStatus }): Promise<number> {
+    return this.prisma.client.order.count({
+      where: filters?.status ? { status: filters.status } : undefined,
+    })
+  }
+
   async create(input: CreateOrderInput): Promise<Order> {
     const o = await this.prisma.client.order.create({
       data: {

@@ -123,6 +123,13 @@ export class PrismaOrderRepository implements IOrderRepository {
     return orders.map(toDomain)
   }
 
+  /** Cuenta pedidos que matchean los mismos filtros que `findAll`, sin paginar. */
+  async countAll(filters?: { status?: OrderStatus }): Promise<number> {
+    return prisma.order.count({
+      where: filters?.status ? { status: filters.status } : undefined,
+    })
+  }
+
   /**
    * Crea un pedido con sus ítems y el registro de pago en una sola transacción de Prisma.
    * El pago se crea con estado PENDING — se actualiza mediante webhook cuando la pasarela confirma.

@@ -50,6 +50,11 @@ export interface IOrderRepository {
   findByUserId(userId: string): Promise<Order[]>
   /** Lista pedidos con filtros opcionales para el panel admin */
   findAll(filters?: { status?: OrderStatus; page?: number; limit?: number }): Promise<Order[]>
+  /**
+   * Cuenta el total de pedidos que matchean los mismos filtros de `findAll` (sin paginar).
+   * Usado junto a `findAll` para calcular `totalPages` en el panel admin de pedidos.
+   */
+  countAll(filters?: { status?: OrderStatus }): Promise<number>
   /** Crea un pedido con sus ítems y el registro de pago en una sola transacción */
   create(input: CreateOrderInput): Promise<Order>
   /** Cambia el estado del pedido (PENDING→PAID, PAID→SHIPPED, etc.) */

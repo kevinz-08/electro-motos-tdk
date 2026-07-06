@@ -4,6 +4,179 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 123. "Pagar con Addi" pasa de centrado a alineado directamente bajo "Agregar al carrito"
+
+**Contexto:** en la entrada #122 el botón de Addi quedó del mismo ancho que "Agregar al carrito"
+pero centrado en toda la columna (margen simétrico de 59px a cada lado). Al verlo, el usuario
+prefirió que en vez de centrado quede alineado exactamente debajo de "Agregar al carrito" — mismo
+ancho y mismo borde izquierdo, no centrado en la columna completa.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx` — el wrapper pasó de
+`flex justify-center` con `w-[calc(100%-118px)]` a `flex items-center gap-3` con un
+**espaciador invisible** (`<div className="w-[106px] shrink-0" aria-hidden="true" />`) del mismo
+ancho que el selector de cantidad, seguido del botón de Addi con `flex-1`. Así el botón ocupa
+exactamente el mismo espacio horizontal que "Agregar al carrito" (que comparte fila con el stepper),
+en vez de calcular un ancho fijo y centrarlo. El espaciador solo se renderiza si
+`product.stock > 1` (cuando el stepper es visible); si el stock es 1, tanto "Agregar al carrito"
+como "Pagar con Addi" ocupan el ancho completo, sin espaciador. Verificado con Playwright en ambos
+escenarios: mismo borde izquierdo y mismo ancho en los dos casos.
+
+## 122. "Pagar con Addi" iguala el ancho de "Agregar al carrito" y queda centrado
+
+**Contexto:** tras restaurar "Pagar con Addi" como botón en la entrada #121, quedó a ancho completo
+de la columna (`w-full`), mientras que "Agregar al carrito" es más angosto porque comparte fila con
+el stepper de cantidad (106px de ancho + 12px de gap = 118px descontados del ancho total,
+medido con Playwright: contenedor 456px, stepper 106px, botón resultante 338px). Esa diferencia de
+tamaño se veía inconsistente. El usuario pidió que ambos botones midan lo mismo y que Addi quede
+centrado (no pegado a la izquierda) ya que no comparte fila con el stepper.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx` — el wrapper de
+`PayWithAddiButton` pasó de `<div className="mt-3">` a `<div className="mt-3 flex justify-center">`,
+y el botón recibe `className="w-[calc(100%-118px)] ..."` (mismo ancho fijo restado que ocupa el
+stepper + gap) en vez del `w-full` por defecto del componente. Verificado con Playwright: ambos
+botones miden 338px de ancho, Addi queda con 59px de margen simétrico a cada lado.
+
+## 121. "Pagar con Addi" vuelve a ser botón (revierte el cambio a texto de la entrada #119)
+
+**Contexto:** el usuario pidió revertir el cambio de la entrada #119 — "Pagar con Addi" vuelve a ser
+el botón sólido azul original (icono "A" + texto), en vez del texto con link introducido antes.
+Pidió que quede debajo de "Agregar al carrito", centrado y bien estructurado.
+
+**Cambio:**
+- `apps/web/src/components/store/PayWithAddiButton.tsx` — se restauró el `<a>` con estilo de botón
+  completo (`bg-[#1A57FF]`, ícono circular blanco con "A", sombra), igual que antes de la entrada
+  #119. El link a WhatsApp no cambió.
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — se envolvió `<PayWithAddiButton>` en un
+  `<div className="mt-3">` para separar el espacio del bloque `AddToCartWithQuantity` de arriba, sin
+  duplicar el className completo del botón en la página.
+
+Verificado con Playwright contra el servidor de dev: el botón renderiza a ancho completo, centrado
+en la columna de detalle, debajo del stepper + "Agregar al carrito".
+
+## 120. Fix: selector de cantidad "no funcionaba" en productos con stock = 1
+
+**Contexto:** el usuario reportó que el selector de cantidad de la entrada #119 no funcionaba.
+Se verificó con Playwright contra el propio servidor de dev del usuario (puerto 3000): en un
+producto con stock 2 el stepper funcionaba perfecto (1→2→1), pero en uno con stock 1 (el mismo tipo
+de producto "¡Solo 1 disponibles!" de la captura original) **ambos botones `−`/`+` quedaban
+deshabilitados desde el primer render** — matemáticamente correcto (no se puede bajar de 1 ni subir
+más del stock), pero visualmente el control entero parecía muerto/roto porque ningún clic producía
+efecto.
+
+**Cambio:** `apps/web/src/components/store/AddToCartWithQuantity.tsx` — cuando
+`maxQuantity <= 1` (stock de una sola unidad), el componente ya no renderiza el stepper: muestra
+directamente el botón "Agregar al carrito" a ancho completo, igual que ya hacía para `stock === 0`
+("Agotado"). Para stock ≥ 2 el comportamiento no cambió. Verificado con un script Playwright
+temporal contra dos productos reales (stock 1 y stock 2) antes y después del fix.
+
+## 119. Selector de cantidad junto a "Agregar al carrito" + "Pagar con Addi" pasa de botón a texto
+
+**Contexto:** el usuario mostró una referencia visual (stepper de cantidad `− 1 +` a la izquierda de
+un botón de compra) y pidió dos cambios en `/producto/[slug]`: (1) agregar un selector de cantidad
+a la izquierda del botón "Agregar al carrito", adaptado a la paleta del sitio; (2) que "Pagar con
+Addi" deje de ser un botón sólido y pase a ser un texto informativo con link, del estilo "¿Prefieres
+pagar con Addi? Contacta con nuestro asesor personalizado para coordinar la compra."
+
+**Cambio:**
+- Nuevo componente `apps/web/src/components/store/AddToCartWithQuantity.tsx` (Client Component) —
+  reemplaza a `AddToCartButton` en esta página. Mantiene estado local `quantity` (mín. 1, máx.
+  `min(product.stock, 99)`), con un stepper `− / +` en pill (`rounded-full border border-gray-200`)
+  a la izquierda y el botón "Agregar al carrito" (mismo estilo `bg-sky-400`/`rounded-xl` que ya
+  existía) ocupando el resto del ancho (`flex-1`). Si `stock === 0`, se comporta igual que antes
+  (botón "Agotado" deshabilitado, sin stepper). `AddToCartButton.tsx` quedó sin ningún uso en el
+  proyecto tras el reemplazo, así que se eliminó en vez de dejarlo como código muerto.
+- `apps/web/src/components/store/PayWithAddiButton.tsx` — el `<a>` con fondo azul Addi sólido pasa a
+  ser un `<p>` de texto (`text-sm text-gray-500`) con un link inline (`text-sky-600 underline`) sobre
+  "Contacta con nuestro asesor personalizado", que sigue abriendo WhatsApp con el mismo mensaje
+  pre-armado de siempre. Solo cambió la presentación, no el comportamiento del link.
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — usa `AddToCartWithQuantity` en vez de
+  `AddToCartButton` + `className` a medida.
+
+## 118. Trust bar de Wompi/envío pasa a estar arriba de los acordeones
+
+**Contexto:** el usuario prefirió el trust bar (candado + camión) rediseñado en la entrada #117
+ubicado antes de los acordeones de Envíos/Cambios, en vez de después.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx` — se movió el bloque del trust bar
+de debajo del `<div className="... space-y-2">` de los acordeones a justo debajo de
+`ProductImageGallery`, antes del bloque de acordeones. Solo reordenamiento de JSX, mismo componente.
+
+## 117. Rediseño de la línea de confianza (Wompi/envío) como trust bar consistente
+
+**Contexto:** el usuario notó que el texto "🔒 Pago seguro con Wompi / 🚚 Envío a todo Colombia" se
+veía inconsistente frente al lenguaje visual de tarjeta de los acordeones de Envíos/Cambios
+(`border`, `rounded-xl`, `bg-gray-50`) justo arriba. Los emojis como íconos varían de render entre
+sistemas operativos y no comparten grosor de trazo con el ícono SVG del acordeón, y el texto flotaba
+sin contenedor entre dos bloques tipo card.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx` — se reemplazaron los emojis por un
+"trust bar": contenedor `bg-gray-50 border border-gray-100 rounded-xl px-4 py-3` con dos ítems
+(candado + camión, ambos íconos SVG de línea en `text-sky-500`, mismo tono de acento usado en el
+resto de la página) separados por un divisor vertical (`border-l border-gray-200`), reemplazando el
+`<div className="text-sm text-gray-500 flex items-center gap-4">` original con emojis sueltos.
+
+## 116. Reducir espacio vacío antes de "Productos relacionados" en la página de producto
+
+**Contexto:** el usuario reportó que la sección "Productos relacionados" quedaba muy separada del
+resto del contenido, con un hueco en blanco grande. Dos causas: (1) el grid de dos columnas
+(`grid-cols-1 md:grid-cols-2`) no tenía `items-start`, así que por defecto (`align-items: stretch`)
+la columna más corta se estiraba para igualar la altura de la más alta, dejando espacio vacío al
+final de esa columna; (2) `RecommendedProducts.tsx` usaba `mt-16 pt-10` (~104px) de espacio antes
+de la sección, sumándose al hueco anterior.
+
+**Cambio:**
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — el grid principal ahora usa
+  `items-start` en vez de stretch por defecto, para que ninguna columna se estire de más.
+- `apps/web/src/components/store/RecommendedProducts.tsx` — `mt-16 pt-10` → `mt-8 pt-6` tanto en
+  `RecommendedProducts` como en su `RecommendedProductsSkeleton`.
+
+## 115. Tercer ajuste de distribución en la página de producto — línea de confianza (Wompi/envío) bajo el acordeón
+
+**Contexto:** siguiendo la misma línea de reorganización de las entradas #113 y #114, el usuario
+pidió que la línea de confianza "🔒 Pago seguro con Wompi / 🚚 Envío a todo Colombia" deje de estar
+debajo de los botones de compra (columna derecha) y pase a la columna izquierda, debajo del
+acordeón de Envíos/Cambios.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx` — solo reordenamiento de JSX:
+- Columna izquierda: galería → acordeón de **Envíos/Cambios** → línea de confianza (Wompi/envío) →
+  **Compatibilidad**.
+- Columna derecha: ya no incluye la línea de confianza; queda `AddToCartButton` +
+  `PayWithAddiButton` → `<hr>` → **Descripción** → **Beneficios**.
+
+## 114. Segundo ajuste de distribución en la página de producto — acordeón junto a la galería, Beneficios bajo la Descripción
+
+**Contexto:** tras el reordenamiento de la entrada #113, el usuario pidió un segundo ajuste: que el
+acordeón de **Envíos** / **Cambios y devoluciones** ocupe el lugar donde antes estaban los
+**Beneficios** (debajo de la galería, columna izquierda), y que **Beneficios** pase a la columna
+derecha, debajo de la **Descripción**.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx` — solo reordenamiento de JSX, sin
+tocar lógica ni datos:
+- Columna izquierda: `ProductImageGallery` → acordeón de **Envíos** y **Cambios y devoluciones** →
+  **Compatibilidad** (se queda donde estaba, ahora debajo del acordeón en vez de debajo de
+  Beneficios).
+- Columna derecha: ... → `<hr>` → **Descripción** → **Beneficios** (nuevo último bloque de la
+  columna derecha).
+
+## 113. Reordenamiento de la página de producto — beneficios junto a la galería, descripción y acordeón bajo los botones
+
+**Contexto:** en `/producto/[slug]`, toda la información secundaria (descripción, beneficios,
+acordeón de envíos/cambios) estaba apilada en la misma columna derecha, debajo de los botones de
+compra, generando una página excesivamente larga y una jerarquía visual confusa. El usuario pidió
+redistribuir el contenido: **Beneficios** (y Compatibilidad) debajo de la galería de imágenes en la
+columna izquierda; **Descripción** debajo de los botones de compra en la columna derecha; y el
+acordeón de **Envíos** / **Cambios y devoluciones** debajo de la Descripción.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx` — sin cambios de lógica ni de datos,
+solo reordenamiento de JSX dentro del `grid grid-cols-1 md:grid-cols-2`:
+- Columna izquierda: `ProductImageGallery` → bloque de **Beneficios** → bloque de **Compatibilidad**
+  (antes ambos vivían al final de la columna derecha).
+- Columna derecha: SKU/nombre/precio/stock → `AddToCartButton` + `PayWithAddiButton` → línea de
+  confianza (Wompi/envío) → `<hr>` → **Descripción** → acordeón de **Envíos** y **Cambios y
+  devoluciones** (antes el acordeón iba primero y la descripción/beneficios después).
+
+---
+
 ## 112. Cobrar el flete en línea junto con el producto — reemplaza el modo híbrido
 
 **Contexto:** tras el fallback seguro de #111 (Vendelo rechazó las dos formas probadas de recaudo

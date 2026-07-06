@@ -22,7 +22,7 @@ import { SkeletonBlock, SkeletonLine } from '@/components/ui/Skeleton'
 /** Fallback para el <Suspense> que envuelve a RecommendedProducts. */
 export function RecommendedProductsSkeleton() {
   return (
-    <section className="mt-16 pt-10 border-t border-gray-100" aria-hidden="true">
+    <section className="mt-8 pt-6 border-t border-gray-100" aria-hidden="true">
       {/* Título skeleton */}
       <SkeletonBlock className="h-7 w-52 mb-6" />
 
@@ -68,7 +68,7 @@ export async function RecommendedProducts({
   if (products.length === 0) return null
 
   return (
-    <section className="mt-16 pt-10 border-t border-gray-100">
+    <section className="mt-8 pt-6 border-t border-gray-100">
       <h2 className="text-xl font-bold text-gray-900 mb-6">
         Productos relacionados
       </h2>

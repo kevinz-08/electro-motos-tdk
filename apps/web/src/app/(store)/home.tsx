@@ -22,25 +22,25 @@ import { getCachedFeaturedProducts, getCachedHomeCategories } from '@/lib/cache'
 
 const HERO_BANNERS = [
   {
-    src: '/assets/heroBanners/hero_banner1.png',
+    src: '/assets/heroBanners/hero_banner_slide1.jpeg',
     title: 'Tu moto merece lo mejor.',
     description: 'Repuestos de alta calidad para cualquier tipo de moto.',
     cta: { label: 'Comprar ahora', href: '/catalogo' },
   },
   {
-    src: '/assets/heroBanners/hero_banner2.png',
+    src: '/assets/heroBanners/hero_banner_slide2.jpeg',
     title: 'Encuentra todo tipo de repuestos',
     description: 'Tenemos opciones para mantener tu vehículo en excelente estado.',
     cta: { label: 'Ver repuestos', href: '/catalogo?category=repuestos' },
   },
   {
-    src: '/assets/heroBanners/hero_banner3.png',
+    src: '/assets/heroBanners/hero_banner_slide3.jpeg',
     title: '¿Buscas equipamiento?',
     description: 'Accesorios y protección para cada estilo de conducción.',
     cta: { label: 'Ver accesorios', href: '/catalogo?category=accesorios' },
   },
   {
-    src: '/assets/heroBanners/hero_banner4.png',
+    src: '/assets/heroBanners/hero_banner_slide4.jpeg',
     title: '¿Necesitas un servicio técnico?',
     description: 'Te ayudamos con diagnóstico y soporte para tu moto.',
     cta: { label: 'Contáctanos', href: `https://wa.me/573152926609` },

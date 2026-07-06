@@ -4,6 +4,21 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 124. Reemplazo de banners del Hero de la landing
+
+**Contexto:** El usuario cargó 4 imágenes nuevas para el carrusel Hero de la home
+(`hero_banner_slide1.jpeg` a `hero_banner_slide4.jpeg`), reemplazando los PNG de placeholder
+originales (`hero_banner1.png` a `hero_banner4.png`).
+
+- `apps/web/src/app/(store)/home.tsx` — `HERO_BANNERS` actualizado: cada `src` apunta al nuevo
+  archivo (`hero_banner_slide{n}.jpeg`), manteniendo el mismo orden, títulos, descripciones y CTAs
+- `apps/web/public/assets/heroBanners/` — se eliminaron los 4 PNG viejos (ya sin referencias en
+  el código) y quedan los 4 JPEG nuevos
+
+*Última actualización: 2026-07-06*
+
+---
+
 ## 123. "Pagar con Addi" pasa de centrado a alineado directamente bajo "Agregar al carrito"
 
 **Contexto:** en la entrada #122 el botón de Addi quedó del mismo ancho que "Agregar al carrito"

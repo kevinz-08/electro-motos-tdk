@@ -31,19 +31,6 @@ export function AddToCartWithQuantity({ product }: AddToCartWithQuantityProps) {
     toast.success('Agregado al carrito', { description: product.name })
   }
 
-  // Con una sola unidad disponible no hay nada que seleccionar — el stepper
-  // quedaría con ambos botones deshabilitados y parecería roto.
-  if (maxQuantity <= 1) {
-    return (
-      <button
-        onClick={handleAdd}
-        className="w-full bg-sky-400 text-black py-3 px-6 rounded-xl text-base font-bold hover:bg-sky-500 hover:text-white active:scale-95 transition-all"
-      >
-        Agregar al carrito
-      </button>
-    )
-  }
-
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center border border-gray-200 rounded-full overflow-hidden shrink-0">

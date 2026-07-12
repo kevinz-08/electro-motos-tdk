@@ -238,10 +238,13 @@ export default async function ProductPage({ params }: PageProps) {
             Espaciador invisible del mismo ancho que el selector de cantidad
             (106px + 12px de gap) para que el botón de Addi quede exactamente
             debajo de "Agregar al carrito" — mismo ancho y misma alineación,
-            en vez de centrado en toda la columna.
+            en vez de centrado en toda la columna. El stepper de cantidad
+            siempre se renderiza salvo cuando no hay stock (ver
+            AddToCartWithQuantity), así que el espaciador sigue esa misma
+            condición.
           */}
           <div className="mt-3 flex items-center gap-3">
-            {product.stock > 1 && <div className="w-[106px] shrink-0" aria-hidden="true" />}
+            {product.stock > 0 && <div className="w-[106px] shrink-0" aria-hidden="true" />}
             <PayWithAddiButton
               product={product}
               className="flex-1 inline-flex items-center justify-center gap-2.5 bg-[#1A57FF] text-white py-3 px-6 rounded-xl text-base font-bold hover:bg-[#0B47E5] active:scale-95 transition-all shadow-lg shadow-[#1A57FF]/25 hover:shadow-[#1A57FF]/40"

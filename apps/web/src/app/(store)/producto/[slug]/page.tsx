@@ -25,8 +25,8 @@
  *
  * El badge de stock usa estos umbrales:
  *   stock === 0   → "Agotado" (rojo) + botón deshabilitado
- *   1-5 unidades  → "¡Solo N disponibles!" (amarillo) — urgencia de compra
- *   6+ unidades   → "En stock (N unidades)" (verde)
+ *   stock === 1   → "¡Solo 1 disponible!" (amarillo) — urgencia de compra
+ *   2+ unidades   → "En stock (N unidades)" (verde)
  */
 import { Suspense } from 'react'
 import Link from 'next/link'
@@ -218,10 +218,10 @@ export default async function ProductPage({ params }: PageProps) {
                 <span className="w-2 h-2 rounded-full bg-red-500" />
                 Agotado
               </span>
-            ) : product.stock <= 5 ? (
+            ) : product.stock === 1 ? (
               <span className="inline-flex items-center gap-1.5 text-sm text-amber-600 font-medium">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
-                ¡Solo {product.stock} disponibles!
+                ¡Solo 1 disponible!
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 text-sm text-green-600 font-medium">

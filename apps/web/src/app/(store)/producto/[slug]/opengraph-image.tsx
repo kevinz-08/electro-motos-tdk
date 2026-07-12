@@ -10,14 +10,6 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-function formatCOP(cents: number): string {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-  }).format(cents / 100)
-}
-
 /**
  * `product.images` guarda public IDs de Cloudinary (ej. "products/7-RR23/1"),
  * no URLs completas — ver `@/lib/cloudinary`. Ese helper compartido usa
@@ -28,7 +20,7 @@ function formatCOP(cents: number): string {
 function cloudinaryOgImageUrl(publicId: string): string | null {
   const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? process.env.CLOUDINARY_CLOUD_NAME
   if (!cloud) return null
-  return `https://res.cloudinary.com/${cloud}/image/upload/f_jpg,q_auto,w_800,c_limit/${publicId}`
+  return `https://res.cloudinary.com/${cloud}/image/upload/f_jpg,q_auto,w_1100,c_limit/${publicId}`
 }
 
 const FALLBACK = (
@@ -48,6 +40,14 @@ const FALLBACK = (
   </div>
 )
 
+/**
+ * Solo la foto del producto, a pantalla completa — sin panel de texto.
+ * WhatsApp (y la mayoría de apps de mensajería) recorta el og:image a un
+ * thumbnail chico, y con el diseño anterior (foto + panel de texto al lado)
+ * el recorte solía mostrar solo una porción del panel oscuro, perdiendo
+ * la foto por completo. El nombre/precio ya los muestra la app de mensajería
+ * aparte, tomados de og:title — no hace falta repetirlos en la imagen.
+ */
 export default async function OgImage({ params }: Props) {
   const { slug } = await params
   const result = await getCachedProductBySlug(slug)
@@ -58,138 +58,32 @@ export default async function OgImage({ params }: Props) {
 
   const product = result.value
   const imageUrl = product.images[0] ? cloudinaryOgImageUrl(product.images[0]) : null
-  const name =
-    product.name.length > 55 ? product.name.slice(0, 52) + '…' : product.name
+
+  if (!imageUrl) {
+    return new ImageResponse(FALLBACK, { width: 1200, height: 630 })
+  }
 
   return new ImageResponse(
     (
-      <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-        {/* Left panel — dark with product info */}
-        <div
+      <div
+        style={{
+          display: 'flex',
+          width: '100%',
+          height: '100%',
+          backgroundColor: '#f1f5f9',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <img
+          src={imageUrl}
+          alt={product.name}
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            padding: '56px 60px',
-            backgroundColor: '#0f172a',
-            justifyContent: 'space-between',
+            maxWidth: '1100px',
+            maxHeight: '580px',
+            objectFit: 'contain',
           }}
-        >
-          {/* Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                backgroundColor: '#0ea5e9',
-              }}
-            />
-            <div
-              style={{ fontSize: '20px', color: '#0ea5e9', fontWeight: '700' }}
-            >
-              H2R Online Store
-            </div>
-          </div>
-
-          {/* Product info */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            <div
-              style={{
-                fontSize: '46px',
-                fontWeight: '900',
-                color: '#ffffff',
-                lineHeight: 1.15,
-              }}
-            >
-              {name}
-            </div>
-
-            <div
-              style={{ fontSize: '38px', fontWeight: '800', color: '#0ea5e9' }}
-            >
-              {formatCOP(product.price)}
-            </div>
-
-            {product.stock > 0 ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  backgroundColor: '#052e16',
-                  borderRadius: '10px',
-                  padding: '10px 20px',
-                  width: 'fit-content',
-                }}
-              >
-                <div
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: '#10b981',
-                  }}
-                />
-                <div
-                  style={{
-                    fontSize: '20px',
-                    color: '#10b981',
-                    fontWeight: '600',
-                  }}
-                >
-                  En stock
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  backgroundColor: '#450a0a',
-                  borderRadius: '10px',
-                  padding: '10px 20px',
-                  width: 'fit-content',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '20px',
-                    color: '#f87171',
-                    fontWeight: '600',
-                  }}
-                >
-                  Agotado
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right panel — product image */}
-        <div
-          style={{
-            display: 'flex',
-            width: '480px',
-            backgroundColor: '#f1f5f9',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={product.name}
-              style={{
-                maxWidth: '400px',
-                maxHeight: '400px',
-                objectFit: 'contain',
-              }}
-            />
-          ) : (
-            <div style={{ fontSize: '120px' }}>📦</div>
-          )}
-        </div>
+        />
       </div>
     ),
     { width: 1200, height: 630 },

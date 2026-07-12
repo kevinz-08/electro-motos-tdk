@@ -13,7 +13,7 @@
  *
  * Badges:
  *   - stock = 0   → overlay "Agotado" semitransparente sobre la imagen.
- *   - 1–5 stock   → chip "Últimas N" en la esquina superior izquierda.
+ *   - stock = 1   → chip "Última unidad" en la esquina superior izquierda.
  *
  * El componente es 'use client' porque CartHoverButton usa useCart.
  */
@@ -106,7 +106,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const secondImage  = images[1] ? cloudinaryUrl(images[1], 'card') : null
   const hasSecond    = !!secondImage
 
-  const isLowStock   = product.stock > 0 && product.stock <= 5
+  const isLowStock   = product.stock === 1
   const isOutOfStock = product.stock === 0
 
   return (
@@ -180,7 +180,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         {isLowStock && (
           <div className="absolute top-2.5 left-2.5">
             <span className="bg-amber-500 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wide shadow-sm">
-              Últimas {product.stock}
+              Última unidad
             </span>
           </div>
         )}

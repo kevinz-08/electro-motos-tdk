@@ -13,15 +13,15 @@ const ITEMS = [
   },
   {
     q: '¿Cómo puedo pagar?',
-    a: 'Aceptamos pagos con Mercado Pago (tarjeta de crédito, débito, efectivo) y Addi (crédito en cuotas sin tarjeta). También puedes pagar por transferencia bancaria.',
+    a: 'Aceptamos pagos con Wompi (tarjeta de crédito o débito, Nequi, PSE o Bancolombia) y Addi (crédito en cuotas sin tarjeta).',
   },
   {
     q: '¿Tienen garantía los repuestos?',
-    a: 'Todos nuestros productos tienen garantía de 1 año contra defectos de fábrica. Si tienes algún problema, escríbenos y te damos solución rápida.',
+    a: 'Todos nuestros productos tienen garantía de hasta 6 meses contra defectos de fábrica. Si tienes algún problema, escríbenos y te damos solución rápida.',
   },
   {
     q: '¿Puedo devolver un producto?',
-    a: 'Sí, aceptamos cambios dentro de los 30 días posteriores a la compra. El producto debe estar en su empaque original y sin usar. Escríbenos y coordinamos el cambio.',
+    a: 'Sí, aceptamos cambios hasta un máximo de 5 días posteriores a la compra. El producto debe estar en su empaque original y sin usar. Escríbenos y coordinamos el cambio.',
   },
   {
     q: '¿Cómo sé qué repuesto necesita mi moto?',

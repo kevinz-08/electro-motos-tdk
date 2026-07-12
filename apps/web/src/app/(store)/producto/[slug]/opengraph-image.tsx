@@ -18,6 +18,19 @@ function formatCOP(cents: number): string {
   }).format(cents / 100)
 }
 
+/**
+ * `product.images` guarda public IDs de Cloudinary (ej. "products/7-RR23/1"),
+ * no URLs completas — ver `@/lib/cloudinary`. Ese helper compartido usa
+ * `f_auto`, que negocia el formato según el header `Accept` del navegador;
+ * el fetch interno de `ImageResponse` (Satori) no manda ese header, así que
+ * forzamos JPEG explícito para garantizar que el renderer lo pueda decodificar.
+ */
+function cloudinaryOgImageUrl(publicId: string): string | null {
+  const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? process.env.CLOUDINARY_CLOUD_NAME
+  if (!cloud) return null
+  return `https://res.cloudinary.com/${cloud}/image/upload/f_jpg,q_auto,w_800,c_limit/${publicId}`
+}
+
 const FALLBACK = (
   <div
     style={{
@@ -44,7 +57,7 @@ export default async function OgImage({ params }: Props) {
   }
 
   const product = result.value
-  const imageUrl = product.images[0] ?? null
+  const imageUrl = product.images[0] ? cloudinaryOgImageUrl(product.images[0]) : null
   const name =
     product.name.length > 55 ? product.name.slice(0, 52) + '…' : product.name
 

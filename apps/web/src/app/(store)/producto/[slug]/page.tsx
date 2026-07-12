@@ -25,8 +25,8 @@
  *
  * El badge de stock usa estos umbrales:
  *   stock === 0   → "Agotado" (rojo) + botón deshabilitado
- *   1-5 unidades  → "¡Solo N disponibles!" (amarillo) — urgencia de compra
- *   6+ unidades   → "En stock (N unidades)" (verde)
+ *   stock === 1   → "¡Solo 1 disponible!" (amarillo) — urgencia de compra
+ *   2+ unidades   → "En stock (N unidades)" (verde)
  */
 import { Suspense } from 'react'
 import Link from 'next/link'
@@ -218,10 +218,10 @@ export default async function ProductPage({ params }: PageProps) {
                 <span className="w-2 h-2 rounded-full bg-red-500" />
                 Agotado
               </span>
-            ) : product.stock <= 5 ? (
+            ) : product.stock === 1 ? (
               <span className="inline-flex items-center gap-1.5 text-sm text-amber-600 font-medium">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
-                ¡Solo {product.stock} disponibles!
+                ¡Solo 1 disponible!
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 text-sm text-green-600 font-medium">
@@ -238,10 +238,13 @@ export default async function ProductPage({ params }: PageProps) {
             Espaciador invisible del mismo ancho que el selector de cantidad
             (106px + 12px de gap) para que el botón de Addi quede exactamente
             debajo de "Agregar al carrito" — mismo ancho y misma alineación,
-            en vez de centrado en toda la columna.
+            en vez de centrado en toda la columna. El stepper de cantidad
+            siempre se renderiza salvo cuando no hay stock (ver
+            AddToCartWithQuantity), así que el espaciador sigue esa misma
+            condición.
           */}
           <div className="mt-3 flex items-center gap-3">
-            {product.stock > 1 && <div className="w-[106px] shrink-0" aria-hidden="true" />}
+            {product.stock > 0 && <div className="w-[106px] shrink-0" aria-hidden="true" />}
             <PayWithAddiButton
               product={product}
               className="flex-1 inline-flex items-center justify-center gap-2.5 bg-[#1A57FF] text-white py-3 px-6 rounded-xl text-base font-bold hover:bg-[#0B47E5] active:scale-95 transition-all shadow-lg shadow-[#1A57FF]/25 hover:shadow-[#1A57FF]/40"

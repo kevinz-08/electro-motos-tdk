@@ -20,10 +20,16 @@ interface Benefit {
   order: number
 }
 
+interface CompatibilityEntry {
+  body: string
+  order: number
+}
+
 interface ProductEditFormProps {
   product?: Product
   categories: Category[]
   initialBenefits?: Benefit[]
+  initialCompatibility?: CompatibilityEntry[]
 }
 
 const INPUT_CLASS = 'w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors'
@@ -35,7 +41,7 @@ function toImageUrl(publicIdOrUrl: string): string {
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicIdOrUrl}`
 }
 
-export function ProductEditForm({ product, categories, initialBenefits = [] }: ProductEditFormProps) {
+export function ProductEditForm({ product, categories, initialBenefits = [], initialCompatibility = [] }: ProductEditFormProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const [loading, setLoading] = useState(false)
@@ -49,6 +55,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [benefits, setBenefits] = useState<Benefit[]>(initialBenefits)
+  const [compatibility, setCompatibility] = useState<CompatibilityEntry[]>(initialCompatibility)
 
   const [form, setForm] = useState({
     name: product?.name ?? '',
@@ -81,6 +88,25 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
   const updateBenefit = (index: number, value: string) => {
     setBenefits((prev) =>
       prev.map((b, i) => (i === index ? { ...b, body: value } : b)),
+    )
+  }
+
+  // ── Compatibilidad ───────────────────────────────────────────────────────
+
+  const addCompatibility = () => {
+    if (compatibility.length >= 30) return
+    setCompatibility((prev) => [...prev, { body: '', order: prev.length }])
+  }
+
+  const removeCompatibility = (index: number) => {
+    setCompatibility((prev) =>
+      prev.filter((_, i) => i !== index).map((c, i) => ({ ...c, order: i })),
+    )
+  }
+
+  const updateCompatibility = (index: number, value: string) => {
+    setCompatibility((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, body: value } : c)),
     )
   }
 
@@ -134,12 +160,15 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
         productId = res.data.id
       }
 
-      // Guardar beneficios junto con el producto (lista puede ser vacía para limpiar)
+      // Guardar beneficios y compatibilidad junto con el producto (listas pueden ser vacías para limpiar)
       if (productId) {
         await client.put(`/admin/products/${productId}/description`, {
           benefits: benefits
             .filter((b) => b.body.trim())
             .map((b, i) => ({ body: b.body.trim(), order: i })),
+          compatibility: compatibility
+            .filter((c) => c.body.trim())
+            .map((c, i) => ({ body: c.body.trim(), order: i })),
         })
       }
 
@@ -282,6 +311,49 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
                 type="button"
                 onClick={() => removeBenefit(index)}
                 aria-label="Eliminar beneficio"
+                className="text-white/20 hover:text-red-400 transition-colors shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Compatibilidad — motos compatibles, texto libre, mismo patrón que Beneficios ── */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-white/70">
+              Compatibilidad
+              {compatibility.length > 0 && (
+                <span className="ml-1.5 text-white/30 font-normal text-xs">({compatibility.length}/30)</span>
+              )}
+            </label>
+            <button
+              type="button"
+              onClick={addCompatibility}
+              disabled={compatibility.length >= 30}
+              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Agregar moto compatible
+            </button>
+          </div>
+
+          {compatibility.map((entry, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="text-xs text-white/20 w-4 text-right shrink-0">{index + 1}.</span>
+              <input
+                type="text"
+                value={entry.body}
+                onChange={(e) => updateCompatibility(index, e.target.value)}
+                placeholder={`Moto ${index + 1} — ej: Honda CB160F 2020-2023`}
+                maxLength={200}
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => removeCompatibility(index)}
+                aria-label="Eliminar moto compatible"
                 className="text-white/20 hover:text-red-400 transition-colors shrink-0"
               >
                 <Trash2 className="w-4 h-4" />

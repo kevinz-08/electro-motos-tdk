@@ -4,6 +4,33 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 128. Feature Compatibilidad — Fase 5 (UI del admin)
+
+**Contexto:** quinta fase del plan de la feature "Compatibilidad" (ver entrada #125). Sección nueva
+en el panel admin, calco visual y funcional exacto de Beneficios, dentro de la misma card
+"Información general", justo debajo de esa sección.
+
+**Cambio:** `apps/web/src/components/admin/ProductEditForm.tsx`:
+- Nueva interfaz `CompatibilityEntry { body, order }` y prop `initialCompatibility?: CompatibilityEntry[]`
+  (default `[]`) → `useState`.
+- Handlers `addCompatibility()` (tope 30, en vez de 10 de beneficios), `removeCompatibility(index)`
+  (reindexa `order`), `updateCompatibility(index, value)` — calco 1:1 de los de Beneficios.
+- Sección UI "Compatibilidad" (contador `N/30`, botón "Agregar moto compatible", filas con input +
+  botón eliminar, placeholder "Honda CB160F 2020-2023") insertada justo debajo del bloque de
+  Beneficios existente.
+- `handleSubmit` — el mismo `PUT /admin/products/:id/description` que ya mandaba `benefits` ahora
+  también manda `compatibility` (filtrando entradas vacías, reindexando `order`). No se agregó
+  ninguna llamada de red nueva.
+
+`apps/web/src/app/admin/productos/[id]/page.tsx`:
+- El query de `productDescription` ahora también trae `compatibility: { orderBy: { order: 'asc' } }`.
+- Nuevo `initialCompatibility` mapeado igual que `initialBenefits`, pasado como prop a `ProductEditForm`.
+- Un solo punto de uso de `ProductEditForm` en todo el proyecto (esta página cubre tanto alta como
+  edición vía el id especial `'nuevo'`), así que no quedó ningún otro caller por actualizar.
+
+**Verificación:** `pnpm --filter @h2r/web type-check` y `pnpm --filter @h2r/api build` — ambos
+compilan limpio.
+
 ## 127. Feature Compatibilidad — Fase 4 (DTO + endpoint)
 
 **Contexto:** cuarta fase del plan de la feature "Compatibilidad" (ver entrada #125). Sin endpoint

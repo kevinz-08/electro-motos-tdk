@@ -9,6 +9,7 @@ type PrismaDescRow = {
   createdAt: Date
   updatedAt: Date
   benefits: Array<{ id: string; title: string | null; body: string; order: number }>
+  compatibility: Array<{ id: string; body: string; order: number }>
 }
 
 function toDomain(row: PrismaDescRow): ProductDescription {
@@ -24,6 +25,13 @@ function toDomain(row: PrismaDescRow): ProductDescription {
         body: b.body,
         order: b.order,
       })),
+    compatibility: row.compatibility
+      .sort((a, b) => a.order - b.order)
+      .map((c) => ({
+        id: c.id,
+        body: c.body,
+        order: c.order,
+      })),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
@@ -36,7 +44,7 @@ export class PrismaProductDescriptionRepository implements IProductDescriptionRe
   async findByProductId(productId: string): Promise<ProductDescription | null> {
     const row = await this.prisma.client.productDescription.findUnique({
       where: { productId },
-      include: { benefits: true },
+      include: { benefits: true, compatibility: true },
     })
     return row ? toDomain(row) : null
   }
@@ -55,8 +63,10 @@ export class PrismaProductDescriptionRepository implements IProductDescriptionRe
         select: { id: true },
       })
 
-      // Reemplazar beneficios completos — lista pequeña (max 10), delete+recreate es más simple que diff
+      // Reemplazar beneficios y compatibilidad completos — listas pequeñas
+      // (max 10 y 30 respectivamente), delete+recreate es más simple que diff
       await tx.productBenefit.deleteMany({ where: { descriptionId: desc.id } })
+      await tx.productCompatibilityItem.deleteMany({ where: { descriptionId: desc.id } })
 
       if (input.benefits.length > 0) {
         await tx.productBenefit.createMany({
@@ -69,9 +79,19 @@ export class PrismaProductDescriptionRepository implements IProductDescriptionRe
         })
       }
 
+      if (input.compatibility.length > 0) {
+        await tx.productCompatibilityItem.createMany({
+          data: input.compatibility.map((c) => ({
+            descriptionId: desc.id,
+            body: c.body,
+            order: c.order,
+          })),
+        })
+      }
+
       return tx.productDescription.findUniqueOrThrow({
         where: { id: desc.id },
-        include: { benefits: true },
+        include: { benefits: true, compatibility: true },
       })
     })
 

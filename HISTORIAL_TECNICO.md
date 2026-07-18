@@ -4,6 +4,25 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 126. Feature Compatibilidad — Fase 3 (repositorio Prisma)
+
+**Contexto:** tercera fase del plan de la feature "Compatibilidad" (ver entrada #125). Sin
+repositorio ni endpoint nuevos — se extiende `PrismaProductDescriptionRepository`, el mismo que ya
+persiste Beneficios.
+
+**Cambio:** `apps/api/src/infrastructure/repositories/PrismaProductDescriptionRepository.ts`:
+- `PrismaDescRow` y `toDomain()` — agregado `compatibility: Array<{ id, body, order }>`, mapeado y
+  ordenado por `order` igual que `benefits`.
+- `findByProductId()` — `include` ahora trae también `compatibility: true`.
+- `upsert()` — dentro de la misma transacción: `deleteMany` + `createMany` condicional para
+  `productCompatibilityItem`, en paralelo al de `productBenefit` (mismo patrón "borrar y recrear"),
+  y el `include` del `findUniqueOrThrow` final trae ambas listas.
+
+**Verificación:** `pnpm --filter @h2r/api build` falla con **un único error esperado** en
+`admin-products.controller.ts:96` (`UpsertDescriptionInput` requiere `compatibility`, que el DTO
+todavía no provee) — confirma que el repositorio y el dominio ya están correctamente enlazados; el
+error desaparece en la Fase 4 al extender el DTO del controller.
+
 ## 125. Feature Compatibilidad — Fase 1 (Prisma) y Fase 2 (dominio)
 
 **Contexto:** primeras dos fases del plan acordado para agregar un acordeón "Compatibilidad" en

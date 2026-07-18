@@ -4,6 +4,30 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 127. Feature Compatibilidad — Fase 4 (DTO + endpoint)
+
+**Contexto:** cuarta fase del plan de la feature "Compatibilidad" (ver entrada #125). Sin endpoint
+nuevo — se extiende el DTO que ya usa `PUT /admin/products/:id/description`.
+
+**Cambio:** `apps/api/src/admin/dto/upsert-description.dto.ts`:
+- Nuevo `CompatibilityItemDto` (calco de `BenefitItemDto` sin `title`): `body` (`@IsString
+  @IsNotEmpty @MaxLength(200)`) y `order` (`@IsInt @Min(0)`).
+- `UpsertProductDescriptionDto.compatibility: CompatibilityItemDto[]` agregado
+  (`@IsArray @ValidateNested @Type(() => CompatibilityItemDto)`), requerido (no
+  `@IsOptional`) — mismo criterio que `benefits`.
+- `admin-products.controller.ts` no necesitó cambios: `upsertDescription()` ya hace
+  `useCase.execute({ productId: id, ...dto })`, así que `compatibility` llega solo.
+
+**Punto de atención:** como `compatibility` es requerido en el DTO y el `ValidationPipe` global usa
+`whitelist: true, forbidNonWhitelisted: true`, cualquier llamada a este endpoint que no envíe el
+campo (por ejemplo el `ProductEditForm.tsx` actual, que todavía no lo conoce) fallará con 400 hasta
+completar la Fase 5. No es un problema en este momento (nada de esto está desplegado), pero conviene
+completar la Fase 5 antes de probar la edición de Beneficios en el admin, para no dejarla rota
+temporalmente.
+
+**Verificación:** `pnpm --filter @h2r/api build` — compila limpio (el error de la Fase 3 desapareció).
+No existían tests de este endpoint que actualizar.
+
 ## 126. Feature Compatibilidad — Fase 3 (repositorio Prisma)
 
 **Contexto:** tercera fase del plan de la feature "Compatibilidad" (ver entrada #125). Sin

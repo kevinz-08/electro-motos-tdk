@@ -19,6 +19,16 @@ export class BenefitItemDto {
   order: number
 }
 
+export class CompatibilityItemDto {
+  @ApiProperty({ maxLength: 200 })
+  @IsString() @IsNotEmpty() @MaxLength(200)
+  body: string
+
+  @ApiProperty({ minimum: 0 })
+  @IsInt() @Min(0)
+  order: number
+}
+
 export class UpsertProductDescriptionDto {
   @ApiPropertyOptional({ maxLength: 2000 })
   @IsOptional() @IsString() @MaxLength(2000)
@@ -27,4 +37,8 @@ export class UpsertProductDescriptionDto {
   @ApiProperty({ type: [BenefitItemDto] })
   @IsArray() @ValidateNested({ each: true }) @Type(() => BenefitItemDto)
   benefits: BenefitItemDto[]
+
+  @ApiProperty({ type: [CompatibilityItemDto] })
+  @IsArray() @ValidateNested({ each: true }) @Type(() => CompatibilityItemDto)
+  compatibility: CompatibilityItemDto[]
 }

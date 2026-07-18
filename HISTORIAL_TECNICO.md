@@ -4,6 +4,27 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 130. Fix: build de Vercel roto por runtime edge en la OG image de producto
+
+**Contexto:** el PR de la feature de Compatibilidad pasaba todos los checks salvo el de Vercel. El
+build fallaba en `next build` → `Collecting page data` con `Error: The edge runtime does not support
+Node.js 'crypto' module`, sobre `/producto/[slug]/opengraph-image`. La causa era anterior a esta
+feature: el commit `e1b62f0` (fix de OG-image/admin-panel, entrada previa a la #125) había cambiado
+`export const runtime` de `'nodejs'` a `'edge'` en
+`apps/web/src/app/(store)/producto/[slug]/opengraph-image.tsx`. Ese archivo importa
+`getCachedProductBySlug` → `@h2r/database`, cuyo cliente Prisma generado usa APIs de Node
+(`node:path`, `node:url`, `process.exit`, `crypto` vía el adapter `pg`) que no existen en el Edge
+Runtime — fundamentalmente incompatible, sin importar qué tan liviano sea el resto de la ruta.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/opengraph-image.tsx` — `runtime` vuelto a
+`'nodejs'`. Es la única ruta del proyecto que declaraba `runtime = 'edge'` (verificado por grep). La
+imagen OG de la home ya no es dinámica (quedó como PNG estático, `opengraph-image.png`, en un commit
+aparte), así que no le aplica este problema.
+
+**Verificación:** se reprodujo localmente el comando exacto que corre Vercel
+(`pnpm --filter @h2r/database generate && pnpm --filter @h2r/web build`) — build completo exitoso,
+`/producto/[slug]/opengraph-image` listada como ruta dinámica (`ƒ`) sin errores.
+
 ## 129. Feature Compatibilidad — Fase 6 (acordeón en la página de producto)
 
 **Contexto:** sexta fase del plan de la feature "Compatibilidad" (ver entrada #125) — el consumo en

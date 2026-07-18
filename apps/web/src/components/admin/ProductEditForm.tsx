@@ -3,7 +3,6 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
 import { Product } from '@h2r/domain'
 import { X, ImagePlus, Loader2, Plus, Trash2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
@@ -167,12 +166,17 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
-    if (files.length === 0) return
+    if (files.length === 0 || uploading) return
+
+    const remaining = 4 - images.length
+    if (remaining <= 0) return
+    const filesToUpload = files.slice(0, remaining)
 
     setUploading(true)
     setUploadError(null)
 
-    for (const file of files) {
+    const uploadedUrls: string[] = []
+    for (const file of filesToUpload) {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('sku', form.sku || 'producto')
@@ -183,12 +187,15 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
           formData,
         )
         if (!res.ok) throw new Error(res.error ?? 'Error al subir la imagen')
-        setImages((prev) => [...prev, res.data.url])
+        uploadedUrls.push(res.data.url)
       } catch (e) {
         setUploadError(e instanceof Error ? e.message : 'Error al subir imagen')
       }
     }
 
+    if (uploadedUrls.length > 0) {
+      setImages((prev) => [...prev, ...uploadedUrls])
+    }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -424,29 +431,28 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
           Imágenes del producto
         </h2>
 
-        {images.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-            {images.map((url) => (
-              <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                <Image
-                  src={toImageUrl(url)}
-                  alt="Imagen del producto"
-                  fill
-                  className="object-cover"
-                  sizes="160px"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeImage(url)}
-                  className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all"
-                  aria-label="Eliminar imagen"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 min-h-[140px]">
+          {images.map((url) => (
+            <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
+              <img
+                src={toImageUrl(url)}
+                alt="Imagen del producto"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => removeImage(url)}
+                className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all"
+                aria-label="Eliminar imagen"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {Array.from({ length: 4 - images.length }).map((_, i) => (
+            <div key={`placeholder-${i}`} className="aspect-square rounded-lg border-2 border-dashed border-white/10 bg-white/5" />
+          ))}
+        </div>
 
         <div>
           <input
@@ -457,6 +463,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
             onChange={handleFileChange}
             className="sr-only"
             id="image-upload"
+            disabled={uploading}
           />
           <label
             htmlFor="image-upload"
@@ -482,12 +489,6 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
         </div>
 
         {uploadError && <p className="text-sm text-red-400">{uploadError}</p>}
-
-        {images.length === 0 && !uploading && (
-          <p className="text-xs text-white/25 text-center">
-            Sin imágenes — se mostrará un placeholder en el catálogo
-          </p>
-        )}
       </div>
 
       {error && (

@@ -3,7 +3,6 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
 import { Product } from '@h2r/domain'
 import { X, ImagePlus, Loader2, Plus, Trash2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
@@ -21,10 +20,16 @@ interface Benefit {
   order: number
 }
 
+interface CompatibilityEntry {
+  body: string
+  order: number
+}
+
 interface ProductEditFormProps {
   product?: Product
   categories: Category[]
   initialBenefits?: Benefit[]
+  initialCompatibility?: CompatibilityEntry[]
 }
 
 const INPUT_CLASS = 'w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors'
@@ -36,7 +41,7 @@ function toImageUrl(publicIdOrUrl: string): string {
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicIdOrUrl}`
 }
 
-export function ProductEditForm({ product, categories, initialBenefits = [] }: ProductEditFormProps) {
+export function ProductEditForm({ product, categories, initialBenefits = [], initialCompatibility = [] }: ProductEditFormProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const [loading, setLoading] = useState(false)
@@ -50,6 +55,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [benefits, setBenefits] = useState<Benefit[]>(initialBenefits)
+  const [compatibility, setCompatibility] = useState<CompatibilityEntry[]>(initialCompatibility)
 
   const [form, setForm] = useState({
     name: product?.name ?? '',
@@ -82,6 +88,25 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
   const updateBenefit = (index: number, value: string) => {
     setBenefits((prev) =>
       prev.map((b, i) => (i === index ? { ...b, body: value } : b)),
+    )
+  }
+
+  // ── Compatibilidad ───────────────────────────────────────────────────────
+
+  const addCompatibility = () => {
+    if (compatibility.length >= 30) return
+    setCompatibility((prev) => [...prev, { body: '', order: prev.length }])
+  }
+
+  const removeCompatibility = (index: number) => {
+    setCompatibility((prev) =>
+      prev.filter((_, i) => i !== index).map((c, i) => ({ ...c, order: i })),
+    )
+  }
+
+  const updateCompatibility = (index: number, value: string) => {
+    setCompatibility((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, body: value } : c)),
     )
   }
 
@@ -135,12 +160,15 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
         productId = res.data.id
       }
 
-      // Guardar beneficios junto con el producto (lista puede ser vacía para limpiar)
+      // Guardar beneficios y compatibilidad junto con el producto (listas pueden ser vacías para limpiar)
       if (productId) {
         await client.put(`/admin/products/${productId}/description`, {
           benefits: benefits
             .filter((b) => b.body.trim())
             .map((b, i) => ({ body: b.body.trim(), order: i })),
+          compatibility: compatibility
+            .filter((c) => c.body.trim())
+            .map((c, i) => ({ body: c.body.trim(), order: i })),
         })
       }
 
@@ -167,12 +195,17 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
-    if (files.length === 0) return
+    if (files.length === 0 || uploading) return
+
+    const remaining = 4 - images.length
+    if (remaining <= 0) return
+    const filesToUpload = files.slice(0, remaining)
 
     setUploading(true)
     setUploadError(null)
 
-    for (const file of files) {
+    const uploadedUrls: string[] = []
+    for (const file of filesToUpload) {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('sku', form.sku || 'producto')
@@ -183,12 +216,15 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
           formData,
         )
         if (!res.ok) throw new Error(res.error ?? 'Error al subir la imagen')
-        setImages((prev) => [...prev, res.data.url])
+        uploadedUrls.push(res.data.url)
       } catch (e) {
         setUploadError(e instanceof Error ? e.message : 'Error al subir imagen')
       }
     }
 
+    if (uploadedUrls.length > 0) {
+      setImages((prev) => [...prev, ...uploadedUrls])
+    }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -275,6 +311,49 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
                 type="button"
                 onClick={() => removeBenefit(index)}
                 aria-label="Eliminar beneficio"
+                className="text-white/20 hover:text-red-400 transition-colors shrink-0"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Compatibilidad — motos compatibles, texto libre, mismo patrón que Beneficios ── */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-white/70">
+              Compatibilidad
+              {compatibility.length > 0 && (
+                <span className="ml-1.5 text-white/30 font-normal text-xs">({compatibility.length}/30)</span>
+              )}
+            </label>
+            <button
+              type="button"
+              onClick={addCompatibility}
+              disabled={compatibility.length >= 30}
+              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Agregar moto compatible
+            </button>
+          </div>
+
+          {compatibility.map((entry, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="text-xs text-white/20 w-4 text-right shrink-0">{index + 1}.</span>
+              <input
+                type="text"
+                value={entry.body}
+                onChange={(e) => updateCompatibility(index, e.target.value)}
+                placeholder={`Moto ${index + 1} — ej: Honda CB160F 2020-2023`}
+                maxLength={200}
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => removeCompatibility(index)}
+                aria-label="Eliminar moto compatible"
                 className="text-white/20 hover:text-red-400 transition-colors shrink-0"
               >
                 <Trash2 className="w-4 h-4" />
@@ -424,29 +503,28 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
           Imágenes del producto
         </h2>
 
-        {images.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-            {images.map((url) => (
-              <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                <Image
-                  src={toImageUrl(url)}
-                  alt="Imagen del producto"
-                  fill
-                  className="object-cover"
-                  sizes="160px"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeImage(url)}
-                  className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all"
-                  aria-label="Eliminar imagen"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 min-h-[140px]">
+          {images.map((url) => (
+            <div key={url} className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
+              <img
+                src={toImageUrl(url)}
+                alt="Imagen del producto"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => removeImage(url)}
+                className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all"
+                aria-label="Eliminar imagen"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {Array.from({ length: 4 - images.length }).map((_, i) => (
+            <div key={`placeholder-${i}`} className="aspect-square rounded-lg border-2 border-dashed border-white/10 bg-white/5" />
+          ))}
+        </div>
 
         <div>
           <input
@@ -457,6 +535,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
             onChange={handleFileChange}
             className="sr-only"
             id="image-upload"
+            disabled={uploading}
           />
           <label
             htmlFor="image-upload"
@@ -482,12 +561,6 @@ export function ProductEditForm({ product, categories, initialBenefits = [] }: P
         </div>
 
         {uploadError && <p className="text-sm text-red-400">{uploadError}</p>}
-
-        {images.length === 0 && !uploading && (
-          <p className="text-xs text-white/25 text-center">
-            Sin imágenes — se mostrará un placeholder en el catálogo
-          </p>
-        )}
       </div>
 
       {error && (

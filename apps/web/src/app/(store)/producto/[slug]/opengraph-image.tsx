@@ -11,16 +11,29 @@ interface Props {
 }
 
 /**
- * `product.images` guarda public IDs de Cloudinary (ej. "products/7-RR23/1"),
- * no URLs completas — ver `@/lib/cloudinary`. Ese helper compartido usa
- * `f_auto`, que negocia el formato según el header `Accept` del navegador;
- * el fetch interno de `ImageResponse` (Satori) no manda ese header, así que
- * forzamos JPEG explícito para garantizar que el renderer lo pueda decodificar.
+ * `product.images` puede contener tanto Public IDs de Cloudinary (ej. "products/7-RR23/1")
+ * como URLs completas, dependiendo de si el producto fue creado vía script o vía Panel Admin.
+ * 
+ * - Si es un Public ID, construimos la URL base usando f_jpg para evitar la negociación 
+ *   de formato (f_auto) que Satori no interpreta correctamente.
+ * - Si es una URL completa, la normalizamos para asegurar que Cloudinary entregue un 
+ *   formato compatible (JPEG) y eliminar parámetros de transformación conflictivos.
+ * 
+ * Satori (el motor de ImageResponse) requiere binarios de imagen puros (JPG/PNG), por lo 
+ * que forzamos explícitamente el formato JPEG en todos los casos para garantizar la decodificación.
  */
-function cloudinaryOgImageUrl(publicId: string): string | null {
+function cloudinaryOgImageUrl(publicIdOrUrl: string): string | null {
   const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? process.env.CLOUDINARY_CLOUD_NAME
   if (!cloud) return null
-  return `https://res.cloudinary.com/${cloud}/image/upload/f_jpg,q_auto,w_1100,c_limit/${publicId}`
+
+  // Si el panel de administración guardó una URL completa en lugar del ID
+  if (publicIdOrUrl.startsWith('http://') || publicIdOrUrl.startsWith('https://')) {
+    // Reemplazamos f_auto por f_jpg para asegurar la compatibilidad con Satori
+    return publicIdOrUrl.replace('f_auto', 'f_jpg'); 
+  }
+
+  // Si el script guardó el Public ID (Comportamiento original)
+  return `https://res.cloudinary.com/${cloud}/image/upload/f_jpg,q_auto,w_1100,c_limit/${publicIdOrUrl}`
 }
 
 const FALLBACK = (

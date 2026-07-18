@@ -28,6 +28,7 @@ packages/types     Shared DTOs (mostly empty, being populated)
 | Run migrations | `pnpm db:migrate` |
 | Apply migrations (prod) | `pnpm --filter @h2r/database exec prisma migrate deploy` |
 | Seed DB | `pnpm db:seed` |
+| Load catalog | `pnpm db:catalog` |
 | Prisma Studio | `pnpm db:studio` |
 | Dev just API | `pnpm --filter @h2r/api dev` |
 | Dev just Web | `pnpm --filter @h2r/web dev` |
@@ -79,7 +80,7 @@ apps/web              Next.js 16 — SSR reads Prisma directly; mutations go thr
 ## Next.js 16 quirks
 
 - **Route protection uses `proxy.ts`** (not `middleware.ts`). Export is `export const proxy` (not `default`). Runs on Node.js runtime, not Edge.
-- **`next.config.ts`** sets `typescript: { ignoreBuildErrors: true }`, `reactCompiler: true`, and `turbopack.root` pointing to monorepo root (so Turbopack compiles `packages/*`).
+- **`next.config.ts`** sets `reactCompiler: true` and `turbopack.root` pointing to monorepo root (so Turbopack compiles `packages/*`). Wrapped with `withSentryConfig` (sourcemaps disabled by default).
 - **Auth:** NextAuth v5 beta with JWT strategy (required for Credentials + PrismaAdapter). `apps/web/src/lib/auth.ts` is the single config. Tokens carry `accessToken` (NestJS JWT) for API calls.
 - **Zustand cart** persists to `localStorage["electro-motos-cart:{userId}"]`.
 
@@ -92,6 +93,7 @@ apps/web              Next.js 16 — SSR reads Prisma directly; mutations go thr
 - **DI symbols** in `infrastructure/injection-tokens.ts` (`PRODUCT_REPOSITORY`, `ORDER_REPOSITORY`, etc.) — use `@Inject()` with these Symbols, not class tokens.
 - **Build output:** `apps/api/dist/main.js` (containerized, deployed on Cloud Run).
 - **Startup validation:** `apps/api/src/main.ts` calls `assertEnvVars()` — exits with code 1 if critical vars missing.
+- **Sentry:** both apps use Sentry (`apps/web/sentry.*.config.ts`, `apps/api/src/instrument.ts`). Web sourcemaps are off by default.
 
 ## Domain Patterns
 

@@ -4,6 +4,160 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 130. Fix: build de Vercel roto por runtime edge en la OG image de producto
+
+**Contexto:** el PR de la feature de Compatibilidad pasaba todos los checks salvo el de Vercel. El
+build fallaba en `next build` → `Collecting page data` con `Error: The edge runtime does not support
+Node.js 'crypto' module`, sobre `/producto/[slug]/opengraph-image`. La causa era anterior a esta
+feature: el commit `e1b62f0` (fix de OG-image/admin-panel, entrada previa a la #125) había cambiado
+`export const runtime` de `'nodejs'` a `'edge'` en
+`apps/web/src/app/(store)/producto/[slug]/opengraph-image.tsx`. Ese archivo importa
+`getCachedProductBySlug` → `@h2r/database`, cuyo cliente Prisma generado usa APIs de Node
+(`node:path`, `node:url`, `process.exit`, `crypto` vía el adapter `pg`) que no existen en el Edge
+Runtime — fundamentalmente incompatible, sin importar qué tan liviano sea el resto de la ruta.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/opengraph-image.tsx` — `runtime` vuelto a
+`'nodejs'`. Es la única ruta del proyecto que declaraba `runtime = 'edge'` (verificado por grep). La
+imagen OG de la home ya no es dinámica (quedó como PNG estático, `opengraph-image.png`, en un commit
+aparte), así que no le aplica este problema.
+
+**Verificación:** se reprodujo localmente el comando exacto que corre Vercel
+(`pnpm --filter @h2r/database generate && pnpm --filter @h2r/web build`) — build completo exitoso,
+`/producto/[slug]/opengraph-image` listada como ruta dinámica (`ƒ`) sin errores.
+
+## 129. Feature Compatibilidad — Fase 6 (acordeón en la página de producto)
+
+**Contexto:** sexta fase del plan de la feature "Compatibilidad" (ver entrada #125) — el consumo en
+`/producto/[slug]` del dato que ya se puede escribir desde el admin desde la Fase 5.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx`:
+- El query de `structuredDescription` ahora también trae `compatibility: { orderBy: { order: 'asc' } }`.
+- Nuevo `<details>` "🏍️ Compatibilidad" (mismo markup visual que Envíos/Cambios), insertado como
+  **primero** dentro del grupo de acordeones (antes de Envíos), renderizado solo si
+  `structuredDescription.compatibility.length > 0` — igual criterio condicional que Beneficios.
+  Cada línea: `<p>• {c.body}</p>`.
+- **Eliminado** el bloque de pills que leía `product.compatible` (el modelo `MotorcycleCompatibility`
+  legado) — quedaba redundante con el nuevo acordeón y nunca tuvo forma de ser editado desde el
+  admin (ver entrada #125, "Existing compatible admin editing").
+- Comentario JSDoc de cabecera del archivo actualizado.
+
+**Verificación:** `pnpm --filter @h2r/web type-check` limpio. Prueba end-to-end con Playwright contra
+el servidor de dev: se sembraron 2 ítems de compatibilidad directo en la tabla
+`ProductCompatibilityItem` (simulando lo que haría el endpoint admin) para el producto
+`candado-con-alarma-semi-macizo` — el acordeón apareció con el contenido correcto y en el orden
+correcto (`🏍️ Compatibilidad` → `📦 Envíos` → `🔄 Cambios y devoluciones`), sin errores de consola.
+Se verificó también que un producto sin compatibilidad cargada (`kit-de-limpieza-...-kn`) no muestra
+el acordeón. Datos de prueba y scripts temporales eliminados al terminar.
+
+## 128. Feature Compatibilidad — Fase 5 (UI del admin)
+
+**Contexto:** quinta fase del plan de la feature "Compatibilidad" (ver entrada #125). Sección nueva
+en el panel admin, calco visual y funcional exacto de Beneficios, dentro de la misma card
+"Información general", justo debajo de esa sección.
+
+**Cambio:** `apps/web/src/components/admin/ProductEditForm.tsx`:
+- Nueva interfaz `CompatibilityEntry { body, order }` y prop `initialCompatibility?: CompatibilityEntry[]`
+  (default `[]`) → `useState`.
+- Handlers `addCompatibility()` (tope 30, en vez de 10 de beneficios), `removeCompatibility(index)`
+  (reindexa `order`), `updateCompatibility(index, value)` — calco 1:1 de los de Beneficios.
+- Sección UI "Compatibilidad" (contador `N/30`, botón "Agregar moto compatible", filas con input +
+  botón eliminar, placeholder "Honda CB160F 2020-2023") insertada justo debajo del bloque de
+  Beneficios existente.
+- `handleSubmit` — el mismo `PUT /admin/products/:id/description` que ya mandaba `benefits` ahora
+  también manda `compatibility` (filtrando entradas vacías, reindexando `order`). No se agregó
+  ninguna llamada de red nueva.
+
+`apps/web/src/app/admin/productos/[id]/page.tsx`:
+- El query de `productDescription` ahora también trae `compatibility: { orderBy: { order: 'asc' } }`.
+- Nuevo `initialCompatibility` mapeado igual que `initialBenefits`, pasado como prop a `ProductEditForm`.
+- Un solo punto de uso de `ProductEditForm` en todo el proyecto (esta página cubre tanto alta como
+  edición vía el id especial `'nuevo'`), así que no quedó ningún otro caller por actualizar.
+
+**Verificación:** `pnpm --filter @h2r/web type-check` y `pnpm --filter @h2r/api build` — ambos
+compilan limpio.
+
+## 127. Feature Compatibilidad — Fase 4 (DTO + endpoint)
+
+**Contexto:** cuarta fase del plan de la feature "Compatibilidad" (ver entrada #125). Sin endpoint
+nuevo — se extiende el DTO que ya usa `PUT /admin/products/:id/description`.
+
+**Cambio:** `apps/api/src/admin/dto/upsert-description.dto.ts`:
+- Nuevo `CompatibilityItemDto` (calco de `BenefitItemDto` sin `title`): `body` (`@IsString
+  @IsNotEmpty @MaxLength(200)`) y `order` (`@IsInt @Min(0)`).
+- `UpsertProductDescriptionDto.compatibility: CompatibilityItemDto[]` agregado
+  (`@IsArray @ValidateNested @Type(() => CompatibilityItemDto)`), requerido (no
+  `@IsOptional`) — mismo criterio que `benefits`.
+- `admin-products.controller.ts` no necesitó cambios: `upsertDescription()` ya hace
+  `useCase.execute({ productId: id, ...dto })`, así que `compatibility` llega solo.
+
+**Punto de atención:** como `compatibility` es requerido en el DTO y el `ValidationPipe` global usa
+`whitelist: true, forbidNonWhitelisted: true`, cualquier llamada a este endpoint que no envíe el
+campo (por ejemplo el `ProductEditForm.tsx` actual, que todavía no lo conoce) fallará con 400 hasta
+completar la Fase 5. No es un problema en este momento (nada de esto está desplegado), pero conviene
+completar la Fase 5 antes de probar la edición de Beneficios en el admin, para no dejarla rota
+temporalmente.
+
+**Verificación:** `pnpm --filter @h2r/api build` — compila limpio (el error de la Fase 3 desapareció).
+No existían tests de este endpoint que actualizar.
+
+## 126. Feature Compatibilidad — Fase 3 (repositorio Prisma)
+
+**Contexto:** tercera fase del plan de la feature "Compatibilidad" (ver entrada #125). Sin
+repositorio ni endpoint nuevos — se extiende `PrismaProductDescriptionRepository`, el mismo que ya
+persiste Beneficios.
+
+**Cambio:** `apps/api/src/infrastructure/repositories/PrismaProductDescriptionRepository.ts`:
+- `PrismaDescRow` y `toDomain()` — agregado `compatibility: Array<{ id, body, order }>`, mapeado y
+  ordenado por `order` igual que `benefits`.
+- `findByProductId()` — `include` ahora trae también `compatibility: true`.
+- `upsert()` — dentro de la misma transacción: `deleteMany` + `createMany` condicional para
+  `productCompatibilityItem`, en paralelo al de `productBenefit` (mismo patrón "borrar y recrear"),
+  y el `include` del `findUniqueOrThrow` final trae ambas listas.
+
+**Verificación:** `pnpm --filter @h2r/api build` falla con **un único error esperado** en
+`admin-products.controller.ts:96` (`UpsertDescriptionInput` requiere `compatibility`, que el DTO
+todavía no provee) — confirma que el repositorio y el dominio ya están correctamente enlazados; el
+error desaparece en la Fase 4 al extender el DTO del controller.
+
+## 125. Feature Compatibilidad — Fase 1 (Prisma) y Fase 2 (dominio)
+
+**Contexto:** primeras dos fases del plan acordado para agregar un acordeón "Compatibilidad" en
+`/producto/[slug]`, editable desde el admin como texto libre (ej. "Honda CB160F 2020-2023"), igual
+que Beneficios. Se optó por reutilizar toda la infraestructura de `ProductDescription`/Beneficios en
+vez de construir un repositorio/endpoint nuevo — ver conversación previa para el detalle de por qué
+(menos superficie de código, mismo mental model para el admin). El modelo `MotorcycleCompatibility`
+(brand/model/year) preexistente queda sin uso, no se toca.
+
+Antes de arrancar se hizo housekeeping de rama: la rama `fix/og-image-panel-admin` tenía WIP sin
+commitear (fix de imagen OG con soporte de URLs completas de Cloudinary + edge runtime, y ajustes al
+uploader de imágenes de `ProductEditForm`) que no tenía relación con esta feature — se commiteó
+aparte (`e1b62f0`) y la rama se renombró a `feature/product-compatibility-accordion`.
+
+**Fase 1 — Prisma** (`packages/database/prisma/schema.prisma`):
+- Nuevo modelo `ProductCompatibilityItem` (`id`, `descriptionId`, `body: String @db.Text`,
+  `order: Int @default(0)`), calco exacto de `ProductBenefit`, relacionado a `ProductDescription`
+  vía `onDelete: Cascade`.
+- Nueva relación inversa `compatibility ProductCompatibilityItem[]` en `ProductDescription`.
+- Migración `20260718062608_add_product_compatibility_item` — solo `CREATE TABLE` + índice
+  `(descriptionId, order)` + FK, no toca datos existentes. Cliente Prisma regenerado.
+
+**Fase 2 — Dominio** (`packages/domain/src`):
+- `entities/ProductDescription.ts` — nueva interfaz `ProductCompatibilityItem { id, body, order }`;
+  `ProductDescription.compatibility: ProductCompatibilityItem[]` y
+  `UpsertDescriptionInput.compatibility: Array<{ body, order }>` agregados.
+- `use-cases/products/UpsertProductDescription.ts` — nueva constante `MAX_COMPATIBILITY = 30`
+  (vs. `MAX_BENEFITS = 10`, dado que una lista de motos compatibles suele ser más larga que la de
+  beneficios); mismas dos validaciones que ya existían para beneficios (tope excedido, body vacío)
+  replicadas para `compatibility`, con mensajes de error propios.
+- `repositories/IProductDescriptionRepository.ts` — comentario de `upsert()` actualizado para
+  mencionar que también recrea los ítems de compatibilidad.
+- Nuevo `__tests__/UpsertProductDescription.test.ts` (10 tests: producto no encontrado, tope de
+  beneficios, body vacío de beneficio, tope de compatibilidad, body vacío de compatibilidad, casos
+  límite exactos en 10/30, caso feliz con ambas listas, listas vacías). No existía test previo para
+  este use case. Suite completa del dominio: 206/206 tests pasan, cobertura global 85%/90.6%/80.48%/
+  85.71% (líneas/branches/funciones/statements), por encima de los umbrales del proyecto
+  (80%/70%). `pnpm --filter @h2r/domain build` (type-check) limpio.
+
 ## 124. Reemplazo de banners del Hero de la landing
 
 **Contexto:** El usuario cargó 4 imágenes nuevas para el carrusel Hero de la home

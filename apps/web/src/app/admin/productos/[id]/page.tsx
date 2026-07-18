@@ -49,7 +49,10 @@ export default async function EditProductPage({ params }: PageProps) {
     foundProduct
       ? prisma.productDescription.findUnique({
           where: { productId: foundProduct.id },
-          include: { benefits: { orderBy: { order: 'asc' } } },
+          include: {
+            benefits: { orderBy: { order: 'asc' } },
+            compatibility: { orderBy: { order: 'asc' } },
+          },
         })
       : Promise.resolve(null),
   ])
@@ -57,6 +60,11 @@ export default async function EditProductPage({ params }: PageProps) {
   const initialBenefits = structuredDescription?.benefits.map((b) => ({
     body: b.body,
     order: b.order,
+  })) ?? []
+
+  const initialCompatibility = structuredDescription?.compatibility.map((c) => ({
+    body: c.body,
+    order: c.order,
   })) ?? []
 
   return (
@@ -71,6 +79,7 @@ export default async function EditProductPage({ params }: PageProps) {
         product={foundProduct ?? undefined}
         categories={categories}
         initialBenefits={initialBenefits}
+        initialCompatibility={initialCompatibility}
       />
     </div>
   )

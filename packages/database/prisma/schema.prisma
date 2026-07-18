@@ -174,13 +174,14 @@ model Product {
 }
 
 model ProductDescription {
-  id                 String           @id @default(cuid())
-  productId          String           @unique
-  generalDescription String?          @db.Text
-  product            Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                 String                      @id @default(cuid())
+  productId          String                      @unique
+  generalDescription String?                     @db.Text
+  product            Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
   benefits           ProductBenefit[]
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  compatibility      ProductCompatibilityItem[]
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
 
   @@index([productId])
 }
@@ -189,6 +190,19 @@ model ProductBenefit {
   id            String             @id @default(cuid())
   descriptionId String
   title         String?
+  body          String             @db.Text
+  order         Int                @default(0)
+  description   ProductDescription @relation(fields: [descriptionId], references: [id], onDelete: Cascade)
+
+  @@index([descriptionId, order])
+}
+
+/// Compatibilidad con motos como texto libre (ej. "Honda CB160F 2020-2023"),
+/// escrito a mano por el admin — no reemplaza a MotorcycleCompatibility, que
+/// queda sin uso por ahora (sin escritura implementada en ningún flujo).
+model ProductCompatibilityItem {
+  id            String             @id @default(cuid())
+  descriptionId String
   body          String             @db.Text
   order         Int                @default(0)
   description   ProductDescription @relation(fields: [descriptionId], references: [id], onDelete: Cascade)

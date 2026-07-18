@@ -4,6 +4,7 @@ import { ProductDescription, UpsertDescriptionInput } from '../../entities/Produ
 import { Result, ok, err, AppError } from '../../shared/Result'
 
 const MAX_BENEFITS = 10
+const MAX_COMPATIBILITY = 30
 
 export class UpsertProductDescription {
   constructor(
@@ -24,6 +25,15 @@ export class UpsertProductDescription {
     const emptyBody = input.benefits.find((b) => !b.body.trim())
     if (emptyBody) {
       return err(new AppError('VALIDATION_ERROR', 'Cada beneficio debe tener una descripción'))
+    }
+
+    if (input.compatibility.length > MAX_COMPATIBILITY) {
+      return err(new AppError('VALIDATION_ERROR', `Máximo ${MAX_COMPATIBILITY} motos compatibles por producto`))
+    }
+
+    const emptyCompatibility = input.compatibility.find((c) => !c.body.trim())
+    if (emptyCompatibility) {
+      return err(new AppError('VALIDATION_ERROR', 'Cada moto compatible debe tener una descripción'))
     }
 
     const result = await this.descRepo.upsert(input)

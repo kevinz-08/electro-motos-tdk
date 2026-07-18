@@ -4,6 +4,45 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 125. Feature Compatibilidad — Fase 1 (Prisma) y Fase 2 (dominio)
+
+**Contexto:** primeras dos fases del plan acordado para agregar un acordeón "Compatibilidad" en
+`/producto/[slug]`, editable desde el admin como texto libre (ej. "Honda CB160F 2020-2023"), igual
+que Beneficios. Se optó por reutilizar toda la infraestructura de `ProductDescription`/Beneficios en
+vez de construir un repositorio/endpoint nuevo — ver conversación previa para el detalle de por qué
+(menos superficie de código, mismo mental model para el admin). El modelo `MotorcycleCompatibility`
+(brand/model/year) preexistente queda sin uso, no se toca.
+
+Antes de arrancar se hizo housekeeping de rama: la rama `fix/og-image-panel-admin` tenía WIP sin
+commitear (fix de imagen OG con soporte de URLs completas de Cloudinary + edge runtime, y ajustes al
+uploader de imágenes de `ProductEditForm`) que no tenía relación con esta feature — se commiteó
+aparte (`e1b62f0`) y la rama se renombró a `feature/product-compatibility-accordion`.
+
+**Fase 1 — Prisma** (`packages/database/prisma/schema.prisma`):
+- Nuevo modelo `ProductCompatibilityItem` (`id`, `descriptionId`, `body: String @db.Text`,
+  `order: Int @default(0)`), calco exacto de `ProductBenefit`, relacionado a `ProductDescription`
+  vía `onDelete: Cascade`.
+- Nueva relación inversa `compatibility ProductCompatibilityItem[]` en `ProductDescription`.
+- Migración `20260718062608_add_product_compatibility_item` — solo `CREATE TABLE` + índice
+  `(descriptionId, order)` + FK, no toca datos existentes. Cliente Prisma regenerado.
+
+**Fase 2 — Dominio** (`packages/domain/src`):
+- `entities/ProductDescription.ts` — nueva interfaz `ProductCompatibilityItem { id, body, order }`;
+  `ProductDescription.compatibility: ProductCompatibilityItem[]` y
+  `UpsertDescriptionInput.compatibility: Array<{ body, order }>` agregados.
+- `use-cases/products/UpsertProductDescription.ts` — nueva constante `MAX_COMPATIBILITY = 30`
+  (vs. `MAX_BENEFITS = 10`, dado que una lista de motos compatibles suele ser más larga que la de
+  beneficios); mismas dos validaciones que ya existían para beneficios (tope excedido, body vacío)
+  replicadas para `compatibility`, con mensajes de error propios.
+- `repositories/IProductDescriptionRepository.ts` — comentario de `upsert()` actualizado para
+  mencionar que también recrea los ítems de compatibilidad.
+- Nuevo `__tests__/UpsertProductDescription.test.ts` (10 tests: producto no encontrado, tope de
+  beneficios, body vacío de beneficio, tope de compatibilidad, body vacío de compatibilidad, casos
+  límite exactos en 10/30, caso feliz con ambas listas, listas vacías). No existía test previo para
+  este use case. Suite completa del dominio: 206/206 tests pasan, cobertura global 85%/90.6%/80.48%/
+  85.71% (líneas/branches/funciones/statements), por encima de los umbrales del proyecto
+  (80%/70%). `pnpm --filter @h2r/domain build` (type-check) limpio.
+
 ## 124. Reemplazo de banners del Hero de la landing
 
 **Contexto:** El usuario cargó 4 imágenes nuevas para el carrusel Hero de la home

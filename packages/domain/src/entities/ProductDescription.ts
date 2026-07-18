@@ -8,6 +8,14 @@ export interface ProductBenefit {
   order: number
 }
 
+/** Ítem de compatibilidad con motos, escrito como texto libre por el admin. Ej: "Honda CB160F 2020-2023". */
+export interface ProductCompatibilityItem {
+  id: string
+  body: string
+  /** Posición de ordenamiento ascendente. 0 = primero. */
+  order: number
+}
+
 export interface ProductDescription {
   id: string
   productId: string
@@ -15,6 +23,8 @@ export interface ProductDescription {
   generalDescription?: string
   /** Lista de beneficios ordenados por `order` ascendente. */
   benefits: ProductBenefit[]
+  /** Lista de compatibilidad con motos (texto libre), ordenada por `order` ascendente. */
+  compatibility: ProductCompatibilityItem[]
   createdAt: Date
   updatedAt: Date
 }
@@ -25,4 +35,6 @@ export interface UpsertDescriptionInput {
   generalDescription?: string
   /** Máximo 10 beneficios. Cada uno reemplaza completamente la lista anterior. */
   benefits: Array<{ title?: string; body: string; order: number }>
+  /** Máximo 30 ítems. Cada uno reemplaza completamente la lista anterior. */
+  compatibility: Array<{ body: string; order: number }>
 }

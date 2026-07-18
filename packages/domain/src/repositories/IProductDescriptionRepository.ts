@@ -5,7 +5,8 @@ export interface IProductDescriptionRepository {
   findByProductId(productId: string): Promise<ProductDescription | null>
   /**
    * Crea o reemplaza la descripción estructurada de un producto.
-   * Los beneficios anteriores se eliminan y se recrean en una sola transacción.
+   * Los beneficios y los ítems de compatibilidad anteriores se eliminan y se
+   * recrean en una sola transacción.
    */
   upsert(input: UpsertDescriptionInput): Promise<ProductDescription>
 }

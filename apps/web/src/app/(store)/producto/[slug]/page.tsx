@@ -21,7 +21,9 @@
  *   - AddToCartWithQuantity (Client Component — selector de cantidad + agregar al carrito,
  *     necesita acceder al store de Zustand)
  *   - Descripción completa del producto
- *   - Badges de compatibilidad con modelos de motos
+ *   - Beneficios (editable desde el admin, texto libre)
+ *   - Acordeón de Compatibilidad (editable desde el admin, texto libre — ej.
+ *     "Honda CB160F 2020-2023"), Envíos y Cambios y devoluciones
  *
  * El badge de stock usa estos umbrales:
  *   stock === 0   → "Agotado" (rojo) + botón deshabilitado
@@ -86,7 +88,10 @@ export default async function ProductPage({ params }: PageProps) {
     prisma.product.findUnique({ where: { id: product.id }, select: { description: true } }),
     prisma.productDescription.findUnique({
       where: { productId: product.id },
-      include: { benefits: { orderBy: { order: 'asc' } } },
+      include: {
+        benefits: { orderBy: { order: 'asc' } },
+        compatibility: { orderBy: { order: 'asc' } },
+      },
     }),
   ])
   const description =
@@ -127,8 +132,29 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Acordeón de envíos y cambios */}
+          {/* Acordeón de compatibilidad, envíos y cambios */}
           <div className="mt-4 space-y-2">
+            {structuredDescription && structuredDescription.compatibility.length > 0 && (
+              <details className="group border border-gray-200 rounded-xl overflow-hidden">
+                <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <span className="text-sm font-medium text-gray-700">
+                    🏍️ Compatibilidad
+                  </span>
+                  <svg
+                    className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="px-4 py-3 text-xs text-gray-600 space-y-1.5 bg-white border-t border-gray-100">
+                  {structuredDescription.compatibility.map((c) => (
+                    <p key={c.id}>• {c.body}</p>
+                  ))}
+                </div>
+              </details>
+            )}
+
             <details className="group border border-gray-200 rounded-xl overflow-hidden">
               <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
                 <span className="text-sm font-medium text-gray-700">
@@ -185,25 +211,6 @@ export default async function ProductPage({ params }: PageProps) {
               </div>
             </details>
           </div>
-
-          {product.compatible && product.compatible.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-3">
-                Compatibilidad
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {product.compatible.map((c) => (
-                  <span
-                    key={c.id}
-                    className="text-xs bg-sky-50 text-gray-700 px-3 py-1 rounded-full border border-sky-100"
-                  >
-                    {c.brand} {c.model}
-                    {c.year ? ` (${c.year})` : ''}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Detalle */}

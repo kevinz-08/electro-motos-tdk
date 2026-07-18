@@ -4,6 +4,30 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 129. Feature Compatibilidad — Fase 6 (acordeón en la página de producto)
+
+**Contexto:** sexta fase del plan de la feature "Compatibilidad" (ver entrada #125) — el consumo en
+`/producto/[slug]` del dato que ya se puede escribir desde el admin desde la Fase 5.
+
+**Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx`:
+- El query de `structuredDescription` ahora también trae `compatibility: { orderBy: { order: 'asc' } }`.
+- Nuevo `<details>` "🏍️ Compatibilidad" (mismo markup visual que Envíos/Cambios), insertado como
+  **primero** dentro del grupo de acordeones (antes de Envíos), renderizado solo si
+  `structuredDescription.compatibility.length > 0` — igual criterio condicional que Beneficios.
+  Cada línea: `<p>• {c.body}</p>`.
+- **Eliminado** el bloque de pills que leía `product.compatible` (el modelo `MotorcycleCompatibility`
+  legado) — quedaba redundante con el nuevo acordeón y nunca tuvo forma de ser editado desde el
+  admin (ver entrada #125, "Existing compatible admin editing").
+- Comentario JSDoc de cabecera del archivo actualizado.
+
+**Verificación:** `pnpm --filter @h2r/web type-check` limpio. Prueba end-to-end con Playwright contra
+el servidor de dev: se sembraron 2 ítems de compatibilidad directo en la tabla
+`ProductCompatibilityItem` (simulando lo que haría el endpoint admin) para el producto
+`candado-con-alarma-semi-macizo` — el acordeón apareció con el contenido correcto y en el orden
+correcto (`🏍️ Compatibilidad` → `📦 Envíos` → `🔄 Cambios y devoluciones`), sin errores de consola.
+Se verificó también que un producto sin compatibilidad cargada (`kit-de-limpieza-...-kn`) no muestra
+el acordeón. Datos de prueba y scripts temporales eliminados al terminar.
+
 ## 128. Feature Compatibilidad — Fase 5 (UI del admin)
 
 **Contexto:** quinta fase del plan de la feature "Compatibilidad" (ver entrada #125). Sección nueva

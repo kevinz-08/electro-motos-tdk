@@ -18,45 +18,27 @@ import { CategoryGrid } from '@/components/store/CategoryGrid'
 import { SocialProof } from '@/components/store/SocialProof'
 import { CtaMidSection } from '@/components/store/CtaMidSection'
 import { FAQ } from '@/components/store/FAQ'
-import { getCachedFeaturedProducts, getCachedHomeCategories } from '@/lib/cache'
-
-const HERO_BANNERS = [
-  {
-    src: '/assets/heroBanners/hero_banner_slide1.jpeg',
-    title: 'Tu moto merece lo mejor.',
-    description: 'Repuestos de alta calidad para cualquier tipo de moto.',
-    cta: { label: 'Comprar ahora', href: '/catalogo' },
-  },
-  {
-    src: '/assets/heroBanners/hero_banner_slide2.jpeg',
-    title: 'Encuentra todo tipo de repuestos',
-    description: 'Tenemos opciones para mantener tu vehículo en excelente estado.',
-    cta: { label: 'Ver repuestos', href: '/catalogo?category=repuestos' },
-  },
-  {
-    src: '/assets/heroBanners/hero_banner_slide3.jpeg',
-    title: '¿Buscas equipamiento?',
-    description: 'Accesorios y protección para cada estilo de conducción.',
-    cta: { label: 'Ver accesorios', href: '/catalogo?category=accesorios' },
-  },
-  {
-    src: '/assets/heroBanners/hero_banner_slide4.jpeg',
-    title: '¿Necesitas un servicio técnico?',
-    description: 'Te ayudamos con diagnóstico y soporte para tu moto.',
-    cta: { label: 'Contáctanos', href: `https://wa.me/573152926609` },
-  },
-]
+import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners } from '@/lib/cache'
 
 export default async function HomePage() {
-  const [featuredProducts, categories] = await Promise.all([
+  const [featuredProducts, categories, heroBanners] = await Promise.all([
     getCachedFeaturedProducts(),
     getCachedHomeCategories(),
+    getCachedHeroBanners(),
   ])
+
+  const banners = heroBanners.map((b) => ({
+    id: b.id,
+    src: b.imageUrl,
+    title: b.title,
+    description: b.description ?? '',
+    cta: b.ctaLabel && b.ctaUrl ? { label: b.ctaLabel, href: b.ctaUrl } : undefined,
+  }))
 
   return (
     <>
-      {/* 1. Hero carrusel con CTA */}
-      <HeroBannerCarousel banners={HERO_BANNERS} />
+      {/* 1. Hero carrusel con CTA — banners administrables desde /admin/banners */}
+      <HeroBannerCarousel banners={banners} />
 
       {/* 2. Trust badges (iconos SVG) */}
       <TrustBadges />

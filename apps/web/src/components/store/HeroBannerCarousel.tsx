@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
+import { cloudinaryUrl, IMAGE_BLUR_PLACEHOLDER } from '@/lib/cloudinary'
 
 type BannerItem = {
+  id: string
   src: string
   title: string
   description: string
@@ -53,18 +56,26 @@ export function HeroBannerCarousel({ banners }: HeroBannerCarouselProps) {
     >
       {banners.map((banner, index) => (
         <div
-          key={banner.src}
+          key={banner.id}
           className="absolute inset-0 transition-all duration-700"
           style={{
-            backgroundImage: `url('${banner.src}')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
             opacity: index === activeIndex ? 1 : 0,
             transform: `scale(${index === activeIndex ? 1 : 1.05})`,
             transition: 'opacity 0.7s ease-out, transform 7s ease-out',
           }}
           aria-hidden={index !== activeIndex}
-        />
+        >
+          <Image
+            src={cloudinaryUrl(banner.src, 'hero')}
+            alt={banner.title}
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority={index === 0}
+            placeholder="blur"
+            blurDataURL={IMAGE_BLUR_PLACEHOLDER}
+          />
+        </div>
       ))}
 
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/20" />
@@ -124,7 +135,7 @@ export function HeroBannerCarousel({ banners }: HeroBannerCarouselProps) {
       <div className="absolute bottom-8 right-6 md:right-20 z-20 flex items-center gap-2">
         {banners.map((banner, index) => (
           <button
-            key={banner.src}
+            key={banner.id}
             type="button"
             onClick={() => goTo(index)}
             aria-label={`Ir al banner ${index + 1}`}

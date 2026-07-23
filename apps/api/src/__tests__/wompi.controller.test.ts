@@ -136,14 +136,31 @@ describe('WompiController', () => {
       expect(result).toEqual({ received: true, processed: false })
     })
 
-    it('procesa un pago APPROVED y encola el email de confirmación', async () => {
+    it('procesa un pago APPROVED y encola el email de confirmación y Vendelo', async () => {
       const result = await controller.webhook(
         buildTransactionEvent('APPROVED'),
         {},
       )
 
       expect(mockEmailQueue.enqueue).toHaveBeenCalledWith('user@test.com', 'order-1')
+      expect(mockVendeloQueue.enqueue).toHaveBeenCalledWith('order-1')
       expect(result).toMatchObject({ received: true, stateChanged: true })
+    })
+
+    it('STORE_PICKUP: encola email pero NUNCA encola Vendelo', async () => {
+      mockOrderRepo.findById.mockResolvedValueOnce({
+        id: 'order-1',
+        userId: 'user-1',
+        total: 5000000,
+        status: 'PENDING',
+        items: [],
+        deliveryMethod: 'STORE_PICKUP',
+      })
+
+      await controller.webhook(buildTransactionEvent('APPROVED'), {})
+
+      expect(mockEmailQueue.enqueue).toHaveBeenCalledWith('user@test.com', 'order-1')
+      expect(mockVendeloQueue.enqueue).not.toHaveBeenCalled()
     })
 
     it('procesa un pago DECLINED sin encolar email', async () => {

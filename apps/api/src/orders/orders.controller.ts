@@ -95,6 +95,7 @@ export class OrdersController {
       shippingAddress: dto.shippingAddress,
       buyer: dto.buyer,
       paymentProvider: dto.paymentProvider,
+      deliveryMethod: dto.deliveryMethod,
       chargeShippingOnline,
       maxShippingChargeCents: MAX_SHIPPING_CHARGE_CENTS,
     })
@@ -121,7 +122,11 @@ export class OrdersController {
       // PAID (CreateOrder lo confirmó al crearlo), así que disparamos aquí mismo
       // los efectos secundarios que para pagos online dispara ConfirmPayment.
       await this.emailQueue.enqueue(user.email, result.value.order.id)
-      await this.vendeloOrderQueue.enqueue(result.value.order.id)
+      // Retiro en tienda: el cliente lo recoge en persona, nunca se despacha
+      // por Vendelo — no encolar o un mensajero saldría a entregar en falso.
+      if (result.value.order.deliveryMethod !== 'STORE_PICKUP') {
+        await this.vendeloOrderQueue.enqueue(result.value.order.id)
+      }
     } else {
       // Fire-and-forget: nunca bloquea ni falla la respuesta del pedido
       this.emailService

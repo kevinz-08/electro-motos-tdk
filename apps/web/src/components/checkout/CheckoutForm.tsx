@@ -22,8 +22,10 @@ import { WompiWidget } from './WompiWidget'
 import { CitySelector } from './CitySelector'
 import { apiClient } from '@/lib/api-client'
 import { useShippingQuote } from '@/lib/shipping-quote'
+import { STORE_ADDRESS, STORE_CITY, STORE_MAP_EMBED_URL } from '@/lib/contact'
 
 type PaymentMethod = 'WOMPI' | 'COD'
+type DeliveryMethod = 'HOME_DELIVERY' | 'STORE_PICKUP'
 
 interface CheckoutFormProps {
   userEmail: string
@@ -66,6 +68,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
   const router = useRouter()
   const { items, total, selectedCity, setSelectedCity } = useCart()
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping')
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('HOME_DELIVERY')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('WOMPI')
   const [wompiParams, setWompiParams] = useState<CreateOrderResponse['payment'] | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -88,17 +91,26 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
   const cartTotal = total()
   const shippingItems = items.map((i) => ({ productId: i.product.id, quantity: i.quantity }))
   const quotePaymentMethod = paymentMethod === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT'
-  const { quote: shippingQuote, loading: shippingLoading, error: shippingError } = useShippingQuote(selectedCity, shippingItems, quotePaymentMethod)
-  const shippingCost = shippingQuote && !shippingQuote.freeShipping ? shippingQuote.quotedShippingTotal : 0
+  // Retiro en tienda: no hay nada que cotizar — se pasa `null` para que el hook
+  // ni siquiera dispare la llamada a /api/shipping/quote.
+  const { quote: shippingQuote, loading: shippingLoading, error: shippingError } = useShippingQuote(
+    deliveryMethod === 'STORE_PICKUP' ? null : selectedCity,
+    shippingItems,
+    quotePaymentMethod,
+  )
+  const shippingCost = deliveryMethod === 'HOME_DELIVERY' && shippingQuote && !shippingQuote.freeShipping
+    ? shippingQuote.quotedShippingTotal
+    : 0
   // Si el admin activó "Flete pagado en línea", el estimado de arriba es lo que
   // realmente va a cobrar Wompi junto al producto (CreateOrder lo recalcula server-side
   // con la misma lógica) — no es solo informativo como en el resto de los casos.
-  const chargingShippingOnline = paymentMethod === 'WOMPI' && shippingOnlineEnabled
+  // No aplica a retiro en tienda: el flete siempre es $0 ahí.
+  const chargingShippingOnline = paymentMethod === 'WOMPI' && shippingOnlineEnabled && deliveryMethod === 'HOME_DELIVERY'
 
   const handleSubmitShipping = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedCity) {
+    if (deliveryMethod === 'HOME_DELIVERY' && !selectedCity) {
       setError('Por favor selecciona una ciudad de la lista.')
       return
     }
@@ -117,17 +129,28 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
     try {
       const client = apiClient(session?.user?.accessToken)
 
-      const orderRes = await client.post<CreateOrderResponse>('/orders', {
-        items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
-        shippingAddress: {
+      const shippingAddress = deliveryMethod === 'STORE_PICKUP'
+        ? {
           fullName: form.fullName,
-          address: form.address,
-          city: selectedCity.name,
-          cityCode: selectedCity.code,
-          subdivisionCode: selectedCity.subdivisionCode,
+          address: STORE_ADDRESS,
+          city: STORE_CITY,
           phone: form.phone,
           notes: form.notes || undefined,
-        },
+        }
+        : {
+          fullName: form.fullName,
+          address: form.address,
+          city: selectedCity!.name,
+          cityCode: selectedCity!.code,
+          subdivisionCode: selectedCity!.subdivisionCode,
+          phone: form.phone,
+          notes: form.notes || undefined,
+        }
+
+      const orderRes = await client.post<CreateOrderResponse>('/orders', {
+        items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+        shippingAddress,
+        deliveryMethod,
         buyer: {
           idType: buyer.idType,
           idNumber: buyer.idNumber.trim(),
@@ -180,8 +203,58 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
       <div className="lg:col-span-2">
         {step === 'shipping' ? (
           <form onSubmit={handleSubmitShipping} className="space-y-5">
+            {/* Método de entrega — domicilio vs retiro en tienda */}
             <div className="bg-white border border-gray-200 rounded-xl p-6">
-              <h2 className="font-bold text-gray-900 mb-5">Datos de envío</h2>
+              <h2 className="font-bold text-gray-900 mb-1">¿Cómo quieres recibir tu pedido?</h2>
+              <p className="text-xs text-gray-500 mb-5">
+                Elige si prefieres que te lo enviemos a domicilio o pasar a recogerlo tú mismo.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label
+                  className={`flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${
+                    deliveryMethod === 'HOME_DELIVERY' ? 'border-sky-400 bg-sky-50' : 'border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="deliveryMethod"
+                    value="HOME_DELIVERY"
+                    checked={deliveryMethod === 'HOME_DELIVERY'}
+                    onChange={() => setDeliveryMethod('HOME_DELIVERY')}
+                    className="mt-0.5 accent-sky-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-900">Envío a domicilio</span>
+                    <span className="block text-xs text-gray-500">Lo llevamos hasta tu dirección</span>
+                  </span>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${
+                    deliveryMethod === 'STORE_PICKUP' ? 'border-sky-400 bg-sky-50' : 'border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="deliveryMethod"
+                    value="STORE_PICKUP"
+                    checked={deliveryMethod === 'STORE_PICKUP'}
+                    onChange={() => setDeliveryMethod('STORE_PICKUP')}
+                    className="mt-0.5 accent-sky-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-900">Retiro en tienda</span>
+                    <span className="block text-xs text-gray-500">Gratis — recoges tú mismo en nuestra tienda</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <h2 className="font-bold text-gray-900 mb-5">
+                {deliveryMethod === 'STORE_PICKUP' ? 'Datos de contacto' : 'Datos de envío'}
+              </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
@@ -200,36 +273,56 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label htmlFor="checkout-address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Dirección *
-                  </label>
-                  <input
-                    id="checkout-address"
-                    required
-                    aria-required="true"
-                    type="text"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
-                    placeholder="Calle 45 # 23-10, Apto 302"
-                  />
-                </div>
+                {deliveryMethod === 'STORE_PICKUP' ? (
+                  <div className="sm:col-span-2">
+                    <span className="block text-sm font-medium text-gray-700 mb-1">
+                      Recoges tu pedido en
+                    </span>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <iframe
+                        title="Ubicación de la tienda en Google Maps"
+                        src={STORE_MAP_EMBED_URL}
+                        className="w-full h-48 border-0"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                      <p className="text-sm text-gray-700 px-4 py-3 bg-gray-50">{STORE_ADDRESS}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="sm:col-span-2">
+                      <label htmlFor="checkout-address" className="block text-sm font-medium text-gray-700 mb-1">
+                        Dirección *
+                      </label>
+                      <input
+                        id="checkout-address"
+                        required
+                        aria-required="true"
+                        type="text"
+                        value={form.address}
+                        onChange={(e) => setForm({ ...form, address: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
+                        placeholder="Calle 45 # 23-10, Apto 302"
+                      />
+                    </div>
 
-                <div className="sm:col-span-2">
-                  <label htmlFor="checkout-city" className="block text-sm font-medium text-gray-700 mb-1">
-                    Ciudad *
-                    {!selectedCity && (
-                      <span className="ml-1 text-xs text-gray-400 font-normal">(escribe para buscar)</span>
-                    )}
-                  </label>
-                  <CitySelector
-                    value={selectedCity}
-                    onChange={setSelectedCity}
-                    required
-                    disabled={loading}
-                  />
-                </div>
+                    <div className="sm:col-span-2">
+                      <label htmlFor="checkout-city" className="block text-sm font-medium text-gray-700 mb-1">
+                        Ciudad *
+                        {!selectedCity && (
+                          <span className="ml-1 text-xs text-gray-400 font-normal">(escribe para buscar)</span>
+                        )}
+                      </label>
+                      <CitySelector
+                        value={selectedCity}
+                        onChange={setSelectedCity}
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <label htmlFor="checkout-phone" className="block text-sm font-medium text-gray-700 mb-1">
@@ -460,7 +553,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
 
             <button
               type="submit"
-              disabled={loading || !selectedCity || !acceptedPolicies}
+              disabled={loading || (deliveryMethod === 'HOME_DELIVERY' && !selectedCity) || !acceptedPolicies}
               aria-disabled={!acceptedPolicies}
               className="w-full bg-sky-500 text-white py-3 rounded-xl font-bold text-base hover:bg-sky-600 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -504,17 +597,26 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
           <div className="border-t border-gray-100 pt-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Envío</span>
-              {!selectedCity && <span className="text-gray-400 italic">Selecciona tu ciudad</span>}
-              {selectedCity && shippingLoading && <span className="text-gray-400">Calculando...</span>}
-              {selectedCity && !shippingLoading && shippingQuote && shippingQuote.freeShipping && (
+              {deliveryMethod === 'STORE_PICKUP' && (
+                <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs bg-green-50 px-2 py-0.5 rounded-full">
+                  🎉 ¡Gratis — retiro en tienda!
+                </span>
+              )}
+              {deliveryMethod === 'HOME_DELIVERY' && !selectedCity && (
+                <span className="text-gray-400 italic">Selecciona tu ciudad</span>
+              )}
+              {deliveryMethod === 'HOME_DELIVERY' && selectedCity && shippingLoading && (
+                <span className="text-gray-400">Calculando...</span>
+              )}
+              {deliveryMethod === 'HOME_DELIVERY' && selectedCity && !shippingLoading && shippingQuote && shippingQuote.freeShipping && (
                 <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs bg-green-50 px-2 py-0.5 rounded-full">
                   🎉 ¡Envío gratis!
                 </span>
               )}
-              {selectedCity && !shippingLoading && shippingQuote && !shippingQuote.freeShipping && (
+              {deliveryMethod === 'HOME_DELIVERY' && selectedCity && !shippingLoading && shippingQuote && !shippingQuote.freeShipping && (
                 <span className="text-gray-700 font-medium">{formatCOP(shippingQuote.quotedShippingTotal)}</span>
               )}
-              {selectedCity && !shippingLoading && shippingError && (
+              {deliveryMethod === 'HOME_DELIVERY' && selectedCity && !shippingLoading && shippingError && (
                 <span className="text-gray-400 italic text-xs">No se pudo calcular ahora</span>
               )}
             </div>
@@ -523,7 +625,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
               <span>{chargingShippingOnline ? 'Total a pagar (incluye envío)' : shippingCost > 0 ? 'Total estimado' : 'Total'}</span>
               <span>{formatCOP(cartTotal + shippingCost)}</span>
             </div>
-            {!chargingShippingOnline && (
+            {deliveryMethod === 'HOME_DELIVERY' && !chargingShippingOnline && (
               <p className="text-xs text-gray-400">
                 El envío lo cobra Vendelo directamente al recibir tu pedido — esto es solo un estimado.
               </p>

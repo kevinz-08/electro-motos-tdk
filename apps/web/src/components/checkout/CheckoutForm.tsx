@@ -245,7 +245,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
                   />
                   <span>
                     <span className="block text-sm font-semibold text-gray-900">Retiro en tienda</span>
-                    <span className="block text-xs text-gray-500">Gratis — recoges tú mismo en nuestra tienda</span>
+                    <span className="block text-xs text-gray-500">Lo recoges en el punto fisico</span>
                   </span>
                 </label>
               </div>
@@ -599,7 +599,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
               <span className="text-gray-500">Envío</span>
               {deliveryMethod === 'STORE_PICKUP' && (
                 <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs bg-green-50 px-2 py-0.5 rounded-full">
-                  🎉 ¡Gratis — retiro en tienda!
+                  ¡Gratis — Retiro en punto fisico!
                 </span>
               )}
               {deliveryMethod === 'HOME_DELIVERY' && !selectedCity && (
@@ -627,7 +627,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
             </div>
             {deliveryMethod === 'HOME_DELIVERY' && !chargingShippingOnline && (
               <p className="text-xs text-gray-400">
-                El envío lo cobra Vendelo directamente al recibir tu pedido — esto es solo un estimado.
+                El envío lo cobra la transportadora directamente al recibir tu pedido — esto es solo un estimado.
               </p>
             )}
           </div>

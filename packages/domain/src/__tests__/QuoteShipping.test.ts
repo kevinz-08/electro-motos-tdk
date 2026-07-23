@@ -174,4 +174,22 @@ describe('QuoteShipping', () => {
     if (result.ok) expect(result.value.freeShipping).toBe(true)
     expect(shippingPort.quoteOrder).not.toHaveBeenCalled()
   })
+
+  it('retiro en tienda: retorna $0 sin resolver productos ni llamar a Vendelo', async () => {
+    const productRepo = { findById: vi.fn() } as unknown as IProductRepository
+    const shippingPort = { quoteOrder: vi.fn() } as unknown as IVendeloShippingPort
+
+    const result = await new QuoteShipping(productRepo, shippingPort).execute({
+      ...BASE_INPUT,
+      deliveryMethod: 'STORE_PICKUP',
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.quotedShippingTotal).toBe(0)
+      expect(result.value.freeShipping).toBe(true)
+    }
+    expect(productRepo.findById).not.toHaveBeenCalled()
+    expect(shippingPort.quoteOrder).not.toHaveBeenCalled()
+  })
 })

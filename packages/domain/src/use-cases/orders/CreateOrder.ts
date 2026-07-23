@@ -1,7 +1,7 @@
 import { IOrderRepository, CreateOrderInput } from '@/domain/repositories/IOrderRepository'
 import { IProductRepository } from '@/domain/repositories/IProductRepository'
 import { IPaymentService, PaymentResult } from '@/domain/services/IPaymentService'
-import { Order, ShippingAddress, BuyerInfo, PaymentProvider } from '@/domain/entities/Order'
+import { Order, ShippingAddress, BuyerInfo, PaymentProvider, DeliveryMethod } from '@/domain/entities/Order'
 import { QuoteShipping } from '@/domain/use-cases/shipping/QuoteShipping'
 import { Result, ok, err, AppError } from '@/domain/shared/Result'
 
@@ -13,6 +13,12 @@ export interface CreateOrderUseCaseInput {
   shippingAddress: ShippingAddress
   buyer: BuyerInfo
   paymentProvider: PaymentProvider
+  /**
+   * Método de entrega elegido en el checkout. STORE_PICKUP fuerza shippingTotal=0
+   * y nunca cotiza con Vendelo, sin importar chargeShippingOnline. Default
+   * (undefined) = HOME_DELIVERY (comportamiento legado).
+   */
+  deliveryMethod?: DeliveryMethod
   /**
    * true = si el pedido es online (WOMPI/MERCADO_PAGO), cotizar el flete y sumarlo
    * al monto cobrado por la pasarela. Lo calcula el caller (orders.controller.ts)
@@ -127,10 +133,15 @@ export class CreateOrder {
     // 2. Cotizar el flete si corresponde, sumarlo al total cobrado en línea.
     // Cualquier motivo de no poder cotizar degrada a shippingTotal 0 en vez de
     // bloquear el checkout (el negocio absorbe el flete, comportamiento legado).
+    // Retiro en tienda: el flete siempre es $0, sin importar chargeShippingOnline.
     let shippingTotal = 0
     let shippingQuoteFallback = false
 
-    if (input.chargeShippingOnline && input.paymentProvider !== 'COD') {
+    if (
+      input.deliveryMethod !== 'STORE_PICKUP'
+      && input.chargeShippingOnline
+      && input.paymentProvider !== 'COD'
+    ) {
       const cityCode = input.shippingAddress.cityCode
       const subdivisionCode = input.shippingAddress.subdivisionCode
 
@@ -164,6 +175,7 @@ export class CreateOrder {
       shippingAddress: input.shippingAddress,
       buyer: input.buyer,
       paymentProvider: input.paymentProvider,
+      deliveryMethod: input.deliveryMethod ?? 'HOME_DELIVERY',
       shippingTotal,
       total,
     }

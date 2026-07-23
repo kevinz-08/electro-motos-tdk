@@ -2,12 +2,19 @@ import { Result, ok, err, AppError } from '../../shared/Result'
 import { FREE_SHIPPING_THRESHOLD_CENTS } from '../../shared/constants'
 import { IProductRepository } from '../../repositories/IProductRepository'
 import { IVendeloShippingPort } from '../../repositories/IVendeloShippingPort'
+import { DeliveryMethod } from '../../entities/Order'
 
 export interface QuoteShippingInput {
   shippingCityCode: string
   shippingSubdivisionCode: string
   items: Array<{ productId: string; quantity: number }>
   paymentMethod: 'COD' | 'EXTERNAL_PAYMENT'
+  /**
+   * Método de entrega elegido en el checkout. STORE_PICKUP siempre cotiza $0
+   * sin consultar a Vendelo — el cliente retira en la tienda física, no hay
+   * flete que calcular. Default (undefined) = HOME_DELIVERY (comportamiento legado).
+   */
+  deliveryMethod?: DeliveryMethod
 }
 
 export interface QuoteShippingOutput {
@@ -35,6 +42,12 @@ export class QuoteShipping {
   ) {}
 
   async execute(input: QuoteShippingInput): Promise<Result<QuoteShippingOutput, AppError>> {
+    // Retiro en tienda: el flete siempre es $0, sin necesidad de resolver
+    // dirección/ciudad ni de consultar a Vendelo.
+    if (input.deliveryMethod === 'STORE_PICKUP') {
+      return ok({ quotedShippingTotal: 0, freeShipping: true })
+    }
+
     if (!input.items.length) {
       return err(new AppError('VALIDATION_ERROR', 'Se requiere al menos un ítem para cotizar'))
     }

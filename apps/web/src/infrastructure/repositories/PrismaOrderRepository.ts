@@ -144,6 +144,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         total: input.total,
         // Cast necesario: ShippingAddress → Prisma.InputJsonValue (tipo opaco de Prisma para JSON)
         shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
+        deliveryMethod: input.deliveryMethod,
         buyerIdType: input.buyer.idType,
         buyerIdNumber: input.buyer.idNumber,
         buyerBusinessName: input.buyer.businessName ?? null,
@@ -177,6 +178,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           status: 'PAID',
           total: input.total,
           shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
+          deliveryMethod: input.deliveryMethod,
           buyerIdType: input.buyer.idType,
           buyerIdNumber: input.buyer.idNumber,
           buyerBusinessName: input.buyer.businessName ?? null,

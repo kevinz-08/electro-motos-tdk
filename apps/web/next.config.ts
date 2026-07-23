@@ -19,6 +19,12 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, '../..'),
   },
   images: {
+    // Cloudinary ya entrega las imágenes de producto optimizadas
+    // (f_auto,q_auto,w_N,c_limit vía cloudinaryUrl()). Este loader evita que
+    // Vercel Image Optimization las vuelva a transformar y consuma cuota
+    // de "Image Optimization - Transformations" de forma redundante.
+    loader: 'custom',
+    loaderFile: './src/lib/cloudinary-loader.ts',
     remotePatterns: [
       {
         protocol: 'https',

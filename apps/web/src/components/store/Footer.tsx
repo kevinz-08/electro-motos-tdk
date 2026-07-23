@@ -101,7 +101,7 @@ export function Footer() {
           <div className="flex flex-col gap-5">
             <Link href="/" aria-label="Ir a la página principal de H2R Online Store">
               <Image
-                src="/assets/logo.png"
+                src="/assets/logo.webp"
                 alt="H2R Online Store"
                 width={130}
                 height={36}

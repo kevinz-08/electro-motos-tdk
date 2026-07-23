@@ -416,7 +416,7 @@ export function Navbar() {
 
               {/* Logo */}
               <Link href="/" className="shrink-0">
-                <Image src="/assets/logo.png" alt="Electro Motos Tony" width={70} height={52} className="object-contain" style={{ height: 'auto' }} priority />
+                <Image src="/assets/logo.webp" alt="Electro Motos Tony" width={70} height={52} className="object-contain" style={{ height: 'auto' }} priority />
               </Link>
 
               {/* Buscador central */}
@@ -482,7 +482,7 @@ export function Navbar() {
             {/* ── Col 1: Logo ── */}
             <div className="flex items-center">
               <Link href="/">
-                <Image src="/assets/logo.png" alt="Electro Motos Tony" width={80} height={60} className="object-contain" style={{ height: 'auto' }} priority />
+                <Image src="/assets/logo.webp" alt="Electro Motos Tony" width={80} height={60} className="object-contain" style={{ height: 'auto' }} priority />
               </Link>
             </div>
 

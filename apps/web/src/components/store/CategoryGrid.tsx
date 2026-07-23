@@ -11,11 +11,11 @@ const CAT_ICONS: Record<string, string> = {
 }
 
 const CATEGORY_IMAGES: Record<string, string> = {
-  'sistema-electrico': '/assets/category/sistema-electrico.jpg',
-  'repuestos': '/assets/category/repuestos.jpg',
-  'aceites': '/assets/category/aceites.jpg',
-  'llantas': '/assets/category/llantas.jpg',
-  'accesorios': '/assets/category/accesorios.jpg',
+  'sistema-electrico': '/assets/category/sistema-electrico.webp',
+  'repuestos': '/assets/category/repuestos.webp',
+  'aceites': '/assets/category/aceites.webp',
+  'llantas': '/assets/category/llantas.webp',
+  'accesorios': '/assets/category/accesorios.webp',
 }
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {

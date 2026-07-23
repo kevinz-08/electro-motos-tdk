@@ -353,6 +353,27 @@ model VendeloOrderQueue {
   @@index([status, nextRetry])
 }
 
+/// Banners del carrusel Hero en la home, administrables desde /admin/banners.
+/// El orden de aparición lo define `order`; solo los `isActive` se muestran en el sitio público.
+model HeroBanner {
+  id            String   @id @default(cuid())
+  /// URL optimizada de Cloudinary (secure_url), no el public_id crudo.
+  imageUrl      String
+  /// public_id de Cloudinary — se conserva para poder borrar la imagen del CDN
+  /// cuando se elimina o reemplaza el banner (evita huérfanos, a diferencia de Product.images).
+  imagePublicId String
+  title         String
+  description   String?
+  ctaLabel      String?
+  ctaUrl        String?
+  order         Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, order])
+}
+
 /// Catálogo de ciudades colombianas con sus códigos Vendelo.
 /// Se pobla via POST /admin/vendelo/sync-cities y se cachea 24h en el checkout.
 model VendeloCity {

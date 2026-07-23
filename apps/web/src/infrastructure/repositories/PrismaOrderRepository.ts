@@ -26,6 +26,7 @@ import {
   BuyerIdType,
   PaymentProvider,
   PaymentStatus,
+  DeliveryMethod,
 } from '@h2r/domain'
 
 /** Rango del gráfico de ingresos del dashboard admin — ver `getRevenueSeries`. */
@@ -69,6 +70,7 @@ function toDomain(
     status: o.status as OrderStatus,
     total: o.total,
     shippingAddress: o.shippingAddress as unknown as ShippingAddress,
+    deliveryMethod: o.deliveryMethod as DeliveryMethod,
     buyer: {
       idType: o.buyerIdType as BuyerIdType,
       idNumber: o.buyerIdNumber,

@@ -20,12 +20,17 @@ export class CloudinaryService {
     })
   }
 
-  async uploadProductImage(file: Buffer, productSku: string): Promise<UploadResult> {
+  private async uploadImage(
+    file: Buffer,
+    folder: string,
+    publicIdPrefix: string,
+    transform: { width: number; crop?: string },
+  ): Promise<UploadResult> {
     const uploaded = await new Promise<{ public_id: string; width: number; height: number }>(
       (resolve, reject) => {
         cloudinary.uploader
           .upload_stream(
-            { folder: 'h2r-online-store/products', public_id: `${productSku}-${Date.now()}` },
+            { folder, public_id: `${publicIdPrefix}-${Date.now()}` },
             (error, result) => {
               if (error || !result) { reject(error ?? new Error('Upload failed')); return }
               resolve({ public_id: result.public_id, width: result.width, height: result.height })
@@ -36,7 +41,7 @@ export class CloudinaryService {
     )
 
     const optimizedUrl = cloudinary.url(uploaded.public_id, {
-      transformation: [{ fetch_format: 'auto', quality: 'auto', width: 1200, crop: 'limit' }],
+      transformation: [{ fetch_format: 'auto', quality: 'auto', ...transform }],
       secure: true,
     })
 
@@ -47,6 +52,15 @@ export class CloudinaryService {
       width: uploaded.width,
       height: uploaded.height,
     }
+  }
+
+  async uploadProductImage(file: Buffer, productSku: string): Promise<UploadResult> {
+    return this.uploadImage(file, 'h2r-online-store/products', productSku, { width: 1200, crop: 'limit' })
+  }
+
+  /** Hero es full-bleed en el home, por eso necesita más ancho que una card de producto. */
+  async uploadHeroBannerImage(file: Buffer, slug: string): Promise<UploadResult> {
+    return this.uploadImage(file, 'h2r-online-store/hero-banners', slug, { width: 1920, crop: 'limit' })
   }
 
   async deleteImage(publicId: string): Promise<void> {

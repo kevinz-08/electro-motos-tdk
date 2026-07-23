@@ -6,6 +6,7 @@ import { AdminDashboardController } from './admin-dashboard.controller'
 import { AdminCategoriesController } from './admin-categories.controller'
 import { AdminEmailsController } from './admin-emails.controller'
 import { AdminSyncController } from './admin-sync.controller'
+import { AdminBannersController } from './admin-banners.controller'
 
 @Module({
   imports: [InfrastructureModule],
@@ -16,6 +17,7 @@ import { AdminSyncController } from './admin-sync.controller'
     AdminSettingsController,
     AdminEmailsController,
     AdminSyncController,
+    AdminBannersController,
   ],
 })
 export class AdminModule {}

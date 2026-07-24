@@ -45,6 +45,17 @@ enum DeliveryMethod {
   STORE_PICKUP
 }
 
+enum CouponType {
+  PERCENTAGE // value = puntos base (1000 = 10.00%)
+  FIXED      // value = centavos COP
+}
+
+enum CouponRestriction {
+  NONE              // sin restricción — cualquier cliente durante la vigencia
+  ONCE_PER_CUSTOMER // cada cliente puede usarlo solo una vez
+  FIRST_PURCHASE    // solo clientes sin órdenes aprobadas previas
+}
+
 // ─── NextAuth.js required models ─────────────────────────────────────────────
 
 model Account {
@@ -150,6 +161,7 @@ model Category {
   parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryTree")
   products    Product[]
+  coupons     Coupon[]   @relation("CategoryCoupons")
 }
 
 model Product {
@@ -175,6 +187,7 @@ model Product {
   compatible            MotorcycleCompatibility[]
   orderItems            OrderItem[]
   structuredDescription ProductDescription?
+  coupons               Coupon[]                  @relation("ProductCoupons")
 
   /// Cubre el filtro mas comun del catalogo y del admin: por categoria, activos, con stock.
   @@index([categoryId, isActive, stock])
@@ -261,8 +274,14 @@ model Order {
   buyerIdNumber      String          @default("")
   /// Razón social — solo aplica cuando buyerIdType es NIT (compras B2B).
   buyerBusinessName  String?
+  /// Código del cupón aplicado en esta orden. Se preserva como audit trail
+  /// aunque el cupón sea desactivado posteriormente.
+  couponCode         String?
+  /// centavos COP — monto descontado por el cupón. 0 si no se aplicó cupón.
+  discountAmount     Int             @default(0)
   createdAt          DateTime        @default(now())
   user               User            @relation(fields: [userId], references: [id])
+  coupon             Coupon?         @relation(fields: [couponCode], references: [code])
   items              OrderItem[]
   payment            Payment?
   shipment           Shipment?
@@ -311,6 +330,36 @@ model Payment {
   amount     Int             // centavos COP
   createdAt  DateTime        @default(now())
   order      Order           @relation(fields: [orderId], references: [id])
+}
+
+/// Códigos promocionales administrados desde /admin/cupones.
+/// El scope del cupón es excluyente: exactamente uno de categoryId o productId
+/// debe ser no-null (validado en el DTO de NestJS, no en el schema).
+///   categoryId → aplica a todos los productos de esa categoría y sus subcategorías.
+///   productId  → aplica solo a ese producto específico.
+/// La expiración se evalúa de forma lazy en ValidateCoupon — no hay cron job.
+/// Soft delete: nunca se borra una fila; isActive=false la desactiva manualmente.
+model Coupon {
+  id          String            @id @default(cuid())
+  code        String            @unique
+  type        CouponType
+  /// PERCENTAGE: puntos base (1000 = 10.00%). FIXED: centavos COP.
+  value       Int
+  restriction CouponRestriction @default(NONE)
+  isActive    Boolean           @default(true)
+  expiresAt   DateTime
+  createdAt   DateTime          @default(now())
+
+  /// Scope: categoría (incluye subcategorías vía parentId) o producto específico.
+  categoryId  String?
+  productId   String?
+  category    Category? @relation("CategoryCoupons", fields: [categoryId], references: [id])
+  product     Product?  @relation("ProductCoupons", fields: [productId], references: [id])
+
+  orders      Order[]
+
+  @@index([code])
+  @@index([isActive, expiresAt])
 }
 
 model Settings {

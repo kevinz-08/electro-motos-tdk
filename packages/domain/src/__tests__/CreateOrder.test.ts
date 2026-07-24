@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { CreateOrder } from '@/domain/use-cases/orders/CreateOrder'
 import { QuoteShipping } from '@/domain/use-cases/shipping/QuoteShipping'
+import { ValidateCoupon } from '@/domain/use-cases/coupons/ValidateCoupon'
 import { ok, err, AppError } from '@/domain/shared/Result'
 import type { IOrderRepository } from '@/domain/repositories/IOrderRepository'
 import type { IProductRepository } from '@/domain/repositories/IProductRepository'
@@ -510,5 +511,123 @@ describe('CreateOrder', () => {
     })
 
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ deliveryMethod: 'HOME_DELIVERY' }))
+  })
+
+  // ── Integración con ValidateCoupon ────────────────────────────────────────
+
+  function makeValidateCouponMock(discount: number, eligibleProductIds: string[]) {
+    return {
+      execute: vi.fn().mockResolvedValue(ok({ discount, eligibleProductIds })),
+    } as unknown as ValidateCoupon
+  }
+
+  it('aplica el descuento del cupón al total del pedido', async () => {
+    const product = makeProduct({ price: 10000000, categoryId: 'cat-1' })
+    const expectedTotal = product.price - 2000000 // 20% de 10.000.000
+    const order = makeOrder({ total: expectedTotal })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: expectedTotal, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+    const validateCoupon = makeValidateCouponMock(2000000, ['prod-1'])
+
+    await new CreateOrder(orderRepo, productRepo, paymentService, undefined, validateCoupon).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+      couponCode: 'HALLOWEEN20',
+    })
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      total: expectedTotal,
+      couponCode: 'HALLOWEEN20',
+      discountAmount: 2000000,
+    }))
+  })
+
+  it('el total nunca es negativo aunque el descuento supere el subtotal', async () => {
+    const product = makeProduct({ price: 1000000, categoryId: 'cat-1' })
+    const order = makeOrder({ total: 0 })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: 0, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+    // Descuento más grande que el precio del producto
+    const validateCoupon = makeValidateCouponMock(9999999, ['prod-1'])
+
+    await new CreateOrder(orderRepo, productRepo, paymentService, undefined, validateCoupon).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+      couponCode: 'MEGADEAL',
+    })
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ total: 0 }))
+  })
+
+  it('si ValidateCoupon falla, el pedido se rechaza con el error del cupón', async () => {
+    const product = makeProduct()
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const validateCoupon = {
+      execute: vi.fn().mockResolvedValue(err(new AppError('VALIDATION_ERROR', 'Cupón vencido'))),
+    } as unknown as ValidateCoupon
+
+    const result = await new CreateOrder(
+      {} as IOrderRepository,
+      productRepo,
+      {} as IPaymentService,
+      undefined,
+      validateCoupon,
+    ).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+      couponCode: 'EXPIRED',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('sin couponCode el pedido avanza normalmente sin llamar a ValidateCoupon', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+    const validateCoupon = { execute: vi.fn() } as unknown as ValidateCoupon
+
+    await new CreateOrder(orderRepo, productRepo, paymentService, undefined, validateCoupon).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+    })
+
+    expect(validateCoupon.execute).not.toHaveBeenCalled()
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ discountAmount: 0 }))
   })
 })

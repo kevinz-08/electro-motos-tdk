@@ -5,10 +5,11 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import {
   IOrderRepository, IProductRepository, IPaymentService, IVendeloShippingPort,
-  CreateOrder, QuoteShipping, OrderStatus,
+  ICouponRepository, CreateOrder, QuoteShipping, ValidateCoupon, OrderStatus,
 } from '@h2r/domain'
 import {
   ORDER_REPOSITORY, PRODUCT_REPOSITORY, PAYMENT_SERVICE, VENDELO_SHIPPING_PORT,
+  COUPON_REPOSITORY,
 } from '../infrastructure/injection-tokens'
 import { MercadoPagoService } from '../infrastructure/services/MercadoPagoService'
 import { WompiService } from '../infrastructure/services/WompiService'
@@ -37,6 +38,7 @@ export class OrdersController {
     @Inject(PRODUCT_REPOSITORY)     private readonly productRepo: IProductRepository,
     @Inject(PAYMENT_SERVICE)        private readonly wompiService: IPaymentService,
     @Inject(VENDELO_SHIPPING_PORT)  private readonly shippingPort: IVendeloShippingPort,
+    @Inject(COUPON_REPOSITORY)      private readonly couponRepo: ICouponRepository,
     private readonly mercadoPagoService: MercadoPagoService,
     private readonly emailService: ResendEmailService,
     private readonly emailQueue: EmailQueueService,
@@ -88,6 +90,7 @@ export class OrdersController {
       this.productRepo,
       paymentService,
       new QuoteShipping(this.productRepo, this.shippingPort),
+      new ValidateCoupon(this.couponRepo, this.orderRepo),
     )
     const result = await useCase.execute({
       userId: user.id,
@@ -98,6 +101,7 @@ export class OrdersController {
       deliveryMethod: dto.deliveryMethod,
       chargeShippingOnline,
       maxShippingChargeCents: MAX_SHIPPING_CHARGE_CENTS,
+      couponCode: dto.couponCode,
     })
 
     if (!result.ok) throw result.error

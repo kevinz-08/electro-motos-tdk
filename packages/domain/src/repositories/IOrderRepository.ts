@@ -39,6 +39,10 @@ export interface CreateOrderInput {
   shippingTotal: number
   /** Total del pedido en centavos COP (calculado por CreateOrder use case) */
   total: number
+  /** Código del cupón aplicado. null si no se usó cupón. */
+  couponCode?: string
+  /** Centavos COP descontados por el cupón. 0 si no se usó cupón. */
+  discountAmount?: number
 }
 
 /**
@@ -89,6 +93,16 @@ export interface IOrderRepository {
       stockDecrements?: Array<{ productId: string; quantity: number }>
     },
   ): Promise<PaymentTransitionResult>
+  /**
+   * Verifica si un usuario ya utilizó un cupón específico en alguna orden no cancelada.
+   * Usado por ValidateCoupon para la restricción ONCE_PER_CUSTOMER.
+   */
+  existsByCouponAndUser(couponCode: string, userId: string): Promise<boolean>
+  /**
+   * Verifica si un usuario tiene alguna orden en estado PAID, SHIPPED o DELIVERED.
+   * Usado por ValidateCoupon para la restricción FIRST_PURCHASE.
+   */
+  hasApprovedOrders(userId: string): Promise<boolean>
   /** Calcula los ingresos del día (pedidos PAID creados hoy). Retorna centavos COP. */
   getTodayRevenue(): Promise<number>
   /** Cuenta pedidos con status PENDING. Para alertas en el dashboard. */

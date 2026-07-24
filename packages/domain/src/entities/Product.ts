@@ -60,6 +60,12 @@ export interface Product {
   lengthCm: number | null
   /** ID de la categoría a la que pertenece (FK hacia Category) */
   categoryId: string
+  /**
+   * ID de la categoría padre (parentId de Category). null si el producto pertenece
+   * a una categoría raíz. Opcional — se popula cuando el query hace include de category.
+   * Usado por ValidateCoupon para la cascada de scope categoría → subcategoría.
+   */
+  parentCategoryId?: string | null
   /** Fecha de creación del registro */
   createdAt: Date
   /** Fecha de última actualización (se actualiza automáticamente en BD) */

@@ -3,6 +3,7 @@ import { IProductRepository } from '@/domain/repositories/IProductRepository'
 import { IPaymentService, PaymentResult } from '@/domain/services/IPaymentService'
 import { Order, ShippingAddress, BuyerInfo, PaymentProvider, DeliveryMethod } from '@/domain/entities/Order'
 import { QuoteShipping } from '@/domain/use-cases/shipping/QuoteShipping'
+import { ValidateCoupon } from '@/domain/use-cases/coupons/ValidateCoupon'
 import { Result, ok, err, AppError } from '@/domain/shared/Result'
 
 export interface CreateOrderUseCaseInput {
@@ -33,6 +34,8 @@ export interface CreateOrderUseCaseInput {
    * el caller (NestJS) lo resuelve y lo pasa acá.
    */
   maxShippingChargeCents?: number
+  /** Código del cupón a aplicar. Si no se valida correctamente, la orden no se crea. */
+  couponCode?: string
 }
 
 export interface CreateOrderOutput {
@@ -88,6 +91,7 @@ export class CreateOrder {
     private readonly productRepo: IProductRepository,
     private readonly paymentService: IPaymentService,
     private readonly quoteShipping?: QuoteShipping,
+    private readonly validateCoupon?: ValidateCoupon,
   ) {}
 
   async execute(input: CreateOrderUseCaseInput): Promise<Result<CreateOrderOutput>> {
@@ -96,6 +100,9 @@ export class CreateOrder {
       productId: string
       quantity: number
       priceAtPurchase: number
+      /** Solo para validación de cupón — se elimina antes de persistir. */
+      _categoryId: string
+      _parentCategoryId: string | null
     }> = []
 
     let productSubtotal = 0
@@ -126,11 +133,36 @@ export class CreateOrder {
         productId: found.id,
         quantity: item.quantity,
         priceAtPurchase: found.price,
+        // Guardamos categoryId y parentCategoryId para la validación de cupón.
+        // No forman parte de CreateOrderInput — son solo datos de trabajo locales.
+        _categoryId: found.categoryId,
+        _parentCategoryId: found.parentCategoryId ?? null,
       })
       productSubtotal += found.price * item.quantity
     }
 
-    // 2. Cotizar el flete si corresponde, sumarlo al total cobrado en línea.
+    // 2. Validar y aplicar cupón si se proporcionó uno.
+    let discountAmount = 0
+    if (input.couponCode) {
+      if (!this.validateCoupon) {
+        return err(new AppError('INTERNAL_ERROR', 'Validación de cupón no disponible'))
+      }
+      const couponResult = await this.validateCoupon.execute({
+        code: input.couponCode,
+        userId: input.userId,
+        items: resolvedItems.map(item => ({
+          productId: item.productId,
+          categoryId: item._categoryId,
+          parentCategoryId: item._parentCategoryId,
+          price: item.priceAtPurchase,
+          quantity: item.quantity,
+        })),
+      })
+      if (!couponResult.ok) return couponResult
+      discountAmount = couponResult.value.discount
+    }
+
+    // 3. Cotizar el flete si corresponde, sumarlo al total cobrado en línea.
     // Cualquier motivo de no poder cotizar degrada a shippingTotal 0 en vez de
     // bloquear el checkout (el negocio absorbe el flete, comportamiento legado).
     // Retiro en tienda: el flete siempre es $0, sin importar chargeShippingOnline.
@@ -167,17 +199,19 @@ export class CreateOrder {
       }
     }
 
-    const total = productSubtotal + shippingTotal
+    const total = Math.max(0, productSubtotal - discountAmount + shippingTotal)
 
     const createInput: CreateOrderInput = {
       userId: input.userId,
-      items: resolvedItems,
+      items: resolvedItems.map(({ _categoryId: _c, _parentCategoryId: _p, ...item }) => item),
       shippingAddress: input.shippingAddress,
       buyer: input.buyer,
       paymentProvider: input.paymentProvider,
       deliveryMethod: input.deliveryMethod ?? 'HOME_DELIVERY',
       shippingTotal,
       total,
+      couponCode: input.couponCode,
+      discountAmount,
     }
 
     // COD: no hay pasarela que esperar — el pedido se crea ya PAID y con el
@@ -192,7 +226,7 @@ export class CreateOrder {
       return ok({ order, payment: null, shippingQuoteFallback: false })
     }
 
-    // 3. Crear orden en DB con estado PENDING
+    // 4. Crear orden en DB con estado PENDING
     let order: Order
     try {
       order = await this.orderRepo.create(createInput)
@@ -200,7 +234,7 @@ export class CreateOrder {
       return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
     }
 
-    // 4. Iniciar transacción en la pasarela — lee order.total, que ya incluye
+    // 5. Iniciar transacción en la pasarela — lee order.total, que ya incluye
     // el flete cuando corresponde.
     let paymentResult: PaymentResult
     try {

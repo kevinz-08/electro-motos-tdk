@@ -11,6 +11,7 @@
 
 // ── Entidades ────────────────────────────────────────────────────────────────
 export * from './entities/Category'
+export * from './entities/Coupon'
 export * from './entities/Order'
 export * from './entities/Product'
 export * from './entities/ProductDescription'
@@ -20,6 +21,7 @@ export * from './entities/ShipmentException'
 export * from './entities/User'
 
 // ── Interfaces de repositorio ────────────────────────────────────────────────
+export * from './repositories/ICouponRepository'
 export * from './repositories/IInventorySyncRepository'
 export * from './repositories/IOrderRepository'
 export * from './repositories/IProductDescriptionRepository'
@@ -38,6 +40,7 @@ export * from './shared/Result'
 export * from './shared/constants'
 
 // ── Use cases ────────────────────────────────────────────────────────────────
+export * from './use-cases/coupons/ValidateCoupon'
 export * from './use-cases/orders/ConfirmPayment'
 export * from './use-cases/orders/CreateOrder'
 export * from './use-cases/orders/SyncShipmentStatus'

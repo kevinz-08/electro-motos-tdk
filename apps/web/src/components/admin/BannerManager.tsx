@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { z } from 'zod'
@@ -104,9 +104,37 @@ interface BannerFormProps {
   token: string | undefined
 }
 
-function BannerForm({ initial, nextOrder, categories, onSuccess, onCancel, token }: BannerFormProps) {
+/** Métodos que el padre (BannerManager) puede invocar sobre el form vía ref. */
+export interface BannerFormHandle {
+  /** Borra en Cloudinary la imagen subida en esta sesión si nunca se guardó (banner no creado/editado con éxito). */
+  cleanupUnsavedImage: () => void
+}
+
+/**
+ * Borra en Cloudinary una imagen que se subió pero nunca quedó asociada a un
+ * banner guardado (reemplazo cancelado, imagen quitada antes de guardar, o
+ * el formulario se cerró sin confirmar — incluye cerrar con Escape, click
+ * fuera del modal o el botón ✕, no solo "Cancelar"). No bloquea la UI ni
+ * reporta errores al admin — si falla, el asset huérfano queda igual que
+ * antes de este fix.
+ */
+function deleteUnsavedImage(token: string | undefined, publicId: string) {
+  apiClient(token).post('/admin/banners/image/delete', { publicId }).catch(() => {})
+}
+
+const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function BannerForm(
+  { initial, nextOrder, categories, onSuccess, onCancel, token },
+  ref,
+) {
   const isEdit = !!initial
   const initialDestination = inferDestination(initial?.ctaUrl)
+  // PublicId de la imagen realmente guardada en el banner (si existe) — sirve para saber,
+  // en cualquier punto del formulario, si la imagen actual en pantalla ya está persistida
+  // o es un upload de esta sesión que todavía no se confirmó con "Guardar".
+  const savedPublicId = initial?.imagePublicId
+  // true una vez que el submit se confirma con éxito — evita que el cleanup-al-cerrar
+  // borre por error la imagen recién guardada cuando el modal se cierra después de guardar.
+  const savedRef = useRef(false)
 
   const [form, setForm] = useState<BannerFormData>({
     title: initial?.title ?? '',
@@ -125,6 +153,21 @@ function BannerForm({ initial, nextOrder, categories, onSuccess, onCancel, token
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  /** Si la imagen en pantalla no es la que ya está guardada, es un upload de esta sesión. */
+  const isUnsaved = (publicId: string) => publicId !== savedPublicId
+
+  useImperativeHandle(ref, () => ({
+    cleanupUnsavedImage: () => {
+      if (savedRef.current) return
+      if (image && isUnsaved(image.publicId)) deleteUnsavedImage(token, image.publicId)
+    },
+  }))
+
+  function handleRemoveImage() {
+    if (image && isUnsaved(image.publicId)) deleteUnsavedImage(token, image.publicId)
+    setImage(null)
+  }
 
   function setField<K extends keyof BannerFormData>(key: K, value: BannerFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -223,6 +266,7 @@ function BannerForm({ initial, nextOrder, categories, onSuccess, onCancel, token
         return
       }
 
+      savedRef.current = true
       await revalidateAdminCache([CACHE_TAGS.hero])
       onSuccess()
     } catch {
@@ -252,7 +296,7 @@ function BannerForm({ initial, nextOrder, categories, onSuccess, onCancel, token
             <img src={image.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
             <button
               type="button"
-              onClick={() => setImage(null)}
+              onClick={handleRemoveImage}
               className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all"
               aria-label="Quitar imagen"
             >
@@ -437,7 +481,9 @@ function BannerForm({ initial, nextOrder, categories, onSuccess, onCancel, token
       </div>
     </form>
   )
-}
+})
+
+BannerForm.displayName = 'BannerForm'
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 
@@ -502,10 +548,16 @@ export function BannerManager({ banners, categories }: BannerManagerProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
   const [rowLoading, setRowLoading] = useState<string | null>(null)
+  const formRef = useRef<BannerFormHandle>(null)
 
   const nextOrder = banners.length > 0 ? Math.max(...banners.map((b) => b.order)) + 1 : 0
 
-  function closeModal() { setModal({ type: 'closed' }) }
+  // Cualquier vía de cierre del modal (botón "Cancelar", ✕, Escape o click fuera) pasa por
+  // acá — así la limpieza de imágenes subidas-pero-no-guardadas cubre las 4 por igual.
+  function closeModal() {
+    formRef.current?.cleanupUnsavedImage()
+    setModal({ type: 'closed' })
+  }
 
   function handleSuccess() {
     closeModal()
@@ -699,6 +751,7 @@ export function BannerManager({ banners, categories }: BannerManagerProps) {
       {modal.type === 'create' && (
         <Modal title="Nuevo banner" onClose={closeModal}>
           <BannerForm
+            ref={formRef}
             nextOrder={nextOrder}
             categories={categories}
             onSuccess={handleSuccess}
@@ -712,6 +765,7 @@ export function BannerManager({ banners, categories }: BannerManagerProps) {
       {modal.type === 'edit' && (
         <Modal title={`Editar: ${modal.banner.title}`} onClose={closeModal}>
           <BannerForm
+            ref={formRef}
             initial={modal.banner}
             nextOrder={nextOrder}
             categories={categories}

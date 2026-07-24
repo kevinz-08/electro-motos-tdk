@@ -53,6 +53,19 @@ export class AdminBannersController {
     return { url: result.secureUrl, publicId: result.publicId }
   }
 
+  @Post('image/delete')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Borrar una imagen subida a Cloudinary que nunca se guardó en un banner '
+      + '(reemplazo cancelado o imagen quitada antes de guardar). Se recibe por body y no '
+      + 'por path param porque el publicId de Cloudinary contiene "/" (incluye el folder).',
+  })
+  async deleteUnsavedImage(@Body('publicId') publicId: string) {
+    if (!publicId) throw new BadRequestException('publicId es requerido')
+    await this.cloudinary.deleteImage(publicId)
+    return { success: true }
+  }
+
   @Post()
   @HttpCode(201)
   @ApiOperation({ summary: 'Crear banner' })
@@ -76,7 +89,7 @@ export class AdminBannersController {
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Actualizar banner' })
+  @ApiOperation({ summary: 'Actualizar banner (si cambia la imagen, borra la anterior en Cloudinary)' })
   async update(@Param('id') id: string, @Body() dto: UpdateHeroBannerDto) {
     if (dto.isActive) {
       const activeCount = await this.prisma.client.heroBanner.count({
@@ -86,7 +99,17 @@ export class AdminBannersController {
         throw new BadRequestException(`Máximo ${MAX_ACTIVE_BANNERS} banners activos a la vez`)
       }
     }
-    return this.prisma.client.heroBanner.update({ where: { id }, data: dto })
+
+    const previous = await this.prisma.client.heroBanner.findUnique({ where: { id } })
+    const updated = await this.prisma.client.heroBanner.update({ where: { id }, data: dto })
+
+    if (previous && dto.imagePublicId && dto.imagePublicId !== previous.imagePublicId) {
+      await this.cloudinary.deleteImage(previous.imagePublicId).catch(() => {
+        // No bloquear la actualización si Cloudinary falla o el asset ya no existe.
+      })
+    }
+
+    return updated
   }
 
   @Delete(':id')

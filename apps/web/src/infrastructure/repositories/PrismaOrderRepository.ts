@@ -411,6 +411,22 @@ export class PrismaOrderRepository implements IOrderRepository {
     return rows.map((r) => ({ id: r.id, vendeloOrderId: r.vendeloOrderId }))
   }
 
+  async existsByCouponAndUser(couponCode: string, userId: string): Promise<boolean> {
+    const row = await prisma.order.findFirst({
+      where: { couponCode, userId, status: { not: 'CANCELLED' } },
+      select: { id: true },
+    })
+    return row !== null
+  }
+
+  async hasApprovedOrders(userId: string): Promise<boolean> {
+    const row = await prisma.order.findFirst({
+      where: { userId, status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      select: { id: true },
+    })
+    return row !== null
+  }
+
   async findActiveVendeloOrders(limit: number): Promise<ActiveVendeloOrder[]> {
     const rows = await prisma.order.findMany({
       where: {

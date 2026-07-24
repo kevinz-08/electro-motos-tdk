@@ -76,6 +76,15 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
   const [error, setError] = useState<string | null>(null)
   const [acceptedPolicies, setAcceptedPolicies] = useState(false)
 
+  const [couponCode, setCouponCode] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string
+    discount: number
+    eligibleProductIds: string[]
+  } | null>(null)
+
   const [form, setForm] = useState<ShippingFormData>({
     fullName: '',
     address: '',
@@ -106,6 +115,36 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
   // con la misma lógica) — no es solo informativo como en el resto de los casos.
   // No aplica a retiro en tienda: el flete siempre es $0 ahí.
   const chargingShippingOnline = paymentMethod === 'WOMPI' && shippingOnlineEnabled && deliveryMethod === 'HOME_DELIVERY'
+
+  const handleApplyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase()
+    if (!code) return
+    setCouponLoading(true)
+    setCouponError(null)
+    setAppliedCoupon(null)
+    try {
+      const client = apiClient(session?.user?.accessToken)
+      const res = await client.post<{ discount: number; eligibleProductIds: string[] }>('/coupons/validate', {
+        code,
+        items: items.map((i) => ({
+          productId: i.product.id,
+          price: i.product.price,
+          quantity: i.quantity,
+          categoryId: i.product.categoryId,
+          parentCategoryId: i.product.parentCategoryId ?? null,
+        })),
+      })
+      if (!res.ok) {
+        setCouponError(res.error ?? 'Cupón no válido')
+        return
+      }
+      setAppliedCoupon({ code, ...res.data })
+    } catch {
+      setCouponError('Error al validar el cupón')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
 
   const handleSubmitShipping = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -158,6 +197,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
         },
         paymentProvider: paymentMethod,
         policiesAcceptedAt: new Date().toISOString(),
+        ...(appliedCoupon && { couponCode: appliedCoupon.code }),
       })
 
       if (!orderRes.ok) {
@@ -495,6 +535,52 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
               </div>
             )}
 
+            {/* Cupón de descuento */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <h2 className="font-bold text-gray-900 mb-3">¿Tienes un cupón?</h2>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase())
+                    setCouponError(null)
+                    if (appliedCoupon) setAppliedCoupon(null)
+                  }}
+                  disabled={couponLoading || !!appliedCoupon}
+                  placeholder="HALLOWEEN20"
+                  className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-mono uppercase focus:outline-none focus:border-sky-400 disabled:bg-gray-50 disabled:text-gray-400"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleApplyCoupon() } }}
+                />
+                {appliedCoupon ? (
+                  <button
+                    type="button"
+                    onClick={() => { setAppliedCoupon(null); setCouponCode('') }}
+                    className="px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    Quitar
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleApplyCoupon()}
+                    disabled={!couponCode.trim() || couponLoading}
+                    className="px-4 py-2.5 text-sm font-semibold bg-sky-500 text-white rounded-lg hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {couponLoading ? '...' : 'Aplicar'}
+                  </button>
+                )}
+              </div>
+              {couponError && (
+                <p className="mt-2 text-xs text-red-600">{couponError}</p>
+              )}
+              {appliedCoupon && (
+                <p className="mt-2 text-xs text-green-700 font-medium">
+                  ¡Cupón aplicado! Descuento: {formatCOP(appliedCoupon.discount)}
+                </p>
+              )}
+            </div>
+
             {error && (
               <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
                 {error}
@@ -595,6 +681,12 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
             ))}
           </div>
           <div className="border-t border-gray-100 pt-4 space-y-2">
+            {appliedCoupon && (
+              <div className="flex justify-between text-sm text-green-700">
+                <span className="font-medium">Descuento ({appliedCoupon.code})</span>
+                <span className="font-semibold">-{formatCOP(appliedCoupon.discount)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">ENVIO</span>
               {deliveryMethod === 'STORE_PICKUP' && (
@@ -623,7 +715,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
 
             <div className="flex justify-between font-bold text-gray-900 pt-1">
               <span>{chargingShippingOnline ? 'Total a pagar (incluye envío)' : shippingCost > 0 ? 'Total estimado' : 'Total'}</span>
-              <span>{formatCOP(cartTotal + shippingCost)}</span>
+              <span>{formatCOP(Math.max(0, cartTotal + shippingCost - (appliedCoupon?.discount ?? 0)))}</span>
             </div>
             {deliveryMethod === 'HOME_DELIVERY' && !chargingShippingOnline && (
               <p className="text-xs text-gray-400">

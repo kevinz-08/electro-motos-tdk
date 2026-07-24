@@ -20,11 +20,11 @@ import {
 import { detectCategorySlugs, extractSearchWords } from '@/lib/search'
 
 /**
- * Convierte un registro de Prisma (con `compatible` incluido) a la entidad de dominio Product.
+ * Convierte un registro de Prisma (con `compatible` y `category` incluidos) a la entidad de dominio Product.
  * Esto centraliza el mapeo: si el schema cambia, solo se actualiza aquí.
  */
 function toDomain(
-  p: PrismaProduct & { compatible?: PrismaCompat[] },
+  p: PrismaProduct & { compatible?: PrismaCompat[]; category?: { parentId: string | null } | null },
 ): Product {
   return {
     id: p.id,
@@ -41,6 +41,7 @@ function toDomain(
     widthCm: p.widthCm,
     lengthCm: p.lengthCm,
     categoryId: p.categoryId,
+    parentCategoryId: p.category?.parentId ?? null,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     compatible: p.compatible?.map(
@@ -61,7 +62,7 @@ export class PrismaProductRepository implements IProductRepository {
   async findById(id: string): Promise<Product | null> {
     const p = await prisma.product.findUnique({
       where: { id },
-      include: { compatible: true },
+      include: { compatible: true, category: { select: { parentId: true } } },
     })
     return p ? toDomain(p) : null
   }
@@ -70,7 +71,7 @@ export class PrismaProductRepository implements IProductRepository {
   async findBySlug(slug: string): Promise<Product | null> {
     const p = await prisma.product.findUnique({
       where: { slug },
-      include: { compatible: true },
+      include: { compatible: true, category: { select: { parentId: true } } },
     })
     return p ? toDomain(p) : null
   }
@@ -79,7 +80,7 @@ export class PrismaProductRepository implements IProductRepository {
   async findBySku(sku: string): Promise<Product | null> {
     const p = await prisma.product.findUnique({
       where: { sku },
-      include: { compatible: true },
+      include: { compatible: true, category: { select: { parentId: true } } },
     })
     return p ? toDomain(p) : null
   }
@@ -181,7 +182,7 @@ export class PrismaProductRepository implements IProductRepository {
     const [items, total] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: { compatible: true },
+        include: { compatible: true, category: { select: { parentId: true } } },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -199,8 +200,8 @@ export class PrismaProductRepository implements IProductRepository {
   async findLowStock(threshold: number): Promise<Product[]> {
     const items = await prisma.product.findMany({
       where: { stock: { lte: threshold }, isActive: true },
-      include: { compatible: true },
-      orderBy: { stock: 'asc' }, // primero los más críticos
+      include: { compatible: true, category: { select: { parentId: true } } },
+      orderBy: { stock: 'asc' },
     })
     return items.map(toDomain)
   }
@@ -301,7 +302,7 @@ export class PrismaProductRepository implements IProductRepository {
         stock: { gt: 0 },
         slug: { not: excludeSlug },
       },
-      include: { compatible: true },
+      include: { compatible: true, category: { select: { parentId: true } } },
       orderBy: { createdAt: 'desc' },
       take: limit,
     })

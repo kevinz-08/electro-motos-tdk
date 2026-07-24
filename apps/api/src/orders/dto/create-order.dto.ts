@@ -2,7 +2,7 @@ import {
   IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional,
   IsString, Matches, Min, MinLength, ValidateNested, ValidateIf,
 } from 'class-validator'
-import { Type } from 'class-transformer'
+import { Type, Transform } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class ShippingAddressDto {
@@ -80,4 +80,10 @@ export class CreateOrderDto {
   @IsOptional()
   @IsDateString()
   policiesAcceptedAt?: string
+
+  @ApiPropertyOptional({ description: 'Código de cupón de descuento a aplicar en el pedido', example: 'HALLOWEEN20' })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }: { value: string }) => value?.toUpperCase().trim())
+  couponCode?: string
 }

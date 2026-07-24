@@ -14,6 +14,7 @@ type PrismaProductRow = {
   isActive: boolean; categoryId: string; createdAt: Date; updatedAt: Date
   weightKg: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null
   compatible?: Array<{ id: string; productId: string; brand: string; model: string; year: number | null }>
+  category?: { parentId: string | null } | null
 }
 
 function toDomain(p: PrismaProductRow): Product {
@@ -32,6 +33,7 @@ function toDomain(p: PrismaProductRow): Product {
     widthCm: p.widthCm,
     lengthCm: p.lengthCm,
     categoryId: p.categoryId,
+    parentCategoryId: p.category?.parentId ?? null,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     compatible: p.compatible?.map(
@@ -45,7 +47,10 @@ export class PrismaProductRepository implements IProductRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string): Promise<Product | null> {
-    const p = await this.prisma.client.product.findUnique({ where: { id }, include: { compatible: true } })
+    const p = await this.prisma.client.product.findUnique({
+      where: { id },
+      include: { compatible: true, category: { select: { parentId: true } } },
+    })
     return p ? toDomain(p) : null
   }
 

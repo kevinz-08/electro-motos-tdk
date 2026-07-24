@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { PrismaModule } from './database/prisma.module'
 import {
+  COUPON_REPOSITORY,
   PRODUCT_REPOSITORY,
   PRODUCT_DESCRIPTION_REPOSITORY,
   ORDER_REPOSITORY,
@@ -11,6 +12,7 @@ import {
   VENDELO_SHIPPING_PORT,
   ALERT_NOTIFICATION_PORT,
 } from './injection-tokens'
+import { PrismaCouponRepository } from './repositories/PrismaCouponRepository'
 import { PrismaProductRepository } from './repositories/PrismaProductRepository'
 import { PrismaStockSyncRepository } from './repositories/PrismaStockSyncRepository'
 import { SyncFileParserService } from './services/SyncFileParserService'
@@ -33,6 +35,7 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
 @Module({
   imports: [PrismaModule],
   providers: [
+    { provide: COUPON_REPOSITORY,              useClass: PrismaCouponRepository },
     { provide: PRODUCT_REPOSITORY,             useClass: PrismaProductRepository },
     { provide: INVENTORY_REPOSITORY,           useClass: PrismaStockSyncRepository },
     SyncFileParserService,
@@ -58,6 +61,7 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
     ExpiredOrdersCleanupService,
   ],
   exports: [
+    COUPON_REPOSITORY,
     INVENTORY_REPOSITORY,
     SyncFileParserService,
     PrismaModule,

@@ -125,6 +125,8 @@ export class PrismaOrderRepository implements IOrderRepository {
         buyerBusinessName: input.buyer.businessName ?? null,
         paymentProvider: input.paymentProvider,
         shippingTotal: input.shippingTotal,
+        couponCode: input.couponCode ?? null,
+        discountAmount: input.discountAmount ?? 0,
         items: { create: input.items },
         payment: {
           create: { provider: input.paymentProvider, amount: input.total },
@@ -149,6 +151,8 @@ export class PrismaOrderRepository implements IOrderRepository {
           buyerBusinessName: input.buyer.businessName ?? null,
           paymentProvider: input.paymentProvider,
           shippingTotal: input.shippingTotal,
+          couponCode: input.couponCode ?? null,
+          discountAmount: input.discountAmount ?? 0,
           items: { create: input.items },
           payment: {
             create: { provider: input.paymentProvider, amount: input.total, status: 'APPROVED' },
@@ -249,6 +253,22 @@ export class PrismaOrderRepository implements IOrderRepository {
       select: { id: true, vendeloOrderId: true },
     })
     return rows.map((r) => ({ id: r.id, vendeloOrderId: r.vendeloOrderId }))
+  }
+
+  async existsByCouponAndUser(couponCode: string, userId: string): Promise<boolean> {
+    const order = await this.prisma.client.order.findFirst({
+      where: { couponCode, userId, status: { not: 'CANCELLED' } },
+      select: { id: true },
+    })
+    return order !== null
+  }
+
+  async hasApprovedOrders(userId: string): Promise<boolean> {
+    const order = await this.prisma.client.order.findFirst({
+      where: { userId, status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      select: { id: true },
+    })
+    return order !== null
   }
 
   async findActiveVendeloOrders(limit: number): Promise<ActiveVendeloOrder[]> {

@@ -19,6 +19,7 @@ vi.mock('@h2r/domain', async (importOriginal) => {
     IProductRepository: undefined,
     IPaymentService: undefined,
     IVendeloShippingPort: undefined,
+    ICouponRepository: undefined,
     OrderStatus: undefined,
     // Usar function() (no arrow) para que sea compatible con `new CreateOrder(...)`
     CreateOrder: vi.fn().mockImplementation(function () {
@@ -28,6 +29,9 @@ vi.mock('@h2r/domain', async (importOriginal) => {
           value: { order: mockOrder, payment: mockPayment, shippingQuoteFallback: false },
         }),
       }
+    }),
+    ValidateCoupon: vi.fn().mockImplementation(function () {
+      return { execute: vi.fn() }
     }),
   }
 })
@@ -44,6 +48,7 @@ import {
   PRODUCT_REPOSITORY,
   PAYMENT_SERVICE,
   VENDELO_SHIPPING_PORT,
+  COUPON_REPOSITORY,
 } from '../infrastructure/injection-tokens'
 import type { JwtUser } from '../auth/decorators/current-user.decorator'
 
@@ -95,6 +100,7 @@ const mockMercadoPagoService = { initiate: vi.fn() }
 const mockEmailQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
 const mockVendeloOrderQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
 const mockShippingPort = { quoteOrder: vi.fn(), createShipments: vi.fn() }
+const mockCouponRepo = { findByCode: vi.fn(), findAll: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() }
 
 const mockUser: JwtUser = { id: 'user-1', email: 'user@test.com', role: 'CUSTOMER' }
 
@@ -108,6 +114,7 @@ async function buildController() {
       { provide: PRODUCT_REPOSITORY, useValue: mockProductRepo },
       { provide: PAYMENT_SERVICE, useValue: mockWompiService },
       { provide: VENDELO_SHIPPING_PORT, useValue: mockShippingPort },
+      { provide: COUPON_REPOSITORY, useValue: mockCouponRepo },
       { provide: WompiService, useValue: mockWompiService },
       { provide: MercadoPagoService, useValue: mockMercadoPagoService },
       { provide: ResendEmailService, useValue: mockEmailService },

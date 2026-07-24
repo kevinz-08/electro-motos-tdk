@@ -8,6 +8,7 @@ import { ImagePlus, Loader2, X } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
 import { CACHE_TAGS } from '@/lib/cache-tags'
+import { WHATSAPP_URL } from '@/lib/contact'
 import { AdminHelpButton } from './AdminHelpButton'
 import { bannersHelpContent } from './help-content/banners'
 
@@ -25,41 +26,96 @@ export type BannerRow = {
   isActive: boolean
 }
 
+/** Categoría o subcategoría disponible para el destino "Categoría" del botón. */
+export type CategoryOption = {
+  slug: string
+  name: string
+  isChild: boolean
+}
+
+// ─── Destino del botón ────────────────────────────────────────────────────────
+//
+// El admin no maneja URLs — elige de una lista de destinos conocidos y, si
+// aplica, la categoría específica. La URL real (ctaUrl) se arma a partir de
+// esa elección y solo se expone como texto libre en el destino "avanzado".
+
+type DestinationType = 'ninguno' | 'catalogo' | 'categoria' | 'whatsapp' | 'custom'
+
+const DESTINATION_LABELS: Record<DestinationType, string> = {
+  ninguno: 'Sin botón',
+  catalogo: 'Catálogo completo',
+  categoria: 'Una categoría o subcategoría',
+  whatsapp: 'WhatsApp (contacto)',
+  custom: 'Otro enlace (avanzado)',
+}
+
+const DESTINATION_DEFAULT_LABEL: Record<DestinationType, string> = {
+  ninguno: '',
+  catalogo: 'Ver catálogo',
+  categoria: 'Ver productos',
+  whatsapp: 'Escríbenos',
+  custom: '',
+}
+
+/** Reconstruye la selección de destino a partir de un ctaUrl ya guardado (modo edición). */
+function inferDestination(ctaUrl: string | null | undefined): { type: DestinationType; categorySlug: string; customUrl: string } {
+  if (!ctaUrl) return { type: 'ninguno', categorySlug: '', customUrl: '' }
+  if (ctaUrl === '/catalogo') return { type: 'catalogo', categorySlug: '', customUrl: '' }
+  const categoryMatch = ctaUrl.match(/^\/catalogo\?category=([a-z0-9-]+)$/)
+  if (categoryMatch) return { type: 'categoria', categorySlug: categoryMatch[1]!, customUrl: '' }
+  if (ctaUrl.startsWith('https://wa.me/')) return { type: 'whatsapp', categorySlug: '', customUrl: '' }
+  return { type: 'custom', categorySlug: '', customUrl: ctaUrl }
+}
+
+function buildCtaUrl(type: DestinationType, categorySlug: string, customUrl: string): string {
+  switch (type) {
+    case 'ninguno': return ''
+    case 'catalogo': return '/catalogo'
+    case 'categoria': return categorySlug ? `/catalogo?category=${categorySlug}` : ''
+    case 'whatsapp': return WHATSAPP_URL()
+    case 'custom': return customUrl
+  }
+}
+
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const bannerSchema = z.object({
   title: z.string().min(1, 'Requerido').max(80, 'Máximo 80 caracteres'),
-  description: z.string().max(200, 'Máximo 200 caracteres').optional().or(z.literal('')),
-  ctaLabel: z.string().max(40, 'Máximo 40 caracteres').optional().or(z.literal('')),
-  ctaUrl: z
-    .string()
-    .regex(/^(\/|https?:\/\/)/, 'Debe ser una ruta relativa ("/catalogo") o una URL completa ("https://...")')
-    .optional()
-    .or(z.literal('')),
+  description: z.string().max(200, 'Máximo 200 caracteres'),
+  ctaLabel: z.string().max(40, 'Máximo 40 caracteres'),
 })
 
+const customUrlSchema = z
+  .string()
+  .min(1, 'Escribe la URL de destino')
+  .regex(/^(\/|https?:\/\/)/, 'Debe ser una ruta relativa ("/promo") o una URL completa ("https://...")')
+
 type BannerFormData = z.infer<typeof bannerSchema>
-type FormErrors = Partial<Record<keyof BannerFormData, string>>
+type FormErrors = Partial<Record<keyof BannerFormData, string>> & { categorySlug?: string; customUrl?: string }
 
 // ─── Banner Form ──────────────────────────────────────────────────────────────
 
 interface BannerFormProps {
   initial?: BannerRow
   nextOrder: number
+  categories: CategoryOption[]
   onSuccess: () => void
   onCancel: () => void
   token: string | undefined
 }
 
-function BannerForm({ initial, nextOrder, onSuccess, onCancel, token }: BannerFormProps) {
+function BannerForm({ initial, nextOrder, categories, onSuccess, onCancel, token }: BannerFormProps) {
   const isEdit = !!initial
+  const initialDestination = inferDestination(initial?.ctaUrl)
 
   const [form, setForm] = useState<BannerFormData>({
     title: initial?.title ?? '',
     description: initial?.description ?? '',
     ctaLabel: initial?.ctaLabel ?? '',
-    ctaUrl: initial?.ctaUrl ?? '',
   })
+  const [destination, setDestination] = useState<DestinationType>(initialDestination.type)
+  const [categorySlug, setCategorySlug] = useState(initialDestination.categorySlug)
+  const [customUrl, setCustomUrl] = useState(initialDestination.customUrl)
   const [image, setImage] = useState<{ url: string; publicId: string } | null>(
     initial ? { url: initial.imageUrl, publicId: initial.imagePublicId } : null,
   )
@@ -73,6 +129,15 @@ function BannerForm({ initial, nextOrder, onSuccess, onCancel, token }: BannerFo
   function setField<K extends keyof BannerFormData>(key: K, value: BannerFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }))
+  }
+
+  /** Cambiar de destino sugiere un texto de botón por defecto, pero nunca pisa uno que el admin ya escribió. */
+  function handleDestinationChange(type: DestinationType) {
+    setDestination(type)
+    setErrors((prev) => ({ ...prev, categorySlug: undefined, customUrl: undefined }))
+    if (!form.ctaLabel.trim() && DESTINATION_DEFAULT_LABEL[type]) {
+      setField('ctaLabel', DESTINATION_DEFAULT_LABEL[type])
+    }
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -104,12 +169,28 @@ function BannerForm({ initial, nextOrder, onSuccess, onCancel, token }: BannerFo
     setServerError(null)
 
     const parsed = bannerSchema.safeParse(form)
+    const fieldErrors: FormErrors = {}
     if (!parsed.success) {
-      const fieldErrors: FormErrors = {}
       for (const issue of parsed.error.issues) {
         const key = issue.path[0] as keyof BannerFormData
         if (!fieldErrors[key]) fieldErrors[key] = issue.message
       }
+    }
+
+    // El destino "categoría" y "avanzado" requieren su propio campo lleno;
+    // cualquier destino distinto de "ninguno" necesita texto de botón.
+    if (destination === 'categoria' && !categorySlug) {
+      fieldErrors.categorySlug = 'Selecciona una categoría'
+    }
+    if (destination === 'custom') {
+      const urlCheck = customUrlSchema.safeParse(customUrl)
+      if (!urlCheck.success) fieldErrors.customUrl = urlCheck.error.issues[0]?.message
+    }
+    if (destination !== 'ninguno' && !form.ctaLabel.trim()) {
+      fieldErrors.ctaLabel = 'Escribe el texto del botón'
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors)
       return
     }
@@ -118,13 +199,15 @@ function BannerForm({ initial, nextOrder, onSuccess, onCancel, token }: BannerFo
       return
     }
 
+    const ctaUrl = buildCtaUrl(destination, categorySlug, customUrl)
+
     setLoading(true)
     try {
       const payload = {
-        title: parsed.data.title,
-        description: parsed.data.description || undefined,
-        ctaLabel: parsed.data.ctaLabel || undefined,
-        ctaUrl: parsed.data.ctaUrl || undefined,
+        title: form.title,
+        description: form.description || undefined,
+        ctaLabel: destination === 'ninguno' ? undefined : (form.ctaLabel || undefined),
+        ctaUrl: ctaUrl || undefined,
         imageUrl: image.url,
         imagePublicId: image.publicId,
         ...(isEdit ? {} : { order: nextOrder }),
@@ -249,8 +332,73 @@ function BannerForm({ initial, nextOrder, onSuccess, onCancel, token }: BannerFo
         {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
       </div>
 
-      {/* CTA */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* CTA — destino del botón, elegido de una lista en vez de escribir una URL */}
+      <div>
+        <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
+          Botón que redirige a:
+        </label>
+        <select
+          value={destination}
+          onChange={(e) => handleDestinationChange(e.target.value as DestinationType)}
+          className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+        >
+          {(Object.keys(DESTINATION_LABELS) as DestinationType[]).map((type) => (
+            <option key={type} value={type}>{DESTINATION_LABELS[type]}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Selector de categoría — solo si el destino es "Una categoría o subcategoría" */}
+      {destination === 'categoria' && (
+        <div>
+          <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
+            ¿Cuál categoría?
+          </label>
+          <select
+            value={categorySlug}
+            onChange={(e) => {
+              setCategorySlug(e.target.value)
+              setErrors((prev) => ({ ...prev, categorySlug: undefined }))
+            }}
+            className={`w-full bg-[#0a0a0a] border rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none transition-colors ${
+              errors.categorySlug ? 'border-red-500/60' : 'border-white/10 focus:border-blue-500'
+            }`}
+          >
+            <option value="">Selecciona una categoría...</option>
+            {categories.map((c) => (
+              <option key={c.slug} value={c.slug}>{c.isChild ? `— ${c.name}` : c.name}</option>
+            ))}
+          </select>
+          {errors.categorySlug && <p className="text-red-400 text-xs mt-1">{errors.categorySlug}</p>}
+        </div>
+      )}
+
+      {/* URL personalizada — solo para el destino "avanzado" */}
+      {destination === 'custom' && (
+        <div>
+          <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
+            URL de destino
+          </label>
+          <input
+            type="text"
+            value={customUrl}
+            onChange={(e) => {
+              setCustomUrl(e.target.value)
+              setErrors((prev) => ({ ...prev, customUrl: undefined }))
+            }}
+            placeholder="https://... o /una-ruta-del-sitio"
+            className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none font-mono transition-colors ${
+              errors.customUrl ? 'border-red-500/60' : 'border-white/10 focus:border-blue-500'
+            }`}
+          />
+          {errors.customUrl
+            ? <p className="text-red-400 text-xs mt-1">{errors.customUrl}</p>
+            : <p className="text-white/25 text-xs mt-1">Solo para casos que no están en la lista — si tienes dudas, pide ayuda técnica.</p>}
+        </div>
+      )}
+
+      {/* Texto del botón — solo aplica si el banner va a tener botón */}
+      {destination !== 'ninguno' && (
         <div>
           <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
             Texto del botón
@@ -267,25 +415,7 @@ function BannerForm({ initial, nextOrder, onSuccess, onCancel, token }: BannerFo
           />
           {errors.ctaLabel && <p className="text-red-400 text-xs mt-1">{errors.ctaLabel}</p>}
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
-            URL del botón
-          </label>
-          <input
-            type="text"
-            value={form.ctaUrl}
-            onChange={(e) => setField('ctaUrl', e.target.value)}
-            placeholder="/catalogo"
-            className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none font-mono transition-colors ${
-              errors.ctaUrl ? 'border-red-500/60' : 'border-white/10 focus:border-blue-500'
-            }`}
-          />
-          {errors.ctaUrl && <p className="text-red-400 text-xs mt-1">{errors.ctaUrl}</p>}
-        </div>
-      </div>
-      <p className="text-white/25 text-xs -mt-2">
-        Si dejas el texto o la URL vacíos, el banner se muestra sin botón de acción.
-      </p>
+      )}
 
       {/* Acciones */}
       <div className="flex gap-3 pt-2">
@@ -355,6 +485,7 @@ function Modal({ title, onClose, children }: ModalProps) {
 
 interface BannerManagerProps {
   banners: BannerRow[]
+  categories: CategoryOption[]
 }
 
 type ModalState =
@@ -362,7 +493,7 @@ type ModalState =
   | { type: 'create' }
   | { type: 'edit'; banner: BannerRow }
 
-export function BannerManager({ banners }: BannerManagerProps) {
+export function BannerManager({ banners, categories }: BannerManagerProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const token = session?.user?.accessToken
@@ -567,7 +698,13 @@ export function BannerManager({ banners }: BannerManagerProps) {
       {/* Modal crear */}
       {modal.type === 'create' && (
         <Modal title="Nuevo banner" onClose={closeModal}>
-          <BannerForm nextOrder={nextOrder} onSuccess={handleSuccess} onCancel={closeModal} token={token} />
+          <BannerForm
+            nextOrder={nextOrder}
+            categories={categories}
+            onSuccess={handleSuccess}
+            onCancel={closeModal}
+            token={token}
+          />
         </Modal>
       )}
 
@@ -577,6 +714,7 @@ export function BannerManager({ banners }: BannerManagerProps) {
           <BannerForm
             initial={modal.banner}
             nextOrder={nextOrder}
+            categories={categories}
             onSuccess={handleSuccess}
             onCancel={closeModal}
             token={token}

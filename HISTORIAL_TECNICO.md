@@ -4,6 +4,93 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 138. Fix: parentCategoryId no se poblaba en PrismaProductRepository del web
+
+**Contexto:** gap detectado post-sprint del sistema de cupones. La validación de cupones en cascada
+(categoría padre → subcategoría) depende de que `parentCategoryId` esté presente en los ítems del
+carrito. El `PrismaProductRepository` de la API (`apps/api`) ya incluía `category: { select: { parentId } }`
+desde la Fase 2, pero el repositorio equivalente de la web (`apps/web/src/infrastructure/repositories/
+PrismaProductRepository.ts`) no lo hacía, por lo que todos los productos enviados desde el checkout
+llegaban con `parentCategoryId: undefined`. Resultado: los cupones asignados a una categoría padre
+nunca coincidían con productos de subcategorías.
+
+**Cambio:** `apps/web/src/infrastructure/repositories/PrismaProductRepository.ts`:
+- `toDomain()`: recibe ahora `category?: { parentId: string | null } | null` y mapea
+  `parentCategoryId: p.category?.parentId ?? null`.
+- `findById`, `findBySlug`, `findBySku`, `findAll`, `findLowStock`, `findRelatedByCategory`:
+  añaden `category: { select: { parentId: true } }` al `include` de Prisma.
+- `save` y `update` (uso exclusivo admin, no alimentan el carrito) se dejan sin cambio.
+
+**Verificación:** `pnpm --filter @h2r/web exec tsc --noEmit` limpio.
+
+---
+
+## 137. Feature: Sistema de Cupones — Sprint completo (Fases 1–6 + rediseño dark)
+
+**Contexto:** nueva feature de gestión y aplicación de códigos de descuento, implementada desde la
+capa de base de datos hasta la UI de cliente y el panel admin, con cobertura de tests completa.
+
+### Fase 1 — Base de datos (`packages/database`)
+
+- `schema.prisma`: nuevo modelo `Coupon` con enums `CouponType` (`PERCENTAGE | FIXED`) y
+  `CouponRestriction` (`NONE | ONCE_PER_CUSTOMER | FIRST_PURCHASE`). FK opcionales `categoryId` y
+  `productId` (exactamente una debe estar seteada, validado en capa API). Campos `couponCode` y
+  `discountAmount` añadidos al modelo `Order`. Relaciones inversas en `Category` y `Product`.
+- Migración: `20260724032214_add_coupon_system`.
+
+### Fase 2 — Dominio (`packages/domain`)
+
+- `entities/Coupon.ts`: tipo `Coupon`, helpers `isCouponExpired()` y `calculateDiscount()`.
+  Porcentaje en centésimas (20% = 2000). Descuento fijo en centavos. Cap al subtotal elegible.
+- `repositories/ICouponRepository.ts`: interfaz con `findByCode`, `findAll`, `create`, `update`,
+  `delete` (soft).
+- `entities/Product.ts`: campo `parentCategoryId?: string | null` añadido a la entidad.
+- `repositories/IOrderRepository.ts`: campos `couponCode?` y `discountAmount?` en
+  `CreateOrderInput`. Nuevos métodos `existsByCouponAndUser()` y `hasApprovedOrders()`.
+- `use-cases/coupons/ValidateCoupon.ts`: valida estado → expiración (lazy) → restricción por
+  cliente → scope en cascada (categoría padre cubre subcategorías) → calcula descuento sobre
+  subtotal elegible únicamente.
+- `use-cases/orders/CreateOrder.ts`: 5to argumento opcional `validateCoupon?: ValidateCoupon`.
+  Strips `_categoryId`/`_parentCategoryId` antes de persistir. `total = max(0, subtotal − descuento + flete)`.
+
+### Fase 3 — API NestJS (`apps/api`)
+
+- `PrismaCouponRepository`: CRUD + soft delete (`isActive = false`).
+- `PrismaOrderRepository`: `create`/`createPaidOrder` incluyen `couponCode`/`discountAmount`.
+  Nuevos `existsByCouponAndUser()` y `hasApprovedOrders()`.
+- `PrismaProductRepository`: `findById` incluye `category: { select: { parentId } }` y mapea `parentCategoryId`.
+- `COUPON_REPOSITORY` symbol en `injection-tokens`, registrado en `InfrastructureModule`.
+- `CouponsController`: `POST /coupons/validate` (JWT cualquier rol), `GET/POST/PATCH/DELETE /coupons` (ADMIN). `CouponsModule` registrado en `AppModule`.
+- `OrdersController`: instancia `ValidateCoupon` como 5to arg de `CreateOrder`. Acepta `couponCode` en el DTO.
+
+### Fase 4 — Checkout UI (`apps/web`)
+
+- `CheckoutForm.tsx`: campo de cupón con botón Aplicar/Quitar. Llama `POST /coupons/validate`
+  con los ítems del carrito (incluye `categoryId` y `parentCategoryId`). Muestra descuento en
+  el resumen y lo resta del total estimado. Envía `couponCode` en `POST /orders` si está aplicado.
+- `PrismaOrderRepository` (web): implementa `existsByCouponAndUser()` y `hasApprovedOrders()`.
+
+### Fase 5 — Panel Admin (`apps/web`)
+
+- `AdminNav.tsx`: nueva entrada "Cupones" con ícono `Ticket` de lucide-react.
+- `/admin/cupones/page.tsx`: Server Component — carga cupones, categorías y productos via Prisma.
+- `CouponManager.tsx`: tabla con estado/vencimiento, modal crear/editar con presets de duración
+  (30/60/90 días), selector de alcance (categoría con cascada / producto específico) y restricciones
+  por cliente. Paleta oscura del admin (`bg-white/5`, `bg-[#111]`, `text-white`).
+
+### Fase 6 — Tests (`packages/domain`)
+
+- `ValidateCoupon.test.ts`: 14 casos — cupón inexistente/desactivado/vencido, restricciones
+  `ONCE_PER_CUSTOMER` y `FIRST_PURCHASE`, scope directo, cascada a subcategoría, scope por producto,
+  descuento FIXED con cap, happy paths con permiso.
+- `CreateOrder.test.ts`: 4 nuevos casos — descuento aplicado al total, total nunca negativo,
+  error de cupón rechaza el pedido, sin `couponCode` no invoca `ValidateCoupon`.
+- Totales: **239 tests domain** · **176 tests API** — todos pasan.
+
+**Rama:** `feat/coupons` · **Commits:** `149d6f0` → `c719e33`
+
+---
+
 ## 130. Fix: build de Vercel roto por runtime edge en la OG image de producto
 
 **Contexto:** el PR de la feature de Compatibilidad pasaba todos los checks salvo el de Vercel. El

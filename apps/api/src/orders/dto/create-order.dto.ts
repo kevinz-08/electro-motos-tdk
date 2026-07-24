@@ -68,6 +68,14 @@ export class CreateOrderDto {
   @IsEnum(['WOMPI', 'MERCADO_PAGO', 'COD'])
   paymentProvider: 'WOMPI' | 'MERCADO_PAGO' | 'COD'
 
+  @ApiPropertyOptional({
+    enum: ['HOME_DELIVERY', 'STORE_PICKUP'],
+    description: 'Método de entrega. STORE_PICKUP anula el flete y excluye el pedido de Vendelo. Default: HOME_DELIVERY.',
+  })
+  @IsOptional()
+  @IsEnum(['HOME_DELIVERY', 'STORE_PICKUP'])
+  deliveryMethod?: 'HOME_DELIVERY' | 'STORE_PICKUP'
+
   @ApiPropertyOptional({ description: 'ISO timestamp del momento en que el usuario aceptó las políticas en el checkout' })
   @IsOptional()
   @IsDateString()

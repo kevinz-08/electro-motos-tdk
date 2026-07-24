@@ -4,13 +4,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, ShoppingBag,
-  AlertTriangle, Settings, RefreshCcw,
+  AlertTriangle, Settings, RefreshCcw, Image,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/admin',               label: 'Dashboard',     Icon: LayoutDashboard },
   { href: '/admin/productos',     label: 'Productos',     Icon: Package },
   { href: '/admin/categorias',    label: 'Categorías',    Icon: Tag },
+  { href: '/admin/banners',       label: 'Banners',       Icon: Image },
   { href: '/admin/pedidos',       label: 'Pedidos',       Icon: ShoppingBag },
   { href: '/admin/stock',         label: 'Stock bajo',    Icon: AlertTriangle },
   { href: '/admin/sync',          label: 'Sincronizar',   Icon: RefreshCcw },

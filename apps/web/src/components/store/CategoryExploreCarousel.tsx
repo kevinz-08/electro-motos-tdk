@@ -32,11 +32,11 @@ interface Props {
 
 // ── Rutas de imágenes (categorías padre) ─────────────────────────────────────
 const EXPLORE_IMAGE: Record<string, string> = {
-  'sistema-electrico': '/assets/exploreByCategory/sistema-electrico.jpg',
-  'repuestos':         '/assets/exploreByCategory/repuestos.jpg',
-  'aceites':           '/assets/exploreByCategory/aceites.jpg',
-  'llantas':           '/assets/exploreByCategory/llantas.jpg',
-  'accesorios':        '/assets/exploreByCategory/accesorios.jpg',
+  'sistema-electrico': '/assets/exploreByCategory/sistema-electrico.webp',
+  'repuestos':         '/assets/exploreByCategory/repuestos.webp',
+  'aceites':           '/assets/exploreByCategory/aceites.webp',
+  'llantas':           '/assets/exploreByCategory/llantas.webp',
+  'accesorios':        '/assets/exploreByCategory/accesorios.webp',
 }
 
 const FALLBACK = '/assets/exploreByCategory/explore-category-example.jpg'

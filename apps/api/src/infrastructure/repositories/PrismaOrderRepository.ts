@@ -14,12 +14,14 @@ import {
   PaymentProvider,
   PaymentStatus,
   ShipmentStatus,
+  DeliveryMethod,
 } from '@h2r/domain'
 import { PrismaService } from '../database/prisma.service'
 
 type PrismaOrderRow = {
   id: string; userId: string; status: string; total: number
   shippingAddress: unknown; paymentProvider: string; shippingTotal: number; createdAt: Date
+  deliveryMethod: string
   buyerIdType: string; buyerIdNumber: string; buyerBusinessName: string | null
   items?: Array<{ id: string; orderId: string; productId: string; quantity: number; priceAtPurchase: number }>
   payment?: { id: string; orderId: string; provider: string; externalId: string | null; status: string; amount: number; createdAt: Date } | null
@@ -55,6 +57,7 @@ function toDomain(o: PrismaOrderRow): Order {
     total: o.total,
     shippingTotal: o.shippingTotal,
     shippingAddress: o.shippingAddress as unknown as ShippingAddress,
+    deliveryMethod: o.deliveryMethod as DeliveryMethod,
     buyer: {
       idType: o.buyerIdType as BuyerIdType,
       idNumber: o.buyerIdNumber,
@@ -116,6 +119,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         userId: input.userId,
         total: input.total,
         shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
+        deliveryMethod: input.deliveryMethod,
         buyerIdType: input.buyer.idType,
         buyerIdNumber: input.buyer.idNumber,
         buyerBusinessName: input.buyer.businessName ?? null,
@@ -139,6 +143,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           status: 'PAID',
           total: input.total,
           shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
+          deliveryMethod: input.deliveryMethod,
           buyerIdType: input.buyer.idType,
           buyerIdNumber: input.buyer.idNumber,
           buyerBusinessName: input.buyer.businessName ?? null,

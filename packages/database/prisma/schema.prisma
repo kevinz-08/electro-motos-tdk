@@ -36,6 +36,15 @@ enum PaymentStatus {
   ERROR
 }
 
+/// Método de entrega elegido en el checkout.
+///   HOME_DELIVERY — envío a domicilio vía Vendelo (comportamiento histórico).
+///   STORE_PICKUP  — el cliente retira en la tienda física; el flete siempre es $0
+///                   y el pedido nunca se encola en Vendelo.
+enum DeliveryMethod {
+  HOME_DELIVERY
+  STORE_PICKUP
+}
+
 // ─── NextAuth.js required models ─────────────────────────────────────────────
 
 model Account {
@@ -234,6 +243,9 @@ model Order {
   /// cotizar — ver CreateOrder.execute()).
   shippingTotal      Int             @default(0)
   shippingAddress    Json
+  /// Método de entrega elegido en el checkout. STORE_PICKUP fuerza shippingTotal=0
+  /// y excluye el pedido de la cola de envíos Vendelo (VendeloOrderQueueService).
+  deliveryMethod     DeliveryMethod  @default(HOME_DELIVERY)
   paymentProvider    PaymentProvider
   /// ID del pedido creado en Vendelo API. Null hasta que VendeloOrderQueueService lo procesa.
   vendeloOrderId     String?
@@ -339,6 +351,27 @@ model VendeloOrderQueue {
   processingStartedAt DateTime?
 
   @@index([status, nextRetry])
+}
+
+/// Banners del carrusel Hero en la home, administrables desde /admin/banners.
+/// El orden de aparición lo define `order`; solo los `isActive` se muestran en el sitio público.
+model HeroBanner {
+  id            String   @id @default(cuid())
+  /// URL optimizada de Cloudinary (secure_url), no el public_id crudo.
+  imageUrl      String
+  /// public_id de Cloudinary — se conserva para poder borrar la imagen del CDN
+  /// cuando se elimina o reemplaza el banner (evita huérfanos, a diferencia de Product.images).
+  imagePublicId String
+  title         String
+  description   String?
+  ctaLabel      String?
+  ctaUrl        String?
+  order         Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, order])
 }
 
 /// Catálogo de ciudades colombianas con sus códigos Vendelo.

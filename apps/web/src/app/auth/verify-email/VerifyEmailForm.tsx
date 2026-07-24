@@ -140,7 +140,7 @@ export function VerifyEmailForm({ email }: Props) {
         <div className="text-center mb-8">
           <Link href="/">
             <Image
-              src="/assets/logo.png"
+              src="/assets/logo.webp"
               alt="Electro Motos Tony"
               width={80}
               height={60}

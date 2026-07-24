@@ -47,6 +47,7 @@ function makeOrder(overrides?: Partial<Order>): Order {
     },
     buyer: { idType: 'CC', idNumber: '1000123456' },
     paymentProvider: 'WOMPI',
+    deliveryMethod: 'HOME_DELIVERY',
     shippingTotal: 0,
     createdAt: new Date('2025-01-01'),
     ...overrides,
@@ -451,5 +452,63 @@ describe('CreateOrder', () => {
 
     expect(quoteShipping.execute).not.toHaveBeenCalled()
     expect(createPaidOrder).toHaveBeenCalledWith(expect.objectContaining({ shippingTotal: 0 }))
+  })
+
+  it('STORE_PICKUP: deja shippingTotal en 0 y no llama a QuoteShipping aunque chargeShippingOnline sea true', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price, deliveryMethod: 'STORE_PICKUP' })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+    const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 9000, freeShipping: false }))
+
+    const result = await new CreateOrder(orderRepo, productRepo, paymentService, quoteShipping).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+      deliveryMethod: 'STORE_PICKUP',
+      chargeShippingOnline: true,
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.shippingQuoteFallback).toBe(false)
+    expect(quoteShipping.execute).not.toHaveBeenCalled()
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      deliveryMethod: 'STORE_PICKUP',
+      shippingTotal: 0,
+      total: product.price,
+    }))
+  })
+
+  it('sin deliveryMethod (undefined) persiste HOME_DELIVERY por default', async () => {
+    const product = makeProduct()
+    const order = makeOrder({ total: product.price })
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const create = vi.fn().mockResolvedValue(order)
+    const orderRepo = { create } as unknown as IOrderRepository
+    const paymentService = {
+      createTransaction: vi.fn().mockResolvedValue({
+        externalId: null, reference: 'ref', integritySignature: 'sig', publicKey: 'pk',
+        amountInCents: order.total, currency: 'COP',
+      }),
+    } as unknown as IPaymentService
+
+    await new CreateOrder(orderRepo, productRepo, paymentService).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'WOMPI',
+    })
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ deliveryMethod: 'HOME_DELIVERY' }))
   })
 })

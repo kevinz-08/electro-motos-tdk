@@ -98,7 +98,11 @@ export class WompiController {
         if (user?.email) {
           await this.emailQueue.enqueue(user.email, orderId)
         }
-        await this.vendeloOrderQueue.enqueue(orderId)
+        // Retiro en tienda: el cliente lo recoge en persona, nunca se despacha
+        // por Vendelo — no encolar o un mensajero saldría a entregar en falso.
+        if (order.deliveryMethod !== 'STORE_PICKUP') {
+          await this.vendeloOrderQueue.enqueue(orderId)
+        }
       }
     }
 

@@ -10,6 +10,7 @@
  *   categories → cualquier listado de categorías
  *   home       → datos específicos de la home (featured products)
  *   catalog    → datos de la vista landing del catálogo
+ *   hero       → banners del carrusel hero de la home
  *
  * TTLs:
  *   300 s (5 min)  — productos y featured (cambian con ventas/stock)
@@ -53,6 +54,18 @@ export const getCachedFeaturedProducts = unstable_cache(
   },
   ['home-featured-products'],
   { revalidate: 300, tags: [CACHE_TAGS.products, CACHE_TAGS.home] },
+)
+
+/** Banners activos del carrusel hero, en el orden definido desde /admin/banners. */
+export const getCachedHeroBanners = unstable_cache(
+  async () => {
+    return prisma.heroBanner.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+    })
+  },
+  ['home-hero-banners'],
+  { revalidate: 3600, tags: [CACHE_TAGS.hero] },
 )
 
 // ── Catalog landing ───────────────────────────────────────────────────────────

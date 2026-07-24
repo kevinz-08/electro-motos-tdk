@@ -191,6 +191,40 @@ describe('OrdersController', () => {
       expect(mockEmailService.sendOrderReceived).not.toHaveBeenCalled()
     })
 
+    it('COD + STORE_PICKUP: encola email pero NUNCA encola Vendelo', async () => {
+      mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'true' })
+      const { CreateOrder } = await import('@h2r/domain')
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return {
+          execute: vi.fn().mockResolvedValue({
+            ok: true,
+            value: {
+              order: { ...mockOrder, status: 'PAID', deliveryMethod: 'STORE_PICKUP' },
+              payment: null,
+              shippingQuoteFallback: false,
+            },
+          }),
+        }
+      })
+
+      await controller.create({ ...dto, paymentProvider: 'COD', deliveryMethod: 'STORE_PICKUP' }, mockUser)
+
+      expect(mockEmailQueue.enqueue).toHaveBeenCalledWith(mockUser.email, mockOrder.id)
+      expect(mockVendeloOrderQueue.enqueue).not.toHaveBeenCalled()
+    })
+
+    it('pasa deliveryMethod al use case CreateOrder', async () => {
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment, shippingQuoteFallback: false } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+
+      await controller.create({ ...dto, deliveryMethod: 'STORE_PICKUP' }, mockUser)
+
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ deliveryMethod: 'STORE_PICKUP' }))
+    })
+
     it('lanza ForbiddenException si se pide COD y el admin lo desactivó', async () => {
       mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'false' })
 

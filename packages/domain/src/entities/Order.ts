@@ -20,6 +20,14 @@ export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'CANCEL
 export type PaymentProvider = 'WOMPI' | 'MERCADO_PAGO' | 'COD'
 
 /**
+ * Método de entrega elegido en el checkout.
+ *   HOME_DELIVERY — envío a domicilio vía Vendelo (comportamiento histórico).
+ *   STORE_PICKUP  — el cliente retira en la tienda física; el flete siempre es $0
+ *                   y el pedido nunca se encola en Vendelo (ver VendeloOrderQueueService).
+ */
+export type DeliveryMethod = 'HOME_DELIVERY' | 'STORE_PICKUP'
+
+/**
  * Estados de pago según la nomenclatura oficial de Wompi.
  * Mercado Pago tiene su propia nomenclatura pero MercadoPagoService la mapea a estos valores.
  *
@@ -170,6 +178,8 @@ export interface Order {
   shippingTotal: number
   /** Dirección de envío serializada como JSON en la base de datos */
   shippingAddress: ShippingAddress
+  /** Método de entrega elegido en el checkout. Determina si se cobra/cotiza flete y si se encola a Vendelo. */
+  deliveryMethod: DeliveryMethod
   /** Identificación tributaria del comprador (para comprobante y Vendelo) */
   buyer: BuyerInfo
   /** Pasarela de pago seleccionada en el checkout */

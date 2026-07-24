@@ -596,10 +596,10 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
           </div>
           <div className="border-t border-gray-100 pt-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Envío</span>
+              <span className="text-gray-500">ENVIO</span>
               {deliveryMethod === 'STORE_PICKUP' && (
                 <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs bg-green-50 px-2 py-0.5 rounded-full">
-                  ¡Gratis — Retiro en punto fisico!
+                  NO APLICA
                 </span>
               )}
               {deliveryMethod === 'HOME_DELIVERY' && !selectedCity && (

@@ -526,22 +526,12 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
           ))}
         </div>
 
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleFileChange}
-            className="sr-only"
-            id="image-upload"
-            disabled={uploading}
-          />
+        <div className="relative">
           <label
             htmlFor="image-upload"
-            className={`flex flex-col items-center justify-center gap-2 w-full h-28 rounded-xl border-2 border-dashed cursor-pointer transition-colors
+            className={`flex flex-col items-center justify-center gap-2 w-full h-28 rounded-xl border-2 border-dashed transition-colors
               ${uploading
-                ? 'border-blue-500/50 bg-blue-500/5 cursor-not-allowed'
+                ? 'border-blue-500/50 bg-blue-500/5'
                 : 'border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5'
               }`}
           >
@@ -558,6 +548,19 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
               </>
             )}
           </label>
+          {/* Cubre todo el dropzone (en vez de sr-only 1x1px) para que el navegador nunca necesite
+              hacer scroll-into-view al enfocar el input oculto y abrir el selector nativo de archivos. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+            id="image-upload"
+            aria-label="Subir imágenes del producto — máximo 4"
+            disabled={uploading}
+          />
         </div>
 
         {uploadError && <p className="text-sm text-red-400">{uploadError}</p>}

@@ -54,6 +54,14 @@ export interface IProductRepository {
    * pueden descontar el mismo stock porque el decremento ocurre en la BD, no en memoria.
    */
   decrementStock(id: string, by: number): Promise<void>
-  /** Elimina un producto. Los MotorcycleCompatibility relacionados se eliminan en cascade. */
-  delete(id: string): Promise<void>
+  /**
+   * Soft delete: pone deletedAt = now(). El producto desaparece del catálogo y del admin
+   * pero la fila permanece en la BD y puede restaurarse.
+   * Nunca llames a prisma.product.delete() — usa siempre este método.
+   */
+  softDelete(id: string): Promise<void>
+  /** Restaura un producto soft-deleted poniendo deletedAt = null. */
+  restore(id: string): Promise<void>
+  /** Lista productos soft-deleted (papelera). Solo para el panel admin. */
+  findDeleted(): Promise<Product[]>
 }

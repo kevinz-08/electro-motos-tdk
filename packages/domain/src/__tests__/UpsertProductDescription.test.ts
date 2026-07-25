@@ -61,7 +61,9 @@ function makeProductRepo(overrides?: Partial<IProductRepository>): IProductRepos
     update:        vi.fn(),
     updateStock:   vi.fn(),
     decrementStock: vi.fn(),
-    delete:        vi.fn(),
+    softDelete:    vi.fn(),
+    restore:       vi.fn(),
+    findDeleted:   vi.fn(),
     ...overrides,
   }
 }

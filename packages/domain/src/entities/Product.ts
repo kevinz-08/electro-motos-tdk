@@ -70,6 +70,11 @@ export interface Product {
   createdAt: Date
   /** Fecha de última actualización (se actualiza automáticamente en BD) */
   updatedAt: Date
+  /**
+   * null = visible y activo en BD.
+   * Non-null = soft-deleted: oculto en catálogo y panel admin, recuperable desde la papelera.
+   */
+  deletedAt?: Date | null
   /** Lista de motos compatibles. Opcional — puede no estar cargada dependiendo del query */
   compatible?: MotorcycleCompatibility[]
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { Plus, Pencil, Trash2, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, ChevronDown } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 
 export interface CouponRow {
@@ -13,6 +13,7 @@ export interface CouponRow {
   restriction: 'NONE' | 'ONCE_PER_CUSTOMER' | 'FIRST_PURCHASE'
   isActive: boolean
   expiresAt: string
+  createdAt: string
   categoryId: string | null
   productId: string | null
 }
@@ -138,9 +139,15 @@ function Modal({ title, onClose, children }: ModalProps) {
 
 // ─── CouponManager ────────────────────────────────────────────────────────────
 
+type StatusFilter = 'active' | 'inactive' | 'all'
+type DateFilter = 'all' | '1m' | '2m'
+
 export function CouponManager({ initialCoupons, categories, products }: CouponManagerProps) {
   const { data: session } = useSession()
   const [coupons, setCoupons] = useState<CouponRow[]>(initialCoupons)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -242,6 +249,31 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
   const parentCategories = categories.filter((c) => c.parentId === null)
   const childCategories = categories.filter((c) => c.parentId !== null)
 
+  const PAGE_SIZE = 20
+  const now = new Date()
+  const ago1m = new Date(now); ago1m.setMonth(ago1m.getMonth() - 1)
+  const ago2m = new Date(now); ago2m.setMonth(ago2m.getMonth() - 2)
+
+  const activeCount = coupons.filter((c) => c.isActive && new Date(c.expiresAt) >= now).length
+
+  const filteredCoupons = coupons.filter((c) => {
+    const expired = new Date(c.expiresAt) < now
+    const isEffective = c.isActive && !expired
+
+    if (statusFilter === 'active' && !isEffective) return false
+    if (statusFilter === 'inactive' && isEffective) return false
+
+    const created = new Date(c.createdAt ?? 0)
+    if (dateFilter === '1m' && created < ago1m) return false
+    if (dateFilter === '2m' && created < ago2m) return false
+
+    return true
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filteredCoupons.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const visibleCoupons = filteredCoupons.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
   return (
     <>
       {/* Header */}
@@ -249,8 +281,7 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
         <div>
           <h1 className="text-2xl font-bold text-white">Cupones</h1>
           <p className="text-white/30 text-sm mt-0.5">
-            {coupons.length} cupón{coupons.length !== 1 && 'es'} ·{' '}
-            {coupons.filter((c) => c.isActive && new Date(c.expiresAt) >= new Date()).length} activo{coupons.filter((c) => c.isActive && new Date(c.expiresAt) >= new Date()).length !== 1 && 's'}
+            {coupons.length} cupón{coupons.length !== 1 && 'es'} · {activeCount} activo{activeCount !== 1 && 's'}
           </p>
         </div>
         <button
@@ -262,6 +293,42 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
         </button>
       </div>
 
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Filtro por estado */}
+        <div className="flex gap-1 bg-white/5 border border-white/10 rounded-lg p-1">
+          {([
+            { key: 'active',   label: `Activos (${activeCount})` },
+            { key: 'inactive', label: `Inactivos (${coupons.length - activeCount})` },
+            { key: 'all',      label: `Todos (${coupons.length})` },
+          ] as { key: StatusFilter; label: string }[]).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => { setStatusFilter(key); setPage(1) }}
+              className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
+                statusFilter === key ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Filtro por fecha */}
+        <div className="relative">
+          <select
+            value={dateFilter}
+            onChange={(e) => { setDateFilter(e.target.value as DateFilter); setPage(1) }}
+            className="appearance-none bg-white/5 border border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-sm text-white/70 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+          >
+            <option value="all">Cualquier fecha</option>
+            <option value="1m">Último mes</option>
+            <option value="2m">Últimos 2 meses</option>
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+        </div>
+      </div>
+
       {/* Tabla */}
       <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
         {/* Encabezado */}
@@ -271,13 +338,17 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
           ))}
         </div>
 
-        {coupons.length === 0 && (
+        {visibleCoupons.length === 0 && (
           <div className="text-center py-12 text-white/30">
-            No hay cupones. Crea el primero con el botón de arriba.
+            {filteredCoupons.length === 0 && coupons.length > 0
+              ? 'Ningún cupón coincide con los filtros.'
+              : coupons.length === 0
+                ? 'No hay cupones. Crea el primero con el botón de arriba.'
+                : 'No hay cupones activos.'}
           </div>
         )}
 
-        {coupons.map((c) => {
+        {visibleCoupons.map((c) => {
           const expired = new Date(c.expiresAt) < new Date()
           const isEffectivelyActive = c.isActive && !expired
           const scopeLabel = c.productId
@@ -353,6 +424,42 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
           )
         })}
       </div>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-xs text-white/30">
+            {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredCoupons.length)} de {filteredCoupons.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="px-3 py-1.5 rounded-lg text-sm text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Anterior
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                onClick={() => setPage(n)}
+                className={`w-8 h-8 rounded-lg text-sm font-semibold transition-colors ${
+                  n === safePage ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="px-3 py-1.5 rounded-lg text-sm text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Siguiente →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal crear / editar */}
       {showForm && (

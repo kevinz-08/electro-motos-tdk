@@ -357,7 +357,7 @@ Repuestos
 
 Aceites          → Liquimoly · SKY
 Llantas          → (subcategorías)
-Accesorios       → Espejos · Exploradores · Bombillas LED · Equipamiento
+Accesorios       → Espejos · Exploradoras · Bombillos LED · Equipamiento
 ```
 
 ---
@@ -1133,7 +1133,8 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | Ruta | Funcionalidad |
 |---|---|
 | `/admin` | Dashboard: ingresos del día, pedidos pendientes, stock bajo |
-| `/admin/productos` | Lista de productos — crear, editar, eliminar |
+| `/admin/productos` | Lista de productos — crear, editar, mover a papelera |
+| `/admin/productos/papelera` | Productos eliminados — restaurar desde la papelera |
 | `/admin/productos/[id]` | Formulario de edición con upload a Cloudinary |
 | `/admin/pedidos` | Todos los pedidos filtrados por estado |
 | `/admin/stock` | Productos con stock ≤ 5, actualización individual de stock |

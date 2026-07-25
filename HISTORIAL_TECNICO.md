@@ -4,6 +4,63 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 140. Soft delete de productos + papelera en panel admin
+
+**Contexto:** varios productos creados desde el panel admin desaparecieron porque `pnpm db:catalog`
+ejecutaba un `deleteMany` sobre cualquier producto cuyo SKU no estuviera en su array `PRODUCTS`.
+Se necesitaba un mecanismo que haga irreversibles las eliminaciones accidentales imposibles (o al
+menos recuperables) y que el script de catálogo nunca vuelva a borrar datos.
+
+**Cambios:**
+
+- `packages/database/prisma/schema.prisma` — campo `deletedAt DateTime?` en `Product` con índice
+  `@@index([deletedAt])`. Migración `20260725040603_add_product_soft_delete` aplicada.
+- `packages/domain/src/entities/Product.ts` — campo `deletedAt?: Date | null` en la entidad.
+- `packages/domain/src/repositories/IProductRepository.ts` — reemplazado `delete(id)` por
+  `softDelete(id)`, `restore(id)`, `findDeleted()`.
+- `apps/api/src/infrastructure/repositories/PrismaProductRepository.ts` — todas las queries de
+  lectura incluyen `deletedAt: null`; implementados `softDelete`, `restore`, `findDeleted`.
+- `apps/web/src/infrastructure/repositories/PrismaProductRepository.ts` — mismo patrón de filtro;
+  reemplazado `delete` por `softDelete`/`restore`/`findDeleted`.
+- `apps/api/src/admin/admin-products.controller.ts` — `DELETE /admin/products/:id` ahora llama
+  `softDelete`; agregados `PATCH /admin/products/:id/restore` y `GET /admin/products/deleted`.
+- `apps/web/src/app/admin/productos/papelera/page.tsx` — nueva página Server Component que lista
+  productos eliminados con botón de restaurar.
+- `apps/web/src/components/admin/RestoreProductButton.tsx` — nuevo componente Client que llama
+  `PATCH /admin/products/:id/restore` e invalida la caché.
+- `apps/web/src/components/admin/AdminNav.tsx` — enlace "Papelera" (icono Trash2) agregado al nav;
+  lógica de `isActive` ajustada para que "Productos" no quede activo en `/papelera`.
+- `packages/database/prisma/catalog.ts` — eliminado el bloque destructivo `deleteMany` que borraba
+  productos con SKUs desconocidos; el script ahora solo hace upsert.
+- `packages/domain/src/__tests__/UpsertProductDescription.test.ts` — mock actualizado: `delete`
+  reemplazado por `softDelete`, `restore`, `findDeleted`.
+
+**Regla:** nunca usar `prisma.product.delete()` directamente. Siempre llamar a
+`productRepo.softDelete(id)`. Los productos borrados accidentalmente se recuperan desde
+`/admin/productos/papelera`.
+
+---
+
+## 139. Renombrado de subcategorías de Accesorios: Exploradores → Exploradoras, Bombillas LED → Bombillos LED
+
+**Contexto:** pedido del usuario para corregir el nombre visible de dos subcategorías de Accesorios.
+Los `slug` (`exploradores`, `bombillas-led`) se mantuvieron sin cambios para no romper URLs ni las
+relaciones de productos ya existentes bajo esas categorías — solo se actualizó el campo `name`.
+
+**Cambio:**
+
+- `packages/database/prisma/catalog.ts` — `name` de las entradas `exploradores` y `bombillas-led`
+  en `SUBCATEGORIES`.
+- `apps/web/src/components/nav/Navbar.tsx` — mismo cambio en la data hardcodeada del mega menu.
+- `README.md` — actualizado el diagrama de jerarquía de categorías.
+
+**Sincronización de datos:** se corrió `pnpm db:catalog`. El `upsert` por `slug` en `catalog.ts`
+actualiza únicamente `name`, `description` y `parentId` de las categorías existentes — no crea
+duplicados ni afecta los productos ya asignados. Verificado por consulta directa a la BD que ambas
+categorías quedaron con el nombre nuevo.
+
+---
+
 ## 138. Fix: parentCategoryId no se poblaba en PrismaProductRepository del web
 
 **Contexto:** gap detectado post-sprint del sistema de cupones. La validación de cupones en cascada
@@ -15,6 +72,7 @@ llegaban con `parentCategoryId: undefined`. Resultado: los cupones asignados a u
 nunca coincidían con productos de subcategorías.
 
 **Cambio:** `apps/web/src/infrastructure/repositories/PrismaProductRepository.ts`:
+
 - `toDomain()`: recibe ahora `category?: { parentId: string | null } | null` y mapea
   `parentCategoryId: p.category?.parentId ?? null`.
 - `findById`, `findBySlug`, `findBySku`, `findAll`, `findLowStock`, `findRelatedByCategory`:
@@ -118,6 +176,7 @@ aparte), así que no le aplica este problema.
 `/producto/[slug]` del dato que ya se puede escribir desde el admin desde la Fase 5.
 
 **Cambio:** `apps/web/src/app/(store)/producto/[slug]/page.tsx`:
+
 - El query de `structuredDescription` ahora también trae `compatibility: { orderBy: { order: 'asc' } }`.
 - Nuevo `<details>` "🏍️ Compatibilidad" (mismo markup visual que Envíos/Cambios), insertado como
   **primero** dentro del grupo de acordeones (antes de Envíos), renderizado solo si
@@ -143,6 +202,7 @@ en el panel admin, calco visual y funcional exacto de Beneficios, dentro de la m
 "Información general", justo debajo de esa sección.
 
 **Cambio:** `apps/web/src/components/admin/ProductEditForm.tsx`:
+
 - Nueva interfaz `CompatibilityEntry { body, order }` y prop `initialCompatibility?: CompatibilityEntry[]`
   (default `[]`) → `useState`.
 - Handlers `addCompatibility()` (tope 30, en vez de 10 de beneficios), `removeCompatibility(index)`
@@ -155,6 +215,7 @@ en el panel admin, calco visual y funcional exacto de Beneficios, dentro de la m
   ninguna llamada de red nueva.
 
 `apps/web/src/app/admin/productos/[id]/page.tsx`:
+
 - El query de `productDescription` ahora también trae `compatibility: { orderBy: { order: 'asc' } }`.
 - Nuevo `initialCompatibility` mapeado igual que `initialBenefits`, pasado como prop a `ProductEditForm`.
 - Un solo punto de uso de `ProductEditForm` en todo el proyecto (esta página cubre tanto alta como
@@ -169,6 +230,7 @@ compilan limpio.
 nuevo — se extiende el DTO que ya usa `PUT /admin/products/:id/description`.
 
 **Cambio:** `apps/api/src/admin/dto/upsert-description.dto.ts`:
+
 - Nuevo `CompatibilityItemDto` (calco de `BenefitItemDto` sin `title`): `body` (`@IsString
   @IsNotEmpty @MaxLength(200)`) y `order` (`@IsInt @Min(0)`).
 - `UpsertProductDescriptionDto.compatibility: CompatibilityItemDto[]` agregado
@@ -194,6 +256,7 @@ repositorio ni endpoint nuevos — se extiende `PrismaProductDescriptionReposito
 persiste Beneficios.
 
 **Cambio:** `apps/api/src/infrastructure/repositories/PrismaProductDescriptionRepository.ts`:
+
 - `PrismaDescRow` y `toDomain()` — agregado `compatibility: Array<{ id, body, order }>`, mapeado y
   ordenado por `order` igual que `benefits`.
 - `findByProductId()` — `include` ahora trae también `compatibility: true`.
@@ -221,6 +284,7 @@ uploader de imágenes de `ProductEditForm`) que no tenía relación con esta fea
 aparte (`e1b62f0`) y la rama se renombró a `feature/product-compatibility-accordion`.
 
 **Fase 1 — Prisma** (`packages/database/prisma/schema.prisma`):
+
 - Nuevo modelo `ProductCompatibilityItem` (`id`, `descriptionId`, `body: String @db.Text`,
   `order: Int @default(0)`), calco exacto de `ProductBenefit`, relacionado a `ProductDescription`
   vía `onDelete: Cascade`.
@@ -229,6 +293,7 @@ aparte (`e1b62f0`) y la rama se renombró a `feature/product-compatibility-accor
   `(descriptionId, order)` + FK, no toca datos existentes. Cliente Prisma regenerado.
 
 **Fase 2 — Dominio** (`packages/domain/src`):
+
 - `entities/ProductDescription.ts` — nueva interfaz `ProductCompatibilityItem { id, body, order }`;
   `ProductDescription.compatibility: ProductCompatibilityItem[]` y
   `UpsertDescriptionInput.compatibility: Array<{ body, order }>` agregados.

@@ -4,6 +4,25 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 141. Renombrado de subcategoría de Accesorios: Filtros de Aire → Filtros de Aire de alto flujo
+
+**Contexto:** pedido del usuario para renombrar la subcategoría `filtros-de-aire` (bajo Accesorios;
+no confundir con `filtro-de-aire`, subcategoría distinta bajo Repuestos). Antes de aplicar el cambio
+se verificó que `catalog.ts` no tiene ningún `deleteMany`/`truncate` (ver corrección en la entrada #140)
+y se listaron las 35 categorías existentes en la BD para confirmar que ninguna categoría
+creada desde el panel admin (p. ej. `motores`, que no está en `SUBCATEGORIES`) se vería afectada.
+
+**Cambio:**
+
+- `packages/database/prisma/catalog.ts` — `name` de la entrada `filtros-de-aire` en `SUBCATEGORIES`.
+- `apps/web/src/components/nav/Navbar.tsx` — mismo cambio en la data hardcodeada del mega menu.
+
+**Sincronización de datos:** se corrió `pnpm db:catalog` y se verificó por consulta directa que las
+35 categorías siguen presentes (incluida `motores`, sin tocar) y que solo cambió el `name` de
+`filtros-de-aire`.
+
+---
+
 ## 140. Soft delete de productos + papelera en panel admin
 
 **Contexto:** varios productos creados desde el panel admin desaparecieron porque `pnpm db:catalog`

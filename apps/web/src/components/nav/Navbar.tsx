@@ -90,7 +90,7 @@ const MEGA_MENU = [
       { name: 'Bombillos LED',        slug: 'bombillas-led' },
       { name: 'Balaclavas',           slug: 'balaclavas' },
       { name: 'Fender',               slug: 'fender' },
-      { name: 'Filtros de Aire',      slug: 'filtros-de-aire' },
+      { name: 'Filtros de Aire de alto flujo', slug: 'filtros-de-aire' },
       { name: 'Seguridad',            slug: 'seguridad' },
       { name: 'Stop',                 slug: 'stop' },
       { name: 'Accesorios Generales', slug: 'accesorios-generales' },

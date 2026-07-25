@@ -90,7 +90,7 @@ const SUBCATEGORIES = [
   { slug: 'objetivo',             name: 'Objetivo',             parentSlug: 'accesorios', description: 'Accesorios de cámara y soporte de dispositivos para moto.' },
   { slug: 'balaclavas',           name: 'Balaclavas',           parentSlug: 'accesorios', description: 'Balaclavas y pasamontañas para protección del motociclista.' },
   { slug: 'fender',               name: 'Fender',               parentSlug: 'accesorios', description: 'Fenders y guardabarro para personalización de motos.' },
-  { slug: 'filtros-de-aire',      name: 'Filtros de Aire',      parentSlug: 'accesorios', description: 'Filtros de aire de alto flujo para mayor rendimiento.' },
+  { slug: 'filtros-de-aire',      name: 'Filtros de Aire de alto flujo', parentSlug: 'accesorios', description: 'Filtros de aire de alto flujo para mayor rendimiento.' },
   { slug: 'seguridad',            name: 'Seguridad',            parentSlug: 'accesorios', description: 'Alarmas, candados y sistemas de seguridad para moto.' },
   { slug: 'stop',                 name: 'Stop',                 parentSlug: 'accesorios', description: 'Stops integrados y luces traseras LED para moto.' },
   { slug: 'accesorios-generales', name: 'Accesorios Generales', parentSlug: 'accesorios', description: 'Cascos, manubrios, direccionales y accesorios varios para moto.' },

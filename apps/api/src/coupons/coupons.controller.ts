@@ -88,4 +88,5 @@ export class CouponsController {
     await this.couponRepo.delete(id)
     return { success: true }
   }
+
 }

@@ -4,19 +4,20 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, ShoppingBag,
-  AlertTriangle, Settings, RefreshCcw, Image, Ticket,
+  AlertTriangle, Settings, RefreshCcw, Image, Ticket, Trash2,
 } from 'lucide-react'
 
 const navItems = [
-  { href: '/admin',               label: 'Dashboard',     Icon: LayoutDashboard },
-  { href: '/admin/productos',     label: 'Productos',     Icon: Package },
-  { href: '/admin/categorias',    label: 'Categorías',    Icon: Tag },
-  { href: '/admin/banners',       label: 'Banners',       Icon: Image },
-  { href: '/admin/cupones',       label: 'Cupones',       Icon: Ticket },
-  { href: '/admin/pedidos',       label: 'Pedidos',       Icon: ShoppingBag },
-  { href: '/admin/stock',         label: 'Stock bajo',    Icon: AlertTriangle },
-  { href: '/admin/sync',          label: 'Sincronizar',   Icon: RefreshCcw },
-  { href: '/admin/configuracion', label: 'Configuración', Icon: Settings },
+  { href: '/admin',                           label: 'Dashboard',     Icon: LayoutDashboard },
+  { href: '/admin/productos',                 label: 'Productos',     Icon: Package },
+  { href: '/admin/productos/papelera',        label: 'Papelera',      Icon: Trash2 },
+  { href: '/admin/categorias',                label: 'Categorías',    Icon: Tag },
+  { href: '/admin/banners',                   label: 'Banners',       Icon: Image },
+  { href: '/admin/cupones',                   label: 'Cupones',       Icon: Ticket },
+  { href: '/admin/pedidos',                   label: 'Pedidos',       Icon: ShoppingBag },
+  { href: '/admin/stock',                     label: 'Stock bajo',    Icon: AlertTriangle },
+  { href: '/admin/sync',                      label: 'Sincronizar',   Icon: RefreshCcw },
+  { href: '/admin/configuracion',             label: 'Configuración', Icon: Settings },
 ]
 
 export function AdminNav() {
@@ -25,7 +26,12 @@ export function AdminNav() {
   return (
     <nav className="flex-1 px-3 space-y-0.5">
       {navItems.map(({ href, label, Icon }) => {
-        const isActive = href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
+        const isActive =
+          href === '/admin'
+            ? pathname === '/admin'
+            : href === '/admin/productos'
+            ? pathname.startsWith('/admin/productos') && !pathname.startsWith('/admin/productos/papelera')
+            : pathname.startsWith(href)
         return (
           <Link
             key={href}

@@ -667,7 +667,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
       {/* Resumen */}
       <div>
         <div className="bg-white border border-gray-200 rounded-xl p-6 sticky top-24">
-          <h2 className="font-bold text-gray-900 mb-4">Tu pedido</h2>
+          <h2 className="font-bold text-gray-900 mb-4">TU PEDIDO</h2>
           <div className="space-y-3 mb-4">
             {items.map(({ product, quantity }) => (
               <div key={product.id} className="flex justify-between text-sm">
@@ -702,7 +702,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
               )}
               {deliveryMethod === 'HOME_DELIVERY' && selectedCity && !shippingLoading && shippingQuote && shippingQuote.freeShipping && (
                 <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs bg-green-50 px-2 py-0.5 rounded-full">
-                  🎉 ¡Envío gratis!
+                  🎉 ¡ENVÍO GRATIS!
                 </span>
               )}
               {deliveryMethod === 'HOME_DELIVERY' && selectedCity && !shippingLoading && shippingQuote && !shippingQuote.freeShipping && (
@@ -714,12 +714,12 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
             </div>
 
             <div className="flex justify-between font-bold text-gray-900 pt-1">
-              <span>{chargingShippingOnline ? 'Total a pagar (incluye envío)' : shippingCost > 0 ? 'Total estimado' : 'Total'}</span>
+              <span>{chargingShippingOnline ? 'Total a pagar (incluye envío)' : shippingCost > 0 ? 'TOTAL A PAGAR' : 'Total'}</span>
               <span>{formatCOP(Math.max(0, cartTotal + shippingCost - (appliedCoupon?.discount ?? 0)))}</span>
             </div>
             {deliveryMethod === 'HOME_DELIVERY' && !chargingShippingOnline && (
               <p className="text-xs text-gray-400">
-                El envío lo cobra la transportadora directamente al recibir tu pedido — esto es solo un estimado.
+                El envío lo cobra la transportadora directamente al recibir tu pedido.
               </p>
             )}
           </div>

@@ -24,6 +24,7 @@ export default async function AdminCuponesPage() {
     restriction: c.restriction as CouponRow['restriction'],
     isActive: c.isActive,
     expiresAt: c.expiresAt.toISOString(),
+    createdAt: c.createdAt.toISOString(),
     categoryId: c.categoryId,
     productId: c.productId,
   }))

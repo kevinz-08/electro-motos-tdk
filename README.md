@@ -357,7 +357,7 @@ Repuestos
 
 Aceites          → Liquimoly · SKY
 Llantas          → (subcategorías)
-Accesorios       → Espejos · Exploradores · Bombillas LED · Equipamiento
+Accesorios       → Espejos · Exploradoras · Bombillos LED · Equipamiento
 ```
 
 ---
@@ -843,6 +843,12 @@ GET /products?search=yamaha&minPrice=5000000&maxPrice=20000000
 | `POST` | `/payments/mercadopago/create-preference` | JWT | Crea preferencia MP |
 | `POST` | `/payments/mercadopago/webhook` | Firma MP | Webhook IPN de Mercado Pago |
 
+### Contacto
+
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `POST` | `/contact` | Público (throttle 3/min) | Envía un mensaje de PQR por correo a `h2ronlinestore@gmail.com` |
+
 ### Health check
 
 | Método | Ruta | Auth | Descripción |
@@ -1133,7 +1139,8 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | Ruta | Funcionalidad |
 |---|---|
 | `/admin` | Dashboard: ingresos del día, pedidos pendientes, stock bajo |
-| `/admin/productos` | Lista de productos — crear, editar, eliminar |
+| `/admin/productos` | Lista de productos — crear, editar, mover a papelera |
+| `/admin/productos/papelera` | Productos eliminados — restaurar desde la papelera |
 | `/admin/productos/[id]` | Formulario de edición con upload a Cloudinary |
 | `/admin/pedidos` | Todos los pedidos filtrados por estado |
 | `/admin/stock` | Productos con stock ≤ 5, actualización individual de stock |

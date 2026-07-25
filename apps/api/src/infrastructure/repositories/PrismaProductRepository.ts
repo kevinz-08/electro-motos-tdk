@@ -11,7 +11,7 @@ import { PrismaService } from '../database/prisma.service'
 type PrismaProductRow = {
   id: string; name: string; slug: string; description: string
   price: number; stock: number; sku: string; images: string[]
-  isActive: boolean; categoryId: string; createdAt: Date; updatedAt: Date
+  isActive: boolean; categoryId: string; createdAt: Date; updatedAt: Date; deletedAt: Date | null
   weightKg: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null
   compatible?: Array<{ id: string; productId: string; brand: string; model: string; year: number | null }>
   category?: { parentId: string | null } | null
@@ -36,6 +36,7 @@ function toDomain(p: PrismaProductRow): Product {
     parentCategoryId: p.category?.parentId ?? null,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
+    deletedAt: p.deletedAt,
     compatible: p.compatible?.map(
       (c): MotorcycleCompatibility => ({ id: c.id, brand: c.brand, model: c.model, year: c.year ?? 0 }),
     ),
@@ -48,19 +49,25 @@ export class PrismaProductRepository implements IProductRepository {
 
   async findById(id: string): Promise<Product | null> {
     const p = await this.prisma.client.product.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: { compatible: true, category: { select: { parentId: true } } },
     })
     return p ? toDomain(p) : null
   }
 
   async findBySlug(slug: string): Promise<Product | null> {
-    const p = await this.prisma.client.product.findUnique({ where: { slug }, include: { compatible: true } })
+    const p = await this.prisma.client.product.findUnique({
+      where: { slug, deletedAt: null },
+      include: { compatible: true },
+    })
     return p ? toDomain(p) : null
   }
 
   async findBySku(sku: string): Promise<Product | null> {
-    const p = await this.prisma.client.product.findUnique({ where: { sku }, include: { compatible: true } })
+    const p = await this.prisma.client.product.findUnique({
+      where: { sku, deletedAt: null },
+      include: { compatible: true },
+    })
     return p ? toDomain(p) : null
   }
 
@@ -81,6 +88,7 @@ export class PrismaProductRepository implements IProductRepository {
     }
 
     const where = {
+      deletedAt: null,
       ...(!filters.includeInactive && { isActive: true }),
       ...(filters.inStock  && { stock: { gt: 0 } }),
       ...(categoryIdFilter && { categoryId: categoryIdFilter }),
@@ -107,7 +115,7 @@ export class PrismaProductRepository implements IProductRepository {
 
   async findLowStock(threshold: number): Promise<Product[]> {
     const items = await this.prisma.client.product.findMany({
-      where: { stock: { lte: threshold }, isActive: true },
+      where: { stock: { lte: threshold }, isActive: true, deletedAt: null },
       include: { compatible: true },
       orderBy: { stock: 'asc' },
     })
@@ -162,7 +170,20 @@ export class PrismaProductRepository implements IProductRepository {
     await this.prisma.client.product.update({ where: { id }, data: { stock: { decrement: by } } })
   }
 
-  async delete(id: string): Promise<void> {
-    await this.prisma.client.product.delete({ where: { id } })
+  async softDelete(id: string): Promise<void> {
+    await this.prisma.client.product.update({ where: { id }, data: { deletedAt: new Date() } })
+  }
+
+  async restore(id: string): Promise<void> {
+    await this.prisma.client.product.update({ where: { id }, data: { deletedAt: null } })
+  }
+
+  async findDeleted(): Promise<Product[]> {
+    const items = await this.prisma.client.product.findMany({
+      where: { deletedAt: { not: null } },
+      include: { compatible: true },
+      orderBy: { deletedAt: 'desc' },
+    })
+    return items.map(toDomain)
   }
 }

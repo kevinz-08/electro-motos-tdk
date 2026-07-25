@@ -84,13 +84,13 @@ const SUBCATEGORIES = [
 
   // ── Accesorios ───────────────────────────────────────────────────────────
   { slug: 'espejos',              name: 'Espejos',              parentSlug: 'accesorios', description: 'Espejos retrovisores universales y específicos para cada moto.' },
-  { slug: 'exploradores',         name: 'Exploradores',         parentSlug: 'accesorios', description: 'Luces exploradores y barras de iluminación auxiliar.' },
-  { slug: 'bombillas-led',        name: 'Bombillas LED',        parentSlug: 'accesorios', description: 'Bombillas LED de alta intensidad, stops y direccionales.' },
+  { slug: 'exploradores',         name: 'Exploradoras',         parentSlug: 'accesorios', description: 'Luces exploradores y barras de iluminación auxiliar.' },
+  { slug: 'bombillas-led',        name: 'Bombillos LED',        parentSlug: 'accesorios', description: 'Bombillas LED de alta intensidad, stops y direccionales.' },
   { slug: 'equipamiento',         name: 'Equipamiento',         parentSlug: 'accesorios', description: 'Balaclavas, guantes y accesorios de protección para el motociclista.' },
   { slug: 'objetivo',             name: 'Objetivo',             parentSlug: 'accesorios', description: 'Accesorios de cámara y soporte de dispositivos para moto.' },
   { slug: 'balaclavas',           name: 'Balaclavas',           parentSlug: 'accesorios', description: 'Balaclavas y pasamontañas para protección del motociclista.' },
   { slug: 'fender',               name: 'Fender',               parentSlug: 'accesorios', description: 'Fenders y guardabarro para personalización de motos.' },
-  { slug: 'filtros-de-aire',      name: 'Filtros de Aire',      parentSlug: 'accesorios', description: 'Filtros de aire de alto flujo para mayor rendimiento.' },
+  { slug: 'filtros-de-aire',      name: 'Filtros de Aire de alto flujo', parentSlug: 'accesorios', description: 'Filtros de aire de alto flujo para mayor rendimiento.' },
   { slug: 'seguridad',            name: 'Seguridad',            parentSlug: 'accesorios', description: 'Alarmas, candados y sistemas de seguridad para moto.' },
   { slug: 'stop',                 name: 'Stop',                 parentSlug: 'accesorios', description: 'Stops integrados y luces traseras LED para moto.' },
   { slug: 'accesorios-generales', name: 'Accesorios Generales', parentSlug: 'accesorios', description: 'Cascos, manubrios, direccionales y accesorios varios para moto.' },
@@ -1138,20 +1138,9 @@ const PRODUCTS: Array<{
 async function main() {
   console.log('Cargando catálogo jerárquico...\n')
 
-  // ── Limpieza de productos que ya no están en el seed ────────────────────────
+  // Este script solo hace upsert — nunca elimina productos.
+  // La eliminación de productos se hace manualmente desde el panel admin.
   const currentSkus = PRODUCTS.map(p => p.sku)
-  const toDelete = await prisma.product.findMany({
-    where: { sku: { notIn: currentSkus } },
-    select: { id: true },
-  })
-  if (toDelete.length > 0) {
-    const ids = toDelete.map(p => p.id)
-    // Borrar dependencias antes de borrar los productos
-    await prisma.orderItem.deleteMany({ where: { productId: { in: ids } } })
-    await prisma.motorcycleCompatibility.deleteMany({ where: { productId: { in: ids } } })
-    const deleted = await prisma.product.deleteMany({ where: { id: { in: ids } } })
-    console.log(`🗑  ${deleted.count} productos obsoletos eliminados\n`)
-  }
 
   // ── Limpieza de categorías antiguas que ya no existen en la nueva estructura ──
   const OBSOLETE_SLUGS = [

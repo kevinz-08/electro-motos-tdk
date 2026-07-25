@@ -843,6 +843,12 @@ GET /products?search=yamaha&minPrice=5000000&maxPrice=20000000
 | `POST` | `/payments/mercadopago/create-preference` | JWT | Crea preferencia MP |
 | `POST` | `/payments/mercadopago/webhook` | Firma MP | Webhook IPN de Mercado Pago |
 
+### Contacto
+
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `POST` | `/contact` | Público (throttle 3/min) | Envía un mensaje de PQR por correo a `h2ronlinestore@gmail.com` |
+
 ### Health check
 
 | Método | Ruta | Auth | Descripción |

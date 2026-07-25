@@ -4,6 +4,28 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 143. Endpoint `POST /contact` — envío funcional del formulario de PQR
+
+**Contexto:** el formulario de PQR de `/contacto` (entrada #142) ya hacía `apiClient().post('/contact', ...)`
+pero no existía backend que lo atendiera. Se agrega el endpoint en NestJS.
+
+**Cambio:**
+
+- `apps/api/src/infrastructure/services/ResendEmailService.ts` — nuevo método `sendContactMessage()`
+  que envía el mensaje a `h2ronlinestore@gmail.com` con `replyTo` del remitente, reutilizando el
+  patrón de plantillas HTML existente.
+- `apps/api/src/contact/dto/create-contact.dto.ts` — valida nombre, correo, tipo de PQR
+  (`PETICION | QUEJA | RECLAMO | SUGERENCIA`) y mensaje.
+- `apps/api/src/contact/contact.controller.ts` — `POST /contact`, `@Public()`, throttle de 3 req/min
+  (más estricto que el global de 100/min) al no tener captcha.
+- `apps/api/src/contact/contact.module.ts` — registrado en `app.module.ts`.
+
+**Nota:** este envío es inline (no pasa por `EmailQueueService`), ya que esa cola está acoplada a
+`orderId` y pensada específicamente para confirmaciones de pedido tras el webhook de pago — no aplica
+a un formulario de contacto sin pedido asociado.
+
+---
+
 ## 142. Sección "Contáctanos" — Quiénes somos, formulario de PQR y datos de contacto
 
 **Contexto:** pedido del usuario para reemplazar el botón "Contáctanos (próximamente)" del Navbar por

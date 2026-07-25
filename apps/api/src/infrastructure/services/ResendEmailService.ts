@@ -140,6 +140,112 @@ export class ResendEmailService {
     if (error) this.logger.error(`sendPaymentDeclined failed orderId=${order.id}: ${JSON.stringify(error)}`)
   }
 
+  /** Email del formulario de PQR (Contáctanos) — se envía al correo de soporte de la tienda. */
+  async sendContactMessage(msg: { name: string; email: string; type: string; message: string }): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn('sendContactMessage omitido: RESEND_API_KEY no configurada')
+      return
+    }
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: 'h2ronlinestore@gmail.com',
+      replyTo: msg.email,
+      subject: `[PQR - ${this.pqrTypeLabel(msg.type)}] Mensaje de ${msg.name}`,
+      html: this.buildContactEmail(msg),
+    })
+    if (error) {
+      this.logger.error(`sendContactMessage failed email=${msg.email}: ${JSON.stringify(error)}`)
+      throw new Error(`No se pudo enviar el mensaje: ${JSON.stringify(error)}`)
+    }
+    this.logger.log(`sendContactMessage OK email=${msg.email} resendId=${data?.id}`)
+  }
+
+  private pqrTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      PETICION: 'Petición',
+      QUEJA: 'Queja',
+      RECLAMO: 'Reclamo',
+      SUGERENCIA: 'Sugerencia',
+    }
+    return labels[type] ?? type
+  }
+
+  private buildContactEmail(msg: { name: string; email: string; type: string; message: string }): string {
+    return /* html */ `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nuevo mensaje de contacto</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" style="max-width:560px;" cellspacing="0" cellpadding="0">
+
+          <tr>
+            <td style="background:#0f172a;border-radius:12px 12px 0 0;padding:24px 32px;text-align:center;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#f59e0b;letter-spacing:-0.5px;">
+                ⚡ H2R Online Store
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#ffffff;padding:36px 32px;">
+              <p style="font-size:40px;margin:0 0 12px;">✉️</p>
+              <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0ea5e9;">
+                Nuevo mensaje — ${this.pqrTypeLabel(msg.type)}
+              </h1>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                     style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:20px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="font-size:13px;color:#6b7280;padding-bottom:8px;">Nombre</td>
+                        <td align="right" style="font-size:13px;font-weight:700;color:#111827;padding-bottom:8px;">
+                          ${msg.name}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#6b7280;">Correo</td>
+                        <td align="right" style="font-size:13px;font-weight:700;color:#111827;">
+                          ${msg.email}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Mensaje</p>
+              <p style="margin:0;font-size:15px;color:#374151;line-height:1.6;white-space:pre-wrap;">
+                ${msg.message}
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:20px 32px;
+                        border-top:1px solid #e5e7eb;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                Enviado desde el formulario de Contáctanos de h2ronlinestore.co
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim()
+  }
+
   // ─── Template builder ────────────────────────────────────────────────────────
 
   private formatCOP(cents: number): string {

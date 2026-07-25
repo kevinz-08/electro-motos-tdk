@@ -65,10 +65,24 @@ export class AdminProductsController {
 
   @Delete(':id')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Eliminar producto' })
+  @ApiOperation({ summary: 'Soft-delete producto (mueve a papelera)' })
   async delete(@Param('id') id: string) {
-    await this.productRepo.delete(id)
+    await this.productRepo.softDelete(id)
     return { success: true }
+  }
+
+  @Patch(':id/restore')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Restaurar producto desde la papelera' })
+  async restore(@Param('id') id: string) {
+    await this.productRepo.restore(id)
+    return { success: true }
+  }
+
+  @Get('deleted')
+  @ApiOperation({ summary: 'Listar productos en la papelera' })
+  async findDeleted() {
+    return this.productRepo.findDeleted()
   }
 
   @Patch(':id/stock')

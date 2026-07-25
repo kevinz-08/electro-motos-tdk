@@ -84,8 +84,8 @@ const SUBCATEGORIES = [
 
   // ── Accesorios ───────────────────────────────────────────────────────────
   { slug: 'espejos',              name: 'Espejos',              parentSlug: 'accesorios', description: 'Espejos retrovisores universales y específicos para cada moto.' },
-  { slug: 'exploradores',         name: 'Exploradores',         parentSlug: 'accesorios', description: 'Luces exploradores y barras de iluminación auxiliar.' },
-  { slug: 'bombillas-led',        name: 'Bombillas LED',        parentSlug: 'accesorios', description: 'Bombillas LED de alta intensidad, stops y direccionales.' },
+  { slug: 'exploradores',         name: 'Exploradoras',         parentSlug: 'accesorios', description: 'Luces exploradores y barras de iluminación auxiliar.' },
+  { slug: 'bombillas-led',        name: 'Bombillos LED',        parentSlug: 'accesorios', description: 'Bombillas LED de alta intensidad, stops y direccionales.' },
   { slug: 'equipamiento',         name: 'Equipamiento',         parentSlug: 'accesorios', description: 'Balaclavas, guantes y accesorios de protección para el motociclista.' },
   { slug: 'objetivo',             name: 'Objetivo',             parentSlug: 'accesorios', description: 'Accesorios de cámara y soporte de dispositivos para moto.' },
   { slug: 'balaclavas',           name: 'Balaclavas',           parentSlug: 'accesorios', description: 'Balaclavas y pasamontañas para protección del motociclista.' },
@@ -1138,20 +1138,9 @@ const PRODUCTS: Array<{
 async function main() {
   console.log('Cargando catálogo jerárquico...\n')
 
-  // ── Limpieza de productos que ya no están en el seed ────────────────────────
+  // Este script solo hace upsert — nunca elimina productos.
+  // La eliminación de productos se hace manualmente desde el panel admin.
   const currentSkus = PRODUCTS.map(p => p.sku)
-  const toDelete = await prisma.product.findMany({
-    where: { sku: { notIn: currentSkus } },
-    select: { id: true },
-  })
-  if (toDelete.length > 0) {
-    const ids = toDelete.map(p => p.id)
-    // Borrar dependencias antes de borrar los productos
-    await prisma.orderItem.deleteMany({ where: { productId: { in: ids } } })
-    await prisma.motorcycleCompatibility.deleteMany({ where: { productId: { in: ids } } })
-    const deleted = await prisma.product.deleteMany({ where: { id: { in: ids } } })
-    console.log(`🗑  ${deleted.count} productos obsoletos eliminados\n`)
-  }
 
   // ── Limpieza de categorías antiguas que ya no existen en la nueva estructura ──
   const OBSOLETE_SLUGS = [

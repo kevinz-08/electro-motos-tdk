@@ -183,6 +183,9 @@ model Product {
   categoryId            String
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
+  /// null = activo en BD. Non-null = soft-deleted (borrado desde el panel admin).
+  /// Usar softDelete(id) en el repositorio — nunca prisma.product.delete().
+  deletedAt             DateTime?
   category              Category                  @relation(fields: [categoryId], references: [id])
   compatible            MotorcycleCompatibility[]
   orderItems            OrderItem[]
@@ -193,6 +196,8 @@ model Product {
   @@index([categoryId, isActive, stock])
   /// Cubre listados ordenados por fecha (mas recientes primero) filtrando solo activos.
   @@index([isActive, createdAt])
+  /// Cubre el filtro de papelera y excluye soft-deleted de todas las queries normales.
+  @@index([deletedAt])
 }
 
 model ProductDescription {

@@ -4,6 +4,27 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 142. Sección "Contáctanos" — Quiénes somos, formulario de PQR y datos de contacto
+
+**Contexto:** pedido del usuario para reemplazar el botón "Contáctanos (próximamente)" del Navbar por
+una página funcional con tres bloques: quiénes somos, formulario de PQR y contacto directo/redes.
+
+**Cambio:**
+
+- `apps/web/src/components/store/AboutUsBlock.tsx` (nuevo) — texto de "Quiénes somos" provisto por el
+  usuario, dividido en 3 tarjetas (`¿Quiénes somos?`, `Calidad que confías`, `Donde estés, contigo`)
+  para no dejar un bloque de texto recargado.
+- `apps/web/src/components/store/PqrForm.tsx` (nuevo) — formulario cliente con validación
+  (nombre, correo, tipo de PQR, mensaje), estados de focus/error/éxito, y envío vía
+  `apiClient().post('/contact', ...)`.
+- `apps/web/src/components/store/ContactInfoBlock.tsx` (nuevo) — redes sociales, dirección, teléfono,
+  correo y CTA de WhatsApp, reutilizando los íconos e info ya presentes en `Footer.tsx`.
+- `apps/web/src/app/(store)/contacto/page.tsx` (nuevo) — compone los tres bloques, mobile-first.
+- `apps/web/src/components/nav/Navbar.tsx` — reemplaza los botones deshabilitados "Contáctanos
+  (próximamente)" (desktop y móvil) por `Link` a `/contacto`.
+
+---
+
 ## 141. Renombrado de subcategoría de Accesorios: Filtros de Aire → Filtros de Aire de alto flujo
 
 **Contexto:** pedido del usuario para renombrar la subcategoría `filtros-de-aire` (bajo Accesorios;

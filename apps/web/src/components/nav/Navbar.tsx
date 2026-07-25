@@ -510,9 +510,9 @@ export function Navbar() {
                 Catálogo
               </Link>
 
-              <button disabled className="px-4 py-2 text-sm font-medium tracking-wide text-white/25 cursor-not-allowed rounded-lg" title="Próximamente">
+              <Link href="/contacto" className="px-4 py-2 text-sm font-medium tracking-wide text-white/80 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
                 Contáctanos
-              </button>
+              </Link>
             </nav>
 
             {/* ── Col 3: Iconos (derecha) ── */}
@@ -723,9 +723,9 @@ export function Navbar() {
               </div>
             )}
 
-            <button disabled className="w-full text-left px-3 py-2.5 text-sm font-medium text-white/25 cursor-not-allowed rounded-lg">
-              Contáctanos (próximamente)
-            </button>
+            <Link href="/contacto" className="block w-full text-left px-3 py-2.5 text-sm font-medium text-white/80 hover:bg-white/5 rounded-lg transition-colors" onClick={() => setMobileOpen(false)}>
+              Contáctanos
+            </Link>
           </div>
         )}
         {/* ── Search overlay ── */}

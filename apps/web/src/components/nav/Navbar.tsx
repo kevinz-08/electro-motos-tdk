@@ -86,8 +86,8 @@ const MEGA_MENU = [
     name: 'Accesorios', slug: 'accesorios',
     children: [
       { name: 'Espejos',              slug: 'espejos' },
-      { name: 'Exploradores',         slug: 'exploradores' },
-      { name: 'Bombillas LED',        slug: 'bombillas-led' },
+      { name: 'Exploradoras',         slug: 'exploradores' },
+      { name: 'Bombillos LED',        slug: 'bombillas-led' },
       { name: 'Balaclavas',           slug: 'balaclavas' },
       { name: 'Fender',               slug: 'fender' },
       { name: 'Filtros de Aire',      slug: 'filtros-de-aire' },

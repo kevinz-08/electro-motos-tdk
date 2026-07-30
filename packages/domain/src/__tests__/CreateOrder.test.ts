@@ -521,6 +521,56 @@ describe('CreateOrder', () => {
     } as unknown as ValidateCoupon
   }
 
+  it('rechaza el cupón con VALIDATION_ERROR cuando el método de pago es COD', async () => {
+    const product = makeProduct()
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const validateCoupon = { execute: vi.fn() } as unknown as ValidateCoupon
+
+    const result = await new CreateOrder(
+      {} as IOrderRepository,
+      productRepo,
+      {} as IPaymentService,
+      undefined,
+      validateCoupon,
+    ).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'COD',
+      couponCode: 'DESCUENTO10',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
+    expect(validateCoupon.execute).not.toHaveBeenCalled()
+  })
+
+  it('rechaza el cupón con VALIDATION_ERROR cuando el método de pago es MERCADO_PAGO', async () => {
+    const product = makeProduct()
+    const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
+    const validateCoupon = { execute: vi.fn() } as unknown as ValidateCoupon
+
+    const result = await new CreateOrder(
+      {} as IOrderRepository,
+      productRepo,
+      {} as IPaymentService,
+      undefined,
+      validateCoupon,
+    ).execute({
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: SHIPPING,
+      buyer: { idType: 'CC', idNumber: '1000123456' },
+      paymentProvider: 'MERCADO_PAGO',
+      couponCode: 'DESCUENTO10',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
+    expect(validateCoupon.execute).not.toHaveBeenCalled()
+  })
+
   it('aplica el descuento del cupón al total del pedido', async () => {
     const product = makeProduct({ price: 10000000, categoryId: 'cat-1' })
     const expectedTotal = product.price - 2000000 // 20% de 10.000.000

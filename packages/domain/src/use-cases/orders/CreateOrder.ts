@@ -144,6 +144,9 @@ export class CreateOrder {
     // 2. Validar y aplicar cupón si se proporcionó uno.
     let discountAmount = 0
     if (input.couponCode) {
+      if (input.paymentProvider !== 'WOMPI') {
+        return err(new AppError('VALIDATION_ERROR', 'Los cupones solo aplican para pagos con tarjeta (Wompi)'))
+      }
       if (!this.validateCoupon) {
         return err(new AppError('INTERNAL_ERROR', 'Validación de cupón no disponible'))
       }

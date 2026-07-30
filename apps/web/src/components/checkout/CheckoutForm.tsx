@@ -13,7 +13,7 @@
  * Nota: el precio en el formulario se muestra en pesos COP (display),
  * pero internamente todo se maneja en centavos.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import type { CreateOrderResponse } from '@h2r/types'
@@ -84,6 +84,15 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
     discount: number
     eligibleProductIds: string[]
   } | null>(null)
+
+  // Al cambiar a un método de pago que no soporta cupones, limpiar el estado.
+  useEffect(() => {
+    if (paymentMethod !== 'WOMPI') {
+      setAppliedCoupon(null)
+      setCouponCode('')
+      setCouponError(null)
+    }
+  }, [paymentMethod])
 
   const [form, setForm] = useState<ShippingFormData>({
     fullName: '',
@@ -535,51 +544,60 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
               </div>
             )}
 
-            {/* Cupón de descuento */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6">
-              <h2 className="font-bold text-gray-900 mb-3">¿Tienes un cupón?</h2>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={couponCode}
-                  onChange={(e) => {
-                    setCouponCode(e.target.value.toUpperCase())
-                    setCouponError(null)
-                    if (appliedCoupon) setAppliedCoupon(null)
-                  }}
-                  disabled={couponLoading || !!appliedCoupon}
-                  placeholder="HALLOWEEN20"
-                  className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-mono uppercase focus:outline-none focus:border-sky-400 disabled:bg-gray-50 disabled:text-gray-400"
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleApplyCoupon() } }}
-                />
-                {appliedCoupon ? (
-                  <button
-                    type="button"
-                    onClick={() => { setAppliedCoupon(null); setCouponCode('') }}
-                    className="px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
-                  >
-                    Quitar
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void handleApplyCoupon()}
-                    disabled={!couponCode.trim() || couponLoading}
-                    className="px-4 py-2.5 text-sm font-semibold bg-sky-500 text-white rounded-lg hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {couponLoading ? '...' : 'Aplicar'}
-                  </button>
+            {/* Cupón de descuento — solo disponible con Wompi */}
+            {paymentMethod === 'WOMPI' ? (
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h2 className="font-bold text-gray-900 mb-3">¿Tienes un cupón?</h2>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase())
+                      setCouponError(null)
+                      if (appliedCoupon) setAppliedCoupon(null)
+                    }}
+                    disabled={couponLoading || !!appliedCoupon}
+                    placeholder="HALLOWEEN20"
+                    className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-mono uppercase focus:outline-none focus:border-sky-400 disabled:bg-gray-50 disabled:text-gray-400"
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleApplyCoupon() } }}
+                  />
+                  {appliedCoupon ? (
+                    <button
+                      type="button"
+                      onClick={() => { setAppliedCoupon(null); setCouponCode('') }}
+                      className="px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      Quitar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleApplyCoupon()}
+                      disabled={!couponCode.trim() || couponLoading}
+                      className="px-4 py-2.5 text-sm font-semibold bg-sky-500 text-white rounded-lg hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {couponLoading ? '...' : 'Aplicar'}
+                    </button>
+                  )}
+                </div>
+                {couponError && (
+                  <p className="mt-2 text-xs text-red-600">{couponError}</p>
+                )}
+                {appliedCoupon && (
+                  <p className="mt-2 text-xs text-green-700 font-medium">
+                    ¡Cupón aplicado! Descuento: {formatCOP(appliedCoupon.discount)}
+                  </p>
                 )}
               </div>
-              {couponError && (
-                <p className="mt-2 text-xs text-red-600">{couponError}</p>
-              )}
-              {appliedCoupon && (
-                <p className="mt-2 text-xs text-green-700 font-medium">
-                  ¡Cupón aplicado! Descuento: {formatCOP(appliedCoupon.discount)}
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h2 className="font-bold text-gray-900 mb-1">¿Tienes un cupón?</h2>
+                <p className="text-sm text-gray-400">
+                  Los cupones de descuento solo aplican para pagos con tarjeta (Wompi).
                 </p>
-              )}
-            </div>
+              </div>
+            )}
 
             {error && (
               <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">

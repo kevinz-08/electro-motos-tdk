@@ -4,6 +4,41 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 144. Blueprint de producto — documentación PRD/TRD/Flujo/UI-UX/Backend en `docs/blueprint/`
+
+**Contexto:** se necesitaba una especificación completa, agnóstica de la implementación actual, que
+sirviera como base para construir una aplicación similar desde cero (por un equipo humano o por
+herramientas de generación de código). La documentación existente (`README.md`, `AGENTS.md`,
+`CLAUDE.md`) describe *este* código; el blueprint describe *el producto*.
+
+**Cambio:** cinco documentos nuevos, sin tocar código.
+
+- `docs/blueprint/01-PRD.md` — visión, principios de producto, objetivos y KPIs, 4 personas,
+  15 casos de uso, 38 funcionalidades priorizadas (P0/P1/P2), 11 reglas de negocio invariantes,
+  criterios de aceptación del MVP por épica, métricas, riesgos y roadmap en 6 fases.
+- `docs/blueprint/02-TRD.md` — stack recomendado con justificación, Clean Architecture + DDD,
+  patrones obligatorios (`Result<T,E>`, inyección por símbolo, puerto/adaptador, outbox),
+  estrategia de caché con TTLs, dependencias críticas y su degradación, variables de entorno,
+  SLOs de rendimiento, seguridad (autenticación, defensa en profundidad, webhooks, Ley 1581/2012),
+  estrategia de pruebas, despliegue/CI-CD y tabla de antipatrones a evitar.
+- `docs/blueprint/03-FLUJO-APP.md` — mapa de navegación completo, user journey, flujos detallados
+  en Mermaid (auth con OTP, checkout de 4 pasos, confirmación asíncrona de pago, workers y sweeper,
+  seguimiento de envío), flujos administrativos, 4 máquinas de estado y matriz de protección de rutas.
+- `docs/blueprint/04-UI-UX-BRIEF.md` — principios de diseño, sistema de tokens de color en dos
+  niveles (con modo oscuro), escala tipográfica, espaciado y elevación, inventario de ~30 componentes
+  con especificación de los críticos, iconografía, movimiento, responsive por vista, accesibilidad
+  AA y biblioteca de microcopy en español.
+- `docs/blueprint/05-ESQUEMA-BACKEND.md` — ERD en Mermaid, 20 entidades documentadas campo a campo
+  con justificación de índices y decisiones de modelado, catálogo completo de endpoints REST,
+  contrato de errores, puertos del dominio, y los algoritmos de `CreateOrder`, `ConfirmPayment`,
+  `ValidateCoupon` y `QuoteShipping` en pseudocódigo.
+
+**Nota:** el blueprint usa nombres genéricos para los proveedores externos (pasarela principal /
+de respaldo, operador logístico, CDN) en lugar de los nombres comerciales usados en este repositorio,
+para que la especificación sea reutilizable con otros proveedores.
+
+---
+
 ## 143. Endpoint `POST /contact` — envío funcional del formulario de PQR
 
 **Contexto:** el formulario de PQR de `/contacto` (entrada #142) ya hacía `apiClient().post('/contact', ...)`
@@ -63,6 +98,31 @@ creada desde el panel admin (p. ej. `motores`, que no está en `SUBCATEGORIES`) 
 **Sincronización de datos:** se corrió `pnpm db:catalog` y se verificó por consulta directa que las
 35 categorías siguen presentes (incluida `motores`, sin tocar) y que solo cambió el `name` de
 `filtros-de-aire`.
+
+---
+
+## 141. Restricción de cupones a pagos con Wompi
+
+**Contexto:** los cupones generaban descuentos en los tres métodos de pago (Wompi, COD, Retiro en
+tienda). COD y Retiro en tienda no son rentables con descuento aplicado, así que se decidió
+restringir los cupones exclusivamente a pagos con tarjeta (Wompi).
+
+**Cambios:**
+
+- `packages/domain/src/use-cases/orders/CreateOrder.ts` — al inicio del bloque de validación de
+  cupón: si `paymentProvider !== 'WOMPI'` y viene `couponCode`, retorna `VALIDATION_ERROR` antes
+  de llamar a `ValidateCoupon`. Enforcement en la capa de dominio — no se puede bypassear desde
+  el frontend.
+- `apps/web/src/components/checkout/CheckoutForm.tsx`:
+  - `useEffect([paymentMethod])`: limpia `appliedCoupon`, `couponCode` y `couponError` al cambiar
+    a COD o Retiro en tienda.
+  - Sección del cupón ahora renderiza condicionalmente: con Wompi muestra el campo completo; con
+    otro método muestra solo el texto "Los cupones de descuento solo aplican para pagos con tarjeta
+    (Wompi)".
+- `packages/domain/src/__tests__/CreateOrder.test.ts` — dos tests nuevos: cupón + COD y cupón +
+  MERCADO_PAGO retornan `VALIDATION_ERROR` sin llamar a `ValidateCoupon`.
+
+**Verificación:** `pnpm --filter @h2r/web exec tsc --noEmit` limpio. Suite de dominio: 258/258 tests.
 
 ---
 

@@ -1,6 +1,6 @@
 import {
-  IsDateString, IsEnum, IsInt, IsOptional, IsString,
-  Min, Max, IsNotEmpty, ValidateIf,
+  IsArray, IsDateString, IsEnum, IsInt, IsOptional, IsString,
+  Min, IsNotEmpty, ValidateIf, ArrayMinSize,
 } from 'class-validator'
 import { Transform } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
@@ -27,15 +27,21 @@ export class CreateCouponDto {
   @IsEnum(['NONE', 'ONCE_PER_CUSTOMER', 'FIRST_PURCHASE'])
   restriction: 'NONE' | 'ONCE_PER_CUSTOMER' | 'FIRST_PURCHASE'
 
+  @ApiProperty({ enum: ['STORE', 'CATEGORY', 'PRODUCT'], default: 'PRODUCT' })
+  @IsEnum(['STORE', 'CATEGORY', 'PRODUCT'])
+  scope: 'STORE' | 'CATEGORY' | 'PRODUCT'
+
   @ApiProperty({ description: 'Fecha de expiración ISO 8601', example: '2025-10-31T23:59:59.000Z' })
   @IsDateString()
   expiresAt: string
 
-  @ApiPropertyOptional({ description: 'ID de la categoría o subcategoría a la que aplica' })
-  @IsOptional() @IsString() @IsNotEmpty()
-  categoryId?: string
+  @ApiPropertyOptional({ description: 'IDs de categorías — requerido cuando scope = CATEGORY', type: [String] })
+  @ValidateIf((o: CreateCouponDto) => o.scope === 'CATEGORY')
+  @IsArray() @ArrayMinSize(1) @IsString({ each: true }) @IsNotEmpty({ each: true })
+  categoryIds?: string[]
 
-  @ApiPropertyOptional({ description: 'ID del producto específico al que aplica' })
-  @IsOptional() @IsString() @IsNotEmpty()
+  @ApiPropertyOptional({ description: 'ID del producto específico — requerido cuando scope = PRODUCT' })
+  @ValidateIf((o: CreateCouponDto) => o.scope === 'PRODUCT')
+  @IsString() @IsNotEmpty()
   productId?: string
 }

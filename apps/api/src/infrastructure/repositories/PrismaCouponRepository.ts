@@ -6,6 +6,7 @@ import {
   Coupon,
   CouponType,
   CouponRestriction,
+  CouponScope,
 } from '@h2r/domain'
 import { PrismaService } from '../database/prisma.service'
 
@@ -15,11 +16,12 @@ type PrismaCouponRow = {
   type: string
   value: number
   restriction: string
+  scope: string
   isActive: boolean
   expiresAt: Date
   createdAt: Date
-  categoryId: string | null
   productId: string | null
+  categories: { categoryId: string }[]
 }
 
 function toDomain(c: PrismaCouponRow): Coupon {
@@ -29,26 +31,33 @@ function toDomain(c: PrismaCouponRow): Coupon {
     type: c.type as CouponType,
     value: c.value,
     restriction: c.restriction as CouponRestriction,
+    scope: c.scope as CouponScope,
     isActive: c.isActive,
     expiresAt: c.expiresAt,
     createdAt: c.createdAt,
-    categoryId: c.categoryId,
+    categoryIds: c.categories.map(cc => cc.categoryId),
     productId: c.productId,
   }
 }
+
+const COUPON_INCLUDE = { categories: { select: { categoryId: true } } } as const
 
 @Injectable()
 export class PrismaCouponRepository implements ICouponRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByCode(code: string): Promise<Coupon | null> {
-    const c = await this.prisma.client.coupon.findUnique({ where: { code } })
+    const c = await this.prisma.client.coupon.findUnique({
+      where: { code },
+      include: COUPON_INCLUDE,
+    })
     return c ? toDomain(c) : null
   }
 
   async findAll(): Promise<Coupon[]> {
     const coupons = await this.prisma.client.coupon.findMany({
       orderBy: { createdAt: 'desc' },
+      include: COUPON_INCLUDE,
     })
     return coupons.map(toDomain)
   }
@@ -60,10 +69,14 @@ export class PrismaCouponRepository implements ICouponRepository {
         type: data.type,
         value: data.value,
         restriction: data.restriction,
+        scope: data.scope,
         expiresAt: data.expiresAt,
-        categoryId: data.categoryId ?? null,
         productId: data.productId ?? null,
+        categories: data.categoryIds?.length
+          ? { create: data.categoryIds.map(categoryId => ({ categoryId })) }
+          : undefined,
       },
+      include: COUPON_INCLUDE,
     })
     return toDomain(c)
   }
@@ -76,12 +89,20 @@ export class PrismaCouponRepository implements ICouponRepository {
         ...(data.type        !== undefined && { type:        data.type }),
         ...(data.value       !== undefined && { value:       data.value }),
         ...(data.restriction !== undefined && { restriction: data.restriction }),
+        ...(data.scope       !== undefined && { scope:       data.scope }),
         ...(data.expiresAt   !== undefined && { expiresAt:   data.expiresAt }),
         ...(data.isActive    !== undefined && { isActive:    data.isActive }),
-        // undefined = no tocar; null = limpiar el FK
-        ...('categoryId' in data && { categoryId: data.categoryId ?? null }),
-        ...('productId'  in data && { productId:  data.productId  ?? null }),
+        ...('productId' in data && { productId: data.productId ?? null }),
+        ...('categoryIds' in data && data.categoryIds !== undefined && {
+          categories: {
+            deleteMany: {},
+            ...(data.categoryIds && data.categoryIds.length > 0 && {
+              create: data.categoryIds.map(categoryId => ({ categoryId })),
+            }),
+          },
+        }),
       },
+      include: COUPON_INCLUDE,
     })
     return toDomain(c)
   }

@@ -4,6 +4,8 @@ import path from 'path'
 export default defineConfig({
   test: {
     globals: true,
+    include: ['src/**/*.test.ts'],
+    exclude: ['dist/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

@@ -1,4 +1,4 @@
-import { Coupon, CouponType, CouponRestriction } from '@/domain/entities/Coupon'
+import { Coupon, CouponType, CouponRestriction, CouponScope } from '@/domain/entities/Coupon'
 
 export interface CreateCouponInput {
   code: string
@@ -6,9 +6,11 @@ export interface CreateCouponInput {
   /** PERCENTAGE: puntos base (1000 = 10.00%). FIXED: centavos COP. */
   value: number
   restriction: CouponRestriction
+  scope: CouponScope
   expiresAt: Date
-  /** Exactamente uno de categoryId o productId debe ser no-null. */
-  categoryId?: string
+  /** IDs de categorías — requerido cuando scope === CATEGORY. */
+  categoryIds?: string[]
+  /** ID del producto — requerido cuando scope === PRODUCT. */
   productId?: string
 }
 
@@ -17,9 +19,10 @@ export interface UpdateCouponInput {
   type?: CouponType
   value?: number
   restriction?: CouponRestriction
+  scope?: CouponScope
   expiresAt?: Date
-  /** null para limpiar el scope de categoría. */
-  categoryId?: string | null
+  /** Reemplaza todas las categorías del cupón. null para limpiar. */
+  categoryIds?: string[] | null
   /** null para limpiar el scope de producto. */
   productId?: string | null
   isActive?: boolean

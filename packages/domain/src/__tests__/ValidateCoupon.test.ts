@@ -14,10 +14,11 @@ function makeCoupon(overrides?: Partial<Coupon>): Coupon {
     type: 'PERCENTAGE',
     value: 2000, // 20% (en centésimas de porcentaje: 20 * 100)
     restriction: 'NONE',
+    scope: 'CATEGORY',
     isActive: true,
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días adelante
     createdAt: new Date('2026-01-01'),
-    categoryId: 'cat-1',
+    categoryIds: ['cat-1'],
     productId: null,
     ...overrides,
   }
@@ -114,7 +115,7 @@ describe('ValidateCoupon', () => {
   })
 
   it('retorna err(VALIDATION_ERROR) cuando ningún ítem del carrito está dentro del scope', async () => {
-    const { couponRepo, orderRepo } = makeRepos(makeCoupon({ categoryId: 'cat-cascos' }))
+    const { couponRepo, orderRepo } = makeRepos(makeCoupon({ categoryIds: ['cat-cascos'] }))
     const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
       ...INPUT_BASE,
       items: [makeItem({ categoryId: 'cat-baterias', parentCategoryId: null })],
@@ -123,9 +124,9 @@ describe('ValidateCoupon', () => {
     if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  // ── Happy path — categoría directa ────────────────────────────────────────
+  // ── Happy path — CATEGORY (categoría directa) ─────────────────────────────
 
-  it('aplica el descuento de porcentaje sobre el subtotal elegible (scope por categoría directa)', async () => {
+  it('aplica el descuento de porcentaje sobre el subtotal elegible (scope CATEGORY directa)', async () => {
     const { couponRepo, orderRepo } = makeRepos(makeCoupon({ value: 2000 })) // 20%
     const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
       ...INPUT_BASE,
@@ -139,8 +140,8 @@ describe('ValidateCoupon', () => {
     }
   })
 
-  it('aplica el descuento en cascada cuando el ítem está en una subcategoría del scope', async () => {
-    const coupon = makeCoupon({ categoryId: 'cat-padre', productId: null })
+  it('CATEGORY: aplica en cascada cuando el ítem está en una subcategoría del scope', async () => {
+    const coupon = makeCoupon({ categoryIds: ['cat-padre'], productId: null })
     const { couponRepo, orderRepo } = makeRepos(coupon)
     const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
       ...INPUT_BASE,
@@ -150,8 +151,51 @@ describe('ValidateCoupon', () => {
     if (result.ok) expect(result.value.eligibleProductIds).toEqual(['prod-1'])
   })
 
-  it('scope por producto específico: solo el producto exacto es elegible', async () => {
-    const coupon = makeCoupon({ categoryId: null, productId: 'prod-casco-rojo' })
+  it('CATEGORY multi: cubre ítems de cualquiera de las categorías configuradas', async () => {
+    const coupon = makeCoupon({ categoryIds: ['cat-cascos', 'cat-baterias'], productId: null })
+    const { couponRepo, orderRepo } = makeRepos(coupon)
+    const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
+      ...INPUT_BASE,
+      items: [
+        makeItem({ productId: 'prod-casco', categoryId: 'cat-cascos', price: 5000000, quantity: 1 }),
+        makeItem({ productId: 'prod-bateria', categoryId: 'cat-baterias', price: 3000000, quantity: 2 }),
+        makeItem({ productId: 'prod-aceite', categoryId: 'cat-lubricantes', price: 2000000, quantity: 1 }),
+      ],
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      // Solo casco (5M) y 2 baterías (6M) son elegibles → subtotal 11M
+      // 20% de 11.000.000 = 2.200.000
+      expect(result.value.eligibleProductIds).toEqual(expect.arrayContaining(['prod-casco', 'prod-bateria']))
+      expect(result.value.eligibleProductIds).not.toContain('prod-aceite')
+      expect(result.value.discount).toBe(2200000)
+    }
+  })
+
+  // ── Happy path — STORE ─────────────────────────────────────────────────────
+
+  it('STORE: todos los ítems del carrito son elegibles sin importar su categoría', async () => {
+    const coupon = makeCoupon({ scope: 'STORE', categoryIds: [], productId: null, value: 1000 }) // 10%
+    const { couponRepo, orderRepo } = makeRepos(coupon)
+    const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
+      ...INPUT_BASE,
+      items: [
+        makeItem({ productId: 'prod-a', categoryId: 'cat-x', price: 4000000, quantity: 1 }),
+        makeItem({ productId: 'prod-b', categoryId: 'cat-y', price: 6000000, quantity: 1 }),
+      ],
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      // 10% de 10.000.000 = 1.000.000
+      expect(result.value.discount).toBe(1000000)
+      expect(result.value.eligibleProductIds).toEqual(expect.arrayContaining(['prod-a', 'prod-b']))
+    }
+  })
+
+  // ── Happy path — PRODUCT ──────────────────────────────────────────────────
+
+  it('PRODUCT: solo el producto exacto es elegible', async () => {
+    const coupon = makeCoupon({ scope: 'PRODUCT', categoryIds: [], productId: 'prod-casco-rojo' })
     const { couponRepo, orderRepo } = makeRepos(coupon)
     const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
       ...INPUT_BASE,
@@ -169,7 +213,7 @@ describe('ValidateCoupon', () => {
   })
 
   it('descuento FIXED: no supera el subtotal elegible', async () => {
-    const coupon = makeCoupon({ type: 'FIXED', value: 999900000, productId: null }) // 9.999.000 COP
+    const coupon = makeCoupon({ type: 'FIXED', value: 999900000 }) // 9.999.000 COP
     const { couponRepo, orderRepo } = makeRepos(coupon)
     const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
       ...INPUT_BASE,

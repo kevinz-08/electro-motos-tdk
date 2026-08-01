@@ -59,8 +59,9 @@ export class CouponsController {
       type: dto.type,
       value: dto.value,
       restriction: dto.restriction,
+      scope: dto.scope,
       expiresAt: new Date(dto.expiresAt),
-      categoryId: dto.categoryId,
+      categoryIds: dto.categoryIds,
       productId: dto.productId,
     })
   }
@@ -74,10 +75,11 @@ export class CouponsController {
       ...(dto.type        !== undefined && { type:        dto.type }),
       ...(dto.value       !== undefined && { value:       dto.value }),
       ...(dto.restriction !== undefined && { restriction: dto.restriction }),
+      ...(dto.scope       !== undefined && { scope:       dto.scope }),
       ...(dto.expiresAt   !== undefined && { expiresAt:   new Date(dto.expiresAt) }),
       ...(dto.isActive    !== undefined && { isActive:    dto.isActive }),
-      ...('categoryId' in dto && { categoryId: dto.categoryId }),
-      ...('productId'  in dto && { productId:  dto.productId }),
+      ...('categoryIds' in dto && { categoryIds: dto.categoryIds }),
+      ...('productId'   in dto && { productId:   dto.productId }),
     })
   }
 

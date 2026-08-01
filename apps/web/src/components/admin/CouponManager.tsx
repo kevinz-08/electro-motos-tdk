@@ -11,10 +11,11 @@ export interface CouponRow {
   type: 'PERCENTAGE' | 'FIXED'
   value: number
   restriction: 'NONE' | 'ONCE_PER_CUSTOMER' | 'FIRST_PURCHASE'
+  scope: 'STORE' | 'CATEGORY' | 'PRODUCT'
   isActive: boolean
   expiresAt: string
   createdAt: string
-  categoryId: string | null
+  categoryIds: string[]
   productId: string | null
 }
 
@@ -71,7 +72,7 @@ function addDays(days: number): string {
   return d.toISOString().split('T')[0] as string
 }
 
-type Scope = 'category' | 'product'
+type Scope = 'store' | 'category' | 'product'
 
 interface FormState {
   code: string
@@ -80,7 +81,7 @@ interface FormState {
   restriction: 'NONE' | 'ONCE_PER_CUSTOMER' | 'FIRST_PURCHASE'
   expiresAt: string
   scope: Scope
-  categoryId: string
+  categoryIds: string[]
   productId: string
 }
 
@@ -90,8 +91,8 @@ const EMPTY_FORM: FormState = {
   value: '',
   restriction: 'NONE',
   expiresAt: addDays(30),
-  scope: 'category',
-  categoryId: '',
+  scope: 'store',
+  categoryIds: [],
   productId: '',
 }
 
@@ -137,6 +138,88 @@ function Modal({ title, onClose, children }: ModalProps) {
   )
 }
 
+// ─── CategoryMultiSelect ──────────────────────────────────────────────────────
+
+interface CategoryMultiSelectProps {
+  selected: string[]
+  onChange: (ids: string[]) => void
+  categories: CategoryOption[]
+}
+
+function CategoryMultiSelect({ selected, onChange, categories }: CategoryMultiSelectProps) {
+  const parentCategories = categories.filter((c) => c.parentId === null)
+  const childCategories = categories.filter((c) => c.parentId !== null)
+
+  function toggleCategory(id: string) {
+    onChange(
+      selected.includes(id)
+        ? selected.filter((s) => s !== id)
+        : [...selected, id]
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {selected.map((id, idx) => {
+        const cat = categories.find((c) => c.id === id)
+        return (
+          <div key={id} className="flex gap-2">
+            <select
+              value={id}
+              onChange={(e) => {
+                const next = [...selected]
+                next[idx] = e.target.value
+                // prevent duplicate
+                if (!next.slice(0, idx).includes(e.target.value) && !next.slice(idx + 1).includes(e.target.value)) {
+                  onChange(next)
+                }
+              }}
+              className={SELECT_CLASS}
+            >
+              {parentCategories.map((p) => (
+                <optgroup key={p.id} label={p.name}>
+                  <option value={p.id}>{p.name} (toda la categoría)</option>
+                  {childCategories
+                    .filter((s) => s.parentId === p.id)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>&nbsp;&nbsp;{s.name}</option>
+                    ))}
+                </optgroup>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => onChange(selected.filter((_, i) => i !== idx))}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+              aria-label="Quitar categoría"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )
+      })}
+
+      <button
+        type="button"
+        onClick={() => {
+          const unused = categories.find((c) => !selected.includes(c.id))
+          if (unused) onChange([...selected, unused.id])
+        }}
+        className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors py-1"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        Agregar categoría
+      </button>
+
+      {selected.length > 0 && selected.some((id) => parentCategories.some((p) => p.id === id)) && (
+        <p className="text-xs text-blue-400/70 bg-blue-500/5 border border-blue-500/20 px-3 py-2 rounded-lg">
+          Las categorías raíz seleccionadas aplican en cascada a todas sus subcategorías.
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ─── CouponManager ────────────────────────────────────────────────────────────
 
 type StatusFilter = 'active' | 'inactive' | 'all'
@@ -172,8 +255,8 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
       value: String(c.value / 100),
       restriction: c.restriction,
       expiresAt: c.expiresAt.split('T')[0] as string,
-      scope: c.productId ? 'product' : 'category',
-      categoryId: c.categoryId ?? '',
+      scope: c.scope === 'STORE' ? 'store' : c.scope === 'PRODUCT' ? 'product' : 'category',
+      categoryIds: c.categoryIds,
       productId: c.productId ?? '',
     })
     setError(null)
@@ -199,20 +282,28 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
     }
     const valueInCents = Math.round(rawValue * 100)
 
+    if (form.scope === 'category' && form.categoryIds.length === 0) {
+      setError('Debes seleccionar al menos una categoría')
+      setLoading(false)
+      return
+    }
+    if (form.scope === 'product' && !form.productId) {
+      setError('Debes seleccionar un producto')
+      setLoading(false)
+      return
+    }
+
+    const scopeEnum = form.scope === 'store' ? 'STORE' : form.scope === 'product' ? 'PRODUCT' : 'CATEGORY'
+
     const payload = {
       code: form.code.toUpperCase().trim(),
       type: form.type,
       value: valueInCents,
       restriction: form.restriction,
+      scope: scopeEnum,
       expiresAt: new Date(form.expiresAt + 'T23:59:59').toISOString(),
-      categoryId: form.scope === 'category' && form.categoryId ? form.categoryId : null,
-      productId: form.scope === 'product' && form.productId ? form.productId : null,
-    }
-
-    if (!payload.categoryId && !payload.productId) {
-      setError('Debes seleccionar una categoría o un producto')
-      setLoading(false)
-      return
+      ...(form.scope === 'category' && { categoryIds: form.categoryIds }),
+      ...(form.scope === 'product' && { productId: form.productId }),
     }
 
     try {
@@ -246,9 +337,6 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
     }
   }
 
-  const parentCategories = categories.filter((c) => c.parentId === null)
-  const childCategories = categories.filter((c) => c.parentId !== null)
-
   const PAGE_SIZE = 20
   const now = new Date()
   const ago1m = new Date(now); ago1m.setMonth(ago1m.getMonth() - 1)
@@ -274,6 +362,20 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
   const safePage = Math.min(page, totalPages)
   const visibleCoupons = filteredCoupons.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
+  function scopeLabel(c: CouponRow): string {
+    if (c.scope === 'STORE') return 'Toda la tienda'
+    if (c.scope === 'PRODUCT') {
+      return `Producto: ${products.find((p) => p.id === c.productId)?.name ?? c.productId ?? '—'}`
+    }
+    // CATEGORY
+    if (c.categoryIds.length === 0) return '—'
+    if (c.categoryIds.length === 1) {
+      const cat = categories.find((cat) => cat.id === c.categoryIds[0])
+      return `Cat: ${cat?.name ?? c.categoryIds[0]}`
+    }
+    return `${c.categoryIds.length} categorías`
+  }
+
   return (
     <>
       {/* Header */}
@@ -295,7 +397,6 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        {/* Filtro por estado */}
         <div className="flex gap-1 bg-white/5 border border-white/10 rounded-lg p-1">
           {([
             { key: 'active',   label: `Activos (${activeCount})` },
@@ -314,7 +415,6 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
           ))}
         </div>
 
-        {/* Filtro por fecha */}
         <div className="relative">
           <select
             value={dateFilter}
@@ -331,7 +431,6 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
 
       {/* Tabla */}
       <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-        {/* Encabezado */}
         <div className="grid grid-cols-[1fr_auto_1fr_1fr_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-white/10">
           {(['CÓDIGO', 'DESCUENTO', 'ALCANCE', 'RESTRICCIÓN', 'VENCE', 'ESTADO', '']).map((h) => (
             <span key={h} className="text-[11px] font-semibold text-white/30 uppercase tracking-widest">{h}</span>
@@ -351,29 +450,20 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
         {visibleCoupons.map((c) => {
           const expired = new Date(c.expiresAt) < new Date()
           const isEffectivelyActive = c.isActive && !expired
-          const scopeLabel = c.productId
-            ? `Producto: ${products.find((p) => p.id === c.productId)?.name ?? c.productId}`
-            : c.categoryId
-              ? `Cat: ${categories.find((cat) => cat.id === c.categoryId)?.name ?? c.categoryId}`
-              : '—'
 
           return (
             <div
               key={c.id}
               className={`grid grid-cols-[1fr_auto_1fr_1fr_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.03] transition-colors ${!c.isActive ? 'opacity-50' : ''}`}
             >
-              {/* Código */}
               <span className="font-mono text-sm font-semibold text-white">{c.code}</span>
 
-              {/* Descuento */}
               <span className="text-sm text-white/70 whitespace-nowrap">
                 {c.type === 'PERCENTAGE' ? `${c.value / 100}%` : formatCOP(c.value)}
               </span>
 
-              {/* Alcance */}
-              <span className="text-sm text-white/50 truncate" title={scopeLabel}>{scopeLabel}</span>
+              <span className="text-sm text-white/50 truncate" title={scopeLabel(c)}>{scopeLabel(c)}</span>
 
-              {/* Restricción */}
               <span className="text-sm text-white/50">
                 {c.restriction === 'NONE'
                   ? 'Sin límite'
@@ -382,12 +472,10 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
                     : 'Primera compra'}
               </span>
 
-              {/* Vence */}
               <span className={`text-sm whitespace-nowrap ${expired ? 'text-red-400' : 'text-white/50'}`}>
                 {formatDate(c.expiresAt)}
               </span>
 
-              {/* Estado */}
               <span
                 className={`text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap ${
                   isEffectivelyActive
@@ -400,7 +488,6 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
                 {isEffectivelyActive ? 'Activo' : expired ? 'Vencido' : 'Inactivo'}
               </span>
 
-              {/* Acciones */}
               <div className="flex items-center gap-3 justify-end">
                 <button
                   onClick={() => openEdit(c)}
@@ -562,50 +649,38 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
             {/* Alcance */}
             <div>
               <label className={LABEL_CLASS}>Alcance <span className="text-red-400">*</span></label>
-              <div className="flex gap-4 mb-3">
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-white/70 hover:text-white transition-colors">
-                  <input
-                    type="radio"
-                    name="scope"
-                    value="category"
-                    checked={form.scope === 'category'}
-                    onChange={() => setForm({ ...form, scope: 'category', productId: '' })}
-                    className="accent-blue-500"
-                  />
-                  Categoría / Subcategoría
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-white/70 hover:text-white transition-colors">
-                  <input
-                    type="radio"
-                    name="scope"
-                    value="product"
-                    checked={form.scope === 'product'}
-                    onChange={() => setForm({ ...form, scope: 'product', categoryId: '' })}
-                    className="accent-blue-500"
-                  />
-                  Producto específico
-                </label>
+              <div className="flex gap-4 mb-3 flex-wrap">
+                {([
+                  { value: 'store',    label: 'Toda la tienda' },
+                  { value: 'category', label: 'Categoría(s)' },
+                  { value: 'product',  label: 'Producto específico' },
+                ] as { value: Scope; label: string }[]).map(({ value, label }) => (
+                  <label key={value} className="flex items-center gap-2 cursor-pointer text-sm text-white/70 hover:text-white transition-colors">
+                    <input
+                      type="radio"
+                      name="scope"
+                      value={value}
+                      checked={form.scope === value}
+                      onChange={() => setForm({ ...form, scope: value, categoryIds: [], productId: '' })}
+                      className="accent-blue-500"
+                    />
+                    {label}
+                  </label>
+                ))}
               </div>
 
+              {form.scope === 'store' && (
+                <p className="text-xs text-emerald-400/70 bg-emerald-500/5 border border-emerald-500/20 px-3 py-2 rounded-lg">
+                  El descuento aplica a todos los productos de la tienda.
+                </p>
+              )}
+
               {form.scope === 'category' && (
-                <select
-                  value={form.categoryId}
-                  onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                  className={SELECT_CLASS}
-                  required
-                >
-                  <option value="">— Selecciona categoría —</option>
-                  {parentCategories.map((c) => (
-                    <optgroup key={c.id} label={c.name}>
-                      <option value={c.id}>{c.name} (aplica a toda la categoría)</option>
-                      {childCategories
-                        .filter((s) => s.parentId === c.id)
-                        .map((s) => (
-                          <option key={s.id} value={s.id}>&nbsp;&nbsp;{s.name}</option>
-                        ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <CategoryMultiSelect
+                  selected={form.categoryIds}
+                  onChange={(ids) => setForm((f) => ({ ...f, categoryIds: ids }))}
+                  categories={categories}
+                />
               )}
 
               {form.scope === 'product' && (
@@ -620,12 +695,6 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
-              )}
-
-              {form.scope === 'category' && form.categoryId && parentCategories.some((c) => c.id === form.categoryId) && (
-                <p className="mt-2 text-xs text-blue-400/70 bg-blue-500/5 border border-blue-500/20 px-3 py-2 rounded-lg">
-                  El descuento aplicará en cascada a todas las subcategorías de esta categoría.
-                </p>
               )}
             </div>
 

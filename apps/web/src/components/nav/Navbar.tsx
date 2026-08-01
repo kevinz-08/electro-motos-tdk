@@ -405,6 +405,117 @@ export function Navbar() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Overlay de búsqueda reutilizado en ambos layouts
+  // ─────────────────────────────────────────────────────────────────────────
+  function SearchOverlay() {
+    if (!searchOpen) return null
+    return (
+      <div
+        className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh] bg-black/70 backdrop-blur-sm"
+        onClick={() => { setSearchOpen(false); setSuggestions([]) }}
+      >
+        <div
+          ref={suggestRef}
+          className="w-full max-w-xl mx-4 bg-[#111] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <form id="search-form" onSubmit={handleSearchSubmit} className="flex items-center gap-3 px-5 py-4">
+            <svg className="w-5 h-5 shrink-0 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Buscar productos..."
+              className="flex-1 bg-transparent text-white text-lg placeholder-white/30 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => { setSearchOpen(false); setSuggestions([]) }}
+              className="shrink-0 p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              aria-label="Cerrar búsqueda"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </form>
+
+          {suggestions.length > 0 && (
+            <div className="border-t border-white/10 max-h-[360px] overflow-y-auto">
+              {suggestions.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => goToProduct(s.slug)}
+                  onMouseEnter={() => setSelectedIdx(i)}
+                  className={`w-full flex items-center gap-3 px-5 py-3 text-left transition-colors ${
+                    i === selectedIdx ? 'bg-white/10' : 'hover:bg-white/5'
+                  }`}
+                >
+                  <div className="w-12 h-12 shrink-0 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden relative">
+                    <svg className="absolute inset-0 m-auto w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    {s.image && (
+                      <img
+                        src={s.image}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-contain p-1"
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-white truncate">{s.name}</p>
+                    <p className="text-xs text-white/40 mt-0.5">
+                      {s.categoryName && <span>{s.categoryName}</span>}
+                      <span className="ml-2 font-semibold text-sky-400">{s.priceLabel}</span>
+                    </p>
+                  </div>
+                  {s.stock <= 5 && s.stock > 0 && (
+                    <span className="shrink-0 text-[10px] font-semibold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
+                      Últ. {s.stock}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {searchQuery.trim().length >= 2 && suggestions.length === 0 && (
+            <div className="px-5 pb-4">
+              <p className="text-sm text-white/30 text-center py-3">
+                Sin resultados para &ldquo;{searchQuery.trim()}&rdquo;
+              </p>
+            </div>
+          )}
+
+          <div className="border-t border-white/10 px-5 py-3 flex items-center justify-between">
+            <button
+              type="submit"
+              form="search-form"
+              className="text-sm font-medium text-sky-400 hover:text-sky-300 transition-colors"
+            >
+              {suggestions.length > 0
+                ? `Ver todos los resultados (${suggestions.length})`
+                : `Buscar "${searchQuery.trim()}" en el catálogo`
+              }
+            </button>
+            <span className="text-[11px] text-white/20 flex items-center gap-1">
+              <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[10px]">↵</kbd>
+              <span>para buscar</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Layout catálogo
   // ─────────────────────────────────────────────────────────────────────────
   if (isCatalog) {
@@ -419,8 +530,8 @@ export function Navbar() {
                 <Image src="/assets/logo.webp" alt="Electro Motos Tony" width={70} height={52} className="object-contain" style={{ height: 'auto' }} priority />
               </Link>
 
-              {/* Buscador central */}
-              <form onSubmit={handleCatalogSearch} className="flex-1 flex items-center max-w-2xl mx-auto">
+              {/* Buscador central — barra inline solo desde md:, en móvil se usa el ícono + overlay */}
+              <form onSubmit={handleCatalogSearch} className="hidden md:flex flex-1 items-center max-w-2xl mx-auto">
                 <div className="flex w-full rounded-full overflow-hidden border border-white/15 bg-white/5 focus-within:border-white/30 transition-colors">
                   <input
                     type="text"
@@ -442,7 +553,17 @@ export function Navbar() {
               </form>
 
               {/* Iconos derecha */}
-              <div className="shrink-0 flex items-center gap-1">
+              <div className="flex-1 md:flex-none flex items-center justify-end gap-1">
+                {/* Búsqueda (móvil) — mismo ícono + overlay que el resto del sitio */}
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="md:hidden p-2 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                  aria-label="Buscar producto"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
                 <div ref={userRef} className="relative">
                   <button
                     onClick={() => setUserOpen((v) => !v)}
@@ -464,8 +585,9 @@ export function Navbar() {
           </div>
         </header>
 
-        {/* Modal de perfil — fuera del <header> para evitar conflictos de z-index/overflow */}
+        {/* Modal de perfil y overlay de búsqueda — fuera del <header> para evitar conflictos de z-index/overflow */}
         <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} user={user} />
+        <SearchOverlay />
       </>
     )
   }
@@ -728,115 +850,11 @@ export function Navbar() {
             </Link>
           </div>
         )}
-        {/* ── Search overlay ── */}
-        {searchOpen && (
-          <div
-            className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh] bg-black/70 backdrop-blur-sm"
-            onClick={() => { setSearchOpen(false); setSuggestions([]) }}
-          >
-            <div
-              ref={suggestRef}
-              className="w-full max-w-xl mx-4 bg-[#111] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <form id="search-form" onSubmit={handleSearchSubmit} className="flex items-center gap-3 px-5 py-4">
-                <svg className="w-5 h-5 shrink-0 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder="Buscar productos..."
-                  className="flex-1 bg-transparent text-white text-lg placeholder-white/30 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => { setSearchOpen(false); setSuggestions([]) }}
-                  className="shrink-0 p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                  aria-label="Cerrar búsqueda"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </form>
-
-              {suggestions.length > 0 && (
-                <div className="border-t border-white/10 max-h-[360px] overflow-y-auto">
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => goToProduct(s.slug)}
-                      onMouseEnter={() => setSelectedIdx(i)}
-                      className={`w-full flex items-center gap-3 px-5 py-3 text-left transition-colors ${
-                        i === selectedIdx ? 'bg-white/10' : 'hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="w-12 h-12 shrink-0 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden relative">
-                        <svg className="absolute inset-0 m-auto w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                        {s.image && (
-                          <img
-                            src={s.image}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-contain p-1"
-                            onError={(e) => { e.currentTarget.style.display = 'none' }}
-                          />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-white truncate">{s.name}</p>
-                        <p className="text-xs text-white/40 mt-0.5">
-                          {s.categoryName && <span>{s.categoryName}</span>}
-                          <span className="ml-2 font-semibold text-sky-400">{s.priceLabel}</span>
-                        </p>
-                      </div>
-                      {s.stock <= 5 && s.stock > 0 && (
-                        <span className="shrink-0 text-[10px] font-semibold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
-                          Últ. {s.stock}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {searchQuery.trim().length >= 2 && suggestions.length === 0 && (
-                <div className="px-5 pb-4">
-                  <p className="text-sm text-white/30 text-center py-3">
-                    Sin resultados para &ldquo;{searchQuery.trim()}&rdquo;
-                  </p>
-                </div>
-              )}
-
-              <div className="border-t border-white/10 px-5 py-3 flex items-center justify-between">
-                <button
-                  type="submit"
-                  form="search-form"
-                  className="text-sm font-medium text-sky-400 hover:text-sky-300 transition-colors"
-                >
-                  {suggestions.length > 0
-                    ? `Ver todos los resultados (${suggestions.length})`
-                    : `Buscar "${searchQuery.trim()}" en el catálogo`
-                  }
-                </button>
-                <span className="text-[11px] text-white/20 flex items-center gap-1">
-                  <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-[10px]">↵</kbd>
-                  <span>para buscar</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
       </header>
 
-      {/* Modal de perfil — fuera del <header> para evitar conflictos de z-index/overflow */}
+      {/* Modal de perfil y overlay de búsqueda — fuera del <header> para evitar conflictos de z-index/overflow */}
       <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} user={user} />
+      <SearchOverlay />
     </>
   )
 }

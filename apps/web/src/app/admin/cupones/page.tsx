@@ -11,8 +11,14 @@ export const metadata: Metadata = { title: 'Cupones' }
 
 export default async function AdminCuponesPage() {
   const [couponRows, categoryRows, productRows] = await Promise.all([
-    prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } }),
-    prisma.category.findMany({ orderBy: [{ parentId: 'asc' }, { name: 'asc' }], select: { id: true, name: true, parentId: true } }),
+    prisma.coupon.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { categories: { select: { categoryId: true } } },
+    }),
+    prisma.category.findMany({
+      orderBy: [{ parentId: 'asc' }, { name: 'asc' }],
+      select: { id: true, name: true, parentId: true },
+    }),
     prisma.product.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
   ])
 
@@ -22,10 +28,11 @@ export default async function AdminCuponesPage() {
     type: c.type as CouponRow['type'],
     value: c.value,
     restriction: c.restriction as CouponRow['restriction'],
+    scope: c.scope as CouponRow['scope'],
     isActive: c.isActive,
     expiresAt: c.expiresAt.toISOString(),
     createdAt: c.createdAt.toISOString(),
-    categoryId: c.categoryId,
+    categoryIds: c.categories.map((cc) => cc.categoryId),
     productId: c.productId,
   }))
 

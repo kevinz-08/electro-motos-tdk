@@ -4,6 +4,74 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 145. Sistema de cupones con alcance múltiple (STORE / CATEGORY multi / PRODUCT)
+
+**Contexto:** el sistema de cupones original solo soportaba un alcance excluyente: una sola categoría
+(`categoryId`) o un producto específico. Se requería:
+
+1. Alcance **toda la tienda** (`STORE`) — aplica a todos los productos.
+2. Alcance **múltiples categorías** (`CATEGORY`) — con botón "+" para agregar más de una categoría
+   a un mismo cupón; la lógica de cascada a subcategorías se mantiene.
+3. Mantener el alcance por **producto específico** (`PRODUCT`).
+
+**Cambios:**
+
+**Schema (`packages/database/prisma/schema.prisma`):**
+
+- Nuevo enum `CouponScope { STORE | CATEGORY | PRODUCT }`.
+- `model Coupon`: se agrega `scope CouponScope @default(PRODUCT)`, se elimina `categoryId String?`
+  (y su FK a `Category`), se agrega relación `categories CouponCategory[]`.
+- Nuevo `model CouponCategory` — join table muchos-a-muchos entre `Coupon` y `Category`
+  con `onDelete: Cascade` en el lado del cupón.
+- `model Category`: relación actualizada de `coupons` → `couponCategories CouponCategory[]`.
+
+**Migración (`20260801000000_coupon_multi_scope`):**
+
+- Crea el enum y el `scope` column en `Coupon` (default `PRODUCT`).
+- `UPDATE "Coupon" SET scope = 'CATEGORY' WHERE categoryId IS NOT NULL` (data migration).
+- Crea `CouponCategory` con FK e índices.
+- `INSERT INTO "CouponCategory"` desde los `categoryId` existentes.
+- Elimina FK y columna `categoryId` de `Coupon`.
+
+**Dominio (`packages/domain`):**
+
+- `entities/Coupon.ts` — añadido `CouponScope` type; reemplazado `categoryId: string | null` por
+  `categoryIds: string[]` y `scope: CouponScope`.
+- `repositories/ICouponRepository.ts` — `CreateCouponInput`/`UpdateCouponInput` actualizados:
+  `scope`, `categoryIds?: string[]`, eliminado `categoryId`.
+- `use-cases/coupons/ValidateCoupon.ts` — lógica de scope reescrita:
+  `STORE` → todos los ítems elegibles; `CATEGORY` → `categoryIds.includes(item.categoryId ||
+  item.parentCategoryId)`; `PRODUCT` → sin cambio.
+
+**API (`apps/api`):**
+
+- `dto/create-coupon.dto.ts` — añadido `scope` enum; reemplazado `categoryId` por `categoryIds[]`
+  con `@ValidateIf((o) => o.scope === 'CATEGORY') @ArrayMinSize(1)`.
+- `dto/update-coupon.dto.ts` — mismos cambios, sin `@ValidateIf` (campos opcionales).
+- `PrismaCouponRepository.ts` — `toDomain` mapea `categories → categoryIds[]`; `findByCode` y
+  `findAll` usan `include: { categories: { select: { categoryId } } }`; `create` usa
+  `categories: { create: [...] }`; `update` hace `deleteMany + create` para reemplazar categorías.
+- `coupons.controller.ts` — pasa `scope` y `categoryIds` del DTO al repositorio.
+
+**UI (`apps/web`):**
+
+- `CouponManager.tsx` — `CouponRow` actualizado (`scope`, `categoryIds[]`); `FormState` usa
+  `scope: 'store' | 'category' | 'product'` y `categoryIds: string[]`; nuevo componente
+  `CategoryMultiSelect` (lista de selects + botón "+" para agregar / "X" para quitar); tabla
+  muestra "Toda la tienda" / "N categorías" / "Cat: X" según scope.
+- `admin/cupones/page.tsx` — query incluye `{ categories: { select: { categoryId } } }`;
+  mapa `scope` y `categoryIds[]` al `CouponRow`.
+
+**Tests:**
+
+- `ValidateCoupon.test.ts` — `makeCoupon` ahora usa `scope`/`categoryIds`; se agregaron tests:
+  `CATEGORY multi` (cubre ítems de varias categorías), `STORE` (todos elegibles),
+  `PRODUCT` revisado. Total: 140/140 pasan.
+- `vitest.config.ts` — añadido `include: ['src/**/*.test.ts'], exclude: ['dist/**']` para evitar
+  que Vitest recoja archivos `.js` compilados en `dist/__tests__/` (comportamiento incorrecto previo).
+
+---
+
 ## 144. Blueprint de producto — documentación PRD/TRD/Flujo/UI-UX/Backend en `docs/blueprint/`
 
 **Contexto:** se necesitaba una especificación completa, agnóstica de la implementación actual, que

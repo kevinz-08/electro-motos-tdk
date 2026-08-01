@@ -37,9 +37,10 @@ export interface ValidateCouponOutput {
  *   5. Al menos un ítem del carrito está dentro del scope del cupón.
  *
  * Scope con cascada jerárquica:
- *   categoryId → cubre productos cuya categoría ES la del cupón
- *                O cuya categoría es hija (parentCategoryId === coupon.categoryId).
- *   productId  → cubre solo ese producto exacto.
+ *   STORE    → todos los ítems son elegibles.
+ *   CATEGORY → cubre productos cuya categoría está en coupon.categoryIds,
+ *              O cuya categoría padre está en coupon.categoryIds.
+ *   PRODUCT  → cubre solo ese producto exacto.
  *
  * El descuento se calcula sobre el subtotal elegible (solo ítems cubiertos),
  * no sobre el total del carrito completo.
@@ -78,14 +79,13 @@ export class ValidateCoupon {
     }
 
     const eligibleItems = input.items.filter(item => {
-      if (coupon.productId) return item.productId === coupon.productId
-      if (coupon.categoryId) {
-        return (
-          item.categoryId === coupon.categoryId ||
-          item.parentCategoryId === coupon.categoryId
-        )
-      }
-      return false
+      if (coupon.scope === 'STORE') return true
+      if (coupon.scope === 'PRODUCT') return item.productId === coupon.productId
+      // CATEGORY: cascade — item's direct category or its parent must be in categoryIds
+      return (
+        coupon.categoryIds.includes(item.categoryId) ||
+        (item.parentCategoryId !== null && coupon.categoryIds.includes(item.parentCategoryId))
+      )
     })
 
     if (eligibleItems.length === 0) {

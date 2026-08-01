@@ -56,6 +56,12 @@ enum CouponRestriction {
   FIRST_PURCHASE    // solo clientes sin órdenes aprobadas previas
 }
 
+enum CouponScope {
+  STORE    // aplica a toda la tienda
+  CATEGORY // aplica a una o más categorías (y sus subcategorías en cascada)
+  PRODUCT  // aplica a un producto específico
+}
+
 // ─── NextAuth.js required models ─────────────────────────────────────────────
 
 model Account {
@@ -150,18 +156,18 @@ model PasswordResetToken {
 }
 
 model Category {
-  id          String     @id @default(cuid())
-  name        String
-  slug        String     @unique
-  description String?
-  imageUrl    String?
+  id               String           @id @default(cuid())
+  name             String
+  slug             String           @unique
+  description      String?
+  imageUrl         String?
   /// null  → categoría raíz (padre)
   /// non-null → subcategoría; apunta al id del padre
-  parentId    String?
-  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryTree")
-  products    Product[]
-  coupons     Coupon[]   @relation("CategoryCoupons")
+  parentId         String?
+  parent           Category?        @relation("CategoryTree", fields: [parentId], references: [id])
+  children         Category[]       @relation("CategoryTree")
+  products         Product[]
+  couponCategories CouponCategory[]
 }
 
 model Product {
@@ -338,10 +344,10 @@ model Payment {
 }
 
 /// Códigos promocionales administrados desde /admin/cupones.
-/// El scope del cupón es excluyente: exactamente uno de categoryId o productId
-/// debe ser no-null (validado en el DTO de NestJS, no en el schema).
-///   categoryId → aplica a todos los productos de esa categoría y sus subcategorías.
-///   productId  → aplica solo a ese producto específico.
+/// Scope del cupón (CouponScope):
+///   STORE    → aplica a toda la tienda.
+///   CATEGORY → aplica a una o más categorías (tabla CouponCategory) y sus subcategorías en cascada.
+///   PRODUCT  → aplica a un producto específico (productId).
 /// La expiración se evalúa de forma lazy en ValidateCoupon — no hay cron job.
 /// Soft delete: nunca se borra una fila; isActive=false la desactiva manualmente.
 model Coupon {
@@ -351,20 +357,31 @@ model Coupon {
   /// PERCENTAGE: puntos base (1000 = 10.00%). FIXED: centavos COP.
   value       Int
   restriction CouponRestriction @default(NONE)
+  scope       CouponScope       @default(PRODUCT)
   isActive    Boolean           @default(true)
   expiresAt   DateTime
   createdAt   DateTime          @default(now())
 
-  /// Scope: categoría (incluye subcategorías vía parentId) o producto específico.
-  categoryId  String?
   productId   String?
-  category    Category? @relation("CategoryCoupons", fields: [categoryId], references: [id])
-  product     Product?  @relation("ProductCoupons", fields: [productId], references: [id])
-
+  product     Product?         @relation("ProductCoupons", fields: [productId], references: [id])
+  categories  CouponCategory[]
   orders      Order[]
 
   @@index([code])
   @@index([isActive, expiresAt])
+}
+
+/// Relación muchos-a-muchos entre Coupon y Category.
+/// Un cupón CATEGORY puede cubrir una o más categorías (y sus subcategorías en cascada).
+model CouponCategory {
+  id         String   @id @default(cuid())
+  couponId   String
+  categoryId String
+  coupon     Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([couponId, categoryId])
+  @@index([couponId])
 }
 
 model Settings {

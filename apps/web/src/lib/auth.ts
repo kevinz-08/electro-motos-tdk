@@ -54,7 +54,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
 
   // JWT es requerido para que el Credentials provider funcione junto con el adapter.
-  session: { strategy: 'jwt' },
+  // maxAge debe coincidir con JWT_EXPIRES_IN de la API (apps/api/src/auth/auth.module.ts) —
+  // si la sesión de NextAuth vive más que el accessToken de NestJS, las mutaciones admin
+  // empiezan a fallar con 401 "Unauthorized" aunque la sesión del browser siga activa.
+  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
 
   providers: [
     // ─── Google OAuth ────────────────────────────────────────────────────────

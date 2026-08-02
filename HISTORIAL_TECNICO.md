@@ -4,6 +4,58 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 147. Fix: 500 al guardar producto con slug/sku duplicado (admin)
+
+**Contexto:** `Product.slug` y `Product.sku` son `@unique` en el schema, pero
+`PrismaProductRepository.save()`/`.update()` no envolvía las llamadas a Prisma en try/catch. Al
+guardar un producto con un slug o sku ya usado por otro producto, Prisma lanzaba
+`PrismaClientKnownRequestError` (`P2002`) sin capturar, que subía hasta el filtro global de
+excepciones y se devolvía como 500 "Error interno del servidor" genérico — sin decir qué campo
+chocó.
+
+**Cambios (`apps/api/src/infrastructure/repositories/PrismaProductRepository.ts`):**
+
+- `isUniqueConstraintError()` — type guard duck-typed para detectar `P2002` en runtime (el
+  `Prisma` que re-exporta `@h2r/database` es solo tipo — `export type { Prisma }` — no sirve para
+  `instanceof`).
+- `throwFriendlyConflict()` — envuelve el error en `ConflictException` (409) de NestJS con mensaje
+  "Ya existe un producto con ese SKU/slug" (identifica el campo vía `error.meta.target`).
+- `save()` y `update()` ahora envuelven la llamada a Prisma en try/catch y delegan al helper
+  anterior. Al ser un `HttpException` con status < 500, el filtro global lo devuelve limpio sin
+  `errorId` ni Sentry, y el frontend (`ProductEditForm.tsx`) ya muestra `res.error` en el
+  formulario.
+
+---
+
+## 146. Fix: 401 Unauthorized al guardar producto (admin) — desfase de expiración de sesión
+
+**Contexto:** al crear/editar un producto en producción, "Guardar" fallaba con 401 "Unauthorized"
+después de unos días de sesión activa. Causa: la sesión de NextAuth vive 30 días (default), pero
+el `accessToken` de NestJS embebido en esa sesión expiraba a los 7 días. El callback `jwt()` de
+NextAuth solo emite el `accessToken` en el login inicial, nunca lo renueva — pasados 7 días la
+cookie de sesión seguía "viva" (se veía el panel admin) pero cada mutación autenticada a NestJS
+fallaba porque `passport-jwt` rechazaba el token vencido.
+
+Se encontró además un bug de nombre de variable: `apps/api/src/auth/auth.module.ts` leía
+`config.get('JWT_EXPIRY')`, una clave que nunca existió en `.env` (la real es `JWT_EXPIRES_IN`) —
+por lo que la duración configurada en `.env` nunca se aplicaba y siempre caía al fallback
+hardcodeado de `'7d'`.
+
+**Cambios:**
+
+- `apps/api/src/auth/auth.module.ts` — corregido a leer `JWT_EXPIRES_IN` (nombre correcto de la
+  variable), fallback subido de `'7d'` a `'30d'`.
+- `apps/api/.env` / `.env.example` — `JWT_EXPIRES_IN=30d` (antes `7d`).
+- `apps/web/src/lib/auth.ts` — `session.maxAge` explícito de 30 días, documentando que debe
+  coincidir con `JWT_EXPIRES_IN` de la API.
+
+Con esto, la sesión de NextAuth y el `accessToken` de NestJS expiran al mismo tiempo — nunca habrá
+un accessToken vencido "escondido" detrás de una cookie de sesión que parece viva.
+
+**Pendiente:** setear `JWT_EXPIRES_IN=30d` en las variables de entorno de Cloud Run (producción).
+
+---
+
 ## 145. Sistema de cupones con alcance múltiple (STORE / CATEGORY multi / PRODUCT)
 
 **Contexto:** el sistema de cupones original solo soportaba un alcance excluyente: una sola categoría

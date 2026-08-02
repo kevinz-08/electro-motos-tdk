@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { ConflictException, Injectable } from '@nestjs/common'
 import {
   IProductRepository,
   PaginatedProducts,
@@ -7,6 +7,22 @@ import {
   MotorcycleCompatibility,
 } from '@h2r/domain'
 import { PrismaService } from '../database/prisma.service'
+
+/**
+ * `@h2r/database` solo re-exporta `Prisma` como tipo (`export type { Prisma }`),
+ * así que no sirve para `instanceof` en runtime. Detectamos P2002 por duck-typing.
+ */
+function isUniqueConstraintError(e: unknown): e is { code: 'P2002'; meta?: { target?: string[] } } {
+  return typeof e === 'object' && e !== null && (e as { code?: unknown }).code === 'P2002'
+}
+
+function throwFriendlyConflict(e: unknown): never {
+  if (isUniqueConstraintError(e)) {
+    const field = e.meta?.target?.includes('sku') ? 'SKU' : 'slug'
+    throw new ConflictException(`Ya existe un producto con ese ${field}`)
+  }
+  throw e
+}
 
 type PrismaProductRow = {
   id: string; name: string; slug: string; description: string
@@ -123,43 +139,51 @@ export class PrismaProductRepository implements IProductRepository {
   }
 
   async save(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> {
-    const p = await this.prisma.client.product.create({
-      data: {
-        name: data.name, slug: data.slug, description: data.description,
-        price: data.price, stock: data.stock, sku: data.sku,
-        images: data.images, isActive: data.isActive, categoryId: data.categoryId,
-        weightKg: data.weightKg ?? null, heightCm: data.heightCm ?? null,
-        widthCm: data.widthCm ?? null, lengthCm: data.lengthCm ?? null,
-        compatible: data.compatible
-          ? { create: data.compatible.map(({ id: _id, ...c }) => c) }
-          : undefined,
-      },
-      include: { compatible: true },
-    })
-    return toDomain(p)
+    try {
+      const p = await this.prisma.client.product.create({
+        data: {
+          name: data.name, slug: data.slug, description: data.description,
+          price: data.price, stock: data.stock, sku: data.sku,
+          images: data.images, isActive: data.isActive, categoryId: data.categoryId,
+          weightKg: data.weightKg ?? null, heightCm: data.heightCm ?? null,
+          widthCm: data.widthCm ?? null, lengthCm: data.lengthCm ?? null,
+          compatible: data.compatible
+            ? { create: data.compatible.map(({ id: _id, ...c }) => c) }
+            : undefined,
+        },
+        include: { compatible: true },
+      })
+      return toDomain(p)
+    } catch (e) {
+      throwFriendlyConflict(e)
+    }
   }
 
   async update(id: string, data: Partial<Product>): Promise<Product> {
-    const p = await this.prisma.client.product.update({
-      where: { id },
-      data: {
-        ...(data.name        !== undefined && { name:        data.name }),
-        ...(data.slug        !== undefined && { slug:        data.slug }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.price       !== undefined && { price:       data.price }),
-        ...(data.stock       !== undefined && { stock:       data.stock }),
-        ...(data.sku         !== undefined && { sku:         data.sku }),
-        ...(data.images      !== undefined && { images:      data.images }),
-        ...(data.isActive    !== undefined && { isActive:    data.isActive }),
-        ...(data.weightKg    !== undefined && { weightKg:    data.weightKg }),
-        ...(data.heightCm    !== undefined && { heightCm:    data.heightCm }),
-        ...(data.widthCm     !== undefined && { widthCm:     data.widthCm }),
-        ...(data.lengthCm    !== undefined && { lengthCm:    data.lengthCm }),
-        ...(data.categoryId  !== undefined && { categoryId:  data.categoryId }),
-      },
-      include: { compatible: true },
-    })
-    return toDomain(p)
+    try {
+      const p = await this.prisma.client.product.update({
+        where: { id },
+        data: {
+          ...(data.name        !== undefined && { name:        data.name }),
+          ...(data.slug        !== undefined && { slug:        data.slug }),
+          ...(data.description !== undefined && { description: data.description }),
+          ...(data.price       !== undefined && { price:       data.price }),
+          ...(data.stock       !== undefined && { stock:       data.stock }),
+          ...(data.sku         !== undefined && { sku:         data.sku }),
+          ...(data.images      !== undefined && { images:      data.images }),
+          ...(data.isActive    !== undefined && { isActive:    data.isActive }),
+          ...(data.weightKg    !== undefined && { weightKg:    data.weightKg }),
+          ...(data.heightCm    !== undefined && { heightCm:    data.heightCm }),
+          ...(data.widthCm     !== undefined && { widthCm:     data.widthCm }),
+          ...(data.lengthCm    !== undefined && { lengthCm:    data.lengthCm }),
+          ...(data.categoryId  !== undefined && { categoryId:  data.categoryId }),
+        },
+        include: { compatible: true },
+      })
+      return toDomain(p)
+    } catch (e) {
+      throwFriendlyConflict(e)
+    }
   }
 
   async updateStock(id: string, newStock: number): Promise<void> {

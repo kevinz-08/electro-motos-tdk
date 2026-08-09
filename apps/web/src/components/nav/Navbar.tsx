@@ -313,8 +313,7 @@ export function Navbar() {
   // ─────────────────────────────────────────────────────────────────────────
   // Dropdown de usuario reutilizado en ambos layouts
   // ─────────────────────────────────────────────────────────────────────────
-  function UserDropdown() {
-    return (
+  const userDropdownEl = (
       <div className="absolute top-full right-0 mt-2 w-56 bg-[#111] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
         {session?.user ? (
           <>
@@ -401,15 +400,12 @@ export function Navbar() {
           </div>
         )}
       </div>
-    )
-  }
+  )
 
   // ─────────────────────────────────────────────────────────────────────────
   // Overlay de búsqueda reutilizado en ambos layouts
   // ─────────────────────────────────────────────────────────────────────────
-  function SearchOverlay() {
-    if (!searchOpen) return null
-    return (
+  const searchOverlayEl = !searchOpen ? null : (
       <div
         className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh] bg-black/70 backdrop-blur-sm"
         onClick={() => { setSearchOpen(false); setSuggestions([]) }}
@@ -512,8 +508,7 @@ export function Navbar() {
           </div>
         </div>
       </div>
-    )
-  }
+  )
 
   // ─────────────────────────────────────────────────────────────────────────
   // Layout catálogo
@@ -577,7 +572,7 @@ export function Navbar() {
                     </svg>
                     <span className="hidden sm:inline text-xs font-medium">{firstName}</span>
                   </button>
-                  {userOpen && <UserDropdown />}
+                  {userOpen && userDropdownEl}
                 </div>
                 <CartIcon />
               </div>
@@ -587,7 +582,7 @@ export function Navbar() {
 
         {/* Modal de perfil y overlay de búsqueda — fuera del <header> para evitar conflictos de z-index/overflow */}
         <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} user={user} />
-        <SearchOverlay />
+        {searchOverlayEl}
       </>
     )
   }
@@ -664,7 +659,7 @@ export function Navbar() {
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </button>
-                {userOpen && <UserDropdown />}
+                {userOpen && userDropdownEl}
               </div>
 
               <CartIcon />
@@ -854,7 +849,7 @@ export function Navbar() {
 
       {/* Modal de perfil y overlay de búsqueda — fuera del <header> para evitar conflictos de z-index/overflow */}
       <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} user={user} />
-      <SearchOverlay />
+      {searchOverlayEl}
     </>
   )
 }

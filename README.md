@@ -21,6 +21,7 @@ electrónico. Los administradores gestionan productos, pedidos y stock desde un 
 8. [Flujo de pago con Mercado Pago](#8-flujo-de-pago-con-mercado-pago)
 9. [Integración de despacho con Vendelo](#9-integración-de-despacho-con-vendelo)
    - [9.1 Pago contra entrega (COD)](#91-pago-contra-entrega-cod)
+   - [9.4 Apartado "Guía Vendelo" en el panel admin](#94-apartado-guía-vendelo-en-el-panel-admin)
 10. [Servicios de background (colas y reconciliación)](#10-servicios-de-background-colas-y-reconciliación)
 11. [API NestJS — Referencia completa](#11-api-nestjs--referencia-completa)
 12. [Variables de entorno](#12-variables-de-entorno)
@@ -710,6 +711,50 @@ cuando `shippingTotal > 0`, para que los números siempre cuadren.
 en `Settings` (el toggle traía un significado distinto de un intento anterior) — todo ambiente
 arranca en el default seguro (desactivado) hasta que el admin lo active manualmente.
 
+### 9.4 Apartado "Guía Vendelo" en el panel admin
+
+Todo el flujo de despacho es automático (webhook → `VendeloOrderQueueService` → Vendelo), pero
+cuando algo falla el admin no tenía forma de verlo ni de recuperarlo sin tocar la base de datos.
+El modal de detalle de `/admin/pedidos` incluye la sección **Guía Vendelo**, que expone el estado
+consolidado del despacho y las acciones correctivas.
+
+**Máquina de estados que se le muestra al admin:**
+
+| Situación | Qué ve | Acción disponible |
+|---|---|---|
+| `deliveryMethod = STORE_PICKUP` | "Retiro en tienda — sin guía" | ninguna (nunca se despacha) |
+| Cola en `PENDING` / `PROCESSING` | "En cola — intento N/3" + próximo reintento | ninguna (esperar al worker) |
+| Cola en `FAILED` | Banner rojo con el `lastError` crudo de Vendelo | **Reintentar envío a Vendelo** |
+| `vendeloOrderId` asignado, sin `Shipment` | "Pedido creado en Vendelo" | **Generar guía** |
+| `Shipment` existente | Estado, tracking y transportador | **Ver / Descargar guía PDF** |
+
+**Flujo de datos** (el navegador nunca habla directo con la API de Vendelo ni con NestJS):
+
+```
+VendeloGuiaSection (client component)
+    │  GET  /api/admin/vendelo/orders/[id]           ← estado consolidado
+    │  POST /api/admin/vendelo/orders/[id]/requeue   ← reencolar pedido fallido
+    │  POST /api/admin/vendelo/orders/[id]/shipment  ← crear envío (guía)
+    │  GET  /api/admin/vendelo/orders/[id]/guia      ← stream del PDF
+    ↓  route handlers Next.js — validan session.user.role === 'ADMIN'
+NestJS  /admin/vendelo/*  — @Roles('ADMIN')
+    ↓
+VendeloService → API Vendelo
+```
+
+La etiqueta se pide siempre con `output: 'BASE64'` y se re-emite como `application/pdf` desde el
+route handler. La alternativa (`output: 'URL'`) devuelve un enlace temporal de Vendelo que expira;
+esa URL igual se persiste en `Shipment.labelUrl` como referencia, pero no es lo que consume la UI.
+
+**Idempotencia del reintento:** `VendeloOrderQueueService.requeue()` rechaza el pedido si ya tiene
+`vendeloOrderId` (ya existe en Vendelo — reintentarlo lo duplicaría) o si es `STORE_PICKUP`. Sobre
+un pedido en `FAILED` resetea la fila existente a `PENDING / attempts: 0` en vez de crear una nueva,
+y dispara `processNext()` inmediatamente sin esperar el tick de 2 minutos.
+
+Además, la lista de `/admin/pedidos` tiene una columna **Guía** con un indicador de color por fila
+(🟢 con guía · 🔵 en Vendelo · 🟡 en cola · 🔴 fallida · ⚪ retiro en tienda), resuelta en el Server
+Component con dos queries agregadas — sin N+1 sobre la tabla.
+
 ---
 
 ## 10. Servicios de background (colas y reconciliación)
@@ -908,12 +953,21 @@ MP_PUBLIC_KEY=TEST-xxx
 MP_WEBHOOK_SECRET=
 
 # ── Vendelo (logística) ────────────────────────────────────────────────────────
-VENDELO_API_URL=https://api.vendelo.co
+VENDELO_API_URL=https://api.venndelo.com   # la doble "n" no es typo: es la URL real
 VENDELO_API_KEY=
-VENDELO_PICKUP_CITY_CODE=                  # Código de ciudad de despacho (ej. BOG)
-VENDELO_PICKUP_ADDRESS=                    # Dirección del punto de recogida
-VENDELO_PICKUP_CONTACT_NAME=
-VENDELO_PICKUP_CONTACT_PHONE=
+VENDELO_WEBHOOK_SECRET=
+# Datos del comercio → pickup_info de cada pedido Vendelo. VENDELO_STORE_NAME es
+# el remitente que se imprime en la guía.
+VENDELO_STORE_NAME=H2r Online Store
+VENDELO_STORE_PHONE=
+VENDELO_STORE_ADDRESS=
+VENDELO_STORE_CITY_CODE=                   # DIVIPOLA de 8 dígitos (ej. 68001000 = Bucaramanga)
+VENDELO_STORE_SUBDIVISION_CODE=            # Debe corresponder a la ciudad (ej. 68 para 68001000)
+# Peso/dimensiones por defecto cuando el producto no los tiene cargados
+VENDELO_DEFAULT_WEIGHT_KG=1
+VENDELO_DEFAULT_HEIGHT_CM=25
+VENDELO_DEFAULT_WIDTH_CM=25
+VENDELO_DEFAULT_LENGTH_CM=10
 
 # ── Email (Resend) ─────────────────────────────────────────────────────────────
 RESEND_API_KEY=re_xxx
@@ -1142,7 +1196,7 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | `/admin/productos` | Lista de productos — crear, editar, mover a papelera |
 | `/admin/productos/papelera` | Productos eliminados — restaurar desde la papelera |
 | `/admin/productos/[id]` | Formulario de edición con upload a Cloudinary |
-| `/admin/pedidos` | Todos los pedidos filtrados por estado |
+| `/admin/pedidos` | Todos los pedidos filtrados por estado + columna "Guía" y sección **Guía Vendelo** en el modal de detalle (reintentar despacho, generar guía, descargar PDF — ver [9.4](#94-apartado-guía-vendelo-en-el-panel-admin)) |
 | `/admin/stock` | Productos con stock ≤ 5, actualización individual de stock |
 | `/admin/sync` | Sincroniza stock y precio con el export `.xlsx` de Optimun (local físico) |
 | `/admin/configuracion` | Toggle para activar/desactivar Mercado Pago |

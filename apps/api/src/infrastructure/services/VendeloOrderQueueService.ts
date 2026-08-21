@@ -3,9 +3,26 @@ import { PrismaService } from '../database/prisma.service'
 import { VendeloService } from './VendeloService'
 
 const PROCESS_INTERVAL_MS = 2 * 60 * 1000 // cada 2 minutos
-const MAX_ATTEMPTS = 3
+/** Intentos automáticos antes de marcar la fila como FAILED. */
+export const MAX_ATTEMPTS = 3
 const BACKOFF_SECONDS = [5, 30, 120] // por intento fallido
 const ORPHAN_THRESHOLD_MS = 5 * 60 * 1000 // 5 min sin avance = contenedor crasheó
+
+/** Fila de VendeloOrderQueue tal como la devuelve Prisma. */
+export interface VendeloQueueRow {
+  id: string
+  orderId: string
+  attempts: number
+  lastError: string | null
+  status: string
+  createdAt: Date
+  nextRetry: Date
+  processingStartedAt: Date | null
+}
+
+export type RequeueResult =
+  | { requeued: true }
+  | { requeued: false; reason: string }
 
 @Injectable()
 export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
@@ -208,6 +225,72 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
       orderBy: { createdAt: 'desc' },
       take: limit,
     })
+  }
+
+  /** Fila de cola más reciente de un pedido. null si nunca se encoló. */
+  async findByOrderId(orderId: string): Promise<VendeloQueueRow | null> {
+    return this.prisma.client.vendeloOrderQueue.findFirst({
+      where: { orderId },
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  /**
+   * Reencola manualmente un pedido cuyo despacho quedó en FAILED — la acción
+   * "Reintentar envío a Vendelo" del panel admin.
+   *
+   * Resetea la fila existente (attempts=0, status=PENDING) en vez de crear una
+   * nueva: dos filas para el mismo orderId significarían dos llamadas a
+   * `createOrder` y por lo tanto un pedido duplicado en Vendelo, que no trata
+   * `external_order_id` como clave única.
+   *
+   * Rechaza (sin efecto) los casos en que reintentar sería incorrecto:
+   *   - el pedido ya tiene vendeloOrderId → ya existe allá, reintentar duplica.
+   *   - deliveryMethod = STORE_PICKUP     → nunca se despacha por Vendelo.
+   *   - la fila ya está PENDING/PROCESSING → el worker la va a tomar sola.
+   */
+  async requeue(orderId: string): Promise<RequeueResult> {
+    const order = await this.prisma.client.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, vendeloOrderId: true, deliveryMethod: true },
+    })
+
+    if (!order) return { requeued: false, reason: 'Pedido no encontrado' }
+
+    if (order.vendeloOrderId) {
+      return {
+        requeued: false,
+        reason: `El pedido ya existe en Vendelo (id ${order.vendeloOrderId}). Reintentarlo lo duplicaría.`,
+      }
+    }
+
+    if (order.deliveryMethod === 'STORE_PICKUP') {
+      return { requeued: false, reason: 'El pedido es de retiro en tienda: nunca se despacha por Vendelo.' }
+    }
+
+    const existing = await this.findByOrderId(orderId)
+
+    if (existing && (existing.status === 'PENDING' || existing.status === 'PROCESSING')) {
+      return { requeued: false, reason: `El pedido ya está en cola (estado ${existing.status}).` }
+    }
+
+    if (existing) {
+      await this.prisma.client.vendeloOrderQueue.update({
+        where: { id: existing.id },
+        data: { status: 'PENDING', attempts: 0, lastError: null, nextRetry: new Date(), processingStartedAt: null },
+      })
+      this.logger.log(`[VendeloOrderQueue] Reencolado manualmente orderId=${orderId} queueId=${existing.id}`)
+    } else {
+      await this.enqueue(orderId)
+    }
+
+    // Dispara el procesamiento ya mismo en vez de esperar el tick de 2 min —
+    // el admin está mirando la UI y espera una respuesta en segundos.
+    this.processNext().catch((e) =>
+      this.logger.error(`[VendeloOrderQueue] Error en procesamiento tras requeue orderId=${orderId}: ${e}`),
+    )
+
+    return { requeued: true }
   }
 
   private emitFailedAlert(payload: {

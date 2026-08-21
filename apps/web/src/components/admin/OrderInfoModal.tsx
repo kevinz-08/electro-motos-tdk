@@ -13,6 +13,8 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
+import { Section, KV, Pill, STATUS_COLOR, formatDateTime } from './order-detail-primitives'
+import { VendeloGuiaSection } from './VendeloGuiaSection'
 
 interface OrderDetails {
   id: string
@@ -51,27 +53,6 @@ interface OrderDetails {
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(cents / 100)
-}
-
-function formatDateTime(d: string): string {
-  return new Intl.DateTimeFormat('es-CO', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  }).format(new Date(d))
-}
-
-const STATUS_COLOR: Record<string, string> = {
-  PENDING: 'bg-amber-500/20 text-amber-400',
-  PAID: 'bg-green-500/20 text-green-400',
-  SHIPPED: 'bg-blue-500/20 text-blue-400',
-  DELIVERED: 'bg-purple-500/20 text-purple-400',
-  CANCELLED: 'bg-red-500/20 text-red-400',
-  APPROVED: 'bg-green-500/20 text-green-400',
-  DECLINED: 'bg-red-500/20 text-red-400',
-  PREPARING: 'bg-indigo-500/20 text-indigo-400',
-  READY: 'bg-cyan-500/20 text-cyan-400',
-  INCIDENT: 'bg-orange-500/20 text-orange-400',
-  RETURNED: 'bg-red-500/20 text-red-400',
 }
 
 export function OrderInfoModal({ orderId }: { orderId: string }) {
@@ -210,10 +191,11 @@ export function OrderInfoModal({ orderId }: { orderId: string }) {
                     {data.shipment?.carrier && (
                       <KV label="Transportador" value={data.shipment.carrier} />
                     )}
-                    {data.vendeloOrderId && (
-                      <KV label="ID Vendelo" value={data.vendeloOrderId} mono />
-                    )}
                   </Section>
+
+                  {/* Guía Vendelo — estado del despacho + acciones correctivas.
+                      Se monta solo con el modal abierto: hace su propio fetch. */}
+                  <VendeloGuiaSection orderId={orderId} />
 
                   {/* Items */}
                   <Section title="Productos">
@@ -305,30 +287,3 @@ export function OrderInfoModal({ orderId }: { orderId: string }) {
   )
 }
 
-// ── Subcomponentes pequeños ──────────────────────────────────────────────────
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="text-xs font-bold text-white/40 uppercase tracking-wide mb-2">{title}</h3>
-      <div className="space-y-1.5">{children}</div>
-    </div>
-  )
-}
-
-function KV({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex gap-3 text-sm">
-      <span className="text-white/40 w-28 shrink-0">{label}</span>
-      <span className={`text-white ${mono ? 'font-mono text-xs' : ''} break-all`}>{value}</span>
-    </div>
-  )
-}
-
-function Pill({ label, color }: { label: string; color?: string }) {
-  return (
-    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${color ?? 'bg-white/10 text-white/60'}`}>
-      {label}
-    </span>
-  )
-}

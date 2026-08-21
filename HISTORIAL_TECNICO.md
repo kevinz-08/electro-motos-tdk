@@ -4,6 +4,72 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 148. Apartado "Guía Vendelo" en `/admin/pedidos`
+
+**Contexto:** el despacho a Vendelo es 100 % automático (webhook → `VendeloOrderQueueService` →
+`POST /v1/admin/orders`), pero cuando fallaba, el admin no tenía forma de enterarse ni de
+recuperarlo. Caso real que motivó el cambio: un pedido pagado el 21/08 quedó con la fila de cola en
+`FAILED` tras 3 intentos (`Vendelo API 500: "The entity Order has invalid values"`) y `vendeloOrderId`
+en NULL. La alerta `CRITICAL VENDELO_ORDER_QUEUE_FAILED` que emite `emitFailedAlert()` solo va a
+stderr, así que el pedido quedó pagado y sin despachar en silencio. La única salida era editar la
+BD a mano.
+
+El backend logístico ya estaba completo (`create-shipments`, `generate-labels`, `request-pickup`);
+lo que faltaba era exponerlo y poder reintentar un despacho fallido.
+
+**Backend (`apps/api`):**
+
+- `VendeloOrderQueueService.requeue(orderId)` — resetea la fila existente a `PENDING / attempts: 0`
+  en vez de crear una nueva (dos filas para el mismo `orderId` = dos `createOrder` = pedido
+  duplicado en Vendelo, que no trata `external_order_id` como clave única). Rechaza sin efecto si
+  el pedido ya tiene `vendeloOrderId`, si es `STORE_PICKUP`, o si la fila ya está en vuelo. Dispara
+  `processNext()` inmediatamente en vez de esperar el tick de 2 min.
+- `VendeloOrderQueueService.findByOrderId()` + `MAX_ATTEMPTS` exportado.
+- `ShippingAdminService.getShippingStatus(orderId)` — une en una respuesta `Order.vendeloOrderId`,
+  la fila de `VendeloOrderQueue` y el `Shipment`, más un bloque `actions` (`canRequeue`,
+  `canCreateShipment`, `canGenerateLabel`) calculado en el servidor para que la máquina de estados
+  exista en un solo lugar.
+- `ShippingAdminService.generateLabels()` ahora persiste `Shipment.labelUrl` cuando se pide una
+  etiqueta con `output=URL` para un único pedido (la columna existía en el schema desde el inicio
+  pero nunca se escribía). Con varios pedidos no se persiste: Vendelo devuelve un PDF combinado.
+- `VendeloController`: `GET /admin/vendelo/orders/:orderId/shipping-status` y
+  `POST /admin/vendelo/orders/:orderId/requeue`, ambos bajo `@Roles('ADMIN')`.
+
+**BFF (`apps/web/src/app/api/admin/vendelo/orders/[id]/`):** cuatro route handlers (`route.ts`,
+`requeue/`, `shipment/`, `guia/`) que validan `session.user.role === 'ADMIN'` y reenvían a NestJS con
+el `accessToken` de la sesión. El navegador no puede llamar a NestJS directo: el token vive en una
+cookie httpOnly. Helper compartido en `apps/web/src/lib/admin-vendelo-proxy.ts`.
+
+El PDF se pide siempre con `output: 'BASE64'` y se re-emite como `application/pdf`. La alternativa
+(`URL`) devuelve un enlace temporal de Vendelo que expira y no permite `<a download>`.
+
+**UI (`apps/web/src/components/admin/`):**
+
+- `VendeloGuiaSection.tsx` — sección nueva del modal de detalle. Renderiza según los flags de
+  `actions` que manda el servidor: banner rojo con el `lastError` **crudo** de Vendelo + "Reintentar
+  envío a Vendelo" si la cola falló; "Generar guía" si el pedido ya existe en Vendelo sin envío;
+  "Ver / Descargar guía PDF" cuando la guía existe; nada para `STORE_PICKUP`.
+- `order-detail-primitives.tsx` — `Section`, `KV`, `Pill`, `STATUS_COLOR` y `formatDateTime` salieron
+  de `OrderInfoModal.tsx` a su propio archivo: importarlos desde el modal habría creado una
+  dependencia circular, ya que el modal renderiza `VendeloGuiaSection`.
+- `OrderInfoModal.tsx` — importa las primitivas y monta la sección después de "Envío". Se quitó el
+  `KV` de "ID Vendelo" de la sección "Envío" porque la sección nueva ya lo muestra.
+- `pedidos/page.tsx` — columna "Guía" con un punto de color por fila (🟢 creada · 🔵 en Vendelo ·
+  🟡 en cola · 🔴 fallida · ⚪ sin despacho/retiro en tienda) más su leyenda. Se resuelve con tres
+  queries agregadas sobre los ≤20 pedidos visibles, no una por fila.
+- `help-content/pedidos.ts` — actualizado (antes decía explícitamente que generar guías no se podía
+  hacer desde esta pantalla).
+
+**Tests:** 5 casos nuevos para `requeue()` en `VendeloOrderQueueService.test.ts` (reset en vez de
+fila nueva, primer encolado, rechazo por `vendeloOrderId` existente, rechazo por `STORE_PICKUP`,
+rechazo si la fila está en vuelo). Suite API: 182 pasando.
+
+**No incluido:** notificación real (email/Slack) al admin cuando la cola marca `FAILED` — sigue
+yendo solo a stderr. Y la validación de formato de cédula en el checkout, que es la causa probable
+del fallo original, queda pendiente aparte.
+
+---
+
 ## 147. Fix: 500 al guardar producto con slug/sku duplicado (admin)
 
 **Contexto:** `Product.slug` y `Product.sku` son `@unique` en el schema, pero

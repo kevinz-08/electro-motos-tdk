@@ -4,6 +4,35 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 149. Remitente de las guías Vendelo: "Electro Motos TDK" → "H2r Online Store"
+
+**Contexto:** las guías de envío salían con "Electro Motos TDK" como remitente. Ese texto es
+`pickup_info.contact_name` del payload de `VendeloService.createOrder()`, que se lee de
+`VENDELO_STORE_NAME`.
+
+**Cambios:**
+
+- `apps/api/src/infrastructure/services/VendeloService.ts` — el fallback del `??` pasa a
+  `'H2r Online Store'` (aplica solo si la variable falta en el entorno).
+- `apps/api/.env.example` y `apps/api/.env` (local, gitignored) — mismo valor.
+- **Cloud Run** — el cambio real de producción. La variable **no está en Secret Manager** (no es un
+  dato sensible): vive como env var plana del servicio `electro-motos-api` en `us-central1`. Se
+  actualizó con `gcloud run services update ... --update-env-vars`, generando la revisión
+  `electro-motos-api-00048-64q`. Verificado con `describe`.
+- `README.md` §12 — el bloque de variables de Vendelo documentaba nombres que **nunca existieron en
+  el código** (`VENDELO_PICKUP_CITY_CODE`, `VENDELO_PICKUP_ADDRESS`, `VENDELO_PICKUP_CONTACT_NAME`,
+  `VENDELO_PICKUP_CONTACT_PHONE`) y la URL equivocada (`api.vendelo.co` en vez de
+  `api.venndelo.com`). Reemplazado por las `VENDELO_STORE_*` y `VENDELO_DEFAULT_*` reales.
+
+**Alcance:** solo afecta guías nuevas; las ya emitidas en Vendelo conservan el nombre anterior.
+
+**Nota de configuración:** `apps/api/.env` local tiene `VENDELO_STORE_ADDRESS="Dirección de la
+tienda"` (el placeholder por defecto) y el par inconsistente `CITY_CODE=05001000` (Medellín) con
+`SUBDIVISION_CODE=02`. Producción está correcta (`Carrera 21 21-58, Bucaramanga`, `68001000`/`68`).
+Solo importa si se levanta la API local contra la Vendelo real.
+
+---
+
 ## 148. Apartado "Guía Vendelo" en `/admin/pedidos`
 
 **Contexto:** el despacho a Vendelo es 100 % automático (webhook → `VendeloOrderQueueService` →

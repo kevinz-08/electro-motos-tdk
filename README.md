@@ -953,12 +953,21 @@ MP_PUBLIC_KEY=TEST-xxx
 MP_WEBHOOK_SECRET=
 
 # ── Vendelo (logística) ────────────────────────────────────────────────────────
-VENDELO_API_URL=https://api.vendelo.co
+VENDELO_API_URL=https://api.venndelo.com   # la doble "n" no es typo: es la URL real
 VENDELO_API_KEY=
-VENDELO_PICKUP_CITY_CODE=                  # Código de ciudad de despacho (ej. BOG)
-VENDELO_PICKUP_ADDRESS=                    # Dirección del punto de recogida
-VENDELO_PICKUP_CONTACT_NAME=
-VENDELO_PICKUP_CONTACT_PHONE=
+VENDELO_WEBHOOK_SECRET=
+# Datos del comercio → pickup_info de cada pedido Vendelo. VENDELO_STORE_NAME es
+# el remitente que se imprime en la guía.
+VENDELO_STORE_NAME=H2r Online Store
+VENDELO_STORE_PHONE=
+VENDELO_STORE_ADDRESS=
+VENDELO_STORE_CITY_CODE=                   # DIVIPOLA de 8 dígitos (ej. 68001000 = Bucaramanga)
+VENDELO_STORE_SUBDIVISION_CODE=            # Debe corresponder a la ciudad (ej. 68 para 68001000)
+# Peso/dimensiones por defecto cuando el producto no los tiene cargados
+VENDELO_DEFAULT_WEIGHT_KG=1
+VENDELO_DEFAULT_HEIGHT_CM=25
+VENDELO_DEFAULT_WIDTH_CM=25
+VENDELO_DEFAULT_LENGTH_CM=10
 
 # ── Email (Resend) ─────────────────────────────────────────────────────────────
 RESEND_API_KEY=re_xxx

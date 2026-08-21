@@ -166,7 +166,7 @@ export class VendeloService implements IVendeloShippingPort {
     const firstName = nameParts[0] ?? addr.fullName
     const lastName = nameParts.slice(1).join(' ') || firstName
 
-    const pickupName = process.env['VENDELO_STORE_NAME'] ?? 'Electro Motos TDK'
+    const pickupName = process.env['VENDELO_STORE_NAME'] ?? 'H2r Online Store'
     const pickupPhone = process.env['VENDELO_STORE_PHONE'] ?? '3000000000'
     const pickupAddress = process.env['VENDELO_STORE_ADDRESS'] ?? 'Dirección de la tienda'
     const pickupCityCode = process.env['VENDELO_STORE_CITY_CODE'] ?? '05001000'

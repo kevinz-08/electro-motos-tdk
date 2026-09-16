@@ -35,6 +35,7 @@ electrónico. Los administradores gestionan productos, pedidos y stock desde un 
 20. [Detalles técnicos: Mercado Pago](#20-detalles-técnicos-mercado-pago)
 21. [Preguntas frecuentes](#21-preguntas-frecuentes)
 22. [Optimización de conversión (CRO)](#22-optimización-de-conversión-cro)
+23. [Imágenes de OpenGraph por categoría](#23-imágenes-de-opengraph-por-categoría)
 
 ---
 
@@ -1552,3 +1553,26 @@ Migraciones (en orden): `20260916000000_product_compare_at_price`, `…0100_hero
 - `INTERNAL_API_SECRET` ya era obligatoria; ahora además firma los enlaces de pedido y de reseña —
   rotarla invalida los enlaces enviados por correo.
 - Nueva variable opcional de la API: `REVIEW_REQUEST_MIN_DAYS` (default 7).
+
+---
+
+## 23. Imágenes de OpenGraph por categoría
+
+Al compartir un enlace del catálogo (`/catalogo?category=<slug>`), la vista previa (WhatsApp,
+Facebook, X, etc.) muestra la imagen de esa categoría o subcategoría.
+
+- **Fuente de verdad:** `apps/web/src/lib/opengraph.ts` → `CATEGORY_OG_IMAGES` (slug → archivo en
+  `apps/web/public/assets/opengraph/`). El mapa es explícito porque varios archivos no se llaman
+  igual que su slug (ej. `repuestos` → `respuestos.jpg`, `exploradores` → `exploradoras.jpg`).
+- **Fallback:** cualquier categoría o subcategoría sin entrada en el mapa, la búsqueda, el catálogo
+  general y el resto del sitio usan `op-image.jpg`. Una subcategoría sin imagen **no** hereda la del padre.
+- **Por qué no hay `app/opengraph-image.png`:** en Next.js la metadata por archivo tiene prioridad sobre
+  `generateMetadata`, así que ese archivo tapaba las imágenes dinámicas. La imagen global se declara
+  en `openGraph.images` del layout raíz.
+- `openGraph` de una página **reemplaza** el del layout (no se fusiona): usar siempre
+  `buildOpenGraph()` para conservar `type`, `locale` y `siteName`.
+- Las URLs son absolutas vía `metadataBase` (`NEXT_PUBLIC_SITE_URL`), requisito de los scrapers.
+
+**Agregar la imagen de una categoría:** subir el archivo a `public/assets/opengraph/` y añadir la
+entrada `slug → archivo` en `CATEGORY_OG_IMAGES`. Todas las imágenes de categoría deben ser **JPEG de
+1280 × 560 px** (el tamaño se declara una sola vez en `CATEGORY_OG_SIZE`). La global `op-image.jpg` es JPEG de 1200 × 630 (tamaño recomendado por las redes).

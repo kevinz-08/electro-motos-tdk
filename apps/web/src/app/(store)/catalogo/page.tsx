@@ -21,6 +21,7 @@ import { CatalogThemeWrapper } from '@/components/store/CatalogThemeWrapper'
 import { CatalogHero } from '@/components/store/CatalogHero'
 import { CategoryExploreCarousel } from '@/components/store/CategoryExploreCarousel'
 import { CategoryHeroBanner } from '@/components/store/CategoryHeroBanner'
+import { buildSocialMetadata, getCategoryOgImage } from '@/lib/opengraph'
 import { ProductCarousel } from '@/components/store/ProductCarousel'
 import { FilterDrawer } from '@/components/store/FilterDrawer'
 import { prisma } from '@/infrastructure/database/prisma-client'
@@ -143,27 +144,33 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const { category, search } = await searchParams
 
   if (search) {
-    return {
-      title: `Resultados para "${search}"`,
-      description: `Productos que coinciden con "${search}" en el catálogo de repuestos para motos.`,
-    }
+    const title = `Resultados para "${search}"`
+    const description = `Productos que coinciden con "${search}" en el catálogo de repuestos para motos.`
+    return { title, description, ...buildSocialMetadata({ title, description }) }
   }
 
   if (category) {
     const cat = await prisma.category.findUnique({ where: { slug: category } })
     if (cat) {
+      const description = cat.description ?? catDesc(cat.slug)
       return {
         title: cat.name,
-        description: cat.description ?? catDesc(cat.slug),
+        description,
+        // Imagen de la categoría/subcategoría, o la global si no tiene (README §23).
+        ...buildSocialMetadata({
+          title: cat.name,
+          description,
+          image: getCategoryOgImage(cat.slug, cat.name),
+          url: `/catalogo?category=${cat.slug}`,
+        }),
       }
     }
   }
 
-  return {
-    title: 'Catálogo de repuestos para motos',
-    description:
-      'Explora nuestro catálogo completo de repuestos, aceites, llantas y accesorios para motos. Envío a todo Colombia.',
-  }
+  const title = 'Catálogo de repuestos para motos'
+  const description =
+    'Explora nuestro catálogo completo de repuestos, aceites, llantas y accesorios para motos. Envío a todo Colombia.'
+  return { title, description, ...buildSocialMetadata({ title, description, url: '/catalogo' }) }
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────

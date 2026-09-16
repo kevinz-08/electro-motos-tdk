@@ -676,7 +676,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
               <div className="bg-white border border-gray-200 rounded-xl p-6">
                 <h2 className="font-bold text-gray-900 mb-1">¿Tienes un cupón?</h2>
                 <p className="text-sm text-gray-400">
-                  Los cupones de descuento solo aplican para pagos con tarjeta (Wompi).
+                  Los cupones de descuento solo aplican para pagos con Wompi.
                 </p>
               </div>
             )}
@@ -820,12 +820,12 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
             </div>
 
             <div className="flex justify-between font-bold text-gray-900 pt-1">
-              <span>{chargingShippingOnline ? 'Total a pagar (incluye envío)' : shippingCost > 0 ? 'TOTAL A PAGAR' : 'Total'}</span>
+              <span>{chargingShippingOnline ? 'TOTAL A PAGAR' : shippingCost > 0 ? 'TOTAL A PAGAR' : 'Total'}</span>
               <span>{formatCOP(Math.max(0, cartTotal + shippingCost - (appliedCoupon?.discount ?? 0)))}</span>
             </div>
             {deliveryMethod === 'HOME_DELIVERY' && !chargingShippingOnline && (
               <p className="text-xs text-gray-400">
-                El envío lo cobra la transportadora directamente al recibir tu pedido.
+                Este es el valor total a cancelar directamente a la transportadora cuando recibas tu pedido.
               </p>
             )}
           </div>

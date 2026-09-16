@@ -4,6 +4,60 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 153. Imágenes de OpenGraph de categoría: JPEG 1280 × 560
+
+**Contexto:** los 11 archivos de categoría tenían extensión `.png` pero eran JPEG (se servían con
+`Content-Type: image/png`) y mezclaban 1280×560 y 1600×700.
+
+**Cambios:**
+
+- `apps/web/public/assets/opengraph/*.png` → `*.jpg` (11 archivos): recorte centrado a proporción 16:7 y
+  redimensión a 1280×560 con Pillow (LANCZOS, calidad 88, progresivo). Las de 1600×700 ya tenían esa
+  proporción, así que solo se redimensionaron sin perder contenido. Peso final 103–147 KB cada una.
+- `apps/web/src/lib/opengraph.ts` — el mapa pasa a `slug → archivo .jpg` con un único `CATEGORY_OG_SIZE`.
+- Imagen global: el usuario la reemplazó por `op-image.jpg` (JPEG 1200×630, el tamaño recomendado para
+  OpenGraph); `DEFAULT_OG_IMAGE` se actualizó al nuevo nombre y dimensiones.
+- README §23 actualizado.
+
+**Respaldo:** los originales no estaban en git; quedó copia en el scratchpad de la sesión.
+
+*Última actualización: 2026-09-16*
+
+---
+
+## 152. Imágenes de OpenGraph dinámicas por categoría
+
+**Contexto:** al compartir un enlace del catálogo, la vista previa debe mostrar la imagen de la categoría o
+subcategoría, con fallback a la imagen global. Detalle en README §23.
+
+**Cambios:**
+
+- `apps/web/src/lib/opengraph.ts` (nuevo) — `CATEGORY_OG_IMAGES` (11 slugs → archivo + dimensiones reales),
+  `DEFAULT_OG_IMAGE` (`og-image.png`), `getCategoryOgImage()` y `buildSocialMetadata()` (OpenGraph + Twitter).
+- `apps/web/src/app/(store)/catalogo/page.tsx` — `generateMetadata` agrega OpenGraph/Twitter: imagen de la
+  categoría con `?category=`, imagen global en búsqueda y catálogo general.
+- `apps/web/src/app/layout.tsx` — la imagen global pasa a `openGraph.images` / `twitter.images`.
+- `apps/web/src/app/opengraph-image.png` — **eliminado** (idéntico byte a byte a `public/assets/opengraph/og-image.png`).
+  En Next la metadata por archivo tiene prioridad sobre `generateMetadata` y tapaba las imágenes por categoría.
+
+**Decisiones:**
+
+- Mapa explícito en lugar de derivar el archivo del slug: 5 archivos no coinciden con su slug en BD
+  (`respuestos.png`, `bombillos-led.png`, `exploradoras.png`, `filtros-aire-alto-flujo.png`, `sliders.png`).
+  Slugs verificados contra la BD.
+- Subcategoría sin imagen → imagen global (no hereda la del padre), según el requerimiento.
+- `openGraph` de una página reemplaza el del layout, por eso `buildSocialMetadata` repite `type/locale/siteName`.
+
+**Pendientes detectados en las imágenes:** extensión `.png` con contenido JPEG y tamaños mezclados — resuelto
+en la entrada 153.
+
+**Verificación:** `tsc --noEmit` y ESLint limpios; los 12 archivos referenciados existen.
+No se probó la vista previa real en WhatsApp/Facebook (requiere despliegue).
+
+*Última actualización: 2026-09-16*
+
+---
+
 ## 151. CI: el deploy a Cloud Run revertía el remitente de las guías Vendelo
 
 **Contexto:** la entrada 149 cambió el remitente de las guías a "H2r Online Store" en el código, en

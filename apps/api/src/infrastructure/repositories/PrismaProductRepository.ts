@@ -26,7 +26,7 @@ function throwFriendlyConflict(e: unknown): never {
 
 type PrismaProductRow = {
   id: string; name: string; slug: string; description: string
-  price: number; compareAtPrice: number | null; stock: number; sku: string; images: string[]
+  price: number; compareAtPrice: number | null; stock: number; soldCount: number; sku: string; images: string[]
   isActive: boolean; categoryId: string; createdAt: Date; updatedAt: Date; deletedAt: Date | null
   weightKg: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null
   compatible?: Array<{ id: string; productId: string; brand: string; model: string; year: number | null }>
@@ -42,6 +42,7 @@ function toDomain(p: PrismaProductRow): Product {
     price: p.price,
     compareAtPrice: p.compareAtPrice,
     stock: p.stock,
+    soldCount: p.soldCount,
     sku: p.sku,
     images: p.images,
     isActive: p.isActive,

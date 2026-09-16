@@ -2,13 +2,17 @@ import { prisma } from '@/infrastructure/database/prisma-client'
 import { MercadoPagoToggle } from '@/components/admin/MercadoPagoToggle'
 import { CodToggle } from '@/components/admin/CodToggle'
 import { ShippingOnlineToggle } from '@/components/admin/ShippingOnlineToggle'
+import { CroSettingsForm } from '@/components/admin/CroSettingsForm'
+import { CRO_SETTING_KEYS, parseCroSettings } from '@h2r/domain'
 
 export default async function AdminConfigPage() {
-  const [mpSetting, codSetting, shippingOnlineSetting] = await Promise.all([
+  const [mpSetting, codSetting, shippingOnlineSetting, croRows] = await Promise.all([
     prisma.settings.findUnique({ where: { key: 'MERCADOPAGO_ENABLED' } }),
     prisma.settings.findUnique({ where: { key: 'COD_ENABLED' } }),
     prisma.settings.findUnique({ where: { key: 'SHIPPING_ONLINE_ENABLED' } }),
+    prisma.settings.findMany({ where: { key: { in: Object.values(CRO_SETTING_KEYS) } } }),
   ])
+  const croSettings = parseCroSettings(croRows)
 
   const mpEnabled = mpSetting?.value === 'true'
   // Por defecto habilitado si no existe la fila aún — mismo fallback que orders.controller.ts.
@@ -22,6 +26,16 @@ export default async function AdminConfigPage() {
       <h1 className="text-2xl font-bold text-white mb-8">Configuración</h1>
 
       <div className="max-w-2xl space-y-6">
+
+        {/* Prueba social y estimación de entrega (README §22.3) */}
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <h2 className="font-bold text-white mb-1">Prueba social y entrega en la página de producto</h2>
+          <p className="text-sm text-white/40 mb-6">
+            Todos los indicadores usan datos reales (ventas confirmadas, reseñas verificadas, stock).
+            Estos umbrales solo controlan cuándo se muestran.
+          </p>
+          <CroSettingsForm initial={croSettings} />
+        </div>
 
         {/* Pasarelas de pago */}
         <div className="bg-white/5 border border-white/10 rounded-xl p-6">

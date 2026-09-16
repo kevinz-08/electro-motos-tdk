@@ -196,7 +196,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       for (const { productId, quantity } of input.items) {
         await tx.product.update({
           where: { id: productId },
-          data: { stock: { decrement: quantity } },
+          data: { stock: { decrement: quantity }, soldCount: { increment: quantity } },
         })
       }
 
@@ -212,7 +212,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       for (const { productId, quantity } of items) {
         await tx.product.update({
           where: { id: productId },
-          data: { stock: { increment: quantity } },
+          data: { stock: { increment: quantity }, soldCount: { decrement: quantity } },
         })
       }
     })

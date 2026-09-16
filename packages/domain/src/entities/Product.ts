@@ -49,6 +49,8 @@ export interface Product {
   compareAtPrice?: number | null
   /** Unidades disponibles en inventario. 0 = agotado */
   stock: number
+  /** Unidades vendidas en pedidos confirmados (prueba social). Opcional: no todos los queries lo mapean. */
+  soldCount?: number
   /** Código de referencia único del producto. Ej: "FRE-BRE-FZ25-001" */
   sku: string
   /** URLs de imágenes alojadas en Cloudinary. Array vacío si no tiene imágenes */

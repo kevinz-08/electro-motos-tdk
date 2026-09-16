@@ -11,6 +11,7 @@
  *   home       → datos específicos de la home (featured products)
  *   catalog    → datos de la vista landing del catálogo
  *   hero       → banners del carrusel hero de la home
+ *   settings   → umbrales de prueba social y estimación de entrega
  *
  * TTLs:
  *   300 s (5 min)  — productos y featured (cambian con ventas/stock)
@@ -20,7 +21,7 @@
 import { unstable_cache } from 'next/cache'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
-import { ListProducts, GetProductBySlug } from '@h2r/domain'
+import { ListProducts, GetProductBySlug, CRO_SETTING_KEYS, parseCroSettings } from '@h2r/domain'
 import { CACHE_TAGS } from './cache-tags'
 
 export { CACHE_TAGS }
@@ -208,6 +209,20 @@ export const getCachedProductBySlug = unstable_cache(
   },
   ['product-by-slug'],
   { revalidate: 300, tags: [CACHE_TAGS.products] },
+)
+
+// ── Settings de conversión ────────────────────────────────────────────────────
+
+/** Umbrales de prueba social y estimación de entrega, con defaults si no hay filas. */
+export const getCachedCroSettings = unstable_cache(
+  async () => {
+    const rows = await prisma.settings.findMany({
+      where: { key: { in: Object.values(CRO_SETTING_KEYS) } },
+    })
+    return parseCroSettings(rows)
+  },
+  ['cro-settings'],
+  { revalidate: 3600, tags: [CACHE_TAGS.settings] },
 )
 
 // ── Related products ──────────────────────────────────────────────────────────

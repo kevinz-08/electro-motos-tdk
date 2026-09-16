@@ -38,6 +38,8 @@ export * from './services/IRecipientTrustStrategy'
 // ── Shared ───────────────────────────────────────────────────────────────────
 export * from './shared/Result'
 export * from './shared/constants'
+export * from './shared/croSettings'
+export * from './shared/delivery'
 
 // ── Use cases ────────────────────────────────────────────────────────────────
 export * from './use-cases/coupons/ValidateCoupon'

@@ -180,6 +180,10 @@ model Product {
   /// CHECK en BD: compareAtPrice IS NULL OR compareAtPrice > price.
   compareAtPrice        Int?                      // centavos COP
   stock                 Int                       @default(0)
+  /// Unidades vendidas en pedidos confirmados (prueba social de la PDP, README §22.3).
+  /// Se incrementa en la misma transacción que descuenta stock (webhook APPROVED / COD)
+  /// y se decrementa en restockItems (envío RETURNED/CANCELLED).
+  soldCount             Int                       @default(0)
   sku                   String                    @unique
   images                String[]
   isActive              Boolean                   @default(true)

@@ -13,6 +13,7 @@ import { PaymentsModule } from './payments/payments.module'
 import { VendeloModule } from './vendelo/vendelo.module'
 import { ShippingModule } from './shipping/shipping.module'
 import { CouponsModule } from './coupons/coupons.module'
+import { ReviewsModule } from './reviews/reviews.module'
 import { ContactModule } from './contact/contact.module'
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'
 import { RolesGuard } from './auth/guards/roles.guard'
@@ -40,6 +41,7 @@ import { RolesGuard } from './auth/guards/roles.guard'
     VendeloModule,
     ShippingModule,
     CouponsModule,
+    ReviewsModule,
     ContactModule,
   ],
   providers: [

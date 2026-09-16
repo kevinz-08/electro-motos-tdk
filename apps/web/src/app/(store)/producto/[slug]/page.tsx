@@ -38,7 +38,7 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
-import { getCachedProductBySlug, getCachedCroSettings } from '@/lib/cache'
+import { getCachedProductBySlug, getCachedCroSettings, getCachedProductReviews } from '@/lib/cache'
 import { AddToCartWithQuantity } from '@/components/store/AddToCartWithQuantity'
 import { PayWithAddiButton } from '@/components/store/PayWithAddiButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
@@ -48,7 +48,10 @@ import {
   SoldCountBadge,
   StockStatus,
   SecurePaymentBadge,
+  RatingSummaryRow,
+  StarRating,
 } from '@/components/store/ProductTrustSignals'
+import { cloudinaryUrl } from '@/lib/cloudinary'
 import {
   RecommendedProducts,
   RecommendedProductsSkeleton,
@@ -87,7 +90,7 @@ export default async function ProductPage({ params }: PageProps) {
 
   const product = result.value
 
-  const [freshProduct, structuredDescription, croSettings] = await Promise.all([
+  const [freshProduct, structuredDescription, croSettings, reviews] = await Promise.all([
     prisma.product.findUnique({ where: { id: product.id }, select: { description: true } }),
     prisma.productDescription.findUnique({
       where: { productId: product.id },
@@ -97,14 +100,48 @@ export default async function ProductPage({ params }: PageProps) {
       },
     }),
     getCachedCroSettings(),
+    getCachedProductReviews(product.id),
   ])
+  const showReviews = reviews.summary !== null && reviews.summary.count >= croSettings.reviewsMinCount
+
   const description =
     structuredDescription?.generalDescription ||
     freshProduct?.description ||
     product.description
 
+  // Datos estructurados (schema.org Product). AggregateRating solo con reseñas reales
+  // aprobadas que superen el umbral — Google penaliza ratings sin reseñas visibles.
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    sku: product.sku,
+    image: product.images.map((img) => cloudinaryUrl(img, 'detail')),
+    description: description.slice(0, 500),
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'COP',
+      price: (product.price / 100).toFixed(0),
+      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+    },
+    ...(showReviews && reviews.summary && {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: reviews.summary.average,
+        reviewCount: reviews.summary.count,
+        bestRating: 5,
+        worstRating: 1,
+      },
+    }),
+  }
+
   return (
     <div className="min-h-screen bg-white">
+    <script
+      type="application/ld+json"
+      // JSON.stringify + escape de "<" evita cerrar el <script> con contenido del producto.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+    />
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
 
@@ -224,6 +261,7 @@ export default async function ProductPage({ params }: PageProps) {
 
           {/* Prueba social — solo con datos reales que superen el umbral */}
           <div className="space-y-1.5 mb-4 empty:hidden">
+            <RatingSummaryRow summary={reviews.summary} minCount={croSettings.reviewsMinCount} />
             <SoldCountBadge soldCount={product.soldCount ?? 0} minSold={croSettings.socialProofMinSold} />
           </div>
 
@@ -294,6 +332,40 @@ export default async function ProductPage({ params }: PageProps) {
           )}
         </div>
       </div>
+      {/* ── Reseñas verificadas (README §22.6) ── */}
+      {showReviews && reviews.summary && (
+        <section id="resenas" className="mt-16 border-t border-gray-100 pt-10 scroll-mt-24">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Opiniones de compradores</h2>
+              <p className="text-sm text-gray-500 mt-1">Solo clientes que compraron y recibieron este producto.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StarRating average={reviews.summary.average} />
+              <span className="text-lg font-bold text-gray-900">{reviews.summary.average.toFixed(1)}</span>
+              <span className="text-sm text-gray-500">de 5 · {reviews.summary.count} reseñas</span>
+            </div>
+          </div>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {reviews.latest.map((r) => (
+              <li key={r.id} className="border border-gray-200 rounded-xl p-5">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <StarRating average={r.rating} />
+                  <time className="text-xs text-gray-400" dateTime={r.createdAt}>
+                    {new Date(r.createdAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </time>
+                </div>
+                {r.comment && <p className="text-sm text-gray-700 leading-relaxed">{r.comment}</p>}
+                <p className="text-xs text-gray-500 mt-3">
+                  <span className="font-semibold text-gray-700">{r.authorName}</span>
+                  {' '}· Compra verificada{r.recommends && ' · Lo recomienda'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* ── Productos relacionados ── */}
       <Suspense fallback={<RecommendedProductsSkeleton />}>
         <RecommendedProducts

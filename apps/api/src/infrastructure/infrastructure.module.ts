@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { PrismaModule } from './database/prisma.module'
 import {
   COUPON_REPOSITORY,
+  REVIEW_REPOSITORY,
   PRODUCT_REPOSITORY,
   PRODUCT_DESCRIPTION_REPOSITORY,
   ORDER_REPOSITORY,
@@ -25,6 +26,8 @@ import { MercadoPagoService } from './services/MercadoPagoService'
 import { ResendEmailService } from './services/ResendEmailService'
 import { CloudinaryService } from './services/CloudinaryService'
 import { EmailQueueService } from './services/EmailQueueService'
+import { ReviewRequestService } from './services/ReviewRequestService'
+import { PrismaReviewRepository } from './repositories/PrismaReviewRepository'
 import { VendeloHttpClient } from './services/VendeloHttpClient'
 import { VendeloService } from './services/VendeloService'
 import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
@@ -36,6 +39,7 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
   imports: [PrismaModule],
   providers: [
     { provide: COUPON_REPOSITORY,              useClass: PrismaCouponRepository },
+    { provide: REVIEW_REPOSITORY,              useClass: PrismaReviewRepository },
     { provide: PRODUCT_REPOSITORY,             useClass: PrismaProductRepository },
     { provide: INVENTORY_REPOSITORY,           useClass: PrismaStockSyncRepository },
     SyncFileParserService,
@@ -59,9 +63,11 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
     { provide: ALERT_NOTIFICATION_PORT, useClass: LogAlertNotificationService },
     WompiReconciliationService,
     ExpiredOrdersCleanupService,
+    ReviewRequestService,
   ],
   exports: [
     COUPON_REPOSITORY,
+    REVIEW_REPOSITORY,
     INVENTORY_REPOSITORY,
     SyncFileParserService,
     PrismaModule,

@@ -26,3 +26,18 @@ export function verifyOrderAccessToken(orderId: string, token: string | null | u
   const received = Buffer.from(token)
   return expected.length === received.length && timingSafeEqual(expected, received)
 }
+
+/**
+ * Token del enlace "Califica tu compra" (README §22.6): HMAC(INTERNAL_API_SECRET, "review:" + orderItemId).
+ * Distinto prefijo que el token de pedido — un enlace de reseña no da acceso al pedido y viceversa.
+ */
+export function signReviewToken(orderItemId: string): string {
+  return createHmac('sha256', secret()).update(`review:${orderItemId}`).digest('base64url')
+}
+
+export function verifyReviewToken(orderItemId: string, token: string | null | undefined): boolean {
+  if (!token) return false
+  const expected = Buffer.from(signReviewToken(orderItemId))
+  const received = Buffer.from(token)
+  return expected.length === received.length && timingSafeEqual(expected, received)
+}

@@ -6,6 +6,10 @@ import { Transform } from 'class-transformer'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 
 export class UpdateCouponDto {
+  @ApiPropertyOptional({ description: 'Permite usar el cupón sin cuenta (nunca con FIRST_PURCHASE)' })
+  @IsOptional() @IsBoolean()
+  allowGuest?: boolean
+
   @ApiPropertyOptional()
   @IsOptional() @IsString() @IsNotEmpty()
   @Transform(({ value }: { value: string }) => value?.toUpperCase().trim())

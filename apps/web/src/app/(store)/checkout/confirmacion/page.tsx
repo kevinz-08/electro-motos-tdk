@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getOrderConfirmation } from '@/lib/queries/getOrderConfirmation'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
@@ -9,7 +8,7 @@ import { CartCleaner } from '@/components/checkout/CartCleaner'
 import { OrderStatusPoller } from '@/components/checkout/OrderStatusPoller'
 
 interface PageProps {
-  searchParams: Promise<{ orderId?: string }>
+  searchParams: Promise<{ orderId?: string; token?: string }>
 }
 
 export const metadata: Metadata = {
@@ -68,14 +67,14 @@ function NotFound() {
 
 export default async function ConfirmacionPage({ searchParams }: PageProps) {
   const session = await auth()
-  if (!session?.user?.id) redirect('/auth/login?callbackUrl=/checkout/confirmacion')
-
-  const { orderId } = await searchParams
+  const { orderId, token } = await searchParams
 
   if (!orderId) return <NotFound />
 
-  const order = await getOrderConfirmation(orderId, session.user.id)
+  // Acceso: dueño con sesión, o enlace firmado (invitados / enlace del correo).
+  const order = await getOrderConfirmation(orderId, { userId: session?.user?.id, token })
   if (!order) return <NotFound />
+  const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : ''
 
   const isPaid = order.status === 'PAID'
   const isPending = order.status === 'PENDING'
@@ -84,7 +83,7 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       {isPaid && <CartCleaner orderId={order.id} />}
-      {isPending && <OrderStatusPoller orderId={order.id} />}
+      {isPending && <OrderStatusPoller orderId={order.id} token={token} />}
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
 
         {/* ── Hero de estado ─────────────────────────────────────────────── */}
@@ -200,10 +199,16 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
           </div>
         </div>
 
+        {order.isGuest && (
+          <p className="text-xs text-gray-500 text-center mt-6">
+            Guarda el enlace del correo de confirmación: con él puedes volver a consultar este pedido.
+          </p>
+        )}
+
         {/* ── Acciones ───────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
           <a
-            href={`/api/orders/${order.id}/comprobante`}
+            href={`/api/orders/${order.id}/comprobante${tokenQuery}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 inline-flex items-center justify-center gap-2 bg-sky-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-sky-600 transition-colors"
@@ -215,12 +220,21 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
             </svg>
             Descargar comprobante
           </a>
-          <Link
-            href="/pedidos"
-            className="flex-1 text-center bg-gray-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-700 transition-colors"
-          >
-            Ver mis pedidos
-          </Link>
+          {order.isGuest ? (
+            <Link
+              href="/auth/register"
+              className="flex-1 text-center bg-gray-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-700 transition-colors"
+            >
+              Crear cuenta
+            </Link>
+          ) : (
+            <Link
+              href="/pedidos"
+              className="flex-1 text-center bg-gray-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-700 transition-colors"
+            >
+              Ver mis pedidos
+            </Link>
+          )}
           <Link
             href="/catalogo"
             className="flex-1 inline-flex items-center justify-center bg-white text-gray-900 border border-gray-300 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors"

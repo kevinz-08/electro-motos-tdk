@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Test } from '@nestjs/testing'
-import { ForbiddenException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException } from '@nestjs/common'
 
 // vi.mock se alza (hoist) antes de los imports — @h2r/database ya estará mockeado
 // cuando PrismaService intente importarlo.
@@ -57,6 +57,7 @@ import type { JwtUser } from '../auth/decorators/current-user.decorator'
 const mockOrder = {
   id: 'order-abc123',
   userId: 'user-1',
+  contactEmail: 'user@test.com',
   total: 5000000,
   status: 'PENDING',
   items: [],
@@ -154,7 +155,9 @@ describe('OrdersController', () => {
 
     it('devuelve el pedido y los parámetros de pago cuando el use case tiene éxito', async () => {
       const result = await controller.create(dto, mockUser)
-      expect(result).toEqual({ order: mockOrder, payment: mockPayment, shippingQuoteFallback: false })
+      expect(result).toEqual({
+        order: mockOrder, payment: mockPayment, shippingQuoteFallback: false, accessToken: expect.any(String),
+      })
     })
 
     it('lanza el error del dominio cuando el use case falla', async () => {
@@ -317,6 +320,46 @@ describe('OrdersController', () => {
       await controller.create(dto, mockUser)
 
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(mockOrder.id))
+    })
+  })
+
+  describe('POST /orders — guest checkout (README §22.4)', () => {
+    const guestDto = {
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      shippingAddress: { fullName: 'Invitada', address: 'Calle 2', city: 'Cali', phone: '3009998877' },
+      buyer: { idType: 'CC' as const, idNumber: '1000555666' },
+      paymentProvider: 'WOMPI' as const,
+    }
+
+    it('rechaza con 400 un invitado sin contactEmail', async () => {
+      await expect(controller.create(guestDto, undefined)).rejects.toThrow(BadRequestException)
+    })
+
+    it('crea el pedido con userId null y el email del DTO', async () => {
+      const { CreateOrder } = await import('@h2r/domain')
+      const guestOrder = { ...mockOrder, userId: null, contactEmail: 'invitada@test.com' }
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: guestOrder, payment: mockPayment, shippingQuoteFallback: false } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+
+      const result = await controller.create({ ...guestDto, contactEmail: 'invitada@test.com' }, undefined)
+
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ userId: null, contactEmail: 'invitada@test.com' }))
+      expect(mockEmailService.sendOrderReceived).toHaveBeenCalledWith(guestOrder, 'invitada@test.com')
+      expect(result.accessToken).toMatch(/^[A-Za-z0-9_-]{43}$/)
+    })
+
+    it('con sesión ignora el contactEmail del DTO y usa el email de la cuenta', async () => {
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: mockOrder, payment: mockPayment, shippingQuoteFallback: false } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+
+      await controller.create({ ...guestDto, contactEmail: 'otro@test.com' }, mockUser)
+
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1', contactEmail: 'user@test.com' }))
     })
   })
 

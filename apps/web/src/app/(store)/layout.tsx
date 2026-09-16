@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Navbar } from '@/components/nav/Navbar'
 import { WhatsAppButton } from '@/components/ui/WhatsAppButton'
 import { Footer } from '@/components/store/Footer'
+import { GuestCartMerger } from '@/components/checkout/GuestCartMerger'
 
 export default function StoreLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,6 +12,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         <Navbar />
       </Suspense>
 
+      <GuestCartMerger />
       <main className="flex-1">{children}</main>
       <WhatsAppButton />
       <Footer />

@@ -1,6 +1,7 @@
 import { ICouponRepository } from '@/domain/repositories/ICouponRepository'
 import { IOrderRepository } from '@/domain/repositories/IOrderRepository'
-import { isCouponExpired, calculateDiscount } from '@/domain/entities/Coupon'
+import { isCouponExpired, calculateDiscount, CouponRestriction } from '@/domain/entities/Coupon'
+import { CustomerIdentity } from '@/domain/entities/Order'
 import { Result, ok, err, AppError } from '@/domain/shared/Result'
 
 export interface ValidateCouponItem {
@@ -15,7 +16,13 @@ export interface ValidateCouponItem {
 
 export interface ValidateCouponInput {
   code: string
-  userId: string
+  /** null = invitado (guest checkout). */
+  userId: string | null
+  /**
+   * Documento normalizado (normalizeBuyerIdKey). Obligatorio para invitados con cupones
+   * ONCE_PER_CUSTOMER; opcional para usuarios (si llega, también se valida por documento).
+   */
+  buyerIdKey?: string | null
   items: ValidateCouponItem[]
 }
 
@@ -24,7 +31,13 @@ export interface ValidateCouponOutput {
   discount: number
   /** IDs de los productos del carrito cubiertos por este cupón. */
   eligibleProductIds: string[]
+  couponId: string
+  restriction: CouponRestriction
 }
+
+/** Mensajes estables — el checkout los muestra junto a un CTA de login/registro (status 403). */
+export const COUPON_REQUIRES_ACCOUNT_MESSAGE = 'Inicia sesión o crea una cuenta para usar este cupón'
+export const COUPON_FIRST_PURCHASE_REQUIRES_ACCOUNT_MESSAGE = 'El cupón de primera compra requiere crear una cuenta'
 
 /**
  * Use case: Validar un cupón y calcular el descuento aplicable.
@@ -33,8 +46,12 @@ export interface ValidateCouponOutput {
  *   1. El cupón existe.
  *   2. isActive = true (desactivación manual del admin).
  *   3. No expiró (evaluación lazy — sin cron job).
- *   4. Restricción de uso por cliente (ONCE_PER_CUSTOMER o FIRST_PURCHASE).
- *   5. Al menos un ítem del carrito está dentro del scope del cupón.
+ *   4. Invitados (README §22.5): solo cupones con allowGuest y nunca FIRST_PURCHASE → FORBIDDEN.
+ *   5. Restricción por cliente, identificando al cliente por userId Y/O documento:
+ *        ONCE_PER_CUSTOMER → sin usos activos (CouponRedemption RESERVED/CONFIRMED).
+ *                            Un invitado debe enviar su documento.
+ *        FIRST_PURCHASE    → sin pedidos aprobados por userId ni por documento.
+ *   6. Al menos un ítem del carrito está dentro del scope del cupón.
  *
  * Scope con cascada jerárquica:
  *   STORE    → todos los ítems son elegibles.
@@ -64,16 +81,32 @@ export class ValidateCoupon {
       return err(new AppError('VALIDATION_ERROR', 'Cupón vencido'))
     }
 
+    const isGuest = input.userId === null
+    if (isGuest) {
+      if (coupon.restriction === 'FIRST_PURCHASE') {
+        return err(new AppError('FORBIDDEN', COUPON_FIRST_PURCHASE_REQUIRES_ACCOUNT_MESSAGE))
+      }
+      if (!coupon.allowGuest) {
+        return err(new AppError('FORBIDDEN', COUPON_REQUIRES_ACCOUNT_MESSAGE))
+      }
+    }
+
+    const customer: CustomerIdentity = {
+      userId: input.userId,
+      buyerIdKey: input.buyerIdKey ? input.buyerIdKey : null,
+    }
+
     if (coupon.restriction === 'ONCE_PER_CUSTOMER') {
-      const alreadyUsed = await this.orderRepo.existsByCouponAndUser(input.code, input.userId)
-      if (alreadyUsed) {
+      if (isGuest && !customer.buyerIdKey) {
+        return err(new AppError('VALIDATION_ERROR', 'Ingresa tu número de documento para aplicar este cupón'))
+      }
+      if (await this.couponRepo.hasActiveRedemption(coupon.id, customer)) {
         return err(new AppError('VALIDATION_ERROR', 'Ya utilizaste este cupón'))
       }
     }
 
     if (coupon.restriction === 'FIRST_PURCHASE') {
-      const hasPriorOrders = await this.orderRepo.hasApprovedOrders(input.userId)
-      if (hasPriorOrders) {
+      if (await this.orderRepo.hasApprovedOrders(customer)) {
         return err(new AppError('VALIDATION_ERROR', 'Este cupón es exclusivo para tu primera compra'))
       }
     }
@@ -101,6 +134,8 @@ export class ValidateCoupon {
     return ok({
       discount,
       eligibleProductIds: eligibleItems.map(item => item.productId),
+      couponId: coupon.id,
+      restriction: coupon.restriction,
     })
   }
 }

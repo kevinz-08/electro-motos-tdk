@@ -1,4 +1,5 @@
 import { prisma } from '@h2r/database'
+import { verifyOrderAccessToken } from '@/lib/order-access-token'
 
 export type OrderConfirmationItem = {
   id: string
@@ -25,11 +26,26 @@ export type OrderConfirmation = {
     notes?: string
   }
   items: OrderConfirmationItem[]
+  /** true si el pedido se hizo sin cuenta (guest checkout). */
+  isGuest: boolean
 }
 
-export async function getOrderConfirmation(orderId: string, userId: string): Promise<OrderConfirmation | null> {
+/**
+ * Formas de acreditar acceso a un pedido:
+ *   - userId: sesión del dueño del pedido.
+ *   - token:  enlace firmado (invitados o correo) — ver lib/order-access-token.ts.
+ */
+export type OrderAccess = { userId?: string | null; token?: string | null }
+
+/** true si la sesión es la dueña del pedido o el token firmado es válido. */
+export function canAccessOrder(order: { id: string; userId: string | null }, access: OrderAccess): boolean {
+  if (access.userId && order.userId === access.userId) return true
+  return verifyOrderAccessToken(order.id, access.token)
+}
+
+export async function getOrderConfirmation(orderId: string, access: OrderAccess): Promise<OrderConfirmation | null> {
   const order = await prisma.order.findUnique({
-    where: { id: orderId, userId },
+    where: { id: orderId },
     include: {
       items: {
         include: {
@@ -39,7 +55,7 @@ export async function getOrderConfirmation(orderId: string, userId: string): Pro
     },
   })
 
-  if (!order) return null
+  if (!order || !canAccessOrder(order, access)) return null
 
   const addr = order.shippingAddress as {
     fullName?: string
@@ -57,6 +73,7 @@ export async function getOrderConfirmation(orderId: string, userId: string): Pro
     total: order.total,
     createdAt: order.createdAt,
     paymentProvider: order.paymentProvider,
+    isGuest: order.userId === null,
     shippingAddress: {
       fullName: addr.fullName ?? '',
       address: addr.address ?? '',

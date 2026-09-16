@@ -279,7 +279,13 @@ model MotorcycleCompatibility {
 
 model Order {
   id                 String          @id @default(cuid())
-  userId             String
+  /// null = compra como invitado (guest checkout, README §22.4).
+  userId             String?
+  /// Email de contacto del comprador (invitado o registrado). Destino de todos los correos del pedido.
+  contactEmail       String
+  /// Documento normalizado "CC:1000123456" (normalizeBuyerIdKey en @h2r/domain).
+  /// Identifica al cliente para cupones ONCE_PER_CUSTOMER / FIRST_PURCHASE sin necesidad de cuenta.
+  buyerIdKey         String          @default("")
   status             OrderStatus     @default(PENDING)
   /// centavos COP — total cobrado/adeudado: subtotal de productos + shippingTotal
   /// cuando el flete se cobró en línea (ver shippingTotal). Para COD o cuando el
@@ -314,8 +320,9 @@ model Order {
   /// centavos COP — monto descontado por el cupón. 0 si no se aplicó cupón.
   discountAmount     Int             @default(0)
   createdAt          DateTime        @default(now())
-  user               User            @relation(fields: [userId], references: [id])
+  user               User?           @relation(fields: [userId], references: [id])
   coupon             Coupon?         @relation(fields: [couponCode], references: [code])
+  couponRedemption   CouponRedemption?
   items              OrderItem[]
   payment            Payment?
   shipment           Shipment?
@@ -324,6 +331,8 @@ model Order {
   /// (getTodayRevenue, getMonthRevenue, getRevenueSeries), que siempre filtran por
   /// status y ordenan/agrupan por createdAt.
   @@index([status, createdAt])
+  @@index([buyerIdKey])
+  @@index([contactEmail])
 }
 
 /// Envío asociado a un pedido. Se crea cuando Vendelo dispara el primer webhook
@@ -383,6 +392,8 @@ model Coupon {
   value       Int
   restriction CouponRestriction @default(NONE)
   scope       CouponScope       @default(PRODUCT)
+  /// false (default) = exige cuenta. true = también invitados. Nunca true con FIRST_PURCHASE (README §22.5).
+  allowGuest  Boolean           @default(false)
   isActive    Boolean           @default(true)
   expiresAt   DateTime
   createdAt   DateTime          @default(now())
@@ -391,9 +402,35 @@ model Coupon {
   product     Product?         @relation("ProductCoupons", fields: [productId], references: [id])
   categories  CouponCategory[]
   orders      Order[]
+  redemptions CouponRedemption[]
 
   @@index([code])
   @@index([isActive, expiresAt])
+}
+
+/// Uso de un cupón por un pedido (README §22.5). Una fila por pedido con cupón.
+///   RESERVED  → pedido creado, pago pendiente
+///   CONFIRMED → pago aprobado (o COD)
+///   RELEASED  → pedido cancelado/abandonado — el cliente puede volver a usar el cupón
+model CouponRedemption {
+  id              String   @id @default(cuid())
+  couponId        String
+  orderId         String   @unique
+  userId          String?
+  buyerIdKey      String
+  /// RESERVED | CONFIRMED | RELEASED
+  status          String   @default("RESERVED")
+  /// "couponId:buyerIdKey" mientras el uso está activo en un cupón con restricción por cliente;
+  /// null si el cupón es NONE o el uso fue RELEASED. El @unique (Postgres admite múltiples NULL)
+  /// impide que dos pedidos concurrentes usen el mismo cupón con el mismo documento.
+  activeUniqueKey String?  @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  coupon          Coupon   @relation(fields: [couponId], references: [id])
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, buyerIdKey, status])
+  @@index([couponId, userId, status])
 }
 
 /// Relación muchos-a-muchos entre Coupon y Category.

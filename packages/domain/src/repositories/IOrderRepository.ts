@@ -4,7 +4,7 @@
  * Implementado por PrismaOrderRepository en infrastructure/repositories/.
  * Los use cases CreateOrder y ConfirmPayment dependen de esta interfaz.
  */
-import { Order, OrderStatus, OrderItem, ShippingAddress, BuyerInfo, PaymentProvider, PaymentStatus, DeliveryMethod } from '@/domain/entities/Order'
+import { Order, OrderStatus, OrderItem, ShippingAddress, BuyerInfo, PaymentProvider, PaymentStatus, DeliveryMethod, CustomerIdentity } from '@/domain/entities/Order'
 import { ShipmentStatus } from '@/domain/entities/Shipment'
 
 /**
@@ -23,8 +23,12 @@ export interface PaymentTransitionResult {
  * Los items ya incluyen el priceAtPurchase (precio capturado por CreateOrder use case).
  */
 export interface CreateOrderInput {
-  /** ID del usuario autenticado que realiza el pedido */
-  userId: string
+  /** ID del usuario autenticado que realiza el pedido. null = invitado. */
+  userId: string | null
+  /** Email de contacto — destino de los correos del pedido. */
+  contactEmail: string
+  /** Documento normalizado (normalizeBuyerIdKey). */
+  buyerIdKey: string
   /** Lista de ítems con precio capturado en el momento de la compra */
   items: Array<{
     productId: string
@@ -49,6 +53,13 @@ export interface CreateOrderInput {
   couponCode?: string
   /** Centavos COP descontados por el cupón. 0 si no se usó cupón. */
   discountAmount?: number
+  /**
+   * Uso del cupón a registrar en CouponRedemption dentro de la misma transacción del pedido
+   * (RESERVED en create, CONFIRMED en createPaidOrder). userId/buyerIdKey se toman del pedido.
+   * Si enforceUnique y el cliente ya tiene un uso activo, la implementación lanza
+   * AppError('VALIDATION_ERROR') — protege contra pedidos concurrentes con el mismo cupón.
+   */
+  couponRedemption?: { couponId: string; enforceUnique: boolean }
 }
 
 /**
@@ -69,7 +80,10 @@ export interface IOrderRepository {
   countAll(filters?: { status?: OrderStatus }): Promise<number>
   /** Crea un pedido con sus ítems y el registro de pago en una sola transacción */
   create(input: CreateOrderInput): Promise<Order>
-  /** Cambia el estado del pedido (PENDING→PAID, PAID→SHIPPED, etc.) */
+  /**
+   * Cambia el estado del pedido (PENDING→PAID, PAID→SHIPPED, etc.).
+   * Si el nuevo estado es CANCELLED, libera (RELEASED) el uso de cupón reservado.
+   */
   updateStatus(id: string, status: OrderStatus): Promise<void>
   /**
    * Registra el ID de transacción externo en el Payment.
@@ -88,6 +102,8 @@ export interface IOrderRepository {
    *     son atómicos: o ambos ocurren o ninguno (no hay ventana entre ambas operaciones).
    *
    * El caller debe verificar `applied` para decidir efectos secundarios (ej: enviar email).
+   *
+   * Uso de cupón: orderStatus PAID → CouponRedemption CONFIRMED; CANCELLED → RELEASED.
    */
   transitionFromPending(
     orderId: string,
@@ -100,15 +116,11 @@ export interface IOrderRepository {
     },
   ): Promise<PaymentTransitionResult>
   /**
-   * Verifica si un usuario ya utilizó un cupón específico en alguna orden no cancelada.
-   * Usado por ValidateCoupon para la restricción ONCE_PER_CUSTOMER.
-   */
-  existsByCouponAndUser(couponCode: string, userId: string): Promise<boolean>
-  /**
-   * Verifica si un usuario tiene alguna orden en estado PAID, SHIPPED o DELIVERED.
+   * Verifica si el cliente tiene alguna orden en estado PAID, SHIPPED o DELIVERED,
+   * buscando por userId O por buyerIdKey (los que no sean null).
    * Usado por ValidateCoupon para la restricción FIRST_PURCHASE.
    */
-  hasApprovedOrders(userId: string): Promise<boolean>
+  hasApprovedOrders(customer: CustomerIdentity): Promise<boolean>
   /** Calcula los ingresos del día (pedidos PAID creados hoy). Retorna centavos COP. */
   getTodayRevenue(): Promise<number>
   /** Cuenta pedidos con status PENDING. Para alertas en el dashboard. */

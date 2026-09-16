@@ -84,7 +84,7 @@ test.describe('Checkout — flujo completo (autenticado)', () => {
     })
   })
 
-  test('checkout — redirige a login si no hay sesión (sanity check)', async ({
+  test('checkout — invitado sin sesión ve el formulario con email editable (guest checkout)', async ({
     browser,
   }) => {
     // Contexto explícitamente sin cookies — el proyecto chromium-auth define
@@ -92,8 +92,16 @@ test.describe('Checkout — flujo completo (autenticado)', () => {
     // "sesión limpia" hereda la autenticación del setup.
     const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } })
     const page = await ctx.newPage()
+    await page.goto('http://localhost:3000/carrito')
+    await seedCart(page, 'guest')
+
     await page.goto('http://localhost:3000/checkout')
-    await expect(page).toHaveURL(/\/auth\/login/)
+    await expect(page).toHaveURL(/\/checkout/)
+    await expect(page.getByText(/estás comprando como invitado/i)).toBeVisible({ timeout: 10_000 })
+
+    const email = page.locator('#checkout-email')
+    await expect(email).toBeEditable()
+    await expect(email).toHaveAttribute('aria-required', 'true')
     await ctx.close()
   })
 

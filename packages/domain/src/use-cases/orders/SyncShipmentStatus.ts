@@ -19,8 +19,8 @@ export interface SyncShipmentStatusOutput {
   /** true si este webhook aplicó el cambio de estado. false si era un duplicado. */
   updated: boolean
   newStatus: ShipmentStatus
-  /** ID del usuario propietario del pedido — para invalidación de caché por usuario */
-  userId: string
+  /** ID del usuario propietario del pedido — para invalidación de caché por usuario. null = invitado. */
+  userId: string | null
 }
 
 /**

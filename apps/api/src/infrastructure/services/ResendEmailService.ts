@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Resend } from 'resend'
 import { Order } from '@h2r/domain'
+import { signOrderAccessToken } from '../../shared/order-access-token'
 
 @Injectable()
 export class ResendEmailService {
@@ -19,6 +20,15 @@ export class ResendEmailService {
     }
   }
 
+  /**
+   * Enlace al detalle del pedido con token firmado — funciona para invitados (sin sesión)
+   * y para usuarios registrados. Ver shared/order-access-token.ts.
+   */
+  private orderUrl(orderId: string): string {
+    const token = signOrderAccessToken(orderId)
+    return `${this.frontendUrl}/checkout/confirmacion?orderId=${orderId}&token=${token}`
+  }
+
   /** Email inmediato al crear el pedido (estado PENDING). */
   async sendOrderReceived(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
@@ -34,7 +44,7 @@ export class ResendEmailService {
         orderId: order.id,
         total: order.total,
         address: order.shippingAddress,
-        cta: { label: 'Ver mi pedido', href: `${this.frontendUrl}/checkout/confirmacion?orderId=${order.id}` },
+        cta: { label: 'Ver mi pedido', href: this.orderUrl(order.id) },
       }),
     })
     if (error) this.logger.error(`sendOrderReceived failed orderId=${order.id}: ${JSON.stringify(error)}`)
@@ -60,7 +70,7 @@ export class ResendEmailService {
         orderId: order.id,
         total: order.total,
         address: order.shippingAddress,
-        cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
+        cta: { label: 'Ver mi pedido', href: this.orderUrl(order.id) },
         footer: 'Te notificaremos cuando tu pedido sea despachado.',
       }),
     })
@@ -84,7 +94,7 @@ export class ResendEmailService {
         orderId: order.id,
         total: order.total,
         address: order.shippingAddress,
-        cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
+        cta: { label: 'Ver mi pedido', href: this.orderUrl(order.id) },
       }),
     })
     if (error) this.logger.error(`sendShippingNotification failed orderId=${order.id}: ${JSON.stringify(error)}`)

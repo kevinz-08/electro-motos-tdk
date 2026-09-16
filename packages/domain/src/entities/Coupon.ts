@@ -30,6 +30,11 @@ export interface Coupon {
   value: number
   restriction: CouponRestriction
   scope: CouponScope
+  /**
+   * false (default) = el cupón exige cuenta. true = también lo pueden usar invitados.
+   * Invariante: FIRST_PURCHASE nunca permite invitados (ver validateCouponGuestRule).
+   */
+  allowGuest: boolean
   isActive: boolean
   expiresAt: Date
   createdAt: Date
@@ -51,4 +56,24 @@ export function calculateDiscount(coupon: Coupon, eligibleSubtotal: number): num
     return Math.round(eligibleSubtotal * (coupon.value / 10000))
   }
   return Math.min(coupon.value, eligibleSubtotal)
+}
+
+/**
+ * Invariante de negocio del guest checkout (README §22.5):
+ * el cupón de primera compra siempre exige crear una cuenta.
+ * Retorna un mensaje de error o null si la combinación es válida.
+ */
+export function validateCouponGuestRule(restriction: CouponRestriction, allowGuest: boolean): string | null {
+  if (allowGuest && restriction === 'FIRST_PURCHASE') {
+    return 'El cupón de primera compra requiere cuenta — no puede habilitarse para invitados'
+  }
+  return null
+}
+
+/**
+ * true si cada cliente (documento) solo puede tener un uso activo del cupón.
+ * Se usa para marcar CouponRedemption.enforceUnique (índice único parcial en BD).
+ */
+export function couponRequiresUniqueRedemption(restriction: CouponRestriction): boolean {
+  return restriction !== 'NONE'
 }

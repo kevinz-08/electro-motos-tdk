@@ -24,7 +24,8 @@ interface QueueRow {
 
 interface OrderRow {
   id: string
-  userId: string
+  userId: string | null
+  contactEmail: string
   vendeloOrderId: string | null
   deliveryMethod: string
   shippingAddress: unknown
@@ -93,6 +94,7 @@ function makeOrderRow(overrides: Partial<OrderRow> = {}): OrderRow {
   return {
     id: 'order-001',
     userId: 'user-001',
+    contactEmail: 'cliente@test.com',
     vendeloOrderId: null,
     deliveryMethod: 'HOME_DELIVERY',
     shippingAddress: { fullName: 'Juan Pérez', address: 'Calle 1', city: 'Medellín', phone: '3001234567' },

@@ -121,11 +121,6 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
           continue
         }
 
-        const user = await this.prisma.client.user.findUnique({
-          where: { id: order.userId },
-          select: { email: true },
-        })
-
         this.logger.log(`[VendeloOrderQueue] Enviando a Vendelo ${ctx}`)
 
         // Mapear desde Prisma al tipo de dominio Order
@@ -154,7 +149,7 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
           })),
         } as import('@h2r/domain').Order
 
-        const vendeloRes = await this.vendeloService.createOrder(domainOrder, user?.email ?? '')
+        const vendeloRes = await this.vendeloService.createOrder(domainOrder, order.contactEmail)
 
         const vendeloOrderId = vendeloRes.items?.[0]?.id as string | undefined
 

@@ -7,6 +7,7 @@ import {
   CouponType,
   CouponRestriction,
   CouponScope,
+  CustomerIdentity,
 } from '@h2r/domain'
 import { PrismaService } from '../database/prisma.service'
 
@@ -17,6 +18,7 @@ type PrismaCouponRow = {
   value: number
   restriction: string
   scope: string
+  allowGuest: boolean
   isActive: boolean
   expiresAt: Date
   createdAt: Date
@@ -32,6 +34,7 @@ function toDomain(c: PrismaCouponRow): Coupon {
     value: c.value,
     restriction: c.restriction as CouponRestriction,
     scope: c.scope as CouponScope,
+    allowGuest: c.allowGuest,
     isActive: c.isActive,
     expiresAt: c.expiresAt,
     createdAt: c.createdAt,
@@ -62,6 +65,23 @@ export class PrismaCouponRepository implements ICouponRepository {
     return coupons.map(toDomain)
   }
 
+  async findById(id: string): Promise<Coupon | null> {
+    const c = await this.prisma.client.coupon.findUnique({ where: { id }, include: COUPON_INCLUDE })
+    return c ? toDomain(c) : null
+  }
+
+  async hasActiveRedemption(couponId: string, customer: CustomerIdentity): Promise<boolean> {
+    const or: Array<{ userId: string } | { buyerIdKey: string }> = []
+    if (customer.userId) or.push({ userId: customer.userId })
+    if (customer.buyerIdKey) or.push({ buyerIdKey: customer.buyerIdKey })
+    if (or.length === 0) return false
+    const row = await this.prisma.client.couponRedemption.findFirst({
+      where: { couponId, OR: or, status: { in: ['RESERVED', 'CONFIRMED'] } },
+      select: { id: true },
+    })
+    return row !== null
+  }
+
   async create(data: CreateCouponInput): Promise<Coupon> {
     const c = await this.prisma.client.coupon.create({
       data: {
@@ -70,6 +90,7 @@ export class PrismaCouponRepository implements ICouponRepository {
         value: data.value,
         restriction: data.restriction,
         scope: data.scope,
+        allowGuest: data.allowGuest ?? false,
         expiresAt: data.expiresAt,
         productId: data.productId ?? null,
         categories: data.categoryIds?.length
@@ -90,6 +111,7 @@ export class PrismaCouponRepository implements ICouponRepository {
         ...(data.value       !== undefined && { value:       data.value }),
         ...(data.restriction !== undefined && { restriction: data.restriction }),
         ...(data.scope       !== undefined && { scope:       data.scope }),
+        ...(data.allowGuest  !== undefined && { allowGuest:  data.allowGuest }),
         ...(data.expiresAt   !== undefined && { expiresAt:   data.expiresAt }),
         ...(data.isActive    !== undefined && { isActive:    data.isActive }),
         ...('productId' in data && { productId: data.productId ?? null }),

@@ -10,6 +10,11 @@
  *   - Pago contra entrega (COD): POST /api/orders crea el pedido ya confirmado
  *     (no hay pasarela que esperar) → se redirige directo a /checkout/confirmacion.
  *
+ * Guest checkout (README §22.4): sin sesión se pide el email de contacto y se ofrece
+ * iniciar sesión. La API devuelve `accessToken` para abrir /checkout/confirmacion sin sesión.
+ * Cupones (README §22.5): un 403 al validar significa que el cupón exige cuenta — se muestra
+ * el CTA de login/registro. El documento se envía al validar para cupones de un uso por cliente.
+ *
  * Nota: el precio en el formulario se muestra en pesos COP (display),
  * pero internamente todo se maneja en centavos.
  */
@@ -29,7 +34,8 @@ type PaymentMethod = 'WOMPI' | 'COD'
 type DeliveryMethod = 'HOME_DELIVERY' | 'STORE_PICKUP'
 
 interface CheckoutFormProps {
-  userEmail: string
+  /** Email de la cuenta. null = checkout como invitado. */
+  userEmail: string | null
   /** Si el admin desactivó COD en /admin/configuracion, la opción no se muestra. */
   codEnabled: boolean
   /**
@@ -73,6 +79,9 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('WOMPI')
   const [wompiParams, setWompiParams] = useState<CreateOrderResponse['payment'] | null>(null)
   const [orderId, setOrderId] = useState<string | null>(null)
+  const [orderAccessToken, setOrderAccessToken] = useState<string | null>(null)
+  const isGuest = userEmail === null
+  const [guestEmail, setGuestEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [acceptedPolicies, setAcceptedPolicies] = useState(false)
@@ -80,6 +89,8 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
   const [couponCode, setCouponCode] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState<string | null>(null)
+  /** true cuando la API respondió 403: el cupón exige iniciar sesión o crear cuenta. */
+  const [couponNeedsAccount, setCouponNeedsAccount] = useState(false)
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string
     discount: number
@@ -131,11 +142,16 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
     if (!code) return
     setCouponLoading(true)
     setCouponError(null)
+    setCouponNeedsAccount(false)
     setAppliedCoupon(null)
     try {
       const client = apiClient(session?.user?.accessToken)
       const res = await client.post<{ discount: number; eligibleProductIds: string[] }>('/coupons/validate', {
         code,
+        // Documento para cupones "una vez por cliente" — se rastrea por cédula, con o sin cuenta.
+        ...(buyer.idNumber.trim().length >= 5 && {
+          buyer: { idType: buyer.idType, idNumber: buyer.idNumber.trim() },
+        }),
         items: items.map((i) => ({
           productId: i.product.id,
           price: i.product.price,
@@ -146,9 +162,10 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
       })
       if (!res.ok) {
         setCouponError(res.error ?? 'Cupón no válido')
+        setCouponNeedsAccount(res.status === 403 && isGuest)
         return
       }
-      setAppliedCoupon({ code, ...res.data })
+      setAppliedCoupon({ code, discount: res.data.discount, eligibleProductIds: res.data.eligibleProductIds })
     } catch {
       setCouponError('Error al validar el cupón')
     } finally {
@@ -169,6 +186,10 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
     }
     if (buyer.idType === 'NIT' && buyer.businessName.trim().length === 0) {
       setError('Cuando el documento es NIT, la razón social es obligatoria.')
+      return
+    }
+    if (isGuest && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim())) {
+      setError('Ingresa un correo electrónico válido para recibir la confirmación de tu pedido.')
       return
     }
 
@@ -206,6 +227,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
           ...(buyer.idType === 'NIT' && { businessName: buyer.businessName.trim() }),
         },
         paymentProvider: paymentMethod,
+        ...(isGuest && { contactEmail: guestEmail.trim().toLowerCase() }),
         policiesAcceptedAt: new Date().toISOString(),
         ...(appliedCoupon && { couponCode: appliedCoupon.code }),
       })
@@ -214,11 +236,12 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
         throw new Error(orderRes.error ?? 'Error al crear el pedido')
       }
 
-      const { order, payment } = orderRes.data
+      const { order, payment, accessToken } = orderRes.data
 
       if (paymentMethod === 'COD') {
         // El pedido COD ya nació confirmado — no hay widget de pago que mostrar.
-        router.push(`/checkout/confirmacion?orderId=${order.id}`)
+        // El token permite ver la confirmación sin sesión (invitados).
+        router.push(`/checkout/confirmacion?orderId=${order.id}&token=${encodeURIComponent(accessToken)}`)
         return
       }
 
@@ -227,6 +250,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
       }
 
       setOrderId(order.id)
+      setOrderAccessToken(accessToken)
       setWompiParams(payment)
       setStep('payment')
     } catch (e) {
@@ -253,6 +277,24 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
       <div className="lg:col-span-2">
         {step === 'shipping' ? (
           <form onSubmit={handleSubmitShipping} className="space-y-5">
+            {/* Guest checkout: comprar sin cuenta, con opción de iniciar sesión */}
+            {isGuest && (
+              <div className="bg-sky-50 border border-sky-200 rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Estás comprando como invitado</p>
+                  <p className="text-xs text-gray-600">
+                    No necesitas cuenta. Inicia sesión si quieres usar cupones exclusivos y ver tu historial de pedidos.
+                  </p>
+                </div>
+                <a
+                  href="/auth/login?callbackUrl=/checkout"
+                  className="shrink-0 text-center text-sm font-semibold text-sky-700 border border-sky-300 bg-white rounded-lg px-4 py-2 hover:bg-sky-100 transition-colors"
+                >
+                  Iniciar sesión
+                </a>
+              </div>
+            )}
+
             {/* Método de entrega — domicilio vs retiro en tienda */}
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <h2 className="font-bold text-gray-900 mb-1">¿Cómo quieres recibir tu pedido?</h2>
@@ -392,16 +434,33 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
 
                 <div>
                   <label htmlFor="checkout-email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Correo electrónico
+                    Correo electrónico{isGuest && ' *'}
                   </label>
-                  <input
-                    id="checkout-email"
-                    type="email"
-                    disabled
-                    aria-disabled="true"
-                    value={userEmail}
-                    className="w-full border border-gray-200 bg-gray-50 rounded-lg px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed"
-                  />
+                  {isGuest ? (
+                    <input
+                      id="checkout-email"
+                      type="email"
+                      required
+                      aria-required="true"
+                      autoComplete="email"
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-sky-400"
+                      placeholder="tucorreo@ejemplo.com"
+                    />
+                  ) : (
+                    <input
+                      id="checkout-email"
+                      type="email"
+                      disabled
+                      aria-disabled="true"
+                      value={userEmail}
+                      className="w-full border border-gray-200 bg-gray-50 rounded-lg px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed"
+                    />
+                  )}
+                  {isGuest && (
+                    <p className="text-xs text-gray-400 mt-1">Te enviaremos la confirmación y el seguimiento del pedido.</p>
+                  )}
                 </div>
 
                 <div className="sm:col-span-2">
@@ -556,6 +615,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
                     onChange={(e) => {
                       setCouponCode(e.target.value.toUpperCase())
                       setCouponError(null)
+                      setCouponNeedsAccount(false)
                       if (appliedCoupon) setAppliedCoupon(null)
                     }}
                     disabled={couponLoading || !!appliedCoupon}
@@ -584,6 +644,27 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
                 </div>
                 {couponError && (
                   <p className="mt-2 text-xs text-red-600">{couponError}</p>
+                )}
+                {couponNeedsAccount && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <a
+                      href="/auth/login?callbackUrl=/checkout"
+                      className="text-xs font-semibold bg-sky-500 text-white rounded-lg px-3 py-2 hover:bg-sky-600 transition-colors"
+                    >
+                      Iniciar sesión
+                    </a>
+                    <a
+                      href="/auth/register?callbackUrl=/checkout"
+                      className="text-xs font-semibold border border-sky-300 text-sky-700 rounded-lg px-3 py-2 hover:bg-sky-50 transition-colors"
+                    >
+                      Crear cuenta
+                    </a>
+                  </div>
+                )}
+                {isGuest && !couponError && !appliedCoupon && (
+                  <p className="mt-2 text-xs text-gray-400">
+                    Algunos cupones requieren cuenta. Ingresa tu documento antes de aplicar cupones de un solo uso.
+                  </p>
                 )}
                 {appliedCoupon && (
                   <p className="mt-2 text-xs text-green-700 font-medium">
@@ -676,7 +757,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
                 {...wompiParams}
                 publicKey={wompiParams.publicKey}
                 integritySignature={wompiParams.integritySignature}
-                redirectUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/checkout/confirmacion?orderId=${orderId}`}
+                redirectUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/checkout/confirmacion?orderId=${orderId}&token=${encodeURIComponent(orderAccessToken ?? '')}`}
               />
             )}
           </div>

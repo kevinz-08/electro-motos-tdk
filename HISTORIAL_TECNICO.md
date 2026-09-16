@@ -4,6 +4,25 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 151. CI: el deploy a Cloud Run revertía el remitente de las guías Vendelo
+
+**Contexto:** la entrada 149 cambió el remitente de las guías a "H2r Online Store" en el código, en
+`.env.example` y directamente en la revisión de Cloud Run. Pero el job `deploy` de
+`.github/workflows/ci.yml` pasa `VENDELO_STORE_NAME=Electro Motos TDK` en `--update-env-vars`, así que
+cada push a `main` volvía a poner el nombre viejo en las guías.
+
+**Cambio:**
+
+- `.github/workflows/ci.yml` — `VENDELO_STORE_NAME=H2r Online Store` en `--update-env-vars` del paso
+  "Deploy to Cloud Run".
+
+**Verificación:** no queda ninguna referencia a "Electro Motos TDK" fuera de este historial. Se aplica en el
+próximo deploy (push a `main`); las guías ya emitidas conservan el nombre con el que se crearon.
+
+*Última actualización: 2026-09-16*
+
+---
+
 ## 150. Optimización de conversión (CRO): precio ancla, Hero visual, prueba social, guest checkout, cupones para invitados y reseñas
 
 **Contexto:** plan de CRO en seis fases (diseño y reglas completas en README §22). Objetivo: aumentar

@@ -26,7 +26,7 @@
 
 const CLOUDINARY_RE = /^https?:\/\/res\.cloudinary\.com\/([^/]+)\/image\/upload\//
 
-type ImageContext = 'thumbnail' | 'card' | 'detail' | 'carousel' | 'admin' | 'hero'
+type ImageContext = 'thumbnail' | 'card' | 'detail' | 'carousel' | 'admin' | 'hero' | 'heroMobile'
 
 const WIDTH: Record<ImageContext, number> = {
   thumbnail: 200,
@@ -35,6 +35,7 @@ const WIDTH: Record<ImageContext, number> = {
   carousel:  480,
   admin:     400,
   hero:      1920, // full-bleed en el carrusel de la home
+  heroMobile: 1080, // variante vertical del hero (< 768px)
 }
 
 /**

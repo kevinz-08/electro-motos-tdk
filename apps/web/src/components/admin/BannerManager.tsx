@@ -16,12 +16,13 @@ import { bannersHelpContent } from './help-content/banners'
 
 export type BannerRow = {
   id: string
-  imageUrl: string
-  imagePublicId: string
-  title: string
-  description: string | null
-  ctaLabel: string | null
-  ctaUrl: string | null
+  desktopImageUrl: string
+  desktopImagePublicId: string
+  mobileImageUrl: string
+  mobileImagePublicId: string
+  altText: string
+  ctaLabel: string
+  ctaUrl: string
   order: number
   isActive: boolean
 }
@@ -38,11 +39,11 @@ export type CategoryOption = {
 // El admin no maneja URLs — elige de una lista de destinos conocidos y, si
 // aplica, la categoría específica. La URL real (ctaUrl) se arma a partir de
 // esa elección y solo se expone como texto libre en el destino "avanzado".
+// El Hero es puramente visual (README §22.2): el botón CTA es obligatorio.
 
-type DestinationType = 'ninguno' | 'catalogo' | 'categoria' | 'whatsapp' | 'custom'
+type DestinationType = 'catalogo' | 'categoria' | 'whatsapp' | 'custom'
 
 const DESTINATION_LABELS: Record<DestinationType, string> = {
-  ninguno: 'Sin botón',
   catalogo: 'Catálogo completo',
   categoria: 'Una categoría o subcategoría',
   whatsapp: 'WhatsApp (contacto)',
@@ -50,8 +51,7 @@ const DESTINATION_LABELS: Record<DestinationType, string> = {
 }
 
 const DESTINATION_DEFAULT_LABEL: Record<DestinationType, string> = {
-  ninguno: '',
-  catalogo: 'Ver catálogo',
+  catalogo: 'Comprar ahora',
   categoria: 'Ver productos',
   whatsapp: 'Escríbenos',
   custom: '',
@@ -59,8 +59,7 @@ const DESTINATION_DEFAULT_LABEL: Record<DestinationType, string> = {
 
 /** Reconstruye la selección de destino a partir de un ctaUrl ya guardado (modo edición). */
 function inferDestination(ctaUrl: string | null | undefined): { type: DestinationType; categorySlug: string; customUrl: string } {
-  if (!ctaUrl) return { type: 'ninguno', categorySlug: '', customUrl: '' }
-  if (ctaUrl === '/catalogo') return { type: 'catalogo', categorySlug: '', customUrl: '' }
+  if (!ctaUrl || ctaUrl === '/catalogo') return { type: 'catalogo', categorySlug: '', customUrl: '' }
   const categoryMatch = ctaUrl.match(/^\/catalogo\?category=([a-z0-9-]+)$/)
   if (categoryMatch) return { type: 'categoria', categorySlug: categoryMatch[1]!, customUrl: '' }
   if (ctaUrl.startsWith('https://wa.me/')) return { type: 'whatsapp', categorySlug: '', customUrl: '' }
@@ -69,7 +68,6 @@ function inferDestination(ctaUrl: string | null | undefined): { type: Destinatio
 
 function buildCtaUrl(type: DestinationType, categorySlug: string, customUrl: string): string {
   switch (type) {
-    case 'ninguno': return ''
     case 'catalogo': return '/catalogo'
     case 'categoria': return categorySlug ? `/catalogo?category=${categorySlug}` : ''
     case 'whatsapp': return WHATSAPP_URL()
@@ -80,9 +78,8 @@ function buildCtaUrl(type: DestinationType, categorySlug: string, customUrl: str
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const bannerSchema = z.object({
-  title: z.string().min(1, 'Requerido').max(80, 'Máximo 80 caracteres'),
-  description: z.string().max(200, 'Máximo 200 caracteres'),
-  ctaLabel: z.string().max(40, 'Máximo 40 caracteres'),
+  altText: z.string().trim().min(1, 'Describe la imagen').max(120, 'Máximo 120 caracteres'),
+  ctaLabel: z.string().trim().min(1, 'Escribe el texto del botón').max(40, 'Máximo 40 caracteres'),
 })
 
 const customUrlSchema = z
@@ -92,6 +89,37 @@ const customUrlSchema = z
 
 type BannerFormData = z.infer<typeof bannerSchema>
 type FormErrors = Partial<Record<keyof BannerFormData, string>> & { categorySlug?: string; customUrl?: string }
+
+type ImageVariant = 'desktop' | 'mobile'
+type UploadedImage = { url: string; publicId: string }
+
+const VARIANT_META: Record<ImageVariant, { label: string; hint: string; aspect: string; previewClass: string }> = {
+  desktop: {
+    label: 'Imagen para computador',
+    hint: 'Horizontal · ideal 1920 × 820 px (21:9)',
+    aspect: '21:9',
+    previewClass: 'aspect-[21/9] w-full',
+  },
+  mobile: {
+    label: 'Imagen para celular',
+    hint: 'Vertical · ideal 1080 × 1350 px (4:5)',
+    aspect: '4:5',
+    previewClass: 'aspect-[4/5] w-40',
+  },
+}
+
+/** Proporción esperada por variante — se avisa (sin bloquear) si la imagen subida se aleja. */
+const EXPECTED_RATIO: Record<ImageVariant, number> = { desktop: 21 / 9, mobile: 4 / 5 }
+
+function readImageRatio(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const img = new window.Image()
+    img.onload = () => { resolve(img.naturalWidth / img.naturalHeight); URL.revokeObjectURL(url) }
+    img.onerror = () => { resolve(null); URL.revokeObjectURL(url) }
+    img.src = url
+  })
+}
 
 // ─── Banner Form ──────────────────────────────────────────────────────────────
 
@@ -106,7 +134,7 @@ interface BannerFormProps {
 
 /** Métodos que el padre (BannerManager) puede invocar sobre el form vía ref. */
 export interface BannerFormHandle {
-  /** Borra en Cloudinary la imagen subida en esta sesión si nunca se guardó (banner no creado/editado con éxito). */
+  /** Borra en Cloudinary las imágenes subidas en esta sesión si nunca se guardaron. */
   cleanupUnsavedImage: () => void
 }
 
@@ -122,51 +150,138 @@ function deleteUnsavedImage(token: string | undefined, publicId: string) {
   apiClient(token).post('/admin/banners/image/delete', { publicId }).catch(() => {})
 }
 
+interface ImageUploadFieldProps {
+  variant: ImageVariant
+  image: UploadedImage | null
+  uploading: boolean
+  error: string | null
+  warning: string | null
+  onFile: (file: File) => void
+  onRemove: () => void
+}
+
+function ImageUploadField({ variant, image, uploading, error, warning, onFile, onRemove }: ImageUploadFieldProps) {
+  const meta = VARIANT_META[variant]
+  const inputId = `banner-image-upload-${variant}`
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1">
+        {meta.label} <span className="text-red-400">*</span>
+      </label>
+      <p className="text-xs text-white/30 mb-1.5">{meta.hint}</p>
+
+      {image ? (
+        <div className={`relative ${meta.previewClass} rounded-lg overflow-hidden bg-white/5 border border-white/10 group`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
+            aria-label={`Quitar ${meta.label.toLowerCase()}`}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onFile(file)
+              if (inputRef.current) inputRef.current.value = ''
+            }}
+            className="sr-only"
+            id={inputId}
+            disabled={uploading}
+          />
+          <label
+            htmlFor={inputId}
+            className={`flex flex-col items-center justify-center gap-2 w-full h-28 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+              uploading
+                ? 'border-blue-500/50 bg-blue-500/5 cursor-not-allowed'
+                : 'border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5'
+            }`}
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+                <span className="text-sm text-white/50">Subiendo...</span>
+              </>
+            ) : (
+              <>
+                <ImagePlus className="w-6 h-6 text-white/30" />
+                <span className="text-sm text-white/50">Subir imagen {meta.aspect}</span>
+                <span className="text-xs text-white/25">JPG, PNG, WEBP · Máx. 5 MB</span>
+              </>
+            )}
+          </label>
+        </div>
+      )}
+      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+      {!error && warning && <p className="text-amber-400 text-xs mt-1">{warning}</p>}
+    </div>
+  )
+}
+
 const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function BannerForm(
   { initial, nextOrder, categories, onSuccess, onCancel, token },
   ref,
 ) {
   const isEdit = !!initial
   const initialDestination = inferDestination(initial?.ctaUrl)
-  // PublicId de la imagen realmente guardada en el banner (si existe) — sirve para saber,
-  // en cualquier punto del formulario, si la imagen actual en pantalla ya está persistida
-  // o es un upload de esta sesión que todavía no se confirmó con "Guardar".
-  const savedPublicId = initial?.imagePublicId
+  // PublicIds de las imágenes realmente guardadas en el banner — sirven para saber si la
+  // imagen en pantalla ya está persistida o es un upload de esta sesión sin confirmar.
+  const savedPublicIds = new Set(
+    initial ? [initial.desktopImagePublicId, initial.mobileImagePublicId] : [],
+  )
   // true una vez que el submit se confirma con éxito — evita que el cleanup-al-cerrar
-  // borre por error la imagen recién guardada cuando el modal se cierra después de guardar.
+  // borre por error las imágenes recién guardadas cuando el modal se cierra después de guardar.
   const savedRef = useRef(false)
 
   const [form, setForm] = useState<BannerFormData>({
-    title: initial?.title ?? '',
-    description: initial?.description ?? '',
-    ctaLabel: initial?.ctaLabel ?? '',
+    altText: initial?.altText ?? '',
+    ctaLabel: initial?.ctaLabel ?? DESTINATION_DEFAULT_LABEL[initialDestination.type],
   })
   const [destination, setDestination] = useState<DestinationType>(initialDestination.type)
   const [categorySlug, setCategorySlug] = useState(initialDestination.categorySlug)
   const [customUrl, setCustomUrl] = useState(initialDestination.customUrl)
-  const [image, setImage] = useState<{ url: string; publicId: string } | null>(
-    initial ? { url: initial.imageUrl, publicId: initial.imagePublicId } : null,
-  )
+  const [images, setImages] = useState<Record<ImageVariant, UploadedImage | null>>({
+    desktop: initial ? { url: initial.desktopImageUrl, publicId: initial.desktopImagePublicId } : null,
+    mobile: initial ? { url: initial.mobileImageUrl, publicId: initial.mobileImagePublicId } : null,
+  })
+  const [uploading, setUploading] = useState<Record<ImageVariant, boolean>>({ desktop: false, mobile: false })
+  const [imageErrors, setImageErrors] = useState<Record<ImageVariant, string | null>>({ desktop: null, mobile: null })
+  const [imageWarnings, setImageWarnings] = useState<Record<ImageVariant, string | null>>({ desktop: null, mobile: null })
   const [errors, setErrors] = useState<FormErrors>({})
-  const [imageError, setImageError] = useState<string | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  /** Si la imagen en pantalla no es la que ya está guardada, es un upload de esta sesión. */
-  const isUnsaved = (publicId: string) => publicId !== savedPublicId
+  const isUnsaved = (publicId: string) => !savedPublicIds.has(publicId)
 
   useImperativeHandle(ref, () => ({
     cleanupUnsavedImage: () => {
       if (savedRef.current) return
-      if (image && isUnsaved(image.publicId)) deleteUnsavedImage(token, image.publicId)
+      for (const img of Object.values(images)) {
+        if (img && isUnsaved(img.publicId)) deleteUnsavedImage(token, img.publicId)
+      }
     },
   }))
 
-  function handleRemoveImage() {
-    if (image && isUnsaved(image.publicId)) deleteUnsavedImage(token, image.publicId)
-    setImage(null)
+  function handleRemoveImage(variant: ImageVariant) {
+    const img = images[variant]
+    // No borrar si la otra variante usa el mismo asset (banners migrados comparten imagen).
+    const otherVariant: ImageVariant = variant === 'desktop' ? 'mobile' : 'desktop'
+    if (img && isUnsaved(img.publicId) && images[otherVariant]?.publicId !== img.publicId) {
+      deleteUnsavedImage(token, img.publicId)
+    }
+    setImages((prev) => ({ ...prev, [variant]: null }))
+    setImageWarnings((prev) => ({ ...prev, [variant]: null }))
   }
 
   function setField<K extends keyof BannerFormData>(key: K, value: BannerFormData[K]) {
@@ -183,28 +298,33 @@ const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function Banner
     }
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || uploading) return
+  async function handleFile(variant: ImageVariant, file: File) {
+    if (uploading[variant]) return
 
-    setUploading(true)
-    setImageError(null)
+    setUploading((prev) => ({ ...prev, [variant]: true }))
+    setImageErrors((prev) => ({ ...prev, [variant]: null }))
+
+    const ratio = await readImageRatio(file)
+    const expected = EXPECTED_RATIO[variant]
+    setImageWarnings((prev) => ({
+      ...prev,
+      [variant]: ratio !== null && Math.abs(ratio - expected) / expected > 0.15
+        ? `La proporción de esta imagen no es ${VARIANT_META[variant].aspect}; se recortará para llenar el espacio.`
+        : null,
+    }))
 
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('slug', form.title || 'banner')
+    formData.append('slug', form.altText.trim().slice(0, 40) || 'banner')
+    formData.append('variant', variant)
 
-    const res = await apiClient(token).postForm<{ url: string; publicId: string }>(
-      '/admin/banners/upload-image',
-      formData,
-    )
+    const res = await apiClient(token).postForm<UploadedImage>('/admin/banners/upload-image', formData)
     if (!res.ok) {
-      setImageError(res.error ?? 'Error al subir la imagen')
+      setImageErrors((prev) => ({ ...prev, [variant]: res.error ?? 'Error al subir la imagen' }))
     } else {
-      setImage({ url: res.data.url, publicId: res.data.publicId })
+      setImages((prev) => ({ ...prev, [variant]: { url: res.data.url, publicId: res.data.publicId } }))
     }
-    setUploading(false)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setUploading((prev) => ({ ...prev, [variant]: false }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -220,8 +340,6 @@ const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function Banner
       }
     }
 
-    // El destino "categoría" y "avanzado" requieren su propio campo lleno;
-    // cualquier destino distinto de "ninguno" necesita texto de botón.
     if (destination === 'categoria' && !categorySlug) {
       fieldErrors.categorySlug = 'Selecciona una categoría'
     }
@@ -229,16 +347,15 @@ const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function Banner
       const urlCheck = customUrlSchema.safeParse(customUrl)
       if (!urlCheck.success) fieldErrors.customUrl = urlCheck.error.issues[0]?.message
     }
-    if (destination !== 'ninguno' && !form.ctaLabel.trim()) {
-      fieldErrors.ctaLabel = 'Escribe el texto del botón'
+
+    const missingImages: Record<ImageVariant, string | null> = {
+      desktop: images.desktop ? null : 'Sube la imagen para computador',
+      mobile: images.mobile ? null : 'Sube la imagen para celular',
     }
 
-    if (Object.keys(fieldErrors).length > 0) {
+    if (Object.keys(fieldErrors).length > 0 || missingImages.desktop || missingImages.mobile) {
       setErrors(fieldErrors)
-      return
-    }
-    if (!image) {
-      setImageError('Sube una imagen para el banner')
+      setImageErrors(missingImages)
       return
     }
 
@@ -247,12 +364,13 @@ const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function Banner
     setLoading(true)
     try {
       const payload = {
-        title: form.title,
-        description: form.description || undefined,
-        ctaLabel: destination === 'ninguno' ? undefined : (form.ctaLabel || undefined),
-        ctaUrl: ctaUrl || undefined,
-        imageUrl: image.url,
-        imagePublicId: image.publicId,
+        altText: form.altText.trim(),
+        ctaLabel: form.ctaLabel.trim(),
+        ctaUrl,
+        desktopImageUrl: images.desktop!.url,
+        desktopImagePublicId: images.desktop!.publicId,
+        mobileImageUrl: images.mobile!.url,
+        mobileImagePublicId: images.mobile!.publicId,
         ...(isEdit ? {} : { order: nextOrder }),
       }
 
@@ -276,6 +394,8 @@ const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function Banner
     }
   }
 
+  const anyUploading = uploading.desktop || uploading.mobile
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {serverError && (
@@ -284,102 +404,43 @@ const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function Banner
         </div>
       )}
 
-      {/* Imagen */}
+      {(['desktop', 'mobile'] as const).map((variant) => (
+        <ImageUploadField
+          key={variant}
+          variant={variant}
+          image={images[variant]}
+          uploading={uploading[variant]}
+          error={imageErrors[variant]}
+          warning={imageWarnings[variant]}
+          onFile={(file) => handleFile(variant, file)}
+          onRemove={() => handleRemoveImage(variant)}
+        />
+      ))}
+
+      {/* Texto alternativo */}
       <div>
         <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
-          Imagen <span className="text-red-400">*</span>
-        </label>
-
-        {image ? (
-          <div className="relative w-full aspect-[21/9] rounded-lg overflow-hidden bg-white/5 border border-white/10 group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            <button
-              type="button"
-              onClick={handleRemoveImage}
-              className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all"
-              aria-label="Quitar imagen"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileChange}
-              className="sr-only"
-              id="banner-image-upload"
-              disabled={uploading}
-            />
-            <label
-              htmlFor="banner-image-upload"
-              className={`flex flex-col items-center justify-center gap-2 w-full h-28 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
-                uploading
-                  ? 'border-blue-500/50 bg-blue-500/5 cursor-not-allowed'
-                  : 'border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5'
-              }`}
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
-                  <span className="text-sm text-white/50">Subiendo...</span>
-                </>
-              ) : (
-                <>
-                  <ImagePlus className="w-6 h-6 text-white/30" />
-                  <span className="text-sm text-white/50">Haz clic para subir la imagen</span>
-                  <span className="text-xs text-white/25">JPG, PNG, WEBP · Máx. 5 MB</span>
-                </>
-              )}
-            </label>
-          </div>
-        )}
-        {imageError && <p className="text-red-400 text-xs mt-1">{imageError}</p>}
-      </div>
-
-      {/* Título */}
-      <div>
-        <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
-          Título <span className="text-red-400">*</span>
+          Texto alternativo <span className="text-red-400">*</span>
         </label>
         <input
           type="text"
-          value={form.title}
-          onChange={(e) => setField('title', e.target.value)}
-          placeholder="Ej: Tu moto merece lo mejor."
-          maxLength={80}
+          value={form.altText}
+          onChange={(e) => setField('altText', e.target.value)}
+          placeholder="Ej: Promoción llantas Michelin 20% de descuento"
+          maxLength={120}
           className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none transition-colors ${
-            errors.title ? 'border-red-500/60' : 'border-white/10 focus:border-blue-500'
+            errors.altText ? 'border-red-500/60' : 'border-white/10 focus:border-blue-500'
           }`}
         />
-        {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
-      </div>
-
-      {/* Descripción */}
-      <div>
-        <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
-          Descripción
-        </label>
-        <textarea
-          value={form.description}
-          onChange={(e) => setField('description', e.target.value)}
-          placeholder="Repuestos de alta calidad para cualquier tipo de moto."
-          rows={2}
-          maxLength={200}
-          className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none resize-none transition-colors ${
-            errors.description ? 'border-red-500/60' : 'border-white/10 focus:border-blue-500'
-          }`}
-        />
-        {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
+        {errors.altText
+          ? <p className="text-red-400 text-xs mt-1">{errors.altText}</p>
+          : <p className="text-white/25 text-xs mt-1">No se muestra en pantalla — describe la imagen para accesibilidad y Google.</p>}
       </div>
 
       {/* CTA — destino del botón, elegido de una lista en vez de escribir una URL */}
       <div>
         <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
-          Botón que redirige a:
+          Botón que redirige a: <span className="text-red-400">*</span>
         </label>
         <select
           value={destination}
@@ -441,31 +502,29 @@ const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function Banner
         </div>
       )}
 
-      {/* Texto del botón — solo aplica si el banner va a tener botón */}
-      {destination !== 'ninguno' && (
-        <div>
-          <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
-            Texto del botón
-          </label>
-          <input
-            type="text"
-            value={form.ctaLabel}
-            onChange={(e) => setField('ctaLabel', e.target.value)}
-            placeholder="Comprar ahora"
-            maxLength={40}
-            className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none transition-colors ${
-              errors.ctaLabel ? 'border-red-500/60' : 'border-white/10 focus:border-blue-500'
-            }`}
-          />
-          {errors.ctaLabel && <p className="text-red-400 text-xs mt-1">{errors.ctaLabel}</p>}
-        </div>
-      )}
+      {/* Texto del botón */}
+      <div>
+        <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1.5">
+          Texto del botón <span className="text-red-400">*</span>
+        </label>
+        <input
+          type="text"
+          value={form.ctaLabel}
+          onChange={(e) => setField('ctaLabel', e.target.value)}
+          placeholder="Comprar ahora"
+          maxLength={40}
+          className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none transition-colors ${
+            errors.ctaLabel ? 'border-red-500/60' : 'border-white/10 focus:border-blue-500'
+          }`}
+        />
+        {errors.ctaLabel && <p className="text-red-400 text-xs mt-1">{errors.ctaLabel}</p>}
+      </div>
 
       {/* Acciones */}
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={loading || uploading}
+          disabled={loading || anyUploading}
           className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear banner'}
@@ -482,6 +541,7 @@ const BannerForm = forwardRef<BannerFormHandle, BannerFormProps>(function Banner
     </form>
   )
 })
+
 
 BannerForm.displayName = 'BannerForm'
 
@@ -671,18 +731,25 @@ export function BannerManager({ banners, categories }: BannerManagerProps) {
             </div>
 
             {/* Miniatura */}
-            <div className="relative w-24 h-12 shrink-0 rounded-lg overflow-hidden bg-white/5 border border-white/10">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={banner.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="relative w-24 h-12 rounded-lg overflow-hidden bg-white/5 border border-white/10" title="Computador">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={banner.desktopImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              </div>
+              <div className="relative w-10 h-12 rounded-lg overflow-hidden bg-white/5 border border-white/10" title="Celular">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={banner.mobileImageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              </div>
             </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{banner.title}</p>
-              {banner.ctaLabel && banner.ctaUrl && (
-                <p className="text-xs text-white/30 truncate">
-                  {banner.ctaLabel} → <span className="font-mono">{banner.ctaUrl}</span>
-                </p>
+              <p className="text-sm font-medium text-white truncate">{banner.altText}</p>
+              <p className="text-xs text-white/30 truncate">
+                {banner.ctaLabel} → <span className="font-mono">{banner.ctaUrl}</span>
+              </p>
+              {banner.desktopImagePublicId === banner.mobileImagePublicId && (
+                <p className="text-xs text-amber-400/80 truncate">Falta la imagen vertical para celular</p>
               )}
               {rowError[banner.id] && (
                 <p className="text-red-400 text-xs mt-0.5">{rowError[banner.id]}</p>
@@ -763,7 +830,7 @@ export function BannerManager({ banners, categories }: BannerManagerProps) {
 
       {/* Modal editar */}
       {modal.type === 'edit' && (
-        <Modal title={`Editar: ${modal.banner.title}`} onClose={closeModal}>
+        <Modal title="Editar banner" onClose={closeModal}>
           <BannerForm
             ref={formRef}
             initial={modal.banner}

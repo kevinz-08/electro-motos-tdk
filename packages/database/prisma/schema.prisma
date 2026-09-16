@@ -446,22 +446,30 @@ model VendeloOrderQueue {
 }
 
 /// Banners del carrusel Hero en la home, administrables desde /admin/banners.
+/// Hero puramente visual (README §22.2): sin texto superpuesto, solo un botón CTA.
+/// Cada banner tiene dos imágenes independientes — horizontal (desktop) y vertical (mobile).
 /// El orden de aparición lo define `order`; solo los `isActive` se muestran en el sitio público.
 model HeroBanner {
-  id            String   @id @default(cuid())
-  /// URL optimizada de Cloudinary (secure_url), no el public_id crudo.
-  imageUrl      String
-  /// public_id de Cloudinary — se conserva para poder borrar la imagen del CDN
-  /// cuando se elimina o reemplaza el banner (evita huérfanos, a diferencia de Product.images).
-  imagePublicId String
-  title         String
-  description   String?
-  ctaLabel      String?
-  ctaUrl        String?
-  order         Int      @default(0)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  /// URL optimizada de Cloudinary (secure_url) — imagen horizontal (~21:9), viewport >= 768px.
+  desktopImageUrl      String
+  /// public_id de Cloudinary de la imagen desktop — para borrarla del CDN al reemplazar/eliminar.
+  desktopImagePublicId String
+  /// URL optimizada de Cloudinary — imagen vertical (~4:5), viewport < 768px.
+  mobileImageUrl       String
+  /// public_id de Cloudinary de la imagen mobile. Puede coincidir con el desktop en banners
+  /// migrados (la migración copió la imagen única a ambos campos) — nunca borrar un public_id
+  /// que siga referenciado por la otra variante.
+  mobileImagePublicId  String
+  /// Texto alternativo (accesibilidad/SEO). No se muestra en pantalla.
+  altText              String
+  ctaLabel             String   @default("Comprar ahora")
+  /// Ruta relativa del sitio o URL completa. Obligatorio: el Hero siempre tiene botón.
+  ctaUrl               String
+  order                Int      @default(0)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@index([isActive, order])
 }

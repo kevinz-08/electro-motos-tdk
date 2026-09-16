@@ -3,31 +3,36 @@ import {
 } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
+/** Hero puramente visual (README §22.2): dos imágenes + botón CTA obligatorio, sin título/descripción. */
 export class CreateHeroBannerDto {
-  @ApiProperty({ maxLength: 80 })
-  @IsString() @IsNotEmpty() @MaxLength(80)
-  title: string
+  @ApiProperty({ maxLength: 120, description: 'Texto alternativo (accesibilidad/SEO) — no se muestra' })
+  @IsString() @IsNotEmpty() @MaxLength(120)
+  altText: string
 
-  @ApiPropertyOptional({ maxLength: 200 })
-  @IsOptional() @IsString() @MaxLength(200)
-  description?: string
-
-  @ApiPropertyOptional({ maxLength: 40 })
-  @IsOptional() @IsString() @MaxLength(40)
+  @ApiPropertyOptional({ maxLength: 40, default: 'Comprar ahora' })
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(40)
   ctaLabel?: string
 
-  @ApiPropertyOptional({ description: 'Ruta relativa del sitio o URL completa' })
-  @IsOptional() @IsString()
+  @ApiProperty({ description: 'Ruta relativa del sitio o URL completa' })
+  @IsString() @IsNotEmpty()
   @Matches(/^(\/|https?:\/\/)/, { message: 'ctaUrl debe ser una ruta relativa o una URL completa' })
-  ctaUrl?: string
+  ctaUrl: string
 
-  @ApiProperty({ description: 'URL optimizada (secure_url) devuelta por /admin/banners/upload-image' })
+  @ApiProperty({ description: 'secure_url de la imagen horizontal (desktop) devuelta por /admin/banners/upload-image' })
   @IsString() @IsNotEmpty()
-  imageUrl: string
+  desktopImageUrl: string
 
-  @ApiProperty({ description: 'public_id de Cloudinary devuelto por /admin/banners/upload-image' })
+  @ApiProperty()
   @IsString() @IsNotEmpty()
-  imagePublicId: string
+  desktopImagePublicId: string
+
+  @ApiProperty({ description: 'secure_url de la imagen vertical (mobile) devuelta por /admin/banners/upload-image' })
+  @IsString() @IsNotEmpty()
+  mobileImageUrl: string
+
+  @ApiProperty()
+  @IsString() @IsNotEmpty()
+  mobileImagePublicId: string
 
   @ApiPropertyOptional({ minimum: 0 })
   @IsOptional() @IsInt() @Min(0)

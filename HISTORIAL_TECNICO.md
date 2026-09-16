@@ -4,6 +4,98 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 150. Optimización de conversión (CRO): precio ancla, Hero visual, prueba social, guest checkout, cupones para invitados y reseñas
+
+**Contexto:** plan de CRO en seis fases (diseño y reglas completas en README §22). Objetivo: aumentar
+conversión, reducir fricción en la compra y hacer la tienda más atractiva, usando solo datos reales
+(Ley 1480 / SIC) para el precio de referencia y la prueba social.
+
+**Fase 1 — Precio ancla (`compareAtPrice`):**
+
+- `schema.prisma` + migración `20260916000000_product_compare_at_price` — `Product.compareAtPrice` con
+  `CHECK (compareAtPrice > price)`, tabla `ProductPriceHistory` (respaldo legal, con backfill del precio
+  vigente) y `OrderItem.compareAtPriceAtPurchase`.
+- `packages/domain/src/entities/Product.ts` — `validateProductPricing`, `getDiscountPercent`, `hasCompareAtPrice`.
+- `CreateOrder` guarda el snapshot del precio ancla en cada ítem.
+- `admin-products.controller.ts` + DTOs — valida la invariante (también en actualizaciones parciales, contra BD).
+- `PrismaProductRepository` (API) — historial `ADMIN_CREATE`/`ADMIN_UPDATE`.
+- `PrismaStockSyncRepository.bulkUpdateStockAndPrice` — si Optimun sube el precio a ≥ `compareAtPrice`,
+  limpia el ancla en la misma escritura (el `CHECK` rompería toda la transacción del sync) e historial `ERP_SYNC`.
+- Web: `PriceTag` (tachado sutil + precio en rojo + badge `-X%`) en `ProductCard`, PDP y carrito;
+  `lib/pricing.ts` (`cartSavings`) con fila "Estás ahorrando" en carrito y checkout; campo "Precio anterior"
+  en `ProductEditForm`.
+
+**Fase 2 — Hero puramente visual:**
+
+- Migración `20260916000100_hero_banner_visual` — `imageUrl/imagePublicId` → `desktopImage*`, nuevos
+  `mobileImage*` (inicializados con la misma imagen), `altText` (desde `title`), `ctaLabel`/`ctaUrl`
+  obligatorios; elimina `title` y `description`.
+- `admin-banners.controller.ts` — `variant` desktop/mobile al subir; al reemplazar/eliminar solo borra en
+  Cloudinary los `public_id` que ninguna variante sigue usando (banners migrados comparten imagen).
+- `CloudinaryService.uploadHeroBannerImage` — 1920 px desktop / 1080 px mobile.
+- `HeroBannerCarousel` — `<picture>` + `getImageProps()` (art direction), sin texto superpuesto, sin
+  "Explorar todo", toda la imagen enlaza al CTA.
+- `BannerManager` — dos cargas con vista previa en su proporción y aviso si la proporción no coincide,
+  texto alternativo, botón obligatorio; la lista avisa "Falta la imagen vertical para celular".
+
+**Fase 3 — Prueba social en la PDP:**
+
+- Migración `20260916000200_product_sold_count` — `Product.soldCount` con backfill; se incrementa junto al
+  descuento de stock (webhook aprobado / COD) y se decrementa en `restockItems`.
+- `packages/domain/src/shared/delivery.ts` — festivos colombianos (Ley Emiliani, Pascua) y
+  `estimateDeliveryWindow` (días hábiles, hora de corte, zona horaria de Colombia). Test contra el calendario
+  oficial 2026.
+- `packages/domain/src/shared/croSettings.ts` — claves, defaults y rangos de los umbrales en `Settings`.
+- `PUT /admin/settings/cro` + `CroSettingsForm` en `/admin/configuracion`; `getCachedCroSettings` (tag `settings`).
+- `ProductTrustSignals.tsx` (ventas, rating, urgencia de stock, pago seguro) y `DeliveryEstimate.tsx`
+  (calculado en el cliente con `useSyncExternalStore` porque la PDP es ISR).
+
+**Fases 4 y 5 — Guest checkout y cupones para invitados:**
+
+- Migración `20260916000300_guest_checkout_coupons` — `Order.userId` opcional, `contactEmail` y `buyerIdKey`
+  con backfill (normalización SQL idéntica a `normalizeBuyerIdKey`), `Coupon.allowGuest`, tabla
+  `CouponRedemption` con backfill desde pedidos históricos.
+- Dominio: `normalizeBuyerIdKey`, `CustomerIdentity`, `validateCouponGuestRule`,
+  `couponRequiresUniqueRedemption`; `ValidateCoupon` reescrito (invitado → `FORBIDDEN` si el cupón exige
+  cuenta o es de primera compra; uso único por `userId` **o** documento); `CreateOrder` acepta `userId` null,
+  valida email y registra el uso del cupón; `IOrderRepository.existsByCouponAndUser` se elimina
+  (reemplazado por `ICouponRepository.hasActiveRedemption`) y `hasApprovedOrders` recibe la identidad.
+- API: `@OptionalAuth()` + soporte en `JwtAuthGuard`; `POST /orders` y `POST /coupons/validate` abiertos a
+  invitados con throttle propio; respuesta con `accessToken`; token HMAC de acceso al pedido
+  (`shared/order-access-token.ts`); correos con enlace firmado; webhooks y cola Vendelo usan `contactEmail`;
+  liberación de cupones en cancelaciones (webhook, cleanup de expirados, admin).
+- Concurrencia de cupones con `CouponRedemption.activeUniqueKey @unique` en lugar de un índice parcial (Prisma
+  no lo representa → drift).
+- Web: `proxy.ts` ya no protege `/checkout`; `CheckoutForm` con banner de invitado, email editable, documento
+  enviado al validar cupones y CTA de login/registro ante 403; confirmación, poller y comprobante aceptan
+  `?token=`; `GuestCartMerger` fusiona el carrito de invitado al iniciar sesión; toggle "Permitir sin cuenta"
+  en `CouponManager`; el modal de pedidos del admin marca "Invitado (sin cuenta)".
+- E2E: el test "redirige a login sin sesión" pasa a verificar que el invitado ve el checkout.
+
+**Fase 6 — Reseñas verificadas:**
+
+- Migración `20260916000400_product_reviews` — `ProductReview` (única por `OrderItem`, `CHECK` 1–5),
+  `Order.reviewRequestedAt`, `EmailQueue.kind`.
+- Dominio: `ProductReview` (`summarizeReviews`, `publicAuthorName`), `IReviewRepository`, `SubmitProductReview`
+  (solo pedidos `DELIVERED`, una por ítem, nace `PENDING`).
+- API: `ReviewsModule` (`POST /reviews` con token firmado, `GET/PATCH /admin/reviews`),
+  `PrismaReviewRepository`, `ReviewRequestService` (escaneo horario idempotente → `EmailQueue` kind
+  `REVIEW_REQUEST`), `ResendEmailService.sendReviewRequest` (HTML con nombres escapados).
+- Web: `/resena/[orderItemId]` + `ReviewForm`, `/admin/resenas` + `ReviewModeration` (entrada en `AdminNav`),
+  rating y sección `#resenas` en la PDP, JSON-LD `Product` con `AggregateRating` condicionado.
+
+**Tests:** dominio 186/186 (nuevos: `ProductPricing`, `Delivery`, `GuestCheckout`, `ProductReview`; matriz de
+invitados en `ValidateCoupon`), cobertura 90 %; API 191/191 (nuevos: guest checkout en `orders.controller`,
+`reviews.test.ts`; `vitest.config.ts` define `INTERNAL_API_SECRET` de prueba). `tsc --noEmit` limpio en domain,
+api y web; ESLint sin errores en los archivos tocados.
+
+**No verificado:** las cinco migraciones SQL no se aplicaron contra una base de datos (el `.env` local apunta a
+Neon) — probarlas primero en un branch de Neon o staging. No se corrió `next build` ni Playwright.
+
+*Última actualización: 2026-09-16*
+
+---
+
 ## 149. Remitente de las guías Vendelo: "Electro Motos TDK" → "H2r Online Store"
 
 **Contexto:** las guías de envío salían con "Electro Motos TDK" como remitente. Ese texto es

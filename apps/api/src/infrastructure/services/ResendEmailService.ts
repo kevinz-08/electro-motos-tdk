@@ -1,6 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Resend } from 'resend'
 import { Order } from '@h2r/domain'
+import { signOrderAccessToken, signReviewToken } from '../../shared/order-access-token'
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 
 @Injectable()
 export class ResendEmailService {
@@ -19,6 +29,66 @@ export class ResendEmailService {
     }
   }
 
+  /**
+   * Enlace al detalle del pedido con token firmado — funciona para invitados (sin sesión)
+   * y para usuarios registrados. Ver shared/order-access-token.ts.
+   */
+  private orderUrl(orderId: string): string {
+    const token = signOrderAccessToken(orderId)
+    return `${this.frontendUrl}/checkout/confirmacion?orderId=${orderId}&token=${token}`
+  }
+
+  /**
+   * "Califica tu compra" (README §22.6) — un botón por producto con enlace firmado
+   * /resena/[orderItemId]?token=… (funciona para invitados, sin sesión).
+   */
+  async sendReviewRequest(
+    orderId: string,
+    customerName: string,
+    items: Array<{ orderItemId: string; productName: string }>,
+    customerEmail: string,
+  ): Promise<void> {
+    if (!this.resend) return
+    const firstName = escapeHtml(customerName.trim().split(/\s+/)[0] ?? '')
+    const rows = items.map((item) => {
+      const href = `${this.frontendUrl}/resena/${item.orderItemId}?token=${signReviewToken(item.orderItemId)}`
+      return `
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;">${escapeHtml(item.productName)}</td>
+          <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;text-align:right;">
+            <a href="${href}" style="display:inline-block;background:#f59e0b;color:#111827;text-decoration:none;font-weight:700;font-size:13px;padding:8px 14px;border-radius:8px;">★ Calificar</a>
+          </td>
+        </tr>`
+    }).join('')
+
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: customerEmail,
+      subject: '¿Qué tal tu compra? Cuéntanos en 30 segundos ⭐',
+      html: `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Califica tu compra</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="100%" style="max-width:560px;" cellspacing="0" cellpadding="0">
+      <tr><td style="background:#0f172a;border-radius:12px 12px 0 0;padding:24px 32px;text-align:center;">
+        <p style="margin:0;font-size:22px;font-weight:700;color:#f59e0b;">⚡ H2R Online Store</p>
+      </td></tr>
+      <tr><td style="background:#ffffff;padding:32px;border-radius:0 0 12px 12px;">
+        <h1 style="margin:0 0 12px;font-size:22px;color:#0f172a;">${firstName ? `Hola ${firstName}, ` : ''}¿qué tal tu compra?</h1>
+        <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#4b5563;">
+          Tu opinión ayuda a otros motociclistas a elegir mejor. Califica tus productos del pedido
+          #${orderId.slice(-8).toUpperCase()} — solo toma unos segundos.
+        </p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table>
+        <p style="margin:24px 0 0;font-size:12px;color:#9ca3af;">Las reseñas se publican tras una revisión. Solo compradores verificados pueden calificar.</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`,
+    })
+    if (error) this.logger.error(`sendReviewRequest failed orderId=${orderId}: ${JSON.stringify(error)}`)
+  }
+
   /** Email inmediato al crear el pedido (estado PENDING). */
   async sendOrderReceived(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
@@ -34,7 +104,7 @@ export class ResendEmailService {
         orderId: order.id,
         total: order.total,
         address: order.shippingAddress,
-        cta: { label: 'Ver mi pedido', href: `${this.frontendUrl}/checkout/confirmacion?orderId=${order.id}` },
+        cta: { label: 'Ver mi pedido', href: this.orderUrl(order.id) },
       }),
     })
     if (error) this.logger.error(`sendOrderReceived failed orderId=${order.id}: ${JSON.stringify(error)}`)
@@ -60,7 +130,7 @@ export class ResendEmailService {
         orderId: order.id,
         total: order.total,
         address: order.shippingAddress,
-        cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
+        cta: { label: 'Ver mi pedido', href: this.orderUrl(order.id) },
         footer: 'Te notificaremos cuando tu pedido sea despachado.',
       }),
     })
@@ -84,7 +154,7 @@ export class ResendEmailService {
         orderId: order.id,
         total: order.total,
         address: order.shippingAddress,
-        cta: { label: 'Ver mis pedidos', href: `${this.frontendUrl}/mis-pedidos` },
+        cta: { label: 'Ver mi pedido', href: this.orderUrl(order.id) },
       }),
     })
     if (error) this.logger.error(`sendShippingNotification failed orderId=${order.id}: ${JSON.stringify(error)}`)

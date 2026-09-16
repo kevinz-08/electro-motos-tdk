@@ -6,6 +6,8 @@ import { getOrderStatus } from '@/app/(store)/checkout/confirmacion/actions'
 
 interface OrderStatusPollerProps {
   orderId: string
+  /** Token firmado del enlace — necesario para invitados sin sesión. */
+  token?: string | null
 }
 
 const POLL_INTERVAL_MS = 5_000
@@ -17,7 +19,7 @@ const MAX_ATTEMPTS = 36 // 3 minutos máximo (36 × 5s)
  * para que el Server Component se re-renderice con los datos actualizados.
  * Se detiene automáticamente tras 3 minutos o cuando el estado cambia.
  */
-export function OrderStatusPoller({ orderId }: OrderStatusPollerProps) {
+export function OrderStatusPoller({ orderId, token }: OrderStatusPollerProps) {
   const router = useRouter()
   const attemptsRef = useRef(0)
 
@@ -30,7 +32,7 @@ export function OrderStatusPoller({ orderId }: OrderStatusPollerProps) {
         return
       }
 
-      const status = await getOrderStatus(orderId)
+      const status = await getOrderStatus(orderId, token)
 
       if (status && status !== 'PENDING') {
         clearInterval(interval)
@@ -39,7 +41,7 @@ export function OrderStatusPoller({ orderId }: OrderStatusPollerProps) {
     }, POLL_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [orderId, router])
+  }, [orderId, token, router])
 
   return null
 }

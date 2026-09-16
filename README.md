@@ -34,6 +34,8 @@ electrónico. Los administradores gestionan productos, pedidos y stock desde un 
 19. [Detalles técnicos: Wompi](#19-detalles-técnicos-wompi)
 20. [Detalles técnicos: Mercado Pago](#20-detalles-técnicos-mercado-pago)
 21. [Preguntas frecuentes](#21-preguntas-frecuentes)
+22. [Optimización de conversión (CRO)](#22-optimización-de-conversión-cro)
+23. [Imágenes de OpenGraph por categoría](#23-imágenes-de-opengraph-por-categoría)
 
 ---
 
@@ -875,7 +877,7 @@ GET /products?search=yamaha&minPrice=5000000&maxPrice=20000000
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `POST` | `/orders` | JWT | Crea pedido y prepara transacción de pago |
+| `POST` | `/orders` | JWT opcional (invitados, throttle 10/min) | Crea pedido y prepara transacción de pago. Devuelve `accessToken` para ver el pedido sin sesión |
 | `PATCH` | `/orders/:id/status` | JWT + ADMIN | Actualiza estado manualmente |
 | `PATCH` | `/orders/:id/sync-shipment` | JWT + ADMIN | Sincroniza estado de envío con Vendelo |
 
@@ -887,6 +889,16 @@ GET /products?search=yamaha&minPrice=5000000&maxPrice=20000000
 | `POST` | `/payments/wompi/webhook` | Firma Wompi | Webhook IPN de Wompi |
 | `POST` | `/payments/mercadopago/create-preference` | JWT | Crea preferencia MP |
 | `POST` | `/payments/mercadopago/webhook` | Firma MP | Webhook IPN de Mercado Pago |
+
+### Cupones y reseñas
+
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `POST` | `/coupons/validate` | JWT opcional (throttle 20/min) | Valida un cupón. Invitados: 403 si exige cuenta; enviar `buyer` para cupones de un uso |
+| `POST` | `/reviews` | Token firmado del correo (throttle 5/min) | Envía reseña verificada (pedido `DELIVERED`, una por ítem) |
+| `GET` | `/admin/reviews?status=` | JWT + ADMIN | Lista reseñas por estado |
+| `PATCH` | `/admin/reviews/:id` | JWT + ADMIN | Aprueba / rechaza una reseña |
+| `PUT` | `/admin/settings/cro` | JWT + ADMIN | Umbrales de prueba social y estimación de entrega |
 
 ### Contacto
 
@@ -1199,7 +1211,9 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | `/admin/pedidos` | Todos los pedidos filtrados por estado + columna "Guía" y sección **Guía Vendelo** en el modal de detalle (reintentar despacho, generar guía, descargar PDF — ver [9.4](#94-apartado-guía-vendelo-en-el-panel-admin)) |
 | `/admin/stock` | Productos con stock ≤ 5, actualización individual de stock |
 | `/admin/sync` | Sincroniza stock y precio con el export `.xlsx` de Optimun (local físico) |
-| `/admin/configuracion` | Toggle para activar/desactivar Mercado Pago |
+| `/admin/resenas` | Moderación de reseñas verificadas (pendientes / aprobadas / rechazadas) |
+| `/admin/banners` | Banners del Hero: imagen desktop + imagen mobile, texto alternativo y botón CTA |
+| `/admin/configuracion` | Toggles de pasarelas y umbrales de prueba social / estimación de entrega |
 
 ### Ayuda contextual (botón ⓘ)
 
@@ -1402,3 +1416,163 @@ ngrok http 3001
 > curl -X POST http://localhost:3001/admin/payments/reconcile \
 >   -H "Authorization: Bearer <token>"
 > ```
+
+---
+
+## 22. Optimización de conversión (CRO)
+
+Conjunto de mejoras orientadas a aumentar la conversión y reducir la fricción de compra.
+Se implementan por fases; cada fase es independiente salvo la 5 (depende de la 4).
+
+> **Marco legal (Ley 1480 de 2011 — Estatuto del Consumidor / SIC):** toda la prueba social y
+> el precio de referencia se construyen **solo con datos reales**. El precio tachado debe ser un
+> precio efectivamente cobrado (respaldo en `ProductPriceHistory`), el contador de ventas sale de
+> pedidos confirmados y las reseñas solo pueden escribirlas compradores verificados.
+
+### 22.1 Precio ancla (`compareAtPrice`)
+
+| Campo | Tipo | Regla |
+|---|---|---|
+| `Product.compareAtPrice` | `Int?` (centavos) | `NULL` = sin ancla. `CHECK (compareAtPrice IS NULL OR compareAtPrice > price)` |
+| `ProductPriceHistory` | tabla | una fila por cada cambio de `price`/`compareAtPrice` (`source`: `ADMIN_CREATE` · `ADMIN_UPDATE` · `ERP_SYNC`) |
+| `OrderItem.compareAtPriceAtPurchase` | `Int?` | snapshot para mostrar "Ahorraste $X" en el pedido |
+
+- **Dominio:** `validateProductPricing()` y `getDiscountPercent()` en `entities/Product.ts`.
+- **Sync Optimun:** si el ERP sube el precio a un valor ≥ `compareAtPrice`, `SyncStock` limpia el
+  ancla (`compareAtPrice = null`) en la misma actualización — el `CHECK` nunca rompe la sincronización.
+- **UI:** componente `PriceTag` (precio tachado sutil + precio real grande en acento + badge `-X%`)
+  en tarjeta de catálogo, PDP, carrito y checkout. El JSON-LD `Offer` publica solo `price`.
+- **Cupones:** el descuento siempre se calcula sobre `price`, nunca sobre `compareAtPrice`.
+
+### 22.2 Hero Banner visual (mobile-first)
+
+`HeroBanner` pierde `title`, `description` e `imageUrl` y gana:
+
+| Campo | Uso |
+|---|---|
+| `desktopImageUrl` / `desktopImagePublicId` | imagen horizontal (≈ 21:9) — viewport ≥ 768 px |
+| `mobileImageUrl` / `mobileImagePublicId` | imagen vertical (≈ 4:5) — viewport < 768 px |
+| `altText` | texto alternativo obligatorio (accesibilidad/SEO); no se muestra en pantalla |
+| `ctaLabel` | texto del botón (default "Comprar ahora") |
+| `ctaUrl` | **obligatorio** — destino del botón |
+
+El carrusel usa `<picture>` con `getImageProps()` de Next (art direction) y ya no muestra texto
+superpuesto ni el botón "Explorar todo" (`/catalogo?showAll=true`). La migración copia la imagen
+existente a ambos campos; el admin debe subir luego la versión vertical. **Deploy:** la migración
+elimina columnas usadas por la versión anterior — desplegar web y API junto con `migrate deploy`.
+
+### 22.3 Prueba social en la PDP
+
+| Elemento | Fuente | Se muestra cuando |
+|---|---|---|
+| "🔥 X personas han comprado este producto" | `Product.soldCount` (se incrementa al confirmar el pago; COD al crear) | `soldCount ≥ SOCIAL_PROOF_MIN_SOLD` (Settings, default 5) |
+| "¡Solo quedan X unidades en stock!" | `Product.stock` | `0 < stock < LOW_STOCK_URGENCY_THRESHOLD` (default 5) |
+| Badge "Pago seguro" | estático (Wompi / Mercado Pago) | siempre, bajo el botón de compra |
+| "Cómpralo hoy y recíbelo entre el [día] y el [día]" | `estimateDeliveryWindow()` (dominio) — días hábiles, festivos colombianos (Ley Emiliani) y hora de corte | siempre que haya stock. Settings: `SHIPPING_ETA_MIN_DAYS` (2), `SHIPPING_ETA_MAX_DAYS` (5), `SHIPPING_CUTOFF_HOUR` (14) |
+| Estrellas + "X% de clientes recomiendan este producto" | `ProductReview` aprobadas | `reseñas ≥ REVIEWS_MIN_COUNT` (default 3) |
+
+`soldCount` se decrementa si el envío termina `RETURNED`/`CANCELLED` (mismo punto donde se repone stock).
+La migración inicializa `soldCount` con las unidades de pedidos `PAID`/`SHIPPED`/`DELIVERED`.
+
+Todos los umbrales se editan en `/admin/configuracion` (`PUT /admin/settings/cro`, tag de caché `settings`).
+La fecha de entrega se calcula **en el cliente** (`DeliveryEstimate` con `useSyncExternalStore`): la PDP es ISR
+y una fecha calculada en el servidor podría servirse horas después.
+
+### 22.4 Guest checkout (compra sin cuenta)
+
+- `Order.userId` pasa a **opcional** (FK `ON DELETE SET NULL`). Nuevos campos:
+  `contactEmail` (destino de **todos** los correos del pedido, invitado o registrado) y
+  `buyerIdKey` (documento normalizado con `normalizeBuyerIdKey`: `CC:1000123456`, `NIT:900123456`
+  sin dígito de verificación, `CE:E12345AB`). El teléfono sigue en `shippingAddress.phone`.
+- `/checkout` deja de exigir sesión (`proxy.ts` solo protege `/admin`). `POST /orders` y
+  `POST /coupons/validate` usan `@OptionalAuth()`: sin header `Authorization` la request es de un
+  invitado; con header, el JWT se valida normalmente (un token vencido da 401, no degrada a invitado).
+- **Acceso al pedido sin sesión:** token determinista
+  `HMAC-SHA256(INTERNAL_API_SECRET, "order-access:" + orderId)` (`apps/api/src/shared/order-access-token.ts`
+  y su gemelo `apps/web/src/lib/order-access-token.ts`). No se guarda en BD: la cola de correos
+  regenera el enlace `/checkout/confirmacion?orderId=…&token=…` cuando quiera. Lo aceptan la página de
+  confirmación, el poller de estado y `/api/orders/[id]/comprobante`.
+- Los webhooks de Wompi/Mercado Pago y `VendeloOrderQueueService` usan `order.contactEmail` en vez de
+  buscar el email del usuario.
+- El carrito de invitado vive en `localStorage["electro-motos-cart-guest"]`; `<GuestCartMerger />`
+  lo fusiona con el carrito del usuario al iniciar sesión.
+- Pendiente (no implementado): vincular automáticamente los pedidos de invitado a una cuenta creada
+  después con el mismo email.
+
+### 22.5 Reglas de cupones con invitados
+
+`Coupon.allowGuest` (default `false`) — por defecto todo cupón exige cuenta.
+
+| Restricción | Con cuenta | Invitado |
+|---|---|---|
+| `NONE` (sin límite por cliente) | ✅ | ✅ solo si `allowGuest` |
+| `ONCE_PER_CUSTOMER` | ✅ — no usado por su `userId` **ni** por su documento | ✅ solo si `allowGuest` — no usado por su documento |
+| `FIRST_PURCHASE` | ✅ — sin pedidos confirmados por `userId` ni por documento | ❌ siempre exige cuenta |
+
+Invariante: `restriction = FIRST_PURCHASE ⇒ allowGuest = false` (validado en API).
+
+**`CouponRedemption`** registra cada uso, en la misma transacción que el pedido:
+`RESERVED` al crear el pedido (COD nace `CONFIRMED`) → `CONFIRMED` cuando el webhook aprueba el pago →
+`RELEASED` si el pedido se cancela (webhook rechazado, cleanup de pedidos expirados o admin).
+
+Concurrencia: la columna `activeUniqueKey String? @unique` vale `"couponId:buyerIdKey"` mientras el uso
+está activo en cupones con restricción por cliente, y `null` en cupones `NONE` o al liberarse (Postgres
+admite múltiples `NULL`). Dos pedidos simultáneos con el mismo cupón y documento chocan en el `@unique`
+y el repositorio lo traduce a `AppError('VALIDATION_ERROR', 'Ya utilizaste este cupón')`. Se eligió en
+lugar de un índice único parcial porque Prisma no los representa y `migrate dev` los detectaría como drift.
+La migración crea un uso por cada pedido histórico con cupón.
+
+El admin activa "Permitir sin cuenta (invitados)" en `/admin/cupones`; el checkbox se deshabilita para
+"Solo primera compra".
+
+### 22.6 Reseñas verificadas
+
+`ProductReview` (`rating` 1–5 con `CHECK`, `recommends`, `comment?`, `authorName`, `status`
+`PENDING | APPROVED | REJECTED`), única por `OrderItem` y solo para pedidos `DELIVERED` →
+solo compradores reales. El nombre público se deriva del destinatario ("Carlos P.").
+
+- **Solicitud por correo:** `ReviewRequestService` (cada hora) busca pedidos `DELIVERED` sin
+  `Order.reviewRequestedAt`, creados hace ≥ `REVIEW_REQUEST_MIN_DAYS` (default 7) y ≤ 60 días, marca
+  el pedido con un `updateMany` condicionado (idempotente entre instancias) y encola en `EmailQueue`
+  con `kind = REVIEW_REQUEST` — hereda los reintentos de la cola. La migración marca como ya
+  solicitados los pedidos entregados de hace más de 30 días.
+- **Enlace:** `/resena/[orderItemId]?token=…` con `HMAC(INTERNAL_API_SECRET, "review:" + orderItemId)`
+  — prefijo distinto al del pedido, un token no sirve para el otro. Funciona para invitados.
+- **Moderación:** `/admin/resenas`; aprobar/rechazar invalida el tag `products`.
+- **PDP:** estrellas + "X % de clientes recomiendan este producto" junto al título y sección
+  `#resenas` con las 6 más recientes, solo si hay ≥ `REVIEWS_MIN_COUNT` aprobadas. JSON-LD
+  `Product` con `AggregateRating` bajo la misma condición.
+
+### 22.7 Despliegue
+
+Migraciones (en orden): `20260916000000_product_compare_at_price`, `…0100_hero_banner_visual`,
+`…0200_product_sold_count`, `…0300_guest_checkout_coupons`, `…0400_product_reviews`.
+
+- La migración del Hero **elimina** `title`/`description`/`imageUrl`: aplicar `migrate deploy` y
+  desplegar web y API juntas.
+- `INTERNAL_API_SECRET` ya era obligatoria; ahora además firma los enlaces de pedido y de reseña —
+  rotarla invalida los enlaces enviados por correo.
+- Nueva variable opcional de la API: `REVIEW_REQUEST_MIN_DAYS` (default 7).
+
+---
+
+## 23. Imágenes de OpenGraph por categoría
+
+Al compartir un enlace del catálogo (`/catalogo?category=<slug>`), la vista previa (WhatsApp,
+Facebook, X, etc.) muestra la imagen de esa categoría o subcategoría.
+
+- **Fuente de verdad:** `apps/web/src/lib/opengraph.ts` → `CATEGORY_OG_IMAGES` (slug → archivo en
+  `apps/web/public/assets/opengraph/`). El mapa es explícito porque varios archivos no se llaman
+  igual que su slug (ej. `repuestos` → `respuestos.jpg`, `exploradores` → `exploradoras.jpg`).
+- **Fallback:** cualquier categoría o subcategoría sin entrada en el mapa, la búsqueda, el catálogo
+  general y el resto del sitio usan `op-image.jpg`. Una subcategoría sin imagen **no** hereda la del padre.
+- **Por qué no hay `app/opengraph-image.png`:** en Next.js la metadata por archivo tiene prioridad sobre
+  `generateMetadata`, así que ese archivo tapaba las imágenes dinámicas. La imagen global se declara
+  en `openGraph.images` del layout raíz.
+- `openGraph` de una página **reemplaza** el del layout (no se fusiona): usar siempre
+  `buildOpenGraph()` para conservar `type`, `locale` y `siteName`.
+- Las URLs son absolutas vía `metadataBase` (`NEXT_PUBLIC_SITE_URL`), requisito de los scrapers.
+
+**Agregar la imagen de una categoría:** subir el archivo a `public/assets/opengraph/` y añadir la
+entrada `slug → archivo` en `CATEGORY_OG_IMAGES`. Todas las imágenes de categoría deben ser **JPEG de
+1280 × 560 px** (el tamaño se declara una sola vez en `CATEGORY_OG_SIZE`). La global `op-image.jpg` es JPEG de 1200 × 630 (tamaño recomendado por las redes).

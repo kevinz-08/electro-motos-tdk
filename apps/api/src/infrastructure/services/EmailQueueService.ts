@@ -7,6 +7,8 @@ const PROCESS_INTERVAL_MS = 2 * 60 * 1000 // cada 2 minutos
 const MAX_ATTEMPTS = 3
 const BACKOFF_SECONDS = [5, 30, 120] // por intento fallido
 
+export type EmailKind = 'ORDER_CONFIRMATION' | 'REVIEW_REQUEST'
+
 @Injectable()
 export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EmailQueueService.name)
@@ -27,11 +29,16 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer)
   }
 
-  async enqueue(to: string, orderId: string): Promise<void> {
+  /**
+   * Encola un correo del pedido.
+   *   ORDER_CONFIRMATION (default) — pago aprobado / pedido COD confirmado.
+   *   REVIEW_REQUEST               — "Califica tu compra" (ReviewRequestService, README §22.6).
+   */
+  async enqueue(to: string, orderId: string, kind: EmailKind = 'ORDER_CONFIRMATION'): Promise<void> {
     await this.prisma.client.emailQueue.create({
-      data: { to, orderId, status: 'PENDING' },
+      data: { to, orderId, kind, status: 'PENDING' },
     })
-    this.logger.log(`[EmailQueue] Encolado email de confirmación orderId=${orderId}`)
+    this.logger.log(`[EmailQueue] Encolado email ${kind} orderId=${orderId}`)
   }
 
   async processNext(): Promise<void> {
@@ -49,7 +56,7 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
       try {
         const order = await this.prisma.client.order.findUnique({
           where: { id: item.orderId },
-          include: { items: true },
+          include: { items: { include: { product: { select: { name: true } } } } },
         })
 
         if (!order) {
@@ -61,7 +68,16 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
           continue
         }
 
-        await this.emailService.sendOrderConfirmation(order as unknown as Order, item.to)
+        if (item.kind === 'REVIEW_REQUEST') {
+          await this.emailService.sendReviewRequest(
+            order.id,
+            (order.shippingAddress as { fullName?: string } | null)?.fullName ?? '',
+            order.items.map((i) => ({ orderItemId: i.id, productName: i.product.name })),
+            item.to,
+          )
+        } else {
+          await this.emailService.sendOrderConfirmation(order as unknown as Order, item.to)
+        }
 
         await this.prisma.client.emailQueue.update({
           where: { id: item.id },

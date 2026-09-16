@@ -4,6 +4,171 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 153. Imágenes de OpenGraph de categoría: JPEG 1280 × 560
+
+**Contexto:** los 11 archivos de categoría tenían extensión `.png` pero eran JPEG (se servían con
+`Content-Type: image/png`) y mezclaban 1280×560 y 1600×700.
+
+**Cambios:**
+
+- `apps/web/public/assets/opengraph/*.png` → `*.jpg` (11 archivos): recorte centrado a proporción 16:7 y
+  redimensión a 1280×560 con Pillow (LANCZOS, calidad 88, progresivo). Las de 1600×700 ya tenían esa
+  proporción, así que solo se redimensionaron sin perder contenido. Peso final 103–147 KB cada una.
+- `apps/web/src/lib/opengraph.ts` — el mapa pasa a `slug → archivo .jpg` con un único `CATEGORY_OG_SIZE`.
+- Imagen global: el usuario la reemplazó por `op-image.jpg` (JPEG 1200×630, el tamaño recomendado para
+  OpenGraph); `DEFAULT_OG_IMAGE` se actualizó al nuevo nombre y dimensiones.
+- README §23 actualizado.
+
+**Respaldo:** los originales no estaban en git; quedó copia en el scratchpad de la sesión.
+
+*Última actualización: 2026-09-16*
+
+---
+
+## 152. Imágenes de OpenGraph dinámicas por categoría
+
+**Contexto:** al compartir un enlace del catálogo, la vista previa debe mostrar la imagen de la categoría o
+subcategoría, con fallback a la imagen global. Detalle en README §23.
+
+**Cambios:**
+
+- `apps/web/src/lib/opengraph.ts` (nuevo) — `CATEGORY_OG_IMAGES` (11 slugs → archivo + dimensiones reales),
+  `DEFAULT_OG_IMAGE` (`og-image.png`), `getCategoryOgImage()` y `buildSocialMetadata()` (OpenGraph + Twitter).
+- `apps/web/src/app/(store)/catalogo/page.tsx` — `generateMetadata` agrega OpenGraph/Twitter: imagen de la
+  categoría con `?category=`, imagen global en búsqueda y catálogo general.
+- `apps/web/src/app/layout.tsx` — la imagen global pasa a `openGraph.images` / `twitter.images`.
+- `apps/web/src/app/opengraph-image.png` — **eliminado** (idéntico byte a byte a `public/assets/opengraph/og-image.png`).
+  En Next la metadata por archivo tiene prioridad sobre `generateMetadata` y tapaba las imágenes por categoría.
+
+**Decisiones:**
+
+- Mapa explícito en lugar de derivar el archivo del slug: 5 archivos no coinciden con su slug en BD
+  (`respuestos.png`, `bombillos-led.png`, `exploradoras.png`, `filtros-aire-alto-flujo.png`, `sliders.png`).
+  Slugs verificados contra la BD.
+- Subcategoría sin imagen → imagen global (no hereda la del padre), según el requerimiento.
+- `openGraph` de una página reemplaza el del layout, por eso `buildSocialMetadata` repite `type/locale/siteName`.
+
+**Pendientes detectados en las imágenes:** extensión `.png` con contenido JPEG y tamaños mezclados — resuelto
+en la entrada 153.
+
+**Verificación:** `tsc --noEmit` y ESLint limpios; los 12 archivos referenciados existen.
+No se probó la vista previa real en WhatsApp/Facebook (requiere despliegue).
+
+*Última actualización: 2026-09-16*
+
+---
+
+## 151. CI: el deploy a Cloud Run revertía el remitente de las guías Vendelo
+
+**Contexto:** la entrada 149 cambió el remitente de las guías a "H2r Online Store" en el código, en
+`.env.example` y directamente en la revisión de Cloud Run. Pero el job `deploy` de
+`.github/workflows/ci.yml` pasa `VENDELO_STORE_NAME=Electro Motos TDK` en `--update-env-vars`, así que
+cada push a `main` volvía a poner el nombre viejo en las guías.
+
+**Cambio:**
+
+- `.github/workflows/ci.yml` — `VENDELO_STORE_NAME=H2r Online Store` en `--update-env-vars` del paso
+  "Deploy to Cloud Run".
+
+**Verificación:** no queda ninguna referencia a "Electro Motos TDK" fuera de este historial. Se aplica en el
+próximo deploy (push a `main`); las guías ya emitidas conservan el nombre con el que se crearon.
+
+*Última actualización: 2026-09-16*
+
+---
+
+## 150. Optimización de conversión (CRO): precio ancla, Hero visual, prueba social, guest checkout, cupones para invitados y reseñas
+
+**Contexto:** plan de CRO en seis fases (diseño y reglas completas en README §22). Objetivo: aumentar
+conversión, reducir fricción en la compra y hacer la tienda más atractiva, usando solo datos reales
+(Ley 1480 / SIC) para el precio de referencia y la prueba social.
+
+**Fase 1 — Precio ancla (`compareAtPrice`):**
+
+- `schema.prisma` + migración `20260916000000_product_compare_at_price` — `Product.compareAtPrice` con
+  `CHECK (compareAtPrice > price)`, tabla `ProductPriceHistory` (respaldo legal, con backfill del precio
+  vigente) y `OrderItem.compareAtPriceAtPurchase`.
+- `packages/domain/src/entities/Product.ts` — `validateProductPricing`, `getDiscountPercent`, `hasCompareAtPrice`.
+- `CreateOrder` guarda el snapshot del precio ancla en cada ítem.
+- `admin-products.controller.ts` + DTOs — valida la invariante (también en actualizaciones parciales, contra BD).
+- `PrismaProductRepository` (API) — historial `ADMIN_CREATE`/`ADMIN_UPDATE`.
+- `PrismaStockSyncRepository.bulkUpdateStockAndPrice` — si Optimun sube el precio a ≥ `compareAtPrice`,
+  limpia el ancla en la misma escritura (el `CHECK` rompería toda la transacción del sync) e historial `ERP_SYNC`.
+- Web: `PriceTag` (tachado sutil + precio en rojo + badge `-X%`) en `ProductCard`, PDP y carrito;
+  `lib/pricing.ts` (`cartSavings`) con fila "Estás ahorrando" en carrito y checkout; campo "Precio anterior"
+  en `ProductEditForm`.
+
+**Fase 2 — Hero puramente visual:**
+
+- Migración `20260916000100_hero_banner_visual` — `imageUrl/imagePublicId` → `desktopImage*`, nuevos
+  `mobileImage*` (inicializados con la misma imagen), `altText` (desde `title`), `ctaLabel`/`ctaUrl`
+  obligatorios; elimina `title` y `description`.
+- `admin-banners.controller.ts` — `variant` desktop/mobile al subir; al reemplazar/eliminar solo borra en
+  Cloudinary los `public_id` que ninguna variante sigue usando (banners migrados comparten imagen).
+- `CloudinaryService.uploadHeroBannerImage` — 1920 px desktop / 1080 px mobile.
+- `HeroBannerCarousel` — `<picture>` + `getImageProps()` (art direction), sin texto superpuesto, sin
+  "Explorar todo", toda la imagen enlaza al CTA.
+- `BannerManager` — dos cargas con vista previa en su proporción y aviso si la proporción no coincide,
+  texto alternativo, botón obligatorio; la lista avisa "Falta la imagen vertical para celular".
+
+**Fase 3 — Prueba social en la PDP:**
+
+- Migración `20260916000200_product_sold_count` — `Product.soldCount` con backfill; se incrementa junto al
+  descuento de stock (webhook aprobado / COD) y se decrementa en `restockItems`.
+- `packages/domain/src/shared/delivery.ts` — festivos colombianos (Ley Emiliani, Pascua) y
+  `estimateDeliveryWindow` (días hábiles, hora de corte, zona horaria de Colombia). Test contra el calendario
+  oficial 2026.
+- `packages/domain/src/shared/croSettings.ts` — claves, defaults y rangos de los umbrales en `Settings`.
+- `PUT /admin/settings/cro` + `CroSettingsForm` en `/admin/configuracion`; `getCachedCroSettings` (tag `settings`).
+- `ProductTrustSignals.tsx` (ventas, rating, urgencia de stock, pago seguro) y `DeliveryEstimate.tsx`
+  (calculado en el cliente con `useSyncExternalStore` porque la PDP es ISR).
+
+**Fases 4 y 5 — Guest checkout y cupones para invitados:**
+
+- Migración `20260916000300_guest_checkout_coupons` — `Order.userId` opcional, `contactEmail` y `buyerIdKey`
+  con backfill (normalización SQL idéntica a `normalizeBuyerIdKey`), `Coupon.allowGuest`, tabla
+  `CouponRedemption` con backfill desde pedidos históricos.
+- Dominio: `normalizeBuyerIdKey`, `CustomerIdentity`, `validateCouponGuestRule`,
+  `couponRequiresUniqueRedemption`; `ValidateCoupon` reescrito (invitado → `FORBIDDEN` si el cupón exige
+  cuenta o es de primera compra; uso único por `userId` **o** documento); `CreateOrder` acepta `userId` null,
+  valida email y registra el uso del cupón; `IOrderRepository.existsByCouponAndUser` se elimina
+  (reemplazado por `ICouponRepository.hasActiveRedemption`) y `hasApprovedOrders` recibe la identidad.
+- API: `@OptionalAuth()` + soporte en `JwtAuthGuard`; `POST /orders` y `POST /coupons/validate` abiertos a
+  invitados con throttle propio; respuesta con `accessToken`; token HMAC de acceso al pedido
+  (`shared/order-access-token.ts`); correos con enlace firmado; webhooks y cola Vendelo usan `contactEmail`;
+  liberación de cupones en cancelaciones (webhook, cleanup de expirados, admin).
+- Concurrencia de cupones con `CouponRedemption.activeUniqueKey @unique` en lugar de un índice parcial (Prisma
+  no lo representa → drift).
+- Web: `proxy.ts` ya no protege `/checkout`; `CheckoutForm` con banner de invitado, email editable, documento
+  enviado al validar cupones y CTA de login/registro ante 403; confirmación, poller y comprobante aceptan
+  `?token=`; `GuestCartMerger` fusiona el carrito de invitado al iniciar sesión; toggle "Permitir sin cuenta"
+  en `CouponManager`; el modal de pedidos del admin marca "Invitado (sin cuenta)".
+- E2E: el test "redirige a login sin sesión" pasa a verificar que el invitado ve el checkout.
+
+**Fase 6 — Reseñas verificadas:**
+
+- Migración `20260916000400_product_reviews` — `ProductReview` (única por `OrderItem`, `CHECK` 1–5),
+  `Order.reviewRequestedAt`, `EmailQueue.kind`.
+- Dominio: `ProductReview` (`summarizeReviews`, `publicAuthorName`), `IReviewRepository`, `SubmitProductReview`
+  (solo pedidos `DELIVERED`, una por ítem, nace `PENDING`).
+- API: `ReviewsModule` (`POST /reviews` con token firmado, `GET/PATCH /admin/reviews`),
+  `PrismaReviewRepository`, `ReviewRequestService` (escaneo horario idempotente → `EmailQueue` kind
+  `REVIEW_REQUEST`), `ResendEmailService.sendReviewRequest` (HTML con nombres escapados).
+- Web: `/resena/[orderItemId]` + `ReviewForm`, `/admin/resenas` + `ReviewModeration` (entrada en `AdminNav`),
+  rating y sección `#resenas` en la PDP, JSON-LD `Product` con `AggregateRating` condicionado.
+
+**Tests:** dominio 186/186 (nuevos: `ProductPricing`, `Delivery`, `GuestCheckout`, `ProductReview`; matriz de
+invitados en `ValidateCoupon`), cobertura 90 %; API 191/191 (nuevos: guest checkout en `orders.controller`,
+`reviews.test.ts`; `vitest.config.ts` define `INTERNAL_API_SECRET` de prueba). `tsc --noEmit` limpio en domain,
+api y web; ESLint sin errores en los archivos tocados.
+
+**No verificado:** las cinco migraciones SQL no se aplicaron contra una base de datos (el `.env` local apunta a
+Neon) — probarlas primero en un branch de Neon o staging. No se corrió `next build` ni Playwright.
+
+*Última actualización: 2026-09-16*
+
+---
+
 ## 149. Remitente de las guías Vendelo: "Electro Motos TDK" → "H2r Online Store"
 
 **Contexto:** las guías de envío salían con "Electro Motos TDK" como remitente. Ese texto es

@@ -45,11 +45,16 @@ export class AdminBannersController {
   async uploadImage(
     @UploadedFile() file: { buffer: Buffer } | undefined,
     @Body('slug') slug: string,
+    @Body('variant') variant: string,
   ) {
     if (!file) {
       throw new BadRequestException('Archivo inválido — solo se permiten imágenes JPEG, PNG o WebP de hasta 5MB')
     }
-    const result = await this.cloudinary.uploadHeroBannerImage(file.buffer, slug || 'banner')
+    const result = await this.cloudinary.uploadHeroBannerImage(
+      file.buffer,
+      slug || 'banner',
+      variant === 'mobile' ? 'mobile' : 'desktop',
+    )
     return { url: result.secureUrl, publicId: result.publicId }
   }
 
@@ -89,7 +94,7 @@ export class AdminBannersController {
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Actualizar banner (si cambia la imagen, borra la anterior en Cloudinary)' })
+  @ApiOperation({ summary: 'Actualizar banner (si cambia alguna imagen, borra la anterior en Cloudinary)' })
   async update(@Param('id') id: string, @Body() dto: UpdateHeroBannerDto) {
     if (dto.isActive) {
       const activeCount = await this.prisma.client.heroBanner.count({
@@ -103,10 +108,18 @@ export class AdminBannersController {
     const previous = await this.prisma.client.heroBanner.findUnique({ where: { id } })
     const updated = await this.prisma.client.heroBanner.update({ where: { id }, data: dto })
 
-    if (previous && dto.imagePublicId && dto.imagePublicId !== previous.imagePublicId) {
-      await this.cloudinary.deleteImage(previous.imagePublicId).catch(() => {
-        // No bloquear la actualización si Cloudinary falla o el asset ya no existe.
-      })
+    if (previous) {
+      // Solo se borran los public_id que ya no referencia ninguna de las dos variantes —
+      // en banners migrados desktop y mobile comparten la misma imagen.
+      const stillUsed = new Set([updated.desktopImagePublicId, updated.mobileImagePublicId])
+      const orphaned = new Set(
+        [previous.desktopImagePublicId, previous.mobileImagePublicId].filter((pid) => !stillUsed.has(pid)),
+      )
+      for (const publicId of orphaned) {
+        await this.cloudinary.deleteImage(publicId).catch(() => {
+          // No bloquear la actualización si Cloudinary falla o el asset ya no existe.
+        })
+      }
     }
 
     return updated
@@ -114,12 +127,14 @@ export class AdminBannersController {
 
   @Delete(':id')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Eliminar banner (borra también la imagen en Cloudinary)' })
+  @ApiOperation({ summary: 'Eliminar banner (borra también sus imágenes en Cloudinary)' })
   async delete(@Param('id') id: string) {
     const banner = await this.prisma.client.heroBanner.delete({ where: { id } })
-    await this.cloudinary.deleteImage(banner.imagePublicId).catch(() => {
-      // No bloquear la eliminación del banner si Cloudinary falla o el asset ya no existe.
-    })
+    for (const publicId of new Set([banner.desktopImagePublicId, banner.mobileImagePublicId])) {
+      await this.cloudinary.deleteImage(publicId).catch(() => {
+        // No bloquear la eliminación del banner si Cloudinary falla o el asset ya no existe.
+      })
+    }
     return { success: true }
   }
 }

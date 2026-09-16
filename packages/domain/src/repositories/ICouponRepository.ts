@@ -1,4 +1,5 @@
 import { Coupon, CouponType, CouponRestriction, CouponScope } from '@/domain/entities/Coupon'
+import { CustomerIdentity } from '@/domain/entities/Order'
 
 export interface CreateCouponInput {
   code: string
@@ -7,6 +8,8 @@ export interface CreateCouponInput {
   value: number
   restriction: CouponRestriction
   scope: CouponScope
+  /** Permite usar el cupón sin cuenta. Default false. */
+  allowGuest?: boolean
   expiresAt: Date
   /** IDs de categorías — requerido cuando scope === CATEGORY. */
   categoryIds?: string[]
@@ -20,6 +23,7 @@ export interface UpdateCouponInput {
   value?: number
   restriction?: CouponRestriction
   scope?: CouponScope
+  allowGuest?: boolean
   expiresAt?: Date
   /** Reemplaza todas las categorías del cupón. null para limpiar. */
   categoryIds?: string[] | null
@@ -34,10 +38,19 @@ export interface UpdateCouponInput {
  *
  * Sin método incrementUsage: la vigencia se controla exclusivamente por expiresAt
  * (evaluación lazy en ValidateCoupon). No hay contadores globales.
+ *
+ * Los usos por cliente se registran en CouponRedemption (RESERVED → CONFIRMED | RELEASED),
+ * escritos por IOrderRepository en la misma transacción del pedido.
  */
 export interface ICouponRepository {
   findByCode(code: string): Promise<Coupon | null>
+  findById(id: string): Promise<Coupon | null>
   findAll(): Promise<Coupon[]>
+  /**
+   * true si existe un uso RESERVED o CONFIRMED del cupón para el cliente, buscando por
+   * userId O por buyerIdKey (los que no sean null). Si ambos son null retorna false.
+   */
+  hasActiveRedemption(couponId: string, customer: CustomerIdentity): Promise<boolean>
   create(data: CreateCouponInput): Promise<Coupon>
   update(id: string, data: UpdateCouponInput): Promise<Coupon>
   /** Soft delete: pone isActive = false en lugar de borrar la fila. */

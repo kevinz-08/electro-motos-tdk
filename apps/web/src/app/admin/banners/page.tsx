@@ -12,10 +12,11 @@ export default async function AdminBannersPage() {
 
   const banners: BannerRow[] = rows.map((r) => ({
     id: r.id,
-    imageUrl: r.imageUrl,
-    imagePublicId: r.imagePublicId,
-    title: r.title,
-    description: r.description,
+    desktopImageUrl: r.desktopImageUrl,
+    desktopImagePublicId: r.desktopImagePublicId,
+    mobileImageUrl: r.mobileImageUrl,
+    mobileImagePublicId: r.mobileImagePublicId,
+    altText: r.altText,
     ctaLabel: r.ctaLabel,
     ctaUrl: r.ctaUrl,
     order: r.order,

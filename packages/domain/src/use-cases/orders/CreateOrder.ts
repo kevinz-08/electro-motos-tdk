@@ -1,13 +1,20 @@
 import { IOrderRepository, CreateOrderInput } from '@/domain/repositories/IOrderRepository'
 import { IProductRepository } from '@/domain/repositories/IProductRepository'
 import { IPaymentService, PaymentResult } from '@/domain/services/IPaymentService'
-import { Order, ShippingAddress, BuyerInfo, PaymentProvider, DeliveryMethod } from '@/domain/entities/Order'
+import { Order, ShippingAddress, BuyerInfo, PaymentProvider, DeliveryMethod, normalizeBuyerIdKey } from '@/domain/entities/Order'
+import { couponRequiresUniqueRedemption } from '@/domain/entities/Coupon'
 import { QuoteShipping } from '@/domain/use-cases/shipping/QuoteShipping'
 import { ValidateCoupon } from '@/domain/use-cases/coupons/ValidateCoupon'
 import { Result, ok, err, AppError } from '@/domain/shared/Result'
 
 export interface CreateOrderUseCaseInput {
-  userId: string
+  /** null = compra como invitado (guest checkout, README §22.4). */
+  userId: string | null
+  /**
+   * Email de contacto. Obligatorio para invitados; para usuarios el caller pasa el email
+   * de la cuenta. Destino de todos los correos del pedido.
+   */
+  contactEmail?: string
   // Intencionalmente sin `price`: el precio siempre se lee de la BD en el use case
   // para prevenir manipulación de precios desde el cliente.
   items: Array<{ productId: string; quantity: number }>
@@ -95,11 +102,21 @@ export class CreateOrder {
   ) {}
 
   async execute(input: CreateOrderUseCaseInput): Promise<Result<CreateOrderOutput>> {
+    const contactEmail = input.contactEmail?.trim().toLowerCase() ?? ''
+    if (input.userId === null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      return err(new AppError('VALIDATION_ERROR', 'Ingresa un correo electrónico válido para recibir la confirmación'))
+    }
+    const buyerIdKey = normalizeBuyerIdKey(input.buyer.idType, input.buyer.idNumber)
+    if (!buyerIdKey) {
+      return err(new AppError('VALIDATION_ERROR', 'Ingresa un número de documento válido'))
+    }
+
     // 1. Validar stock y calcular el subtotal de productos
     const resolvedItems: Array<{
       productId: string
       quantity: number
       priceAtPurchase: number
+      compareAtPriceAtPurchase: number | null
       /** Solo para validación de cupón — se elimina antes de persistir. */
       _categoryId: string
       _parentCategoryId: string | null
@@ -133,6 +150,9 @@ export class CreateOrder {
         productId: found.id,
         quantity: item.quantity,
         priceAtPurchase: found.price,
+        compareAtPriceAtPurchase: found.compareAtPrice != null && found.compareAtPrice > found.price
+          ? found.compareAtPrice
+          : null,
         // Guardamos categoryId y parentCategoryId para la validación de cupón.
         // No forman parte de CreateOrderInput — son solo datos de trabajo locales.
         _categoryId: found.categoryId,
@@ -143,6 +163,7 @@ export class CreateOrder {
 
     // 2. Validar y aplicar cupón si se proporcionó uno.
     let discountAmount = 0
+    let couponRedemption: CreateOrderInput['couponRedemption']
     if (input.couponCode) {
       if (input.paymentProvider !== 'WOMPI') {
         return err(new AppError('VALIDATION_ERROR', 'Los cupones solo aplican para pagos con tarjeta (Wompi)'))
@@ -153,6 +174,7 @@ export class CreateOrder {
       const couponResult = await this.validateCoupon.execute({
         code: input.couponCode,
         userId: input.userId,
+        buyerIdKey,
         items: resolvedItems.map(item => ({
           productId: item.productId,
           categoryId: item._categoryId,
@@ -163,6 +185,10 @@ export class CreateOrder {
       })
       if (!couponResult.ok) return couponResult
       discountAmount = couponResult.value.discount
+      couponRedemption = {
+        couponId: couponResult.value.couponId,
+        enforceUnique: couponRequiresUniqueRedemption(couponResult.value.restriction),
+      }
     }
 
     // 3. Cotizar el flete si corresponde, sumarlo al total cobrado en línea.
@@ -206,6 +232,8 @@ export class CreateOrder {
 
     const createInput: CreateOrderInput = {
       userId: input.userId,
+      contactEmail,
+      buyerIdKey,
       items: resolvedItems.map(({ _categoryId: _c, _parentCategoryId: _p, ...item }) => item),
       shippingAddress: input.shippingAddress,
       buyer: input.buyer,
@@ -215,6 +243,7 @@ export class CreateOrder {
       total,
       couponCode: input.couponCode,
       discountAmount,
+      couponRedemption,
     }
 
     // COD: no hay pasarela que esperar — el pedido se crea ya PAID y con el
@@ -224,6 +253,8 @@ export class CreateOrder {
       try {
         order = await this.orderRepo.createPaidOrder(createInput)
       } catch (e) {
+        // El repositorio lanza AppError cuando el uso del cupón choca con otro pedido concurrente.
+        if (e instanceof AppError) return err(e)
         return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
       }
       return ok({ order, payment: null, shippingQuoteFallback: false })
@@ -234,6 +265,7 @@ export class CreateOrder {
     try {
       order = await this.orderRepo.create(createInput)
     } catch (e) {
+      if (e instanceof AppError) return err(e)
       return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
     }
 

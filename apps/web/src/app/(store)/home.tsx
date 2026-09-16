@@ -29,10 +29,10 @@ export default async function HomePage() {
 
   const banners = heroBanners.map((b) => ({
     id: b.id,
-    src: b.imageUrl,
-    title: b.title,
-    description: b.description ?? '',
-    cta: b.ctaLabel && b.ctaUrl ? { label: b.ctaLabel, href: b.ctaUrl } : undefined,
+    desktopSrc: b.desktopImageUrl,
+    mobileSrc: b.mobileImageUrl,
+    alt: b.altText,
+    cta: { label: b.ctaLabel, href: b.ctaUrl },
   }))
 
   return (

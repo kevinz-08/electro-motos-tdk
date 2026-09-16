@@ -14,8 +14,9 @@
  *     Usuario no autenticado (invitado): 'electro-motos-cart-guest'
  *
  *   Cada usuario tiene su propio carrito completamente separado.
- *   Al iniciar sesión, el carrito de invitado queda intacto en localStorage
- *   (no se mezcla con el carrito del usuario autenticado).
+ *   Al iniciar sesión, <GuestCartMerger /> mueve los ítems del carrito de invitado
+ *   al carrito del usuario (sumando cantidades, con tope de stock) y vacía el de invitado —
+ *   así no se pierde lo que se agregó antes de loguearse (guest checkout, README §22.4).
  *
  * IMPLEMENTACIÓN:
  *   - `createCartStore(key)` crea una instancia de Zustand con persist para esa clave.
@@ -195,4 +196,25 @@ export function useCart() {
 
   // Llamar al hook de Zustand y retornar el estado + acciones
   return stores[storageKey]()
+}
+
+/**
+ * Fusiona el carrito de invitado en el carrito del usuario recién autenticado.
+ * Idempotente: tras fusionar, el carrito de invitado queda vacío.
+ */
+export function mergeGuestCartInto(userId: string): void {
+  const guestKey = 'electro-motos-cart-guest'
+  const userKey = `electro-motos-cart-${userId}`
+  if (!stores[guestKey]) stores[guestKey] = createCartStore(guestKey)
+  if (!stores[userKey]) stores[userKey] = createCartStore(userKey)
+
+  const guest = stores[guestKey].getState()
+  if (guest.items.length === 0) return
+
+  const user = stores[userKey].getState()
+  for (const { product, quantity } of guest.items) {
+    user.addItem(product, quantity)
+  }
+  if (!user.selectedCity && guest.selectedCity) user.setSelectedCity(guest.selectedCity)
+  guest.clearCart()
 }

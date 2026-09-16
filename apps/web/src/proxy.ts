@@ -30,7 +30,6 @@ import { NextResponse } from 'next/server'
 export const proxy = auth((request) => {
   const { nextUrl, auth: session } = request
   const isAdminRoute = nextUrl.pathname.startsWith('/admin')
-  const isCheckoutRoute = nextUrl.pathname.startsWith('/checkout')
 
   if (isAdminRoute) {
     if (!session?.user) {
@@ -42,15 +41,9 @@ export const proxy = auth((request) => {
     }
   }
 
-  if (isCheckoutRoute && !session?.user) {
-    const loginUrl = new URL('/auth/login', nextUrl)
-    loginUrl.searchParams.set('callbackUrl', nextUrl.pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
   return NextResponse.next()
 })
 
 export const config = {
-  matcher: ['/admin/:path*', '/checkout/:path*'],
+  matcher: ['/admin/:path*'],
 }

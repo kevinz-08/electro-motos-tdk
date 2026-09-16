@@ -1,7 +1,8 @@
 import {
-  Body, Controller, ForbiddenException, HttpCode,
+  BadRequestException, Body, Controller, ForbiddenException, HttpCode,
   Inject, Logger, Param, Patch, Post,
 } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import {
   IOrderRepository, IProductRepository, IPaymentService, IVendeloShippingPort,
@@ -19,6 +20,8 @@ import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrde
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CurrentUser, JwtUser } from '../auth/decorators/current-user.decorator'
+import { OptionalAuth } from '../auth/decorators/optional-auth.decorator'
+import { signOrderAccessToken } from '../shared/order-access-token'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto'
 
@@ -48,8 +51,17 @@ export class OrdersController {
 
   @Post()
   @HttpCode(201)
-  @ApiOperation({ summary: 'Crear pedido e iniciar pago' })
-  async create(@Body() dto: CreateOrderDto, @CurrentUser() user: JwtUser) {
+  @OptionalAuth()
+  // Endpoint abierto a invitados: límite más estricto que el global (100/min).
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @ApiOperation({ summary: 'Crear pedido e iniciar pago (con sesión o como invitado)' })
+  async create(@Body() dto: CreateOrderDto, @CurrentUser() user: JwtUser | undefined) {
+    // Guest checkout (README §22.4): sin JWT el pedido nace con userId null y el email del DTO.
+    const contactEmail = user?.email ?? dto.contactEmail
+    if (!contactEmail) {
+      throw new BadRequestException('Ingresa tu correo electrónico para recibir la confirmación del pedido')
+    }
+
     let paymentService: IPaymentService = this.wompiService
     if (dto.paymentProvider === 'MERCADO_PAGO') {
       const setting = await this.prisma.client.settings.findUnique({
@@ -93,7 +105,8 @@ export class OrdersController {
       new ValidateCoupon(this.couponRepo, this.orderRepo),
     )
     const result = await useCase.execute({
-      userId: user.id,
+      userId: user?.id ?? null,
+      contactEmail,
       items: dto.items,
       shippingAddress: dto.shippingAddress,
       buyer: dto.buyer,
@@ -125,7 +138,7 @@ export class OrdersController {
       // COD no tiene webhook de pasarela que confirme el pago — el pedido ya nació
       // PAID (CreateOrder lo confirmó al crearlo), así que disparamos aquí mismo
       // los efectos secundarios que para pagos online dispara ConfirmPayment.
-      await this.emailQueue.enqueue(user.email, result.value.order.id)
+      await this.emailQueue.enqueue(result.value.order.contactEmail, result.value.order.id)
       // Retiro en tienda: el cliente lo recoge en persona, nunca se despacha
       // por Vendelo — no encolar o un mensajero saldría a entregar en falso.
       if (result.value.order.deliveryMethod !== 'STORE_PICKUP') {
@@ -134,11 +147,15 @@ export class OrdersController {
     } else {
       // Fire-and-forget: nunca bloquea ni falla la respuesta del pedido
       this.emailService
-        .sendOrderReceived(result.value.order, user.email)
+        .sendOrderReceived(result.value.order, result.value.order.contactEmail)
         .catch((e) => this.logger.error(`Email sendOrderReceived failed orderId=${result.value.order.id}: ${e}`))
     }
 
-    return result.value
+    return {
+      ...result.value,
+      // Permite a un invitado abrir /checkout/confirmacion sin sesión. Ver shared/order-access-token.ts.
+      accessToken: signOrderAccessToken(result.value.order.id),
+    }
   }
 
   @Patch(':id/status')

@@ -271,6 +271,7 @@ async function main() {
     const paidOrder = await prisma.order.create({
       data: {
         userId: customer.id,
+        contactEmail: customer.email,
         status: OrderStatus.PAID,
         total: product1.price + product2.price,
         paymentProvider: PaymentProvider.WOMPI,
@@ -303,6 +304,7 @@ async function main() {
     const pendingOrder = await prisma.order.create({
       data: {
         userId: customer.id,
+        contactEmail: customer.email,
         status: OrderStatus.PENDING,
         total: product2.price * 2,
         paymentProvider: PaymentProvider.WOMPI,

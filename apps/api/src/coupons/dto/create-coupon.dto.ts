@@ -1,5 +1,5 @@
 import {
-  IsArray, IsDateString, IsEnum, IsInt, IsOptional, IsString,
+  IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString,
   Min, IsNotEmpty, ValidateIf, ArrayMinSize,
 } from 'class-validator'
 import { Transform } from 'class-transformer'
@@ -26,6 +26,10 @@ export class CreateCouponDto {
   @ApiProperty({ enum: ['NONE', 'ONCE_PER_CUSTOMER', 'FIRST_PURCHASE'], default: 'NONE' })
   @IsEnum(['NONE', 'ONCE_PER_CUSTOMER', 'FIRST_PURCHASE'])
   restriction: 'NONE' | 'ONCE_PER_CUSTOMER' | 'FIRST_PURCHASE'
+
+  @ApiPropertyOptional({ default: false, description: 'Permite usar el cupón sin cuenta (nunca con FIRST_PURCHASE)' })
+  @IsOptional() @IsBoolean()
+  allowGuest?: boolean
 
   @ApiProperty({ enum: ['STORE', 'CATEGORY', 'PRODUCT'], default: 'PRODUCT' })
   @IsEnum(['STORE', 'CATEGORY', 'PRODUCT'])

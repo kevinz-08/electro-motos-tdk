@@ -110,7 +110,7 @@ export function Footer() {
               />
             </Link>
             <p className="text-sm leading-relaxed text-gray-400">
-              Taller especializado en repuestos y servicio técnico de motos en Colombia. Calidad garantizada para que tu moto nunca se detenga.
+              Tienda especializada en repuestos y accesorios para motos en Colombia. Calidad garantizada para que tu moto nunca se detenga.
             </p>
 
             {/* Redes sociales */}

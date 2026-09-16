@@ -26,12 +26,25 @@ export class ExpiredOrdersCleanupService implements OnModuleInit, OnModuleDestro
   async cancelExpiredOrders(): Promise<void> {
     const expiryDate = new Date(Date.now() - EXPIRY_HOURS * 60 * 60 * 1000)
 
-    const result = await this.prisma.client.order.updateMany({
-      where: {
-        status: 'PENDING',
-        createdAt: { lt: expiryDate },
-      },
-      data: { status: 'CANCELLED' },
+    const expired = await this.prisma.client.order.findMany({
+      where: { status: 'PENDING', createdAt: { lt: expiryDate } },
+      select: { id: true },
+    })
+    if (expired.length === 0) return
+    const ids = expired.map((o) => o.id)
+
+    const result = await this.prisma.client.$transaction(async (tx) => {
+      const cancelled = await tx.order.updateMany({
+        where: { id: { in: ids }, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      })
+      // Libera el uso de cupón solo de los que realmente quedaron CANCELLED
+      // (un webhook pudo aprobar alguno entre el findMany y el updateMany).
+      await tx.couponRedemption.updateMany({
+        where: { orderId: { in: ids }, order: { status: 'CANCELLED' }, status: { not: 'RELEASED' } },
+        data: { status: 'RELEASED', activeUniqueKey: null },
+      })
+      return cancelled
     })
 
     if (result.count > 0) {

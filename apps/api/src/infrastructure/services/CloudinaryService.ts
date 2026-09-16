@@ -58,9 +58,13 @@ export class CloudinaryService {
     return this.uploadImage(file, 'h2r-online-store/products', productSku, { width: 1200, crop: 'limit' })
   }
 
-  /** Hero es full-bleed en el home, por eso necesita más ancho que una card de producto. */
-  async uploadHeroBannerImage(file: Buffer, slug: string): Promise<UploadResult> {
-    return this.uploadImage(file, 'h2r-online-store/hero-banners', slug, { width: 1920, crop: 'limit' })
+  /**
+   * Hero es full-bleed en el home. Desktop (horizontal) necesita 1920px de ancho;
+   * mobile (vertical) se limita a 1080px de ancho, suficiente para pantallas 3x.
+   */
+  async uploadHeroBannerImage(file: Buffer, slug: string, variant: 'desktop' | 'mobile' = 'desktop'): Promise<UploadResult> {
+    const width = variant === 'mobile' ? 1080 : 1920
+    return this.uploadImage(file, 'h2r-online-store/hero-banners', `${slug}-${variant}`, { width, crop: 'limit' })
   }
 
   async deleteImage(publicId: string): Promise<void> {

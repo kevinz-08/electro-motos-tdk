@@ -106,7 +106,7 @@ export class VendeloWebhookController {
       return { received: true, processed: false, error: result.error.code }
     }
 
-    if (result.value.updated) {
+    if (result.value.updated && result.value.userId) {
       this.revalidateOrdersCache(result.value.userId).catch((e) =>
         this.logger.warn(`[VendeloWebhook] No se pudo invalidar caché de pedidos: ${e}`),
       )

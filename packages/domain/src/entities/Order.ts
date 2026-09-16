@@ -84,6 +84,8 @@ export interface OrderItem {
    * Capturado por CreateOrder para preservar el histórico de precios.
    */
   priceAtPurchase: number
+  /** Precio ancla (tachado) vigente al comprar, en centavos COP. null/undefined si no había. */
+  compareAtPriceAtPurchase?: number | null
   /**
    * Datos del producto al momento de leer el pedido — opcional, solo presente
    * cuando el caller hizo include de la relación product. Usado por VendeloService
@@ -150,6 +152,37 @@ export type BuyerIdType = 'CC' | 'CE' | 'NIT' | 'PASAPORTE'
  *     en el pedido a Vendelo (reemplaza el hack histórico de usar el teléfono).
  *   - El admin lo necesita en columnas indexables para reportes/declaraciones.
  */
+/**
+ * Identidad de un cliente para reglas por cliente (cupones, primera compra).
+ * Un invitado tiene userId null; un usuario registrado puede no haber ingresado
+ * aún su documento (buyerIdKey null) al validar un cupón antes de completar el checkout.
+ */
+export interface CustomerIdentity {
+  userId: string | null
+  buyerIdKey: string | null
+}
+
+/**
+ * Normaliza un documento para compararlo entre pedidos (guest checkout + cupones).
+ *
+ *   CC        → solo dígitos                          "1.000.123.456" → "CC:1000123456"
+ *   NIT       → dígitos sin dígito de verificación    "900.123.456-7" → "NIT:900123456"
+ *   CE / PAS. → alfanumérico en mayúsculas            "e-12345ab"     → "CE:E12345AB"
+ *
+ * Retorna '' si no queda ningún carácter válido.
+ */
+export function normalizeBuyerIdKey(idType: BuyerIdType, idNumber: string): string {
+  let core: string
+  if (idType === 'CC') {
+    core = idNumber.replace(/\D/g, '')
+  } else if (idType === 'NIT') {
+    core = (idNumber.split('-')[0] ?? '').replace(/\D/g, '')
+  } else {
+    core = idNumber.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+  }
+  return core ? `${idType}:${core}` : ''
+}
+
 export interface BuyerInfo {
   idType: BuyerIdType
   idNumber: string
@@ -160,8 +193,15 @@ export interface BuyerInfo {
 export interface Order {
   /** ID único del pedido (cuid) */
   id: string
-  /** ID del usuario que realizó el pedido */
-  userId: string
+  /** ID del usuario que realizó el pedido. null = compra como invitado (guest checkout, README §22.4). */
+  userId: string | null
+  /** Email de contacto del comprador (invitado o registrado). Destino de todos los correos del pedido. */
+  contactEmail: string
+  /**
+   * Documento normalizado del comprador (ver normalizeBuyerIdKey). Clave de seguimiento
+   * de cupones ONCE_PER_CUSTOMER / FIRST_PURCHASE. Opcional: no todos los queries lo mapean.
+   */
+  buyerIdKey?: string
   /** Estado actual del ciclo de vida del pedido */
   status: OrderStatus
   /**

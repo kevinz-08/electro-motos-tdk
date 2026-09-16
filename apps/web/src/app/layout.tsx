@@ -27,6 +27,7 @@ import { Geist } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthSessionProvider } from '@/components/providers/SessionProvider'
+import { DEFAULT_OG_IMAGE } from '@/lib/opengraph'
 import './globals.css'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
@@ -40,10 +41,17 @@ export const metadata: Metadata = {
   description:
     'Taller especializado en motos eléctricas y a gasolina. Repuestos originales y servicio técnico en Colombia.',
   keywords: ['repuestos motos', 'taller motos', 'motos Colombia', 'repuestos motos Colombia'],
+  // Imagen global de OpenGraph. No usar app/opengraph-image.png: la metadata por archivo
+  // tiene prioridad y taparía las imágenes por categoría del catálogo (README §23).
   openGraph: {
     type: 'website',
     locale: 'es_CO',
     siteName: 'H2R Online Store',
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: [DEFAULT_OG_IMAGE.url],
   },
 }
 

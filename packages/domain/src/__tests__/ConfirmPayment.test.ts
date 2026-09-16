@@ -9,6 +9,7 @@ function makePendingOrder(overrides?: Partial<Order>): Order {
   return {
     id: 'order-1',
     userId: 'user-1',
+    contactEmail: 'cliente@example.com',
     status: 'PENDING',
     total: 5000000,
     shippingAddress: {

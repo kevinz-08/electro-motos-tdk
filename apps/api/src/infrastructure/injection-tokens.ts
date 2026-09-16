@@ -13,6 +13,7 @@
 export const COUPON_REPOSITORY              = Symbol('ICouponRepository')
 export const PRODUCT_REPOSITORY             = Symbol('IProductRepository')
 export const PRODUCT_DESCRIPTION_REPOSITORY = Symbol('IProductDescriptionRepository')
+export const REVIEW_REPOSITORY              = Symbol('IReviewRepository')
 export const ORDER_REPOSITORY               = Symbol('IOrderRepository')
 export const USER_REPOSITORY                = Symbol('IUserRepository')
 export const INVENTORY_REPOSITORY           = Symbol('IInventorySyncRepository')

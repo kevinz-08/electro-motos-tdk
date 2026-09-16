@@ -34,7 +34,7 @@ interface OrderDetails {
     phone: string
     notes?: string
   }
-  user: { email: string; name: string | null }
+  user: { email: string; name: string | null; isGuest: boolean }
   items: Array<{ sku: string; name: string; quantity: number; unitPrice: number; subtotal: number }>
   payment: {
     provider: string
@@ -172,6 +172,7 @@ export function OrderInfoModal({ orderId }: { orderId: string }) {
                     {data.buyer.businessName && <KV label="Contacto" value={data.shippingAddress.fullName} />}
                     <KV label={data.buyer.idType} value={data.buyer.idNumber || '(no proporcionado)'} />
                     <KV label="Email" value={data.user.email} mono />
+                    <KV label="Cuenta" value={data.user.isGuest ? 'Invitado (sin cuenta)' : 'Registrado'} />
                     <KV label="Teléfono" value={data.shippingAddress.phone} />
                   </Section>
 

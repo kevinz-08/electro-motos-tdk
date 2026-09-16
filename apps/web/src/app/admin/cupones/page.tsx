@@ -29,6 +29,7 @@ export default async function AdminCuponesPage() {
     value: c.value,
     restriction: c.restriction as CouponRow['restriction'],
     scope: c.scope as CouponRow['scope'],
+    allowGuest: c.allowGuest,
     isActive: c.isActive,
     expiresAt: c.expiresAt.toISOString(),
     createdAt: c.createdAt.toISOString(),

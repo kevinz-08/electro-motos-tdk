@@ -11,6 +11,7 @@
  *   home       → datos específicos de la home (featured products)
  *   catalog    → datos de la vista landing del catálogo
  *   hero       → banners del carrusel hero de la home
+ *   settings   → umbrales de prueba social y estimación de entrega
  *
  * TTLs:
  *   300 s (5 min)  — productos y featured (cambian con ventas/stock)
@@ -20,7 +21,7 @@
 import { unstable_cache } from 'next/cache'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
-import { ListProducts, GetProductBySlug } from '@h2r/domain'
+import { ListProducts, GetProductBySlug, CRO_SETTING_KEYS, parseCroSettings, summarizeReviews } from '@h2r/domain'
 import { CACHE_TAGS } from './cache-tags'
 
 export { CACHE_TAGS }
@@ -84,7 +85,7 @@ export type CachedLandingData = {
   /** Hasta `LANDING_PRODUCTS_PER_CATEGORY` productos por categoría padre, ya recortados en la query. */
   productsByCategory: Record<string, Array<{
     id: string; name: string; slug: string; description: string
-    price: number; stock: number; sku: string; images: string[]
+    price: number; compareAtPrice: number | null; stock: number; sku: string; images: string[]
     isActive: boolean; categoryId: string
     createdAt: string; updatedAt: string
   }>>
@@ -208,6 +209,49 @@ export const getCachedProductBySlug = unstable_cache(
   },
   ['product-by-slug'],
   { revalidate: 300, tags: [CACHE_TAGS.products] },
+)
+
+// ── Settings de conversión ────────────────────────────────────────────────────
+
+/** Umbrales de prueba social y estimación de entrega, con defaults si no hay filas. */
+export const getCachedCroSettings = unstable_cache(
+  async () => {
+    const rows = await prisma.settings.findMany({
+      where: { key: { in: Object.values(CRO_SETTING_KEYS) } },
+    })
+    return parseCroSettings(rows)
+  },
+  ['cro-settings'],
+  { revalidate: 3600, tags: [CACHE_TAGS.settings] },
+)
+
+// ── Reseñas ───────────────────────────────────────────────────────────────────
+
+/**
+ * Resumen de reseñas APROBADAS de un producto + las 6 más recientes (README §22.6).
+ * Tag `products`: la moderación en /admin/resenas invalida este tag.
+ */
+export const getCachedProductReviews = unstable_cache(
+  async (productId: string) => {
+    const [ratings, latest] = await Promise.all([
+      prisma.productReview.findMany({
+        where: { productId, status: 'APPROVED' },
+        select: { rating: true, recommends: true },
+      }),
+      prisma.productReview.findMany({
+        where: { productId, status: 'APPROVED' },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+        select: { id: true, rating: true, recommends: true, comment: true, authorName: true, createdAt: true },
+      }),
+    ])
+    return {
+      summary: summarizeReviews(ratings),
+      latest: latest.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    }
+  },
+  ['product-reviews'],
+  { revalidate: 600, tags: [CACHE_TAGS.products] },
 )
 
 // ── Related products ──────────────────────────────────────────────────────────

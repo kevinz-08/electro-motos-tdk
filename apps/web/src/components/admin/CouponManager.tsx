@@ -12,6 +12,8 @@ export interface CouponRow {
   value: number
   restriction: 'NONE' | 'ONCE_PER_CUSTOMER' | 'FIRST_PURCHASE'
   scope: 'STORE' | 'CATEGORY' | 'PRODUCT'
+  /** Permite usar el cupón sin cuenta (README §22.5). Nunca con FIRST_PURCHASE. */
+  allowGuest: boolean
   isActive: boolean
   expiresAt: string
   createdAt: string
@@ -79,6 +81,7 @@ interface FormState {
   type: 'PERCENTAGE' | 'FIXED'
   value: string
   restriction: 'NONE' | 'ONCE_PER_CUSTOMER' | 'FIRST_PURCHASE'
+  allowGuest: boolean
   expiresAt: string
   scope: Scope
   categoryIds: string[]
@@ -90,6 +93,7 @@ const EMPTY_FORM: FormState = {
   type: 'PERCENTAGE',
   value: '',
   restriction: 'NONE',
+  allowGuest: false,
   expiresAt: addDays(30),
   scope: 'store',
   categoryIds: [],
@@ -254,6 +258,7 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
       type: c.type,
       value: String(c.value / 100),
       restriction: c.restriction,
+      allowGuest: c.allowGuest,
       expiresAt: c.expiresAt.split('T')[0] as string,
       scope: c.scope === 'STORE' ? 'store' : c.scope === 'PRODUCT' ? 'product' : 'category',
       categoryIds: c.categoryIds,
@@ -300,6 +305,8 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
       type: form.type,
       value: valueInCents,
       restriction: form.restriction,
+      // Primera compra siempre exige cuenta — la API también lo valida.
+      allowGuest: form.restriction === 'FIRST_PURCHASE' ? false : form.allowGuest,
       scope: scopeEnum,
       expiresAt: new Date(form.expiresAt + 'T23:59:59').toISOString(),
       ...(form.scope === 'category' && { categoryIds: form.categoryIds }),
@@ -470,6 +477,7 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
                   : c.restriction === 'ONCE_PER_CUSTOMER'
                     ? '1 por cliente'
                     : 'Primera compra'}
+                {c.allowGuest && <span className="block text-xs text-emerald-400/80">+ invitados</span>}
               </span>
 
               <span className={`text-sm whitespace-nowrap ${expired ? 'text-red-400' : 'text-white/50'}`}>
@@ -619,6 +627,29 @@ export function CouponManager({ initialCoupons, categories, products }: CouponMa
                 <option value="ONCE_PER_CUSTOMER">Una vez por cliente</option>
                 <option value="FIRST_PURCHASE">Solo primera compra</option>
               </select>
+            </div>
+
+            {/* Invitados (guest checkout, README §22.5) */}
+            <div>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.restriction !== 'FIRST_PURCHASE' && form.allowGuest}
+                  disabled={form.restriction === 'FIRST_PURCHASE'}
+                  onChange={(e) => setForm({ ...form, allowGuest: e.target.checked })}
+                  className="mt-0.5 w-4 h-4 accent-blue-500 disabled:opacity-40"
+                />
+                <span>
+                  <span className="block text-sm text-white/80">Permitir sin cuenta (invitados)</span>
+                  <span className="block text-xs text-white/40">
+                    {form.restriction === 'FIRST_PURCHASE'
+                      ? 'El cupón de primera compra siempre exige crear una cuenta.'
+                      : form.restriction === 'ONCE_PER_CUSTOMER'
+                        ? 'Para invitados, el uso único se controla con el número de documento.'
+                        : 'Por defecto los cupones solo se pueden usar con sesión iniciada.'}
+                  </span>
+                </span>
+              </label>
             </div>
 
             {/* Vencimiento */}

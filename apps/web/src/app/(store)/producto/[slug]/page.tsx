@@ -26,18 +26,32 @@
  *     "Honda CB160F 2020-2023"), Envíos y Cambios y devoluciones
  *
  * El badge de stock usa estos umbrales:
- *   stock === 0   → "Agotado" (rojo) + botón deshabilitado
- *   stock === 1   → "¡Solo 1 disponible!" (amarillo) — urgencia de compra
- *   2+ unidades   → "En stock (N unidades)" (verde)
+ *   stock === 0                 → "Agotado" (rojo) + botón deshabilitado
+ *   0 < stock < umbral (def. 5) → "¡Solo quedan X unidades en stock!" (ámbar) — urgencia
+ *   resto                       → "En stock" (verde)
+ *
+ * Prueba social (README §22.3): contador de ventas reales, precio ancla, badge de pago
+ * seguro bajo el botón de compra y estimación de entrega en días hábiles colombianos.
+ * Los umbrales se leen de Settings (getCachedCroSettings).
  */
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
-import { getCachedProductBySlug } from '@/lib/cache'
+import { getCachedProductBySlug, getCachedCroSettings, getCachedProductReviews } from '@/lib/cache'
 import { AddToCartWithQuantity } from '@/components/store/AddToCartWithQuantity'
 import { PayWithAddiButton } from '@/components/store/PayWithAddiButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
+import { PriceTag } from '@/components/store/PriceTag'
+import { DeliveryEstimate } from '@/components/store/DeliveryEstimate'
+import {
+  SoldCountBadge,
+  StockStatus,
+  SecurePaymentBadge,
+  RatingSummaryRow,
+  StarRating,
+} from '@/components/store/ProductTrustSignals'
+import { cloudinaryUrl } from '@/lib/cloudinary'
 import {
   RecommendedProducts,
   RecommendedProductsSkeleton,
@@ -68,14 +82,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-function formatCOP(cents: number): string {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-  }).format(cents / 100)
-}
-
 export default async function ProductPage({ params }: PageProps) {
   const { slug } = await params
   const result = await getCachedProductBySlug(slug)
@@ -84,7 +90,7 @@ export default async function ProductPage({ params }: PageProps) {
 
   const product = result.value
 
-  const [freshProduct, structuredDescription] = await Promise.all([
+  const [freshProduct, structuredDescription, croSettings, reviews] = await Promise.all([
     prisma.product.findUnique({ where: { id: product.id }, select: { description: true } }),
     prisma.productDescription.findUnique({
       where: { productId: product.id },
@@ -93,14 +99,49 @@ export default async function ProductPage({ params }: PageProps) {
         compatibility: { orderBy: { order: 'asc' } },
       },
     }),
+    getCachedCroSettings(),
+    getCachedProductReviews(product.id),
   ])
+  const showReviews = reviews.summary !== null && reviews.summary.count >= croSettings.reviewsMinCount
+
   const description =
     structuredDescription?.generalDescription ||
     freshProduct?.description ||
     product.description
 
+  // Datos estructurados (schema.org Product). AggregateRating solo con reseñas reales
+  // aprobadas que superen el umbral — Google penaliza ratings sin reseñas visibles.
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    sku: product.sku,
+    image: product.images.map((img) => cloudinaryUrl(img, 'detail')),
+    description: description.slice(0, 500),
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'COP',
+      price: (product.price / 100).toFixed(0),
+      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+    },
+    ...(showReviews && reviews.summary && {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: reviews.summary.average,
+        reviewCount: reviews.summary.count,
+        bestRating: 5,
+        worstRating: 1,
+      },
+    }),
+  }
+
   return (
     <div className="min-h-screen bg-white">
+    <script
+      type="application/ld+json"
+      // JSON.stringify + escape de "<" evita cerrar el <script> con contenido del producto.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+    />
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
 
@@ -216,27 +257,34 @@ export default async function ProductPage({ params }: PageProps) {
         {/* Detalle */}
         <div>
           <p className="text-sm text-gray-400 mb-1">SKU: {product.sku}</p>
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
-          <p className="text-4xl font-bold text-gray-900 mb-6">{formatCOP(product.price)}</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">{product.name}</h1>
 
-          <div className="mb-6">
-            {product.stock === 0 ? (
-              <span className="inline-flex items-center gap-1.5 text-sm text-red-600 font-medium">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                Agotado
-              </span>
-            ) : product.stock === 1 ? (
-              <span className="inline-flex items-center gap-1.5 text-sm text-amber-600 font-medium">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                ¡Solo 1 disponible!
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 text-sm text-green-600 font-medium">
-                <span className="w-2 h-2 rounded-full bg-green-500" />
-                En stock ({product.stock} unidades)
-              </span>
-            )}
+          {/* Prueba social — solo con datos reales que superen el umbral */}
+          <div className="space-y-1.5 mb-4 empty:hidden">
+            <RatingSummaryRow summary={reviews.summary} minCount={croSettings.reviewsMinCount} />
+            <SoldCountBadge soldCount={product.soldCount ?? 0} minSold={croSettings.socialProofMinSold} />
           </div>
+
+          <PriceTag
+            price={product.price}
+            compareAtPrice={product.compareAtPrice}
+            size="lg"
+            className="mb-4"
+          />
+
+          <div className="mb-4">
+            <StockStatus stock={product.stock} urgencyThreshold={croSettings.lowStockThreshold} />
+          </div>
+
+          {product.stock > 0 && (
+            <div className="mb-6">
+              <DeliveryEstimate
+                minDays={croSettings.shippingEtaMinDays}
+                maxDays={croSettings.shippingEtaMaxDays}
+                cutoffHour={croSettings.shippingCutoffHour}
+              />
+            </div>
+          )}
 
           <AddToCartWithQuantity product={product} />
 
@@ -257,6 +305,8 @@ export default async function ProductPage({ params }: PageProps) {
               className="flex-1 inline-flex items-center justify-center gap-2.5 bg-[#1A57FF] text-white py-3 px-6 rounded-xl text-base font-bold hover:bg-[#0B47E5] active:scale-95 transition-all shadow-lg shadow-[#1A57FF]/25 hover:shadow-[#1A57FF]/40"
             />
           </div>
+
+          <SecurePaymentBadge />
 
           <hr className="mt-4 mb-3 border-gray-100" />
 
@@ -282,6 +332,40 @@ export default async function ProductPage({ params }: PageProps) {
           )}
         </div>
       </div>
+      {/* ── Reseñas verificadas (README §22.6) ── */}
+      {showReviews && reviews.summary && (
+        <section id="resenas" className="mt-16 border-t border-gray-100 pt-10 scroll-mt-24">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Opiniones de compradores</h2>
+              <p className="text-sm text-gray-500 mt-1">Solo clientes que compraron y recibieron este producto.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StarRating average={reviews.summary.average} />
+              <span className="text-lg font-bold text-gray-900">{reviews.summary.average.toFixed(1)}</span>
+              <span className="text-sm text-gray-500">de 5 · {reviews.summary.count} reseñas</span>
+            </div>
+          </div>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {reviews.latest.map((r) => (
+              <li key={r.id} className="border border-gray-200 rounded-xl p-5">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <StarRating average={r.rating} />
+                  <time className="text-xs text-gray-400" dateTime={r.createdAt}>
+                    {new Date(r.createdAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </time>
+                </div>
+                {r.comment && <p className="text-sm text-gray-700 leading-relaxed">{r.comment}</p>}
+                <p className="text-xs text-gray-500 mt-3">
+                  <span className="font-semibold text-gray-700">{r.authorName}</span>
+                  {' '}· Compra verificada{r.recommends && ' · Lo recomienda'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* ── Productos relacionados ── */}
       <Suspense fallback={<RecommendedProductsSkeleton />}>
         <RecommendedProducts

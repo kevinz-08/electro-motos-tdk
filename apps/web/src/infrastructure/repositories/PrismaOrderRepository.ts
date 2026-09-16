@@ -27,6 +27,8 @@ import {
   PaymentProvider,
   PaymentStatus,
   DeliveryMethod,
+  CustomerIdentity,
+  AppError,
 } from '@h2r/domain'
 
 /** Rango del gráfico de ingresos del dashboard admin — ver `getRevenueSeries`. */
@@ -40,6 +42,7 @@ function toDomainItem(i: PrismaItem): OrderItem {
     productId: i.productId,
     quantity: i.quantity,
     priceAtPurchase: i.priceAtPurchase, // centavos COP capturados al crear el pedido
+    compareAtPriceAtPurchase: i.compareAtPriceAtPurchase,
   }
 }
 
@@ -67,6 +70,8 @@ function toDomain(
   return {
     id: o.id,
     userId: o.userId,
+    contactEmail: o.contactEmail,
+    buyerIdKey: o.buyerIdKey,
     status: o.status as OrderStatus,
     total: o.total,
     shippingAddress: o.shippingAddress as unknown as ShippingAddress,
@@ -82,6 +87,29 @@ function toDomain(
     items: o.items?.map(toDomainItem),
     payment: o.payment ? toDomainPayment(o.payment) : undefined,
   }
+}
+
+/** Nested create del uso de cupón — ver CreateOrderInput.couponRedemption. */
+function couponRedemptionCreate(input: CreateOrderInput, status: 'RESERVED' | 'CONFIRMED') {
+  if (!input.couponRedemption) return undefined
+  const { couponId, enforceUnique } = input.couponRedemption
+  return {
+    create: {
+      couponId,
+      userId: input.userId,
+      buyerIdKey: input.buyerIdKey,
+      status,
+      activeUniqueKey: enforceUnique && input.buyerIdKey ? `${couponId}:${input.buyerIdKey}` : null,
+    },
+  }
+}
+
+/** Único @unique que puede chocar al crear un pedido: CouponRedemption.activeUniqueKey. */
+function rethrowCouponConflict(e: unknown): never {
+  if (typeof e === 'object' && e !== null && (e as { code?: unknown }).code === 'P2002') {
+    throw new AppError('VALIDATION_ERROR', 'Ya utilizaste este cupón', e)
+  }
+  throw e
 }
 
 /** Implementación de acceso a datos de pedidos con Prisma */
@@ -141,6 +169,8 @@ export class PrismaOrderRepository implements IOrderRepository {
     const o = await prisma.order.create({
       data: {
         userId: input.userId,
+        contactEmail: input.contactEmail,
+        buyerIdKey: input.buyerIdKey,
         total: input.total,
         // Cast necesario: ShippingAddress → Prisma.InputJsonValue (tipo opaco de Prisma para JSON)
         shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
@@ -160,9 +190,12 @@ export class PrismaOrderRepository implements IOrderRepository {
             // externalId queda null hasta que la pasarela confirme via webhook
           },
         },
+        couponCode: input.couponCode ?? null,
+        discountAmount: input.discountAmount ?? 0,
+        couponRedemption: couponRedemptionCreate(input, 'RESERVED'),
       },
       include: { items: true, payment: true },
-    })
+    }).catch(rethrowCouponConflict)
     return toDomain(o)
   }
 
@@ -175,6 +208,8 @@ export class PrismaOrderRepository implements IOrderRepository {
       const created = await tx.order.create({
         data: {
           userId: input.userId,
+          contactEmail: input.contactEmail,
+          buyerIdKey: input.buyerIdKey,
           status: 'PAID',
           total: input.total,
           shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
@@ -188,6 +223,9 @@ export class PrismaOrderRepository implements IOrderRepository {
           payment: {
             create: { provider: input.paymentProvider, amount: input.total, status: 'APPROVED' },
           },
+          couponCode: input.couponCode ?? null,
+          discountAmount: input.discountAmount ?? 0,
+          couponRedemption: couponRedemptionCreate(input, 'CONFIRMED'),
         },
         include: { items: true, payment: true },
       })
@@ -195,12 +233,12 @@ export class PrismaOrderRepository implements IOrderRepository {
       for (const { productId, quantity } of input.items) {
         await tx.product.update({
           where: { id: productId },
-          data: { stock: { decrement: quantity } },
+          data: { stock: { decrement: quantity }, soldCount: { increment: quantity } },
         })
       }
 
       return created
-    })
+    }).catch(rethrowCouponConflict)
     return toDomain(o)
   }
 
@@ -211,7 +249,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       for (const { productId, quantity } of items) {
         await tx.product.update({
           where: { id: productId },
-          data: { stock: { increment: quantity } },
+          data: { stock: { increment: quantity }, soldCount: { decrement: quantity } },
         })
       }
     })
@@ -219,7 +257,18 @@ export class PrismaOrderRepository implements IOrderRepository {
 
   /** Actualiza el estado del pedido (PENDING → PAID → SHIPPED → DELIVERED, o CANCELLED) */
   async updateStatus(id: string, status: OrderStatus): Promise<void> {
-    await prisma.order.update({ where: { id }, data: { status } })
+    if (status !== 'CANCELLED') {
+      await prisma.order.update({ where: { id }, data: { status } })
+      return
+    }
+    // Pedido cancelado: libera el uso de cupón para que el cliente pueda volver a usarlo.
+    await prisma.$transaction([
+      prisma.order.update({ where: { id }, data: { status } }),
+      prisma.couponRedemption.updateMany({
+        where: { orderId: id, status: { not: 'RELEASED' } },
+        data: { status: 'RELEASED', activeUniqueKey: null },
+      }),
+    ])
   }
 
   /**
@@ -263,6 +312,17 @@ export class PrismaOrderRepository implements IOrderRepository {
         where: { orderId },
         data: { status: to.paymentStatus, externalId: to.externalId },
       })
+      if (to.orderStatus === 'PAID') {
+        await tx.couponRedemption.updateMany({
+          where: { orderId, status: 'RESERVED' },
+          data: { status: 'CONFIRMED' },
+        })
+      } else if (to.orderStatus === 'CANCELLED') {
+        await tx.couponRedemption.updateMany({
+          where: { orderId, status: { not: 'RELEASED' } },
+          data: { status: 'RELEASED', activeUniqueKey: null },
+        })
+      }
       return { applied: true }
     })
   }
@@ -411,17 +471,13 @@ export class PrismaOrderRepository implements IOrderRepository {
     return rows.map((r) => ({ id: r.id, vendeloOrderId: r.vendeloOrderId }))
   }
 
-  async existsByCouponAndUser(couponCode: string, userId: string): Promise<boolean> {
+  async hasApprovedOrders(customer: CustomerIdentity): Promise<boolean> {
+    const or: Array<{ userId: string } | { buyerIdKey: string }> = []
+    if (customer.userId) or.push({ userId: customer.userId })
+    if (customer.buyerIdKey) or.push({ buyerIdKey: customer.buyerIdKey })
+    if (or.length === 0) return false
     const row = await prisma.order.findFirst({
-      where: { couponCode, userId, status: { not: 'CANCELLED' } },
-      select: { id: true },
-    })
-    return row !== null
-  }
-
-  async hasApprovedOrders(userId: string): Promise<boolean> {
-    const row = await prisma.order.findFirst({
-      where: { userId, status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      where: { OR: or, status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
       select: { id: true },
     })
     return row !== null

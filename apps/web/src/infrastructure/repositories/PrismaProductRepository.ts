@@ -32,7 +32,9 @@ function toDomain(
     slug: p.slug,
     description: p.description,
     price: p.price,          // centavos COP, sin conversión
+    compareAtPrice: p.compareAtPrice, // precio ancla tachado — null si no hay
     stock: p.stock,
+    soldCount: p.soldCount,
     sku: p.sku,
     images: p.images,        // array de URLs de Cloudinary
     isActive: p.isActive,
@@ -216,6 +218,7 @@ export class PrismaProductRepository implements IProductRepository {
         slug: data.slug,
         description: data.description,
         price: data.price,
+        compareAtPrice: data.compareAtPrice ?? null,
         stock: data.stock,
         sku: data.sku,
         images: data.images,
@@ -247,6 +250,7 @@ export class PrismaProductRepository implements IProductRepository {
         ...(data.slug !== undefined && { slug: data.slug }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.price !== undefined && { price: data.price }),
+        ...(data.compareAtPrice !== undefined && { compareAtPrice: data.compareAtPrice }),
         ...(data.stock !== undefined && { stock: data.stock }),
         ...(data.sku !== undefined && { sku: data.sku }),
         ...(data.images !== undefined && { images: data.images }),

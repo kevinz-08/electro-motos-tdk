@@ -8,19 +8,22 @@
  * Autorización:
  *   - El dueño del pedido (session.user.id === order.userId)
  *   - Cualquier usuario con role === 'ADMIN'
+ *   - Enlace firmado ?token=… (invitados, ver lib/order-access-token.ts)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { ReceiptPdf, type ReceiptData } from '@/lib/receipt/ReceiptPdf'
+import { canAccessOrder } from '@/lib/queries/getOrderConfirmation'
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth()
-  if (!session?.user) {
+  const token = req.nextUrl.searchParams.get('token')
+  if (!session?.user && !token) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -31,7 +34,6 @@ export async function GET(
     include: {
       items: { include: { product: { select: { sku: true, name: true } } } },
       payment: true,
-      user: { select: { id: true, email: true } },
     },
   })
 
@@ -39,9 +41,8 @@ export async function GET(
     return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
   }
 
-  const isAdmin = session.user.role === 'ADMIN'
-  const isOwner = session.user.id === order.userId
-  if (!isAdmin && !isOwner) {
+  const isAdmin = session?.user?.role === 'ADMIN'
+  if (!isAdmin && !canAccessOrder(order, { userId: session?.user?.id, token })) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -61,7 +62,7 @@ export async function GET(
       idType: order.buyerIdType,
       idNumber: order.buyerIdNumber,
       businessName: order.buyerBusinessName ?? undefined,
-      email: order.user.email,
+      email: order.contactEmail,
       phone: shipping.phone,
       address: shipping.address,
       city: shipping.city,

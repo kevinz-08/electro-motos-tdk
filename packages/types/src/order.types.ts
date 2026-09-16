@@ -75,6 +75,8 @@ export interface PaymentInitResponse {
 export interface CreateOrderResponse {
   order: OrderResponse
   payment: PaymentInitResponse | null
+  /** Token firmado para ver el pedido sin sesión (guest checkout): /checkout/confirmacion?orderId=…&token=… */
+  accessToken: string
 }
 
 /** Respuesta de PATCH /orders/:id/status */

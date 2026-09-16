@@ -55,8 +55,9 @@ export async function GET(
     },
     shippingAddress: order.shippingAddress,
     user: {
-      email: order.user.email,
-      name: order.user.name,
+      email: order.contactEmail,
+      name: order.user?.name ?? null,
+      isGuest: order.userId === null,
     },
     items: order.items.map((it) => ({
       sku: it.product.sku,

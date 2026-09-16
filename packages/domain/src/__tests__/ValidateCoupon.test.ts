@@ -4,6 +4,10 @@ import type { ICouponRepository } from '@/domain/repositories/ICouponRepository'
 import type { IOrderRepository } from '@/domain/repositories/IOrderRepository'
 import type { Coupon } from '@/domain/entities/Coupon'
 import type { ValidateCouponItem } from '@/domain/use-cases/coupons/ValidateCoupon'
+import {
+  COUPON_REQUIRES_ACCOUNT_MESSAGE,
+  COUPON_FIRST_PURCHASE_REQUIRES_ACCOUNT_MESSAGE,
+} from '@/domain/use-cases/coupons/ValidateCoupon'
 
 // ── Factories ─────────────────────────────────────────────────────────────────
 
@@ -15,6 +19,7 @@ function makeCoupon(overrides?: Partial<Coupon>): Coupon {
     value: 2000, // 20% (en centésimas de porcentaje: 20 * 100)
     restriction: 'NONE',
     scope: 'CATEGORY',
+    allowGuest: false,
     isActive: true,
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días adelante
     createdAt: new Date('2026-01-01'),
@@ -36,15 +41,15 @@ function makeItem(overrides?: Partial<ValidateCouponItem>): ValidateCouponItem {
 }
 
 function makeRepos(coupon: Coupon | null, opts?: {
-  existsByCouponAndUser?: boolean
+  hasActiveRedemption?: boolean
   hasApprovedOrders?: boolean
 }) {
   const couponRepo = {
     findByCode: vi.fn().mockResolvedValue(coupon),
+    hasActiveRedemption: vi.fn().mockResolvedValue(opts?.hasActiveRedemption ?? false),
   } as unknown as ICouponRepository
 
   const orderRepo = {
-    existsByCouponAndUser: vi.fn().mockResolvedValue(opts?.existsByCouponAndUser ?? false),
     hasApprovedOrders: vi.fn().mockResolvedValue(opts?.hasApprovedOrders ?? false),
   } as unknown as IOrderRepository
 
@@ -91,14 +96,14 @@ describe('ValidateCoupon', () => {
   it('retorna err(VALIDATION_ERROR) ONCE_PER_CUSTOMER cuando el cliente ya lo usó', async () => {
     const { couponRepo, orderRepo } = makeRepos(
       makeCoupon({ restriction: 'ONCE_PER_CUSTOMER' }),
-      { existsByCouponAndUser: true },
+      { hasActiveRedemption: true },
     )
     const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
       ...INPUT_BASE, items: [makeItem()],
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
-    expect(orderRepo.existsByCouponAndUser).toHaveBeenCalledWith('HALLOWEEN20', 'user-1')
+    expect(couponRepo.hasActiveRedemption).toHaveBeenCalledWith('coupon-1', { userId: 'user-1', buyerIdKey: null })
   })
 
   it('retorna err(VALIDATION_ERROR) FIRST_PURCHASE cuando el cliente ya tiene pedidos aprobados', async () => {
@@ -111,7 +116,7 @@ describe('ValidateCoupon', () => {
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
-    expect(orderRepo.hasApprovedOrders).toHaveBeenCalledWith('user-1')
+    expect(orderRepo.hasApprovedOrders).toHaveBeenCalledWith({ userId: 'user-1', buyerIdKey: null })
   })
 
   it('retorna err(VALIDATION_ERROR) cuando ningún ítem del carrito está dentro del scope', async () => {
@@ -226,19 +231,19 @@ describe('ValidateCoupon', () => {
     }
   })
 
-  it('NONE restriction: no consulta existsByCouponAndUser ni hasApprovedOrders', async () => {
+  it('NONE restriction: no consulta hasActiveRedemption ni hasApprovedOrders', async () => {
     const { couponRepo, orderRepo } = makeRepos(makeCoupon({ restriction: 'NONE' }))
     await new ValidateCoupon(couponRepo, orderRepo).execute({
       ...INPUT_BASE, items: [makeItem()],
     })
-    expect(orderRepo.existsByCouponAndUser).not.toHaveBeenCalled()
+    expect(couponRepo.hasActiveRedemption).not.toHaveBeenCalled()
     expect(orderRepo.hasApprovedOrders).not.toHaveBeenCalled()
   })
 
   it('ONCE_PER_CUSTOMER: permite si el cliente NO ha usado el cupón antes', async () => {
     const { couponRepo, orderRepo } = makeRepos(
       makeCoupon({ restriction: 'ONCE_PER_CUSTOMER' }),
-      { existsByCouponAndUser: false },
+      { hasActiveRedemption: false },
     )
     const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
       ...INPUT_BASE, items: [makeItem()],
@@ -255,5 +260,73 @@ describe('ValidateCoupon', () => {
       ...INPUT_BASE, items: [makeItem()],
     })
     expect(result.ok).toBe(true)
+  })
+
+  // ── Guest checkout (README §22.5) ───────────────────────────────────────────
+
+  const GUEST = { code: 'HALLOWEEN20', userId: null }
+
+  it('invitado: rechaza con FORBIDDEN un cupón sin allowGuest (default)', async () => {
+    const { couponRepo, orderRepo } = makeRepos(makeCoupon({ allowGuest: false }))
+    const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
+      ...GUEST, buyerIdKey: 'CC:123456', items: [makeItem()],
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.code).toBe('FORBIDDEN')
+      expect(result.error.message).toBe(COUPON_REQUIRES_ACCOUNT_MESSAGE)
+    }
+  })
+
+  it('invitado: FIRST_PURCHASE siempre exige cuenta, aunque allowGuest sea true', async () => {
+    const { couponRepo, orderRepo } = makeRepos(makeCoupon({ restriction: 'FIRST_PURCHASE', allowGuest: true }))
+    const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
+      ...GUEST, buyerIdKey: 'CC:123456', items: [makeItem()],
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.code).toBe('FORBIDDEN')
+      expect(result.error.message).toBe(COUPON_FIRST_PURCHASE_REQUIRES_ACCOUNT_MESSAGE)
+    }
+    expect(orderRepo.hasApprovedOrders).not.toHaveBeenCalled()
+  })
+
+  it('invitado: NONE con allowGuest se aplica sin documento', async () => {
+    const { couponRepo, orderRepo } = makeRepos(makeCoupon({ restriction: 'NONE', allowGuest: true }))
+    const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
+      ...GUEST, items: [makeItem()],
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.couponId).toBe('coupon-1')
+  })
+
+  it('invitado: ONCE_PER_CUSTOMER exige documento', async () => {
+    const { couponRepo, orderRepo } = makeRepos(makeCoupon({ restriction: 'ONCE_PER_CUSTOMER', allowGuest: true }))
+    const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
+      ...GUEST, items: [makeItem()],
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.message).toMatch(/documento/)
+    expect(couponRepo.hasActiveRedemption).not.toHaveBeenCalled()
+  })
+
+  it('invitado: ONCE_PER_CUSTOMER rastrea el uso por documento', async () => {
+    const { couponRepo, orderRepo } = makeRepos(
+      makeCoupon({ restriction: 'ONCE_PER_CUSTOMER', allowGuest: true }),
+      { hasActiveRedemption: true },
+    )
+    const result = await new ValidateCoupon(couponRepo, orderRepo).execute({
+      ...GUEST, buyerIdKey: 'CC:123456', items: [makeItem()],
+    })
+    expect(result.ok).toBe(false)
+    expect(couponRepo.hasActiveRedemption).toHaveBeenCalledWith('coupon-1', { userId: null, buyerIdKey: 'CC:123456' })
+  })
+
+  it('usuario: FIRST_PURCHASE también verifica pedidos previos por documento', async () => {
+    const { couponRepo, orderRepo } = makeRepos(makeCoupon({ restriction: 'FIRST_PURCHASE' }))
+    await new ValidateCoupon(couponRepo, orderRepo).execute({
+      ...INPUT_BASE, buyerIdKey: 'CC:123456', items: [makeItem()],
+    })
+    expect(orderRepo.hasApprovedOrders).toHaveBeenCalledWith({ userId: 'user-1', buyerIdKey: 'CC:123456' })
   })
 })

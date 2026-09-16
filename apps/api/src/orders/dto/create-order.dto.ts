@@ -1,5 +1,5 @@
 import {
-  IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional,
+  IsArray, IsDateString, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, MaxLength,
   IsString, Matches, Min, MinLength, ValidateNested, ValidateIf,
 } from 'class-validator'
 import { Type, Transform } from 'class-transformer'
@@ -80,6 +80,17 @@ export class CreateOrderDto {
   @IsOptional()
   @IsDateString()
   policiesAcceptedAt?: string
+
+  @ApiPropertyOptional({
+    description: 'Email de contacto — obligatorio para compras como invitado (sin JWT). '
+      + 'Con sesión se ignora y se usa el email de la cuenta.',
+    example: 'cliente@example.com',
+  })
+  @IsOptional()
+  @IsEmail({}, { message: 'contactEmail debe ser un correo válido' })
+  @MaxLength(254)
+  @Transform(({ value }: { value: string }) => value?.trim().toLowerCase())
+  contactEmail?: string
 
   @ApiPropertyOptional({ description: 'Código de cupón de descuento a aplicar en el pedido', example: 'HALLOWEEN20' })
   @IsOptional()

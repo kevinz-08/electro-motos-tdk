@@ -46,7 +46,7 @@ interface PageProps {
 
 type PrismaProductRaw = {
   id: string; name: string; slug: string; description: string
-  price: number; stock: number; sku: string; images: string[]
+  price: number; compareAtPrice: number | null; stock: number; sku: string; images: string[]
   isActive: boolean; categoryId: string; createdAt: Date | string; updatedAt: Date | string
   weightKg: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null
 }
@@ -71,7 +71,7 @@ type ParentCategorySlim = {
 function toDomain(p: PrismaProductRaw): Product {
   return {
     id: p.id, name: p.name, slug: p.slug, description: p.description,
-    price: p.price, stock: p.stock, sku: p.sku, images: p.images,
+    price: p.price, compareAtPrice: p.compareAtPrice, stock: p.stock, sku: p.sku, images: p.images,
     isActive: p.isActive, categoryId: p.categoryId,
     weightKg: p.weightKg, heightCm: p.heightCm, widthCm: p.widthCm, lengthCm: p.lengthCm,
     createdAt: new Date(p.createdAt), updatedAt: new Date(p.updatedAt),

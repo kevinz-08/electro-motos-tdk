@@ -14,6 +14,8 @@
  * Badges:
  *   - stock = 0   → overlay "Agotado" semitransparente sobre la imagen.
  *   - stock = 1   → chip "Última unidad" en la esquina superior izquierda.
+ *   - compareAtPrice > price → chip "-X%" en la esquina superior derecha
+ *     y precio ancla tachado junto al precio real (PriceTag, README §22.1).
  *
  * El componente es 'use client' porque CartHoverButton usa useCart.
  */
@@ -21,22 +23,15 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { Product } from '@h2r/domain'
+import { Product, getDiscountPercent } from '@h2r/domain'
 import { useCart } from '@/lib/cart'
 import { cloudinaryUrl, IMAGE_BLUR_PLACEHOLDER } from '@/lib/cloudinary'
+import { PriceTag } from '@/components/store/PriceTag'
 
 interface ProductCardProps {
   product: Product
   /** true para cards en la primera fila (above the fold) — carga eager */
   priority?: boolean
-}
-
-function formatCOP(cents: number): string {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-  }).format(cents / 100)
 }
 
 /**
@@ -108,6 +103,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
 
   const isLowStock   = product.stock === 1
   const isOutOfStock = product.stock === 0
+  const discountPercent = getDiscountPercent(product.price, product.compareAtPrice)
 
   return (
     <div className="group flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all duration-300">
@@ -185,6 +181,15 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
           </div>
         )}
 
+        {/* Badge descuento (precio ancla) */}
+        {discountPercent > 0 && !isOutOfStock && (
+          <div className="absolute top-2.5 right-2.5">
+            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full tracking-wide shadow-sm">
+              -{discountPercent}%
+            </span>
+          </div>
+        )}
+
         {/* Botón carrito en hover */}
         <CartHoverButton product={product} />
       </Link>
@@ -204,9 +209,13 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         </Link>
 
         {/* Precio */}
-        <p className="text-base font-black text-gray-900 mt-1 tracking-tight">
-          {formatCOP(product.price)}
-        </p>
+        <PriceTag
+          price={product.price}
+          compareAtPrice={product.compareAtPrice}
+          size="sm"
+          hideBadge
+          className="mt-1"
+        />
       </div>
     </div>
   )

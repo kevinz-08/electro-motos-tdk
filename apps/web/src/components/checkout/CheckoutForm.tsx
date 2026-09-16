@@ -23,6 +23,7 @@ import { CitySelector } from './CitySelector'
 import { apiClient } from '@/lib/api-client'
 import { useShippingQuote } from '@/lib/shipping-quote'
 import { STORE_ADDRESS, STORE_CITY, STORE_MAP_EMBED_URL } from '@/lib/contact'
+import { cartSavings } from '@/lib/pricing'
 
 type PaymentMethod = 'WOMPI' | 'COD'
 type DeliveryMethod = 'HOME_DELIVERY' | 'STORE_PICKUP'
@@ -699,6 +700,12 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
             ))}
           </div>
           <div className="border-t border-gray-100 pt-4 space-y-2">
+            {cartSavings(items) > 0 && (
+              <div className="flex justify-between text-sm text-red-600">
+                <span className="font-medium">Ahorro frente a precio anterior</span>
+                <span className="font-semibold">-{formatCOP(cartSavings(items))}</span>
+              </div>
+            )}
             {appliedCoupon && (
               <div className="flex justify-between text-sm text-green-700">
                 <span className="font-medium">Descuento ({appliedCoupon.code})</span>

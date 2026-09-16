@@ -38,6 +38,7 @@ import { getCachedProductBySlug } from '@/lib/cache'
 import { AddToCartWithQuantity } from '@/components/store/AddToCartWithQuantity'
 import { PayWithAddiButton } from '@/components/store/PayWithAddiButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
+import { PriceTag } from '@/components/store/PriceTag'
 import {
   RecommendedProducts,
   RecommendedProductsSkeleton,
@@ -66,14 +67,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: result.value.name,
     description: result.value.description.slice(0, 160),
   }
-}
-
-function formatCOP(cents: number): string {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-  }).format(cents / 100)
 }
 
 export default async function ProductPage({ params }: PageProps) {
@@ -217,7 +210,12 @@ export default async function ProductPage({ params }: PageProps) {
         <div>
           <p className="text-sm text-gray-400 mb-1">SKU: {product.sku}</p>
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
-          <p className="text-4xl font-bold text-gray-900 mb-6">{formatCOP(product.price)}</p>
+          <PriceTag
+            price={product.price}
+            compareAtPrice={product.compareAtPrice}
+            size="lg"
+            className="mb-6"
+          />
 
           <div className="mb-6">
             {product.stock === 0 ? (

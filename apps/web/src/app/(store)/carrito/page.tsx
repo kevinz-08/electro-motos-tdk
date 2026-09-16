@@ -9,6 +9,8 @@ import { cloudinaryUrl } from '@/lib/cloudinary'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ShippingQuoteCalculator } from '@/components/store/ShippingQuoteCalculator'
 import type { ShippingQuoteResult } from '@/lib/shipping-quote'
+import { PriceTag } from '@/components/store/PriceTag'
+import { cartSavings } from '@/lib/pricing'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -24,6 +26,7 @@ export default function CartPage() {
   const [shippingQuote, setShippingQuote] = useState<ShippingQuoteResult | null>(null)
 
   const cartTotal  = items.reduce((acc, i) => acc + i.product.price * i.quantity, 0)
+  const savings    = cartSavings(items)
   const itemsCount = items.reduce((acc, i) => acc + i.quantity, 0)
   const shippingCost = shippingQuote && !shippingQuote.freeShipping ? shippingQuote.quotedShippingTotal : 0
   const estimatedTotal = cartTotal + shippingCost
@@ -122,9 +125,13 @@ export default function CartPage() {
                     </h3>
                   </Link>
                   <p className="text-xs text-gray-400 mt-0.5 font-mono">SKU: {product.sku}</p>
-                  <p className="text-base font-black text-gray-900 mt-2">
-                    {formatCOP(product.price * quantity)}
-                  </p>
+                  <PriceTag
+                    price={product.price}
+                    compareAtPrice={product.compareAtPrice}
+                    quantity={quantity}
+                    size="sm"
+                    className="mt-2"
+                  />
                   {quantity > 1 && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       {formatCOP(product.price)} × {quantity}
@@ -197,6 +204,13 @@ export default function CartPage() {
                   </div>
                 ))}
               </div>
+
+              {savings > 0 && (
+                <div className="flex justify-between text-sm text-red-600 font-semibold mb-4">
+                  <span>Estás ahorrando</span>
+                  <span>-{formatCOP(savings)}</span>
+                </div>
+              )}
 
               {/* Envío */}
               <ShippingQuoteCalculator

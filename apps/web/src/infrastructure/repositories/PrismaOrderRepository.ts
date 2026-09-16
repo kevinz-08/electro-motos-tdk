@@ -40,6 +40,7 @@ function toDomainItem(i: PrismaItem): OrderItem {
     productId: i.productId,
     quantity: i.quantity,
     priceAtPurchase: i.priceAtPurchase, // centavos COP capturados al crear el pedido
+    compareAtPriceAtPurchase: i.compareAtPriceAtPurchase,
   }
 }
 

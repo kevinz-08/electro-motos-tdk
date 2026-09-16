@@ -84,7 +84,7 @@ export type CachedLandingData = {
   /** Hasta `LANDING_PRODUCTS_PER_CATEGORY` productos por categoría padre, ya recortados en la query. */
   productsByCategory: Record<string, Array<{
     id: string; name: string; slug: string; description: string
-    price: number; stock: number; sku: string; images: string[]
+    price: number; compareAtPrice: number | null; stock: number; sku: string; images: string[]
     isActive: boolean; categoryId: string
     createdAt: string; updatedAt: string
   }>>

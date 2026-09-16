@@ -62,6 +62,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
     slug: product?.slug ?? '',
     description: product?.description ?? '',
     price: product ? String(product.price / 100) : '',
+    compareAtPrice: product?.compareAtPrice != null ? String(product.compareAtPrice / 100) : '',
     stock: product ? String(product.stock) : '0',
     sku: product?.sku ?? '',
     categoryId: product?.categoryId ?? (categories[0]?.id ?? ''),
@@ -135,9 +136,19 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
     setLoading(true)
     setError(null)
 
+    if (form.compareAtPrice.trim() && parseFloat(form.compareAtPrice) <= parseFloat(form.price)) {
+      setError('El precio anterior (tachado) debe ser mayor que el precio de venta')
+      setLoading(false)
+      return
+    }
+
     const payload = {
       ...form,
       price: Math.round(parseFloat(form.price) * 100),
+      // Vacío = sin precio ancla (null borra el valor existente al editar).
+      compareAtPrice: form.compareAtPrice.trim()
+        ? Math.round(parseFloat(form.compareAtPrice) * 100)
+        : null,
       stock: parseInt(form.stock, 10),
       images,
       weightKg: form.weightKg.trim() ? parseFloat(form.weightKg) : undefined,
@@ -376,6 +387,22 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
               placeholder="85000"
             />
             <p className="text-xs text-white/30 mt-1">En pesos (sin centavos)</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-1">Precio anterior (tachado)</label>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              value={form.compareAtPrice}
+              onChange={(e) => setForm({ ...form, compareAtPrice: e.target.value })}
+              className={INPUT_CLASS}
+              placeholder="Opcional — ej. 100000"
+            />
+            <p className="text-xs text-white/30 mt-1">
+              Debe ser mayor al precio y haberse cobrado realmente (Ley 1480). Vacío = sin descuento.
+            </p>
           </div>
 
           <div>

@@ -47,6 +47,9 @@ export interface IStockSyncRepository {
   /**
    * Actualiza stock y precio de múltiples productos en una sola transacción.
    * Si `price` es undefined, el precio del producto no se modifica.
+   * Si el nuevo `price` es >= al `compareAtPrice` vigente, la implementación limpia el
+   * precio ancla (compareAtPrice = null) en la misma escritura y registra el cambio en
+   * ProductPriceHistory con source ERP_SYNC — el CHECK de BD nunca debe romper el sync.
    */
   bulkUpdateStockAndPrice(updates: StockSyncUpdate[]): Promise<void>
 }

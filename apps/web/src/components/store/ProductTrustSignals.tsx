@@ -8,12 +8,20 @@
 
 // ── Ventas ────────────────────────────────────────────────────────────────────
 
-export function SoldCountBadge({ soldCount, minSold }: { soldCount: number; minSold: number }) {
-  if (soldCount <= 0 || soldCount < minSold) return null
+/**
+ * "🔥 +X personas han comprado o recomiendan este producto".
+ * X = recomendaciones de la tienda física (admin) + ventas online reales (soldCount),
+ * así el número sube solo con cada compra confirmada.
+ */
+export function SoldCountBadge({
+  soldCount, storeRecommendations = 0, minSold,
+}: { soldCount: number; storeRecommendations?: number; minSold: number }) {
+  const total = soldCount + storeRecommendations
+  if (total <= 0 || total < minSold) return null
   return (
     <p className="inline-flex items-center gap-1.5 text-sm font-medium text-orange-600">
       <span aria-hidden="true">🔥</span>
-      {soldCount.toLocaleString('es-CO')} {soldCount === 1 ? 'persona ha comprado' : 'personas han comprado'} este producto
+      +{total.toLocaleString('es-CO')} {total === 1 ? 'persona ha comprado o recomienda' : 'personas han comprado o recomiendan'} este producto
     </p>
   )
 }

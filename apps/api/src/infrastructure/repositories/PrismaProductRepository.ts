@@ -26,7 +26,7 @@ function throwFriendlyConflict(e: unknown): never {
 
 type PrismaProductRow = {
   id: string; name: string; slug: string; description: string
-  price: number; compareAtPrice: number | null; stock: number; soldCount: number; sku: string; images: string[]
+  price: number; compareAtPrice: number | null; stock: number; soldCount: number; storeRecommendations: number; sku: string; images: string[]
   isActive: boolean; categoryId: string; createdAt: Date; updatedAt: Date; deletedAt: Date | null
   weightKg: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null
   compatible?: Array<{ id: string; productId: string; brand: string; model: string; year: number | null }>
@@ -43,6 +43,7 @@ function toDomain(p: PrismaProductRow): Product {
     compareAtPrice: p.compareAtPrice,
     stock: p.stock,
     soldCount: p.soldCount,
+    storeRecommendations: p.storeRecommendations,
     sku: p.sku,
     images: p.images,
     isActive: p.isActive,
@@ -146,7 +147,7 @@ export class PrismaProductRepository implements IProductRepository {
         data: {
           name: data.name, slug: data.slug, description: data.description,
           price: data.price, compareAtPrice: data.compareAtPrice ?? null,
-          stock: data.stock, sku: data.sku,
+          stock: data.stock, storeRecommendations: data.storeRecommendations ?? 0, sku: data.sku,
           images: data.images, isActive: data.isActive, categoryId: data.categoryId,
           weightKg: data.weightKg ?? null, heightCm: data.heightCm ?? null,
           widthCm: data.widthCm ?? null, lengthCm: data.lengthCm ?? null,
@@ -183,6 +184,7 @@ export class PrismaProductRepository implements IProductRepository {
           ...(data.price       !== undefined && { price:       data.price }),
           ...(data.compareAtPrice !== undefined && { compareAtPrice: data.compareAtPrice }),
           ...(data.stock       !== undefined && { stock:       data.stock }),
+          ...(data.storeRecommendations !== undefined && { storeRecommendations: data.storeRecommendations }),
           ...(data.sku         !== undefined && { sku:         data.sku }),
           ...(data.images      !== undefined && { images:      data.images }),
           ...(data.isActive    !== undefined && { isActive:    data.isActive }),

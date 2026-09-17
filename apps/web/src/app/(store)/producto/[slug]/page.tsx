@@ -262,7 +262,11 @@ export default async function ProductPage({ params }: PageProps) {
           {/* Prueba social — solo con datos reales que superen el umbral */}
           <div className="space-y-1.5 mb-4 empty:hidden">
             <RatingSummaryRow summary={reviews.summary} minCount={croSettings.reviewsMinCount} />
-            <SoldCountBadge soldCount={product.soldCount ?? 0} minSold={croSettings.socialProofMinSold} />
+            <SoldCountBadge
+              soldCount={product.soldCount ?? 0}
+              storeRecommendations={product.storeRecommendations ?? 0}
+              minSold={croSettings.socialProofMinSold}
+            />
           </div>
 
           <PriceTag

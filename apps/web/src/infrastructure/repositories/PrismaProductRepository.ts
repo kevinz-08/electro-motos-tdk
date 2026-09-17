@@ -35,6 +35,7 @@ function toDomain(
     compareAtPrice: p.compareAtPrice, // precio ancla tachado — null si no hay
     stock: p.stock,
     soldCount: p.soldCount,
+    storeRecommendations: p.storeRecommendations,
     sku: p.sku,
     images: p.images,        // array de URLs de Cloudinary
     isActive: p.isActive,

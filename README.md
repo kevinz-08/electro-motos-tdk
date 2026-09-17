@@ -1440,7 +1440,7 @@ Se implementan por fases; cada fase es independiente salvo la 5 (depende de la 4
 - **Dominio:** `validateProductPricing()` y `getDiscountPercent()` en `entities/Product.ts`.
 - **Sync Optimun:** si el ERP sube el precio a un valor ≥ `compareAtPrice`, `SyncStock` limpia el
   ancla (`compareAtPrice = null`) en la misma actualización — el `CHECK` nunca rompe la sincronización.
-- **UI:** componente `PriceTag` (precio tachado sutil + precio real grande en acento + badge `-X%`)
+- **UI:** componente `PriceTag` (precio tachado sutil + precio real grande en negrita + badge `-X%` en el azul de la marca, `sky-500`)
   en tarjeta de catálogo, PDP, carrito y checkout. El JSON-LD `Offer` publica solo `price`.
 - **Cupones:** el descuento siempre se calcula sobre `price`, nunca sobre `compareAtPrice`.
 
@@ -1468,7 +1468,7 @@ elimina columnas usadas por la versión anterior — desplegar web y API junto c
 | "🔥 X personas han comprado este producto" | `Product.soldCount` (se incrementa al confirmar el pago; COD al crear) | `soldCount ≥ SOCIAL_PROOF_MIN_SOLD` (Settings, default 5) |
 | "¡Solo quedan X unidades en stock!" | `Product.stock` | `0 < stock < LOW_STOCK_URGENCY_THRESHOLD` (default 5) |
 | Badge "Pago seguro" | estático (Wompi / Mercado Pago) | siempre, bajo el botón de compra |
-| "Cómpralo hoy y recíbelo entre el [día] y el [día]" | `estimateDeliveryWindow()` (dominio) — días hábiles, festivos colombianos (Ley Emiliani) y hora de corte | siempre que haya stock. Settings: `SHIPPING_ETA_MIN_DAYS` (2), `SHIPPING_ETA_MAX_DAYS` (5), `SHIPPING_CUTOFF_HOUR` (14) |
+| "Cómpralo hoy y recíbelo entre el [día] y el [día]" — bajo los botones de compra (carrito y Addi) | `estimateDeliveryWindow()` (dominio) — días hábiles, festivos colombianos (Ley Emiliani) y hora de corte | siempre que haya stock. Settings: `SHIPPING_ETA_MIN_DAYS` (2), `SHIPPING_ETA_MAX_DAYS` (5), `SHIPPING_CUTOFF_HOUR` (14) |
 | Estrellas + "X% de clientes recomiendan este producto" | `ProductReview` aprobadas | `reseñas ≥ REVIEWS_MIN_COUNT` (default 3) |
 
 `soldCount` se decrementa si el envío termina `RETURNED`/`CANCELLED` (mismo punto donde se repone stock).

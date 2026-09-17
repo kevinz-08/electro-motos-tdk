@@ -272,19 +272,9 @@ export default async function ProductPage({ params }: PageProps) {
             className="mb-4"
           />
 
-          <div className="mb-4">
+          <div className="mb-6">
             <StockStatus stock={product.stock} urgencyThreshold={croSettings.lowStockThreshold} />
           </div>
-
-          {product.stock > 0 && (
-            <div className="mb-6">
-              <DeliveryEstimate
-                minDays={croSettings.shippingEtaMinDays}
-                maxDays={croSettings.shippingEtaMaxDays}
-                cutoffHour={croSettings.shippingCutoffHour}
-              />
-            </div>
-          )}
 
           <AddToCartWithQuantity product={product} />
 
@@ -305,6 +295,17 @@ export default async function ProductPage({ params }: PageProps) {
               className="flex-1 inline-flex items-center justify-center gap-2.5 bg-[#1A57FF] text-white py-3 px-6 rounded-xl text-base font-bold hover:bg-[#0B47E5] active:scale-95 transition-all shadow-lg shadow-[#1A57FF]/25 hover:shadow-[#1A57FF]/40"
             />
           </div>
+
+          {/* Estimación de entrega — justo debajo de las acciones de compra (carrito + Addi) */}
+          {product.stock > 0 && (
+            <div className="mt-4">
+              <DeliveryEstimate
+                minDays={croSettings.shippingEtaMinDays}
+                maxDays={croSettings.shippingEtaMaxDays}
+                cutoffHour={croSettings.shippingCutoffHour}
+              />
+            </div>
+          )}
 
           <SecurePaymentBadge />
 

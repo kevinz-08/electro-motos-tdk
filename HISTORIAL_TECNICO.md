@@ -4,6 +4,32 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 154. PDP: estilo del precio con descuento y posición de la estimación de entrega
+
+**Cambios:**
+
+- `apps/web/src/components/store/PriceTag.tsx` — el precio final deja el rojo: queda en `text-gray-900` y
+  `font-bold` (con y sin descuento, para que ambos estados se vean igual). El precio original sigue tachado.
+  El badge `-X%` pasa de `bg-red-600` a `bg-sky-500` (azul de la marca). Aplica en la PDP, la tarjeta del
+  catálogo y el carrito, porque comparten el componente.
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — `DeliveryEstimate` ("Cómpralo hoy y recíbelo entre…")
+  se movió debajo del bloque de acciones de compra (agregar al carrito, selector de cantidad y Addi), antes del
+  badge de pago seguro.
+- README §22.1 y §22.3 actualizados.
+
+**No implementado — contador de compradores aleatorio:** se pidió mostrar un número bajo aleatorio (+10, +25,
++30) de personas que compraron el producto. No se implementó porque es una cifra inventada presentada como real
+(publicidad engañosa, Ley 1480 / SIC). La prueba social real ya existe: `Product.soldCount` se incrementa con
+cada compra confirmada y su umbral de visibilidad se configura en `/admin/configuracion`.
+
+**Pendiente de decisión:** el badge `-X%` de la esquina de `ProductCard.tsx` sigue en rojo.
+
+**Verificación:** `tsc --noEmit` y ESLint limpios.
+
+*Última actualización: 2026-09-16*
+
+---
+
 ## 153. Imágenes de OpenGraph de categoría: JPEG 1280 × 560
 
 **Contexto:** los 11 archivos de categoría tenían extensión `.png` pero eran JPEG (se servían con

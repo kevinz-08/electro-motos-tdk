@@ -3,8 +3,8 @@
  *
  * Si el producto tiene un `compareAtPrice` válido (> price):
  *   - Precio de referencia tachado, pequeño y en gris (sutil).
- *   - Precio real de venta más grande y en color de acento.
- *   - Badge "-X%" (porcentaje redondeado hacia abajo — nunca exagera el descuento).
+ *   - Precio real de venta más grande y en negrita.
+ *   - Badge "-X%" en el azul de la marca (sky-500) (porcentaje redondeado hacia abajo — nunca exagera el descuento).
  * Sin precio ancla, se muestra solo el precio real en el estilo neutro de siempre.
  *
  * Server-safe: no usa hooks, se puede renderizar en Server y Client Components.
@@ -47,7 +47,7 @@ export function PriceTag({
 
   if (discount === 0 || !compareAtPrice) {
     return (
-      <p className={`${s.price} font-black text-gray-900 tracking-tight ${className}`}>
+      <p className={`${s.price} font-bold text-gray-900 tracking-tight ${className}`}>
         {formatCOP(price * quantity)}
       </p>
     )
@@ -55,7 +55,7 @@ export function PriceTag({
 
   return (
     <div className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${className}`}>
-      <span className={`${s.price} font-black text-red-600 tracking-tight`}>
+      <span className={`${s.price} font-bold text-gray-900 tracking-tight`}>
         {formatCOP(price * quantity)}
       </span>
       <span className={`${s.compare} text-gray-400 line-through`}>
@@ -63,7 +63,7 @@ export function PriceTag({
         {formatCOP(compareAtPrice * quantity)}
       </span>
       {!hideBadge && (
-        <span className={`${s.badge} self-center rounded-full bg-red-600 text-white font-bold leading-none`}>
+        <span className={`${s.badge} self-center rounded-full bg-sky-500 text-white font-bold leading-none`}>
           -{discount}%
         </span>
       )}

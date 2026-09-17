@@ -64,6 +64,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
     price: product ? String(product.price / 100) : '',
     compareAtPrice: product?.compareAtPrice != null ? String(product.compareAtPrice / 100) : '',
     stock: product ? String(product.stock) : '0',
+    storeRecommendations: product ? String(product.storeRecommendations ?? 0) : '0',
     sku: product?.sku ?? '',
     categoryId: product?.categoryId ?? (categories[0]?.id ?? ''),
     isActive: product?.isActive ?? true,
@@ -150,6 +151,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
         ? Math.round(parseFloat(form.compareAtPrice) * 100)
         : null,
       stock: parseInt(form.stock, 10),
+      storeRecommendations: form.storeRecommendations.trim() ? parseInt(form.storeRecommendations, 10) : 0,
       images,
       weightKg: form.weightKg.trim() ? parseFloat(form.weightKg) : undefined,
       heightCm: form.heightCm.trim() ? parseInt(form.heightCm, 10) : undefined,
@@ -414,6 +416,23 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
               onChange={(e) => setForm({ ...form, stock: e.target.value })}
               className={INPUT_CLASS}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-1">Personas que recomiendan el producto</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={form.storeRecommendations}
+              onChange={(e) => setForm({ ...form, storeRecommendations: e.target.value })}
+              className={INPUT_CLASS}
+              placeholder="Ej. 25"
+            />
+            <p className="text-xs text-white/30 mt-1">
+              Clientes de la tienda física que lo compraron o recomiendan. En la página se suma a las ventas online
+              (&quot;+X personas han comprado o recomiendan este producto&quot;).
+            </p>
           </div>
         </div>
 

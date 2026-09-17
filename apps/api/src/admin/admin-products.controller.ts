@@ -51,6 +51,7 @@ export class AdminProductsController {
       price: dto.price,
       compareAtPrice: dto.compareAtPrice ?? null,
       stock: dto.stock,
+      storeRecommendations: dto.storeRecommendations ?? 0,
       sku: dto.sku,
       categoryId: dto.categoryId,
       isActive: dto.isActive ?? true,

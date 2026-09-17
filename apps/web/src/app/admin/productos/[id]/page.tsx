@@ -31,6 +31,7 @@ export default async function EditProductPage({ params }: PageProps) {
       price: raw.price,
       compareAtPrice: raw.compareAtPrice,
       stock: raw.stock,
+      storeRecommendations: raw.storeRecommendations,
       sku: raw.sku,
       images: raw.images,
       isActive: raw.isActive,

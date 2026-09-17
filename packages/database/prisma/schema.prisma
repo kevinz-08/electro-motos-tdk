@@ -184,6 +184,9 @@ model Product {
   /// Se incrementa en la misma transacción que descuenta stock (webhook APPROVED / COD)
   /// y se decrementa en restockItems (envío RETURNED/CANCELLED).
   soldCount             Int                       @default(0)
+  /// Clientes de la tienda física que compraron o recomiendan el producto. Lo ingresa el admin;
+  /// la PDP muestra storeRecommendations + soldCount (README §22.3).
+  storeRecommendations  Int                       @default(0)
   sku                   String                    @unique
   images                String[]
   isActive              Boolean                   @default(true)

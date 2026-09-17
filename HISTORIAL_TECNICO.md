@@ -4,6 +4,61 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 155. Recomendaciones de la tienda física en la prueba social de la PDP
+
+**Contexto:** el contador "🔥 X personas han comprado" solo contaba ventas online, que aún son pocas. La tienda
+física tiene entre 25 y 30 clientes por producto que lo compraron o recomiendan. Se descartó el contador
+aleatorio (entrada 154): el admin ingresa la cifra real por producto.
+
+**Cambios:**
+
+- `schema.prisma` + migración `20260917000000_product_store_recommendations` — `Product.storeRecommendations
+  Int @default(0)`. Solo agrega una columna con default; no modifica datos existentes.
+- `packages/domain/src/entities/Product.ts` — campo opcional `storeRecommendations`.
+- API: `create-product.dto.ts` / `update-product.dto.ts` (entero 0–1.000.000), `admin-products.controller.ts`
+  y `PrismaProductRepository` (lectura, creación y actualización).
+- Web: campo **"Personas que recomiendan el producto"** en `ProductEditForm.tsx`, junto al stock; mapeo en
+  `PrismaProductRepository` y `admin/productos/[id]/page.tsx`.
+- `ProductTrustSignals.tsx` — `SoldCountBadge` muestra "🔥 +X personas han comprado o recomiendan este
+  producto", con X = `storeRecommendations` + `soldCount`. Como `soldCount` sube con cada compra confirmada,
+  el número crece con las ventas reales. El umbral sigue siendo `SOCIAL_PROOF_MIN_SOLD` (default 5).
+- README §22.3 actualizado.
+
+**Verificación:** `tsc --noEmit` limpio en api y web, ESLint sin errores, tests dominio 186/186 y API 191/191.
+
+**Despliegue:** aplicar `npx prisma migrate deploy` (desde `packages/database`) **antes** del merge. Es seguro
+para el código en producción: una columna nueva con default no afecta las consultas existentes.
+
+*Última actualización: 2026-09-17*
+
+---
+
+## 154. PDP: estilo del precio con descuento y posición de la estimación de entrega
+
+**Cambios:**
+
+- `apps/web/src/components/store/PriceTag.tsx` — el precio final deja el rojo: queda en `text-gray-900` y
+  `font-bold` (con y sin descuento, para que ambos estados se vean igual). El precio original sigue tachado.
+  El badge `-X%` pasa de `bg-red-600` a `bg-sky-500` (azul de la marca). Aplica en la PDP, la tarjeta del
+  catálogo y el carrito, porque comparten el componente.
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — `DeliveryEstimate` ("Cómpralo hoy y recíbelo entre…")
+  se movió debajo del bloque de acciones de compra (agregar al carrito, selector de cantidad y Addi), antes del
+  badge de pago seguro.
+- README §22.1 y §22.3 actualizados.
+
+**No implementado — contador de compradores aleatorio:** se pidió mostrar un número bajo aleatorio (+10, +25,
++30) de personas que compraron el producto. No se implementó porque es una cifra inventada presentada como real
+(publicidad engañosa, Ley 1480 / SIC). La prueba social real ya existe: `Product.soldCount` se incrementa con
+cada compra confirmada y su umbral de visibilidad se configura en `/admin/configuracion`.
+
+**Pendiente de decisión:** el badge `-X%` de la esquina de `ProductCard.tsx` sigue en rojo.
+
+**Verificación:** `tsc --noEmit` y ESLint limpios.
+
+*Última actualización: 2026-09-16*
+
+---
+
 ## 153. Imágenes de OpenGraph de categoría: JPEG 1280 × 560
 
 **Contexto:** los 11 archivos de categoría tenían extensión `.png` pero eran JPEG (se servían con

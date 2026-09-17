@@ -1,5 +1,5 @@
 import {
-  IsArray, IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateIf,
+  IsArray, IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, ValidateIf,
 } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
@@ -11,6 +11,8 @@ export class CreateProductDto {
   @ApiPropertyOptional({ description: 'Precio de referencia tachado en centavos COP. null = sin precio ancla. Debe ser > price', nullable: true })
   @IsOptional() @ValidateIf((_, v) => v !== null) @IsInt() @Min(1) compareAtPrice?: number | null
   @ApiProperty({ minimum: 0 }) @IsInt() @Min(0) stock: number
+  @ApiPropertyOptional({ description: 'Clientes de la tienda física que compraron o recomiendan el producto', minimum: 0, default: 0 })
+  @IsOptional() @IsInt() @Min(0) @Max(1_000_000) storeRecommendations?: number
   @ApiProperty() @IsString() @IsNotEmpty() sku: string
   @ApiProperty() @IsString() @IsNotEmpty() categoryId: string
   @ApiPropertyOptional({ default: true }) @IsOptional() @IsBoolean() isActive?: boolean

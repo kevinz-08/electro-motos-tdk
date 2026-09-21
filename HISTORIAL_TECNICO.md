@@ -4,6 +4,69 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 157. PDP: la estimación de entrega pasa a ser una línea de tiempo visual
+
+**Contexto:** el bloque "Cómpralo hoy y recíbelo entre el X y el Y" era una sola frase larga dentro de una
+caja azul. Se pidió un diseño visual de tres hitos (referencia gráfica aportada por el usuario) con las
+líneas de unión animadas, como si el pedido se fuera completando.
+
+**Cambios:**
+
+- `packages/domain/src/shared/delivery.ts` — `DeliveryWindow` gana el campo `dispatchTo` (despacho + 1 día
+  hábil): la ventana "se despacha entre X y Y". Con la hora de corte ya aplicada, un pedido de lunes temprano
+  despacha lunes-martes y uno de sábado despacha lunes-martes (los "máximo dos días" del sábado salen solos
+  del cálculo de días hábiles). Se exporta `addColombianBusinessDays()` para reutilizar el salto de hábiles.
+- `apps/web/src/components/store/DeliveryEstimate.tsx` — reescrito como línea de tiempo
+  **Pedido → Enviado → Entregado**: `<ol>` de 3 columnas, cada hito con icono en círculo blanco, etiqueta y
+  fecha (`día de mes`, sin día de la semana, para que quepa en móvil). Pedido = "Hoy"; Enviado =
+  `dispatchDate … dispatchTo`; Entregado = `from … to` (sin cambios en el cálculo, que ya era correcto).
+  Los conectores se posicionan en absoluto entre los centros de las columnas
+  (`left-[calc(16.666%_+_26px)]`, radio del círculo = 26 px). Se añadió `data-testid="delivery-estimate"`.
+- `apps/web/src/app/globals.css` — `@keyframes deliveryTrackFill` y clases `.delivery-track`,
+  `.delivery-track-fill`, `.delivery-track-fill-2`. Cada conector son dos capas punteadas
+  (`repeating-linear-gradient`): la gris de fondo y la `sky-500` encima, recortada con `clip-path` que se
+  llena de izquierda a derecha y se vacía en bucle de 3.2 s; la segunda línea arranca 0.8 s después para
+  leerse como progreso. Solo anima composite (nada de layout). Con `prefers-reduced-motion: reduce` la
+  animación se apaga y las líneas quedan fijas al 60 % de opacidad.
+- Mientras no hay fechas (SSR y primer render, porque el cálculo sigue siendo de cliente con
+  `useSyncExternalStore`) se pinta la misma estructura con placeholders, así la hidratación no mueve el layout.
+
+**Verificación:** `pnpm type-check` y ESLint de `@h2r/web` limpios (0 errores; los 23 warnings son previos y
+de otros archivos), 213 tests de dominio en verde, y captura del bloque renderizado en la PDP real
+(`/producto/9-wd88`) a 1280 px y 390 px con el servidor de desarrollo: los tres hitos, las fechas y el
+avance de las líneas se ven correctos en ambos anchos.
+
+*Última actualización: 2026-09-21*
+
+---
+
+## 156. PDP: la prueba social pasa debajo del precio
+
+**Contexto:** se pidió reorganizar la página de producto según un esquema de dos columnas. Al comparar con el
+código, la galería (imagen principal, flechas, paginador de puntos y miniaturas), las insignias de confianza,
+los acordeones y el orden de la columna derecha ya coincidían, salvo la posición de la prueba social.
+
+**Cambio:**
+
+- `apps/web/src/app/(store)/producto/[slug]/page.tsx` — el bloque de prueba social (estrellas/reseñas y
+  "+X personas han comprado o recomiendan") pasa de estar **encima** del precio a estar **debajo**, quedando el
+  orden: SKU → nombre → precio → prueba social → alerta de stock → cantidad y carrito → Addi → estimación de
+  entrega → pago seguro → descripción. Se ajustaron los márgenes (`mb-4` → `mb-3`) para mantener el ritmo vertical.
+- Se reescribió el comentario de cabecera del archivo con la estructura de las dos columnas.
+
+**Sin cambios (ya cumplían el esquema):** galería con flechas, puntos y miniaturas; insignias de pago seguro y
+envío; acordeón de Envíos; botón flotante de WhatsApp.
+
+**No aplicado:** el esquema mostraba solo el acordeón de Envíos en la columna izquierda. Se conservaron también
+"Compatibilidad" y "Cambios y devoluciones": este último enlaza la política de cambios y el derecho de retracto
+(Ley 1480). Queda pendiente de decisión del usuario.
+
+**Verificación:** `tsc --noEmit` y ESLint limpios. Sin revisión visual en navegador.
+
+*Última actualización: 2026-09-21*
+
+---
+
 ## 155. Recomendaciones de la tienda física en la prueba social de la PDP
 
 **Contexto:** el contador "🔥 X personas han comprado" solo contaba ventas online, que aún son pocas. La tienda
@@ -5627,3 +5690,65 @@ usuarios antes de este toggle.
 - `apps/api/src/__tests__/orders.controller.test.ts` — casos: 403 si `COD_ENABLED=false`, permite si no existe la fila
 
 *Última actualización: 2026-06-29*
+
+
+---
+
+## 97. Refactor del buscador del catálogo (categorías, reset de estado, búsqueda tolerante)
+
+**Contexto:** buscar "ramales" no devolvía nada aunque la subcategoría y sus 9 productos existen; una
+búsqueda nueva arrastraba filtros de la anterior; y el buscador no toleraba tildes, typos ni
+"ns200" vs "ns 200".
+
+**Diagnóstico (causas raíz):**
+
+- `lib/search.ts` tenía un mapa fijo `CATEGORY_KEYWORDS` con slugs de categoría **padre**. "ramales" se
+  interpretaba como "categoría Sistema Eléctrico", pero la palabra seguía exigiéndose como
+  `name contains "ramales"`, y los productos dicen `RAMAL ELECTRICO…` (singular) → AND imposible → 0 resultados.
+  La subcategoría real `ramales` nunca se consultaba, y cualquier categoría nueva no era buscable.
+- La búsqueda solo miraba nombre/descripción/SKU con `contains` literal: sin tildes, sin plurales, sin
+  typos, sin separar letras de números, sin categoría ni compatibilidad de motos.
+- El buscador del Navbar copiaba todos los `searchParams` actuales (categoría, precio, stock) al buscar.
+- Las sugerencias no cancelaban peticiones: una respuesta tardía de "aceites" podía pisar la de "ns 200".
+  Tras enviar, un debounce pendiente podía volver a llenar las sugerencias del overlay ya cerrado.
+- `findAll`: si venían `minPrice` y `maxPrice`, el segundo `price:` sobrescribía al primero (solo aplicaba el máximo).
+- La lógica de búsqueda estaba duplicada entre el repositorio y la ruta de sugerencias.
+
+**Solución:** un único motor en memoria (sin migración ni dependencias nuevas; el catálogo tiene ~85 productos).
+
+- Normaliza (tildes, mayúsculas, símbolos), parte letras↔números (`ns200` = `ns 200`, `10w40` = `10w-40`),
+  raíz singular/plural (`ramales` = `ramal`), prefijo mientras se escribe, fuzzy (Damerau-Levenshtein, 1–2 typos,
+  misma primera letra, nunca en números ni en descripción) y respaldo por texto compacto para SKU/números parciales.
+- Todas las palabras deben coincidir (AND) en nombre, SKU, categoría, subcategoría, etiquetas (marca/modelo de moto
+  compatible; no existe campo `tags`) o descripción. Ranking por campo + bonus de frase contigua; desempate stock y fecha.
+- Índice cacheado 5 min (tags `products` y `categories`); el admin lo reconstruye sin caché.
+- Se elimina `CATEGORY_KEYWORDS`: el nombre de cada categoría entra al índice. Se conservan como sinónimos
+  aceite↔lubricante y llanta↔neumático.
+
+**Archivos creados:**
+
+- `packages/domain/src/search/normalize.ts` — normalización, tokens, raíz, distancia de edición
+- `packages/domain/src/search/searchIndex.ts` — documentos indexados, consulta y ranking
+- `packages/domain/src/__tests__/Search.test.ts` — 27 tests (bug de "ramales", ns200/ns 200, typos, SKU, ranking, filtros)
+- `apps/web/src/lib/search-index.ts` — construye y cachea el índice desde Prisma
+- `apps/web/src/lib/search-url.ts` — `buildSearchUrl`: la búsqueda nueva lleva solo `search`
+
+**Archivos modificados:**
+
+- `packages/domain/src/index.ts` — exporta el módulo de búsqueda
+- `apps/web/src/infrastructure/repositories/PrismaProductRepository.ts` — `findAll` delega en el índice cuando hay
+  `search` (`findBySearch`); corrige el rango de precio min+max
+- `apps/web/src/app/api/search/suggestions/route.ts` — usa el mismo índice; orden por relevancia
+- `apps/web/src/components/nav/Navbar.tsx` — búsqueda sin arrastre de filtros, `closeSearch()` que limpia estado,
+  `AbortController` en sugerencias
+- `README.md` — nueva sección 24 (Buscador del catálogo)
+
+**Archivos eliminados:** `apps/web/src/lib/search.ts`
+
+**Verificación:** 213/213 tests de dominio (cobertura `search/` 99 %), `type-check` limpio en `domain` y `web`,
+eslint sin errores. Motor probado además contra los 85 productos reales de `catalog.ts`: "ramales" → 9, "ns200" = "ns 200".
+
+**Fuera de alcance / pendiente:** `apps/api` (`GET /products?search=`) conserva su `contains` simple; si algo
+lo consume para búsqueda de usuario, moverlo al mismo motor.
+
+*Última actualización: 2026-09-21*

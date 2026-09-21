@@ -99,6 +99,10 @@ export function isColombianBusinessDay(date: Date): boolean {
   return !holidays.has(dateKey(date))
 }
 
+export function addColombianBusinessDays(start: Date, days: number): Date {
+  return addBusinessDays(start, Math.max(0, Math.floor(days)))
+}
+
 function addBusinessDays(start: Date, days: number): Date {
   let current = start
   let remaining = days
@@ -121,6 +125,8 @@ export interface DeliveryEstimateOptions {
 export interface DeliveryWindow {
   /** Día hábil en que sale el pedido (mediodía UTC de la fecha colombiana). */
   dispatchDate: Date
+  /** Último día hábil en que podría salir el pedido (despacho + 1 hábil). */
+  dispatchTo: Date
   /** Primer día posible de entrega. */
   from: Date
   /** Último día estimado de entrega. */
@@ -134,6 +140,7 @@ export interface DeliveryWindow {
  *   2. Si hoy es hábil y aún no pasó la hora de corte, despacha hoy;
  *      si no, despacha el siguiente día hábil.
  *   3. from = despacho + minDays hábiles; to = despacho + maxDays hábiles.
+ *      dispatchTo = despacho + 1 hábil (la ventana "se despacha entre X y Y").
  *
  * Valores inválidos se normalizan (min ≥ 0, max ≥ min, cutoff en 0-24).
  */
@@ -152,6 +159,7 @@ export function estimateDeliveryWindow(now: Date, options: DeliveryEstimateOptio
 
   return {
     dispatchDate,
+    dispatchTo: addBusinessDays(dispatchDate, 1),
     from: addBusinessDays(dispatchDate, minDays),
     to: addBusinessDays(dispatchDate, maxDays),
   }

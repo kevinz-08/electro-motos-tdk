@@ -16,8 +16,10 @@ import {
   Product,
   ProductFilters,
   MotorcycleCompatibility,
+  searchDocs,
+  tokenizeQuery,
 } from '@h2r/domain'
-import { detectCategorySlugs, extractSearchWords } from '@/lib/search'
+import { buildSearchIndex, getCachedSearchIndex } from '@/lib/search-index'
 
 /**
  * Convierte un registro de Prisma (con `compatible` y `category` incluidos) a la entidad de dominio Product.
@@ -100,8 +102,9 @@ export class PrismaProductRepository implements IProductRepository {
    *     Si el slug es una categoría PADRE, incluye automáticamente los IDs
    *     de todas sus subcategorías hijas (una consulta extra por llamada).
    *     Si es una subcategoría (leaf), filtra solo por su ID.
-   * - `search` busca en nombre, descripción y SKU (case-insensitive).
    * - `minPrice` / `maxPrice` filtran por rango de precio en centavos.
+   * - `search` delega en el índice de búsqueda (README §24): normaliza, tolera typos y
+   *   ordena por relevancia. Los demás filtros se aplican sobre el índice, no sobre Prisma.
    */
   async findAll(filters: ProductFilters): Promise<PaginatedProducts> {
     const page  = filters.page  ?? 1
@@ -109,78 +112,29 @@ export class PrismaProductRepository implements IProductRepository {
     const skip  = (page - 1) * limit
 
     // Resolver IDs de categoría con expansión padre → hijos
-    let categoryIdFilter: { in: string[] } | undefined
+    let categoryIds: string[] | undefined
     if (filters.categorySlug) {
       const cat = await prisma.category.findUnique({
         where: { slug: filters.categorySlug },
         include: { children: { select: { id: true } } },
       })
-      if (cat) {
-        categoryIdFilter = { in: [cat.id, ...cat.children.map((c) => c.id)] }
-      }
+      if (cat) categoryIds = [cat.id, ...cat.children.map((c) => c.id)]
     }
 
-    // Búsqueda inteligente: divide en palabras, busca cada una por separado
-    let searchCategoryIds: string[] | undefined
-    if (filters.search) {
-      const words = extractSearchWords(filters.search)
-      const matchedSlugs = detectCategorySlugs(filters.search)
-      if (matchedSlugs.length > 0) {
-        const cats = await prisma.category.findMany({
-          where: { slug: { in: matchedSlugs } },
-          include: { children: { select: { id: true } } },
-        })
-        searchCategoryIds = cats.flatMap((c) => [c.id, ...c.children.map((ch) => ch.id)])
-      }
+    if (filters.search && tokenizeQuery(filters.search).length > 0) {
+      return this.findBySearch(filters, categoryIds, page, limit)
     }
 
-    const searchConditions: Record<string, unknown>[] = []
-    if (filters.search) {
-      const words = extractSearchWords(filters.search)
-      const matchedSlugs = detectCategorySlugs(filters.search)
-      const searchWords = words.filter((w) => !matchedSlugs.includes(w))
-      if (searchWords.length > 0) {
-        for (const word of searchWords) {
-          searchConditions.push({
-            OR: [
-              { name:        { contains: word, mode: 'insensitive' as const } },
-              { description: { contains: word, mode: 'insensitive' as const } },
-              { sku:         { contains: word, mode: 'insensitive' as const } },
-            ],
-          })
-        }
-      }
+    const priceRange = {
+      ...(filters.minPrice !== undefined && { gte: filters.minPrice }),
+      ...(filters.maxPrice !== undefined && { lte: filters.maxPrice }),
     }
-
-    const where: Record<string, unknown> = {
+    const where = {
       deletedAt: null,
       ...(!filters.includeInactive && { isActive: true }),
-      ...(filters.inStock  && { stock: { gt: 0 } }),
-      ...(filters.minPrice !== undefined && { price: { gte: filters.minPrice } }),
-      ...(filters.maxPrice !== undefined && { price: { lte: filters.maxPrice } }),
-    }
-
-    if (searchCategoryIds && searchCategoryIds.length > 0) {
-      if (searchConditions.length > 0) {
-        where.AND = [{ categoryId: { in: searchCategoryIds } }, ...searchConditions]
-      } else {
-        where.categoryId = { in: searchCategoryIds }
-      }
-    } else if (searchConditions.length > 0) {
-      if (searchConditions.length === 1) {
-        where.OR = (searchConditions[0] as { OR: Record<string, unknown>[] }).OR
-      } else {
-        where.AND = searchConditions
-      }
-    }
-
-    if (categoryIdFilter) {
-      if (where.categoryId && typeof where.categoryId === 'object' && 'in' in (where.categoryId as Record<string, unknown>)) {
-        const existing = (where.categoryId as { in: string[] }).in
-        where.categoryId = { in: [...new Set([...existing, ...categoryIdFilter.in])] }
-      } else {
-        where.categoryId = categoryIdFilter
-      }
+      ...(filters.inStock && { stock: { gt: 0 } }),
+      ...(Object.keys(priceRange).length > 0 && { price: priceRange }),
+      ...(categoryIds && { categoryId: { in: categoryIds } }),
     }
 
     // Promise.all — count + findMany en paralelo
@@ -196,6 +150,45 @@ export class PrismaProductRepository implements IProductRepository {
     ])
 
     return { items: items.map(toDomain), total, page, limit }
+  }
+
+  /**
+   * Rama de `findAll` con texto de búsqueda: rankea sobre el índice en memoria, pagina los ids
+   * y trae de Prisma solo la página pedida, conservando el orden por relevancia.
+   * El panel admin reconstruye el índice (sin caché) para ver sus cambios al instante.
+   */
+  private async findBySearch(
+    filters: ProductFilters,
+    categoryIds: string[] | undefined,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedProducts> {
+    const index = filters.includeInactive ? await buildSearchIndex() : await getCachedSearchIndex()
+    const categorySet = categoryIds ? new Set(categoryIds) : undefined
+
+    const hits = searchDocs(index, filters.search!, {
+      filter: (d) =>
+        (filters.includeInactive || d.isActive) &&
+        (!filters.inStock || d.stock > 0) &&
+        (filters.minPrice === undefined || d.price >= filters.minPrice) &&
+        (filters.maxPrice === undefined || d.price <= filters.maxPrice) &&
+        (!categorySet || categorySet.has(d.categoryId)),
+    })
+
+    const pageIds = hits.slice((page - 1) * limit, page * limit).map((h) => h.id)
+    if (pageIds.length === 0) return { items: [], total: hits.length, page, limit }
+
+    const rows = await prisma.product.findMany({
+      where: { id: { in: pageIds }, deletedAt: null },
+      include: { compatible: true, category: { select: { parentId: true } } },
+    })
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    const items = pageIds.flatMap((id) => {
+      const row = byId.get(id)
+      return row ? [toDomain(row)] : []
+    })
+
+    return { items, total: hits.length, page, limit }
   }
 
   /**

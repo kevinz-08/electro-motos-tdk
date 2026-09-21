@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@h2r/database'
-import { detectCategorySlugs, extractSearchWords } from '@/lib/search'
+import { searchDocs } from '@h2r/domain'
+import { getCachedSearchIndex } from '@/lib/search-index'
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? ''
 
@@ -28,54 +29,14 @@ export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get('q')?.trim()
   if (!q || q.length < 2) return NextResponse.json({ results: [] })
 
-  const words = extractSearchWords(q)
-  const matchedSlugs = detectCategorySlugs(q)
-  const searchWords = words.filter((w) => !matchedSlugs.includes(w))
+  // Ranking por relevancia sobre el índice (normalizado y tolerante a typos, README §24);
+  // Prisma solo trae los datos de presentación de los 6 ganadores.
+  const index = await getCachedSearchIndex()
+  const topIds = searchDocs(index, q, { filter: (d) => d.isActive, limit: 6 }).map((h) => h.id)
+  if (topIds.length === 0) return NextResponse.json({ results: [] })
 
-  const where: Record<string, unknown> = { isActive: true }
-
-  const wordConditions: Record<string, unknown>[] = []
-  if (searchWords.length > 0) {
-    for (const word of searchWords) {
-      wordConditions.push({
-        OR: [
-          { name: { contains: word, mode: 'insensitive' } },
-          { description: { contains: word, mode: 'insensitive' } },
-          { sku: { contains: word, mode: 'insensitive' } },
-        ],
-      })
-    }
-  }
-
-  if (matchedSlugs.length > 0) {
-    const cats = await prisma.category.findMany({
-      where: { slug: { in: matchedSlugs } },
-      include: { children: { select: { id: true } } },
-    })
-    const ids = cats.flatMap((c) => [c.id, ...c.children.map((ch) => ch.id)])
-    if (ids.length > 0) {
-      if (wordConditions.length > 0) {
-        where.AND = [{ categoryId: { in: ids } }, ...wordConditions]
-      } else {
-        where.categoryId = { in: ids }
-      }
-    } else if (wordConditions.length > 0) {
-      if (wordConditions.length === 1) {
-        where.OR = (wordConditions[0] as { OR: Record<string, unknown>[] }).OR
-      } else {
-        where.AND = wordConditions
-      }
-    }
-  } else if (wordConditions.length > 0) {
-    if (wordConditions.length === 1) {
-      where.OR = (wordConditions[0] as { OR: Record<string, unknown>[] }).OR
-    } else {
-      where.AND = wordConditions
-    }
-  }
-
-  const products = await prisma.product.findMany({
-    where,
+  const rows = await prisma.product.findMany({
+    where: { id: { in: topIds }, isActive: true, deletedAt: null },
     select: {
       id: true,
       name: true,
@@ -85,8 +46,11 @@ export async function GET(request: NextRequest) {
       stock: true,
       category: { select: { name: true, slug: true } },
     },
-    take: 6,
-    orderBy: { stock: 'desc' },
+  })
+  const byId = new Map(rows.map((r) => [r.id, r]))
+  const products = topIds.flatMap((id) => {
+    const row = byId.get(id)
+    return row ? [row] : []
   })
 
   const results = products.map((p) => ({

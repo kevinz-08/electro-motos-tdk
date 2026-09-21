@@ -12,18 +12,28 @@
  *   - title: nombre del producto
  *   - description: primeros 160 caracteres de la descripción
  *
- * Elementos de la página:
- *   - ProductImageGallery (Client Component): galería interactiva con
- *     hasta 4 imágenes, botones ← → y miniaturas clicables.
- *   - SKU del producto
- *   - Nombre y precio formateado en COP
- *   - Indicador de stock: verde (en stock), amarillo (pocas unidades), rojo (agotado)
- *   - AddToCartWithQuantity (Client Component — selector de cantidad + agregar al carrito,
- *     necesita acceder al store de Zustand)
- *   - Descripción completa del producto
- *   - Beneficios (editable desde el admin, texto libre)
- *   - Acordeón de Compatibilidad (editable desde el admin, texto libre — ej.
- *     "Honda CB160F 2020-2023"), Envíos y Cambios y devoluciones
+ * Estructura en dos columnas (en móvil se apilan: primero la izquierda):
+ *
+ *   Columna izquierda — galería y confianza:
+ *     1. ProductImageGallery (Client Component): imagen principal, botones ← →,
+ *        paginador de puntos y miniaturas clicables (hasta 4 imágenes).
+ *     2. Insignias: pago seguro con Wompi y envío a todo Colombia.
+ *     3. Acordeones: Compatibilidad (si el admin la cargó), Envíos y Cambios y devoluciones.
+ *
+ *   Columna derecha — información y conversión, en este orden:
+ *     1. SKU
+ *     2. Nombre del producto
+ *     3. Precio (con precio ancla tachado si aplica)
+ *     4. Prueba social: estrellas/reseñas y "+X personas han comprado o recomiendan"
+ *     5. Alerta de stock
+ *     6. Selector de cantidad + Agregar al carrito (AddToCartWithQuantity, Client Component
+ *        porque usa el store de Zustand)
+ *     7. Pagar con Addi
+ *     8. Estimación de entrega
+ *     9. Pago 100% seguro
+ *    10. Descripción y beneficios (editables desde el admin)
+ *
+ *   Reseñas verificadas y productos relacionados van a lo ancho, debajo de las dos columnas.
  *
  * El badge de stock usa estos umbrales:
  *   stock === 0                 → "Agotado" (rojo) + botón deshabilitado
@@ -259,8 +269,15 @@ export default async function ProductPage({ params }: PageProps) {
           <p className="text-sm text-gray-400 mb-1">SKU: {product.sku}</p>
           <h1 className="text-3xl font-bold text-gray-900 mb-3">{product.name}</h1>
 
-          {/* Prueba social — solo con datos reales que superen el umbral */}
-          <div className="space-y-1.5 mb-4 empty:hidden">
+          <PriceTag
+            price={product.price}
+            compareAtPrice={product.compareAtPrice}
+            size="lg"
+            className="mb-3"
+          />
+
+          {/* Prueba social bajo el precio — solo con datos reales que superen el umbral */}
+          <div className="space-y-1.5 mb-3 empty:hidden">
             <RatingSummaryRow summary={reviews.summary} minCount={croSettings.reviewsMinCount} />
             <SoldCountBadge
               soldCount={product.soldCount ?? 0}
@@ -268,13 +285,6 @@ export default async function ProductPage({ params }: PageProps) {
               minSold={croSettings.socialProofMinSold}
             />
           </div>
-
-          <PriceTag
-            price={product.price}
-            compareAtPrice={product.compareAtPrice}
-            size="lg"
-            className="mb-4"
-          />
 
           <div className="mb-6">
             <StockStatus stock={product.stock} urgencyThreshold={croSettings.lowStockThreshold} />

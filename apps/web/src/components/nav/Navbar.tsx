@@ -24,6 +24,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { buildSearchUrl, cleanSearchQuery } from '@/lib/search-url'
 import { useSession, signOut } from 'next-auth/react'
 import { toast } from 'sonner'
 import { CartIcon } from '@/components/ui/CartIcon'
@@ -144,16 +145,10 @@ export function Navbar() {
 
   const [catalogSearch, setCatalogSearch] = useState(searchParams.get('search') ?? '')
 
+  // Una búsqueda nueva reemplaza la anterior: no se conservan category/precio/stock/page.
   const handleCatalogSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    const params = new URLSearchParams(searchParams.toString())
-    if (catalogSearch.trim()) {
-      params.set('search', catalogSearch.trim())
-    } else {
-      params.delete('search')
-    }
-    params.delete('page')
-    router.push(`/catalogo?${params.toString()}`)
+    router.push(buildSearchUrl(catalogSearch))
   }
 
   useEffect(() => {
@@ -172,7 +167,24 @@ export function Navbar() {
   const [selectedIdx,    setSelectedIdx]    = useState(-1)
   const searchInputRef   = useRef<HTMLInputElement>(null)
   const debounceRef      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef         = useRef<AbortController | null>(null)
   const suggestRef       = useRef<HTMLDivElement>(null)
+
+  /** Cancela el debounce y la petición en vuelo: una respuesta tardía no puede pisar la consulta actual. */
+  const cancelPendingSearch = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    abortRef.current?.abort()
+    abortRef.current = null
+  }, [])
+
+  /** Cierra el overlay y deja el buscador limpio para la próxima vez (texto, sugerencias y selección). */
+  const closeSearch = useCallback(() => {
+    cancelPendingSearch()
+    setSearchOpen(false)
+    setSearchQuery('')
+    setSuggestions([])
+    setSelectedIdx(-1)
+  }, [cancelPendingSearch])
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus()
@@ -180,11 +192,11 @@ export function Navbar() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setSearchOpen(false); setSuggestions([]) }
+      if (e.key === 'Escape') closeSearch()
     }
     if (searchOpen) document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [searchOpen])
+  }, [searchOpen, closeSearch])
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -197,13 +209,19 @@ export function Navbar() {
   }, [suggestions.length])
 
   const fetchSuggestions = useCallback(async (query: string) => {
-    if (query.trim().length < 2) { setSuggestions([]); return }
+    abortRef.current?.abort()
+    const clean = cleanSearchQuery(query)
+    if (clean.length < 2) { setSuggestions([]); return }
+    const controller = new AbortController()
+    abortRef.current = controller
     try {
-      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(query.trim())}`)
+      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(clean)}`, {
+        signal: controller.signal,
+      })
       const data = await res.json()
-      setSuggestions(data.results ?? [])
+      if (!controller.signal.aborted) setSuggestions(data.results ?? [])
     } catch {
-      setSuggestions([])
+      if (!controller.signal.aborted) setSuggestions([])
     }
   }, [])
 
@@ -216,17 +234,14 @@ export function Navbar() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!searchQuery.trim()) return
-    setSearchOpen(false)
-    setSuggestions([])
-    setSearchQuery('')
-    router.push(`/catalogo?search=${encodeURIComponent(searchQuery.trim())}`)
+    if (!cleanSearchQuery(searchQuery)) return
+    const url = buildSearchUrl(searchQuery)
+    closeSearch()
+    router.push(url)
   }
 
   const goToProduct = (slug: string) => {
-    setSearchOpen(false)
-    setSuggestions([])
-    setSearchQuery('')
+    closeSearch()
     router.push(`/producto/${slug}`)
   }
 
@@ -408,7 +423,7 @@ export function Navbar() {
   const searchOverlayEl = !searchOpen ? null : (
       <div
         className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh] bg-black/70 backdrop-blur-sm"
-        onClick={() => { setSearchOpen(false); setSuggestions([]) }}
+        onClick={closeSearch}
       >
         <div
           ref={suggestRef}
@@ -430,7 +445,7 @@ export function Navbar() {
             />
             <button
               type="button"
-              onClick={() => { setSearchOpen(false); setSuggestions([]) }}
+              onClick={closeSearch}
               className="shrink-0 p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               aria-label="Cerrar búsqueda"
             >

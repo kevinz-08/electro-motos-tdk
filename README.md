@@ -36,6 +36,7 @@ electrónico. Los administradores gestionan productos, pedidos y stock desde un 
 21. [Preguntas frecuentes](#21-preguntas-frecuentes)
 22. [Optimización de conversión (CRO)](#22-optimización-de-conversión-cro)
 23. [Imágenes de OpenGraph por categoría](#23-imágenes-de-opengraph-por-categoría)
+24. [Buscador del catálogo](#24-buscador-del-catálogo)
 
 ---
 
@@ -1468,7 +1469,7 @@ elimina columnas usadas por la versión anterior — desplegar web y API junto c
 | "🔥 +X personas han comprado o recomiendan este producto" | `Product.storeRecommendations` (clientes de la tienda física, lo ingresa el admin en el formulario de producto) + `Product.soldCount` (ventas online: se incrementa al confirmar el pago; COD al crear) | `total ≥ SOCIAL_PROOF_MIN_SOLD` (Settings, default 5) |
 | "¡Solo quedan X unidades en stock!" | `Product.stock` | `0 < stock < LOW_STOCK_URGENCY_THRESHOLD` (default 5) |
 | Badge "Pago seguro" | estático (Wompi / Mercado Pago) | siempre, bajo el botón de compra |
-| "Cómpralo hoy y recíbelo entre el [día] y el [día]" — bajo los botones de compra (carrito y Addi) | `estimateDeliveryWindow()` (dominio) — días hábiles, festivos colombianos (Ley Emiliani) y hora de corte | siempre que haya stock. Settings: `SHIPPING_ETA_MIN_DAYS` (2), `SHIPPING_ETA_MAX_DAYS` (5), `SHIPPING_CUTOFF_HOUR` (14) |
+| Línea de tiempo **Pedido → Enviado → Entregado** — bajo los botones de compra (carrito y Addi) | `estimateDeliveryWindow()` (dominio) — días hábiles, festivos colombianos (Ley Emiliani) y hora de corte | siempre que haya stock. Settings: `SHIPPING_ETA_MIN_DAYS` (2), `SHIPPING_ETA_MAX_DAYS` (5), `SHIPPING_CUTOFF_HOUR` (14) |
 | Estrellas + "X% de clientes recomiendan este producto" | `ProductReview` aprobadas | `reseñas ≥ REVIEWS_MIN_COUNT` (default 3) |
 
 `soldCount` se decrementa si el envío termina `RETURNED`/`CANCELLED` (mismo punto donde se repone stock).
@@ -1477,6 +1478,22 @@ La migración inicializa `soldCount` con las unidades de pedidos `PAID`/`SHIPPED
 Todos los umbrales se editan en `/admin/configuracion` (`PUT /admin/settings/cro`, tag de caché `settings`).
 La fecha de entrega se calcula **en el cliente** (`DeliveryEstimate` con `useSyncExternalStore`): la PDP es ISR
 y una fecha calculada en el servidor podría servirse horas después.
+
+**Línea de tiempo de entrega** (`DeliveryEstimate.tsx`) — tres hitos con icono, etiqueta y fecha,
+unidos por conectores punteados que se completan de color en bucle:
+
+| Hito | Fecha que muestra | Campo de `estimateDeliveryWindow()` |
+|---|---|---|
+| Pedido | "Hoy" | — |
+| Enviado | despacho … despacho + 1 hábil (un pedido del sábado despacha el lunes: "máximo dos días") | `dispatchDate` … `dispatchTo` |
+| Entregado | despacho + `minDays` … + `maxDays` hábiles | `from` … `to` |
+
+Las líneas animadas son CSS puro (`@keyframes deliveryTrackFill` + clases `.delivery-track*` en
+`globals.css`): una capa punteada gris de fondo y otra en `sky-500` recortada con `clip-path`, que
+solo anima composite (sin layout). La segunda línea lleva 0.8 s de retraso para leerse como progreso.
+Con `prefers-reduced-motion: reduce` la animación se apaga y las líneas quedan fijas.
+Mientras no hay fechas (SSR + primer render) se pinta la misma estructura con placeholders, así la
+hidratación no mueve el layout.
 
 ### 22.4 Guest checkout (compra sin cuenta)
 
@@ -1576,3 +1593,33 @@ Facebook, X, etc.) muestra la imagen de esa categoría o subcategoría.
 **Agregar la imagen de una categoría:** subir el archivo a `public/assets/opengraph/` y añadir la
 entrada `slug → archivo` en `CATEGORY_OG_IMAGES`. Todas las imágenes de categoría deben ser **JPEG de
 1280 × 560 px** (el tamaño se declara una sola vez en `CATEGORY_OG_SIZE`). La global `op-image.jpg` es JPEG de 1200 × 630 (tamaño recomendado por las redes).
+
+---
+
+## 24. Buscador del catálogo
+
+El buscador (barra del Navbar, overlay móvil, `/catalogo?search=`, sugerencias y filtro del admin)
+usa **un único motor** en memoria, sin dependencias externas ni cambios de esquema.
+
+```
+Consulta ──► normalizar ──► tokens ──► índice en memoria ──► ranking ──► paginación ──► Prisma (por id)
+              (tildes,       (ns200 →   (productos activos,    (nombre >
+              mayúsculas,     ns 200)    cache 5 min, tags      SKU > cat.)
+              símbolos)                  products+categories)
+```
+
+- **Lógica pura** (testeable): `packages/domain/src/search/` — `normalizeText`, `tokenize`, `stem`,
+  `buildSearchDoc`, `searchDocs`. Sin Prisma ni Next.
+- **Índice**: `apps/web/src/lib/search-index.ts` — carga producto + categoría + categoría padre +
+  compatibilidad de motos, y lo cachea con `unstable_cache` (tags `products` y `categories`).
+  El admin (`includeInactive`) lo reconstruye sin caché para ver cambios al instante.
+- **Qué se indexa**: nombre, SKU, categoría y subcategoría, marca/modelo de moto compatible
+  (hace de "etiquetas": no existe campo `tags`) y descripción (peso bajo, sin fuzzy).
+- **Reglas**: ignora tildes/mayúsculas/símbolos; separa letras de números (`ns200` = `ns 200`,
+  `10w40` = `10w-40`); singular/plural (`ramales` = `ramal`); typos de 1–2 letras en palabras de
+  4+ letras (nunca en números: `200` ≠ `250`); prefijo mientras se escribe; todas las palabras
+  deben coincidir (AND) en algún campo.
+- **UX**: cada búsqueda nueva desde el buscador navega a `/catalogo?search=<texto>` **sin** conservar
+  categoría, precio ni stock de la búsqueda anterior. El drawer de filtros sí refina la búsqueda actual.
+- Ya no existe el mapa `CATEGORY_KEYWORDS` (slugs de categoría fijos en código): las categorías
+  nuevas se vuelven buscables solas porque su nombre entra al índice.

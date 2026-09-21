@@ -110,3 +110,40 @@ textarea::placeholder               { color: var(--c-text-4); }
 }
 
 
+
+/* ── Línea de tiempo de entrega (DeliveryEstimate) ──────────────────────── */
+/*
+  Cada conector es una línea punteada gris con una capa de color encima que se
+  "completa" de izquierda a derecha y luego se vacía, en bucle. El recorte se
+  hace con clip-path para no animar layout (solo composite).
+*/
+@keyframes deliveryTrackFill {
+  0%,  8%  { clip-path: inset(0 100% 0 0); }
+  38%, 62% { clip-path: inset(0 0 0 0); }
+  92%, 100% { clip-path: inset(0 0 0 100%); }
+}
+
+.delivery-track {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--delivery-track-color, #d1d5db) 0 7px,
+    transparent 7px 14px
+  );
+}
+
+.delivery-track-fill {
+  --delivery-track-color: #0ea5e9;
+  animation: deliveryTrackFill 3.2s ease-in-out infinite;
+}
+
+.delivery-track-fill-2 {
+  animation-delay: 0.8s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .delivery-track-fill {
+    animation: none;
+    clip-path: inset(0 0 0 0);
+    opacity: 0.6;
+  }
+}

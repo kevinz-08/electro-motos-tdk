@@ -43,6 +43,10 @@ export * from './shared/constants'
 export * from './shared/croSettings'
 export * from './shared/delivery'
 
+// ── Búsqueda ─────────────────────────────────────────────────────────────────
+export * from './search/normalize'
+export * from './search/searchIndex'
+
 // ── Use cases ────────────────────────────────────────────────────────────────
 export * from './use-cases/coupons/ValidateCoupon'
 export * from './use-cases/orders/ConfirmPayment'

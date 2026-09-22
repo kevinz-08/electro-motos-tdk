@@ -127,8 +127,14 @@ export function PromoModal({ promo }: { promo: PromoModalData }) {
         <Link href={promo.ctaUrl} onClick={close} className="block rounded-2xl overflow-hidden shadow-2xl">
           <picture>
             <source media={DESKTOP_BREAKPOINT} srcSet={desktopSrcSet} />
+            {/*
+              fetchPriority="low": el pop-up aparece tras la hidratación, pero su
+              imagen (~130 KB) competía por ancho de banda con el hero de la home,
+              que es el elemento LCP. Con prioridad baja el navegador sirve
+              primero el hero y el modal se pinta unos milisegundos después.
+            */}
             {/* eslint-disable-next-line jsx-a11y/alt-text -- alt viene en imgProps */}
-            <img {...imgProps} srcSet={mobileSrcSet} className="w-full h-auto object-contain bg-white" />
+            <img {...imgProps} srcSet={mobileSrcSet} fetchPriority="low" className="w-full h-auto object-contain bg-white" />
           </picture>
         </Link>
       </div>

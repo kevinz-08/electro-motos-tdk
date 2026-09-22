@@ -48,11 +48,20 @@ export const getCachedHomeCategories = unstable_cache(
 export const getCachedFeaturedProducts = unstable_cache(
   async () => {
     const repo = new PrismaProductRepository()
+    // `deletedAt IS NULL` es obligatorio: `repo.findById()` sí filtra los
+    // productos borrados, así que un id de la papelera con stock > 0 volvía como
+    // null y reventaba la home con "Cannot read properties of null (reading
+    // 'id')" — de forma intermitente, porque el ORDER BY RANDOM() solo lo elegía
+    // a veces. Detectado al verificar la Fase 1 del proyecto SEO (docs/seo/).
     const rows = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "Product" WHERE stock > 0 AND "isActive" = true ORDER BY RANDOM() LIMIT 4
+      SELECT id FROM "Product"
+      WHERE stock > 0 AND "isActive" = true AND "deletedAt" IS NULL
+      ORDER BY RANDOM() LIMIT 4
     `
     if (rows.length === 0) return []
-    return Promise.all(rows.map((r) => repo.findById(r.id).then((p) => p!)))
+    const products = await Promise.all(rows.map((r) => repo.findById(r.id)))
+    // Cinturón y tirantes: si un producto se borra entre el SELECT y el findById.
+    return products.filter((p): p is NonNullable<typeof p> => p !== null)
   },
   ['home-featured-products'],
   { revalidate: 300, tags: [CACHE_TAGS.products, CACHE_TAGS.home] },

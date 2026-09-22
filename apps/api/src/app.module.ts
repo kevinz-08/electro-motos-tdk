@@ -7,6 +7,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { InfrastructureModule } from './infrastructure/infrastructure.module'
 import { AuthModule } from './auth/auth.module'
 import { ProductsModule } from './products/products.module'
+import { MotorcyclesModule } from './motorcycles/motorcycles.module'
 import { OrdersModule } from './orders/orders.module'
 import { AdminModule } from './admin/admin.module'
 import { PaymentsModule } from './payments/payments.module'
@@ -35,6 +36,7 @@ import { RolesGuard } from './auth/guards/roles.guard'
     InfrastructureModule,
     AuthModule,
     ProductsModule,
+    MotorcyclesModule,
     OrdersModule,
     AdminModule,
     PaymentsModule,

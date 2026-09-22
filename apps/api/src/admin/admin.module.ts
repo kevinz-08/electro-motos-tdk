@@ -8,6 +8,7 @@ import { AdminEmailsController } from './admin-emails.controller'
 import { AdminSyncController } from './admin-sync.controller'
 import { AdminBannersController } from './admin-banners.controller'
 import { AdminPromoController } from './admin-promo.controller'
+import { AdminFitmentsController } from './admin-fitments.controller'
 
 @Module({
   imports: [InfrastructureModule],
@@ -20,6 +21,7 @@ import { AdminPromoController } from './admin-promo.controller'
     AdminSyncController,
     AdminBannersController,
     AdminPromoController,
+    AdminFitmentsController,
   ],
 })
 export class AdminModule {}

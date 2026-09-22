@@ -16,7 +16,8 @@
     "db:catalog": "pnpm --filter @h2r/database catalog",
     "db:motos": "pnpm --filter @h2r/database motorcycles",
     "seo:check": "node scripts/seo-check.mjs",
-    "seo:lighthouse": "node scripts/seo-lighthouse.mjs"
+    "seo:lighthouse": "node scripts/seo-lighthouse.mjs",
+    "seo:schema": "node scripts/seo-schema.mjs"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

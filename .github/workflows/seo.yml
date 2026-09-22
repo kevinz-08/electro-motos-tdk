@@ -1,7 +1,7 @@
 name: SEO
 
-# Presupuesto de rendimiento y verificación de la base técnica de SEO
-# (Fase 1 — docs/seo/01-resultados.md).
+# Verificación de la base técnica de SEO (Fase 1), de los datos estructurados
+# (Fase 3) y del presupuesto de rendimiento.
 #
 # No corre en cada push: mide contra el sitio ya desplegado, así que se ejecuta
 # semanalmente y a mano cuando hace falta. Los informes de Lighthouse quedan
@@ -20,7 +20,7 @@ on:
 
 jobs:
   seo:
-    name: robots, sitemaps y Core Web Vitals
+    name: robots, sitemaps, JSON-LD y Core Web Vitals
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +31,9 @@ jobs:
 
       - name: Verificar robots, sitemaps, canonical e indexación
         run: node scripts/seo-check.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"
+
+      - name: Validar los datos estructurados (JSON-LD)
+        run: node scripts/seo-schema.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"
 
       - name: Presupuesto de rendimiento (Lighthouse móvil)
         run: node scripts/seo-lighthouse.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"

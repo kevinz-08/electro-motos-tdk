@@ -8,12 +8,12 @@ terminada la 2. **Las fases 0 y 2 requieren aprobación explícita antes de cont
 |---|---|---|---|---|
 | **0** | Auditoría | ✅ Terminada (2026-09-22) | [`00-auditoria.md`](./00-auditoria.md) | ✅ Aprobada |
 | **1** | Base técnica de SEO | ✅ **Terminada** (2026-09-22) | [`01-resultados.md`](./01-resultados.md) | ⏳ Pendiente de desplegar y volver a medir (H-36) |
-| **2** | Sistema de compatibilidad | ✅ **Terminada** (2026-09-22) | [`02-compatibilidad.md`](./02-compatibilidad.md) | 🔴 **Esperando aprobación — y bloqueada por H-02 para publicar** |
-| 3 | Datos estructurados | 🔜 Siguiente | `03-datos-estructurados.md` | — |
-| 4 | Conversión | ⬜ No iniciada | `04-conversion.md` | — |
-| 5 | Contenido y E-E-A-T | ⬜ No iniciada | `05-contenido.md` | — |
-| 6 | GEO | ⬜ No iniciada | `06-geo.md`, `geo/` | — |
-| 7 | Merchant Center y feed | ⬜ No iniciada | `07-feed.md` | — |
+| **2** | Sistema de compatibilidad | ✅ Terminada (2026-09-22) | [`02-compatibilidad.md`](./02-compatibilidad.md) | ✅ Aprobada · ⛔ bloqueada por **H-02** para publicar |
+| 3 | Datos estructurados | 🔜 **Definida, esperando aprobación** | `03-datos-estructurados.md` | — |
+| 4 | Conversión | 📋 Definida | `04-conversion.md` | Puede ir en paralelo con la 3 |
+| 5 | Contenido y E-E-A-T | 📋 Definida | `05-contenido.md` | Necesita revisor técnico (H-21) |
+| 6 | GEO | 📋 Definida | `06-geo.md`, `geo/` | — |
+| 7 | Merchant Center y feed | 📋 Definida | `07-feed.md` | Necesita marca y MPN de los repuestos (H-18) |
 
 ---
 
@@ -109,9 +109,221 @@ compatibilidades.
 
 ---
 
-## Fases 3 a 7 ⬜
+## Fase 3 — Datos estructurados 🔜
 
-Detalladas en el brief. Se planifican al cerrar la Fase 2.
+**Objetivo:** que Google y los motores generativos entiendan qué es H2R, qué vende, con qué motos es
+compatible cada repuesto y en qué condiciones lo entrega. Hoy el único JSON-LD del sitio es `Product`
+en la ficha, más `BreadcrumbList` e `ItemList` en las rutas nuevas de la Fase 2.
+
+**Qué se construye**
+
+1. **Utilidad JSON-LD tipada y reutilizable** (`lib/structured-data.ts`). Hoy el marcado se escribe a
+   mano en cada página; centralizarlo evita que se desincronicen y permite validarlos de una vez.
+2. **`Organization`** en el layout raíz: `name`, `legalName`, `taxID` (NIT 1007784964-5), `url`,
+   `logo`, `address` (Cra 21 #21-58, Bucaramanga), `contactPoint` con `areaServed: "CO"` y
+   `availableLanguage: "es"`, y `sameAs` con los perfiles oficiales.
+3. **`WebSite` + `SearchAction`** apuntando a la búsqueda interna del catálogo.
+4. **`Product` completo**: `brand` (marca del repuesto), `mpn`, `offers.url`, `itemCondition`,
+   `OfferShippingDetails` hacia Colombia, `MerchantReturnPolicy` y —lo importante para este negocio—
+   **`isAccessoryOrSparePartFor`** con entidades `Motorcycle` construidas desde los fitments
+   **verificados** de la Fase 2.
+5. **`BreadcrumbList` en ficha y catálogo** (hoy solo está en las rutas de modelo).
+6. **`ItemList`** en el catálogo y en el hub de modelo.
+7. **`FAQPage`** sobre el FAQ que **ya es visible** en la home. El marcado tiene que coincidir con lo
+   que se ve: no se inventan preguntas para tener qué marcar.
+8. **Script de validación** (`pnpm seo:schema`): recorre una muestra de URLs, extrae todo el JSON-LD,
+   comprueba que sea parseable y que cada tipo traiga sus campos obligatorios. Se suma al workflow
+   `seo.yml`, junto a `seo:check` y `seo:lighthouse`.
+
+**Lo que NO se marca sin datos confirmados**
+
+| Elemento | Necesita | Si falta |
+|---|---|---|
+| `sameAs` de `Organization` | URLs exactas de los perfiles (**H-12**) | Se omite `sameAs` |
+| `OfferShippingDetails` | Tiempos y costos reales por ciudad (**H-13**) | Se omite el bloque de envío |
+| `MerchantReturnPolicy` | Política exacta de devoluciones (**H-15**) | Se omite el bloque de devoluciones |
+| `LocalBusiness` | Confirmar si hay punto físico atendiendo al público (**H-10**) | Se queda en `Organization` |
+| `brand` y `mpn` del producto | Marca y MPN por producto (**H-18**) | Se omiten esos campos |
+
+**Criterio de salida:** JSON-LD válido en el 100 % de las plantillas, verificado por script, y
+`03-datos-estructurados.md` con el antes/después y qué campos quedaron fuera por falta de datos.
+
+**Riesgo principal:** marcar lo que no se puede sostener. Un `OfferShippingDetails` con tiempos
+inventados es peor que no tenerlo, porque Google lo contrasta con la realidad del envío.
+
+---
+
+## Fase 4 — Conversión 📋
+
+**Objetivo:** que cada visita tenga el camino más corto y confiable hacia la compra. Puede avanzar en
+paralelo con la Fase 3.
+
+**Ficha de producto**
+
+1. **Barra fija de "Agregar al carrito"** en móvil al hacer scroll (fricción C1: la ficha es larga y
+   el botón se queda arriba del todo).
+2. **Estimador de envío por ciudad en la ficha.** El cotizador real ya existe
+   (`ShippingQuoteCalculator` + Vendelo) pero solo en carrito y checkout; se lleva a la ficha, que es
+   donde se decide la compra.
+3. **Botón "Confirma compatibilidad por WhatsApp"** en el bloque de compra, con producto, SKU y moto
+   seleccionada prellenados. La tabla y el badge de la Fase 2 ya lo llevan; falta junto al botón de
+   comprar.
+4. **Bloque de confianza**: medios de pago reales, garantía y datos de la empresa.
+
+**Carrito y checkout**
+
+5. **Umbral de envío gratis en `Settings`** con barra de progreso. Hoy los "$500.000" están escritos
+   a mano en el acordeón de la ficha (fricción C5) y hay que confirmar si siguen vigentes (**H-14**).
+6. Resumen con costo de envío antes del último paso — ya está resuelto en buena parte.
+
+**Venta cruzada con sentido mecánico**
+
+7. **"Normalmente se cambia junto con…"**, con reglas definidas por el negocio (**H-19**), no
+   deducidas por el agente.
+8. **Kits de mantenimiento por modelo** ("Kit NKD 125: aceite + filtro + bujía") con precio total
+   visible. Depende de H-19 y de que haya compatibilidades cargadas (**H-02**).
+
+**Reseñas**
+
+9. **Campo "¿en qué moto lo instalaste?"** en el formulario poscompra, mostrado como "Le sirvió a una
+   DR150 · Cali". Es compatibilidad generada por clientes reales: alimenta el sistema de la Fase 2
+   desde el otro extremo.
+
+**Legal y confianza**
+
+10. **"Sobre nosotros"** con NIT y equipo, y **página de garantías** (fricción C6, **H-17**).
+
+**Medición**
+
+11. **Analítica de eventos.** Hoy solo hay Vercel Analytics (páginas vistas): no hay embudo medible.
+    Requiere decidir si se instala GA4 (**H-11**).
+
+**Pendiente de decisión del negocio desde la Fase 0**
+
+12. **`SocialProof.tsx`** (**H-01**): los cuatro testimonios con nombre propio etiquetados "Cliente
+    verificado" y las cifras "500+ clientes / 98 % recomendación", escritos a mano en el código.
+    **Recomendación: alimentarlos desde `ProductReview`**, que ya tiene reseñas reales verificadas por
+    compra.
+
+**Criterio de salida:** flujo de compra móvil completo y medible, con `04-conversion.md` documentando
+las métricas antes y después.
+
+---
+
+## Fase 5 — Contenido y E-E-A-T 📋
+
+**Objetivo:** ser la fuente que Google y las IAs citan sobre repuestos de moto en Colombia.
+
+**Orden obligatorio: primero la infraestructura, después los borradores.** Todo borrador lleva
+`estado: borrador` y `revisor: pendiente`, y **no se publica sin revisión de alguien con conocimiento
+mecánico** (**H-21**).
+
+1. **Infraestructura de contenido**: modelo de datos o MDX, rutas `/guias/[slug]` y `/autores/[slug]`,
+   estados de publicación, y autor y revisor técnico por pieza.
+2. **Guías de mantenimiento por modelo** (`/guias/mantenimiento-[marca]-[modelo]`): tabla de
+   intervalos (aceite, filtro, bujía, kit de arrastre, pastillas, llantas) con el repuesto exacto de
+   H2R enlazado en cada fila. **Los intervalos salen del manual del fabricante o del revisor
+   (H-20), nunca inventados, y se cita la fuente.**
+3. **Costo anual de mantenimiento por modelo**, calculado desde los precios reales del catálogo, de
+   modo que se actualice solo.
+4. **Índice de Precios de Repuestos de Moto en Colombia**: página de datos generada desde el catálogo,
+   con metodología explícita, fecha de corte y gráficos, actualizable por script cada semestre. **Es
+   la pieza principal para enlaces de prensa y citas de IA.**
+5. **Comparativas**: "original vs genérico", "{marca A} vs {marca B} de pastillas para {modelo}",
+   "mejor aceite para moto de trabajo". Con criterios concretos y tablas.
+6. **Guía de revisión técnico-mecánica**: qué revisan y qué repuestos la hacen fallar, enlazando a
+   producto.
+7. **Páginas de envío por ciudad** (Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Eje Cafetero):
+   tiempos y costos reales, transportadora, y los repuestos más pedidos en esa zona **según los
+   pedidos reales**. Si no hay datos suficientes para una ciudad, no se crea.
+8. **Enlazado interno**: hub de modelo ↔ categorías ↔ productos ↔ guías. Ninguna página comercial a
+   más de 3 clics del home, con reporte de páginas huérfanas.
+
+**Formato para que las IAs lo citen:** cada página clave abre con una respuesta directa de 40 a 60
+palabras, encabezados en forma de pregunta, tablas, datos verificables y fecha visible de "última
+actualización".
+
+**Criterio de salida:** infraestructura funcionando, y las guías de los 5 modelos top más el Índice de
+Precios **publicados tras revisión humana**.
+
+---
+
+## Fase 6 — GEO 📋
+
+**Objetivo:** que ChatGPT, Perplexity, Gemini y Copilot citen y recomienden H2R.
+
+**Técnico (lo implemento yo)**
+
+1. **Confirmar en producción** que los crawlers de IA reciben HTML completo, probando con `curl` por
+   cada user-agent, y que ni la CDN ni el WAF los bloquean. En la Fase 0 salió bien; hay que repetirlo
+   después de desplegar la Fase 1.
+2. **`/llms.txt`** con la descripción de H2R, qué vende, cobertura, medios de pago y enlaces a hubs,
+   guías, índice de precios y políticas. Es de bajo costo y **su adopción real por los motores no está
+   confirmada**, así que no se le dedica más de lo necesario.
+3. **Página "Por qué comprar en H2R"** con afirmaciones concretas y verificables, calculadas desde la
+   base de datos siempre que se pueda — por ejemplo el número de referencias con compatibilidad
+   verificada, que ya sabe contar `countVerified()` de la Fase 2.
+4. **Coherencia de entidad**: mismo nombre, NIT, dirección, teléfono y descripción en todo el sitio y
+   en el JSON-LD. La Fase 1 ya unificó el nombre; el resto se cierra con la Fase 3.
+
+**Fuera del sitio (lo preparo yo, lo ejecuta el humano)** — en `docs/seo/geo/`:
+
+5. **10 guiones de vídeo corto** (YouTube, TikTok, Reels) con título, descripción optimizada y enlace
+   al producto: "cómo cambiar el kit de arrastre de la NKD 125", "original vs genérico: pastillas
+   NMAX"…
+6. **Plantillas de correo** para medios (lanzamiento del Índice de Precios), blogs de "dónde comprar
+   repuestos de moto en Colombia" y talleres aliados.
+7. **Guía de participación en comunidades** por modelo: tono, tipo de respuestas útiles y qué no hacer
+   (spam).
+8. **Checklist de perfiles de marca**: Google Business Profile (solo si hay punto físico), Bing Places,
+   Merchant Center, Mercado Libre, Wikidata (solo si cumple los criterios de notabilidad) y
+   directorios colombianos.
+
+**Medición**
+
+9. **`docs/seo/geo/prompts.md`** con 30 prompts reales de usuario y una plantilla de registro mensual:
+   motor, si mencionó a H2R, posición y fuentes citadas.
+10. **Segmento de tráfico desde IA** en la analítica (`chatgpt.com`, `perplexity.ai`,
+    `gemini.google.com`, `copilot.microsoft.com`). Depende de **H-11**.
+
+**Criterio de salida:** carpeta `geo/` completa y **línea base de la medición de prompts registrada**.
+Sin línea base no hay forma de saber después si algo mejoró.
+
+---
+
+## Fase 7 — Merchant Center y feed 📋
+
+**Objetivo:** aparecer en las fichas gratuitas de Google Shopping en Colombia.
+
+1. **Feed de productos** (XML o TSV) con `id`, `title` siguiendo la fórmula
+   "[Repuesto] [marca del repuesto] para [Marca] [Modelo] [cc]", `description`, `link`, `image_link`,
+   `price` en COP, `availability`, `brand`, `mpn`, `condition`, `google_product_category`,
+   `product_type` (marca > modelo > categoría) y datos de envío.
+2. **Solo productos con stock, precio e imagen válidos.** Un feed con productos agotados o sin foto se
+   rechaza entero.
+3. El `product_type` por modelo sale de los fitments verificados de la Fase 2.
+
+**Dependencias duras:** `brand` y `mpn` por producto (**H-18**) y tiempos de envío reales (**H-13**).
+Sin ellas el feed se rechaza o sale incompleto. Crear la cuenta y activar las fichas gratuitas es
+**H-09**.
+
+**Criterio de salida:** feed válido según el validador de Merchant Center.
+
+---
+
+## Dependencias humanas, ordenadas por impacto
+
+| Tarea | Bloquea | Si no llega |
+|---|---|---|
+| **H-02** compatibilidades verificadas | Publicar la Fase 2, kits de la 4, guías de la 5, `product_type` de la 7 | El sistema de compatibilidad no publica nada |
+| **H-13** tiempos de envío reales | `OfferShippingDetails` (3), estimador (4), páginas de ciudad (5), feed (7) | Se omiten esos bloques |
+| **H-18** marca, MPN y tipo de repuesto | `brand` y `mpn` (3), feed (7) | El feed de Merchant Center no es viable |
+| **H-21** revisor técnico | Fase 5 entera | Los borradores no se publican |
+| **H-01** decisión sobre `SocialProof` | Fase 4 | Siguen los testimonios sin respaldo en la home |
+| **H-11** decisión sobre GA4 | Medición de las fases 4 y 6 | No hay embudo ni segmento de IA medible |
+| **H-12** perfiles oficiales | `sameAs` (3) | `Organization` sin perfiles |
+| **H-15** política de devoluciones | `MerchantReturnPolicy` (3) | Se omite |
+| **H-09** Merchant Center | Fase 7 | No se publica el feed |
 
 ---
 

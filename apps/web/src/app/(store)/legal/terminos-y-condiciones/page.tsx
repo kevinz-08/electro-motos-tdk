@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
+import { canonical } from '@/lib/seo'
 
 export const metadata: Metadata = {
   title: 'Términos y Condiciones',
   description:
     'Términos y condiciones de uso del sitio web y contratos de compraventa de H2R Online Store.',
+  alternates: canonical('/legal/terminos-y-condiciones'),
   robots: { index: true, follow: true },
 }
 

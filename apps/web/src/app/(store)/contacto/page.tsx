@@ -2,10 +2,15 @@ import type { Metadata } from 'next'
 import { AboutUsBlock } from '@/components/store/AboutUsBlock'
 import { PqrForm } from '@/components/store/PqrForm'
 import { ContactInfoBlock } from '@/components/store/ContactInfoBlock'
+import { canonical } from '@/lib/seo'
 
 export const metadata: Metadata = {
-  title: 'Contáctanos | H2R Online Store',
+  // `title.absolute` evita el doble sufijo: la plantilla del layout raíz ya
+  // añade "| H2R Online Store".
+  title: { absolute: 'Contáctanos | H2R Online Store' },
   description: 'Escríbenos tus preguntas, quejas o reclamos. Te respondemos por correo o WhatsApp.',
+  alternates: canonical('/contacto'),
+  robots: { index: true, follow: true },
 }
 
 export default function ContactoPage() {

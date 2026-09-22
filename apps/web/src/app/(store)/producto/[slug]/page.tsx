@@ -52,7 +52,8 @@ import { getCachedProductBySlug, getCachedCroSettings, getCachedProductReviews }
 import { AddToCartWithQuantity } from '@/components/store/AddToCartWithQuantity'
 import { PayWithAddiButton } from '@/components/store/PayWithAddiButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
-import { PriceTag } from '@/components/store/PriceTag'
+import { PriceTag, formatCOP } from '@/components/store/PriceTag'
+import { canonical, NOINDEX_FOLLOW } from '@/lib/seo'
 import { DeliveryEstimate } from '@/components/store/DeliveryEstimate'
 import {
   SoldCountBadge,
@@ -82,13 +83,39 @@ interface PageProps {
   params: Promise<{ slug: string }>
 }
 
+/**
+ * Metadata de la ficha de producto (Fase 1 del proyecto SEO, docs/seo/).
+ *
+ * Antes era el nombre del producto y un corte a 160 caracteres de la
+ * descripción comercial. Ahora la descripción lleva los tres datos que el
+ * comprador busca en el resultado de Google — **precio real, envío y medio de
+ * pago** — y la página declara su canonical absoluto.
+ *
+ * El tiempo de despacho sale de `Settings` (`getCachedCroSettings`), el mismo
+ * dato que se muestra en la página: nunca un número inventado. No se menciona
+ * el pago contra entrega porque el admin puede desactivarlo.
+ */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
   const result = await getCachedProductBySlug(slug)
-  if (!result.ok) return { title: 'Producto no encontrado' }
+  if (!result.ok) return { title: 'Producto no encontrado', robots: NOINDEX_FOLLOW }
+
+  const product = result.value
+  const cro = await getCachedCroSettings()
+  const price = formatCOP(product.price)
+  const eta = `${cro.shippingEtaMinDays} a ${cro.shippingEtaMaxDays} días hábiles`
+
+  const description =
+    `${product.name} por ${price}. Envío a toda Colombia en ${eta}. ` +
+    `Pago seguro con Wompi: PSE, Nequi y tarjetas.`
+
   return {
-    title: result.value.name,
-    description: result.value.description.slice(0, 160),
+    title: product.name,
+    description,
+    alternates: canonical(`/producto/${product.slug}`),
+    // El producto sin stock sigue siendo indexable: la URL responde 200 y su
+    // JSON-LD declara OutOfStock. Sacarla del índice solo perdería señales.
+    robots: { index: product.isActive, follow: true },
   }
 }
 

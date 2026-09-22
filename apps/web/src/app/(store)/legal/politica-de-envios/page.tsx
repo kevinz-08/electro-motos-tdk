@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
+import { canonical } from '@/lib/seo'
 
 export const metadata: Metadata = {
   title: 'Política de Envíos',
   description:
     'Política de envíos, tiempos de entrega, costos y garantía legal de productos de H2R Online Store.',
+  alternates: canonical('/legal/politica-de-envios'),
   robots: { index: true, follow: true },
 }
 

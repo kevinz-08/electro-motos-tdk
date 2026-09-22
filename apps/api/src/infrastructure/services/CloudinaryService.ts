@@ -67,6 +67,12 @@ export class CloudinaryService {
     return this.uploadImage(file, 'h2r-online-store/hero-banners', `${slug}-${variant}`, { width, crop: 'limit' })
   }
 
+  /** Pop-up promocional (README §25.1): 1600px en desktop, 1080px en la variante vertical. */
+  async uploadPromoModalImage(file: Buffer, variant: 'desktop' | 'mobile' = 'desktop'): Promise<UploadResult> {
+    const width = variant === 'mobile' ? 1080 : 1600
+    return this.uploadImage(file, 'h2r-online-store/promo-modal', `promo-${variant}`, { width, crop: 'limit' })
+  }
+
   async deleteImage(publicId: string): Promise<void> {
     await cloudinary.uploader.destroy(publicId)
   }

@@ -48,7 +48,15 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
-import { getCachedProductBySlug, getCachedCroSettings, getCachedProductReviews } from '@/lib/cache'
+import {
+  getCachedProductBySlug,
+  getCachedCroSettings,
+  getCachedProductReviews,
+  getCachedProductFitments,
+} from '@/lib/cache'
+import { FitmentTable } from '@/components/store/FitmentTable'
+import { CompatibilityBadge } from '@/components/store/CompatibilityBadge'
+
 import { AddToCartWithQuantity } from '@/components/store/AddToCartWithQuantity'
 import { PayWithAddiButton } from '@/components/store/PayWithAddiButton'
 import { ProductImageGallery } from '@/components/store/ProductImageGallery'
@@ -127,7 +135,7 @@ export default async function ProductPage({ params }: PageProps) {
 
   const product = result.value
 
-  const [freshProduct, structuredDescription, croSettings, reviews] = await Promise.all([
+  const [freshProduct, structuredDescription, croSettings, reviews, compatibility] = await Promise.all([
     prisma.product.findUnique({ where: { id: product.id }, select: { description: true } }),
     prisma.productDescription.findUnique({
       where: { productId: product.id },
@@ -138,7 +146,18 @@ export default async function ProductPage({ params }: PageProps) {
     }),
     getCachedCroSettings(),
     getCachedProductReviews(product.id),
+    getCachedProductFitments(product.id),
   ])
+
+  // Modelos compatibles verificados, reducidos a lo que el badge necesita
+  // comparar. El badge es un Client Component: lee la cookie en el navegador
+  // para que esta ficha siga siendo estática (ver lib/my-motorcycle.ts).
+  const compatibleModels = compatibility.fitments.map((f) => ({
+    brandSlug: f.model.brand.slug,
+    modelSlug: f.model.slug,
+    yearFrom: f.yearFrom,
+    yearTo: f.yearTo,
+  }))
   const showReviews = reviews.summary !== null && reviews.summary.count >= croSettings.reviewsMinCount
 
   const description =
@@ -313,6 +332,15 @@ export default async function ProductPage({ params }: PageProps) {
             />
           </div>
 
+          {/* Badge de compatibilidad — justo encima del stock, donde el comprador
+              decide. Solo aparece si hay moto seleccionada. */}
+          <CompatibilityBadge
+            compatibleModels={compatibleModels}
+            productName={product.name}
+            productSku={product.sku}
+            className="mb-3"
+          />
+
           <div className="mb-6">
             <StockStatus stock={product.stock} urgencyThreshold={croSettings.lowStockThreshold} />
           </div>
@@ -374,6 +402,14 @@ export default async function ProductPage({ params }: PageProps) {
           )}
         </div>
       </div>
+      {/* ── Compatibilidad verificada y referencias OEM (docs/seo/ Fase 2) ── */}
+      <FitmentTable
+        fitments={compatibility.fitments}
+        oemReferences={compatibility.oemReferences}
+        productName={product.name}
+        productSku={product.sku}
+      />
+
       {/* ── Reseñas verificadas (README §22.6) ── */}
       {showReviews && reviews.summary && (
         <section id="resenas" className="mt-16 border-t border-gray-100 pt-10 scroll-mt-24">

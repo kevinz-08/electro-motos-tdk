@@ -13,6 +13,7 @@
  *   hero       → banners del carrusel hero de la home
  *   promo      → pop-up promocional de la home
  *   settings   → umbrales de prueba social y estimación de entrega
+ *   fitments   → catálogo de motos y compatibilidades verificadas
  *
  * TTLs:
  *   300 s (5 min)  — productos y featured (cambian con ventas/stock)
@@ -22,7 +23,20 @@
 import { unstable_cache } from 'next/cache'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
-import { ListProducts, GetProductBySlug, CRO_SETTING_KEYS, parseCroSettings, summarizeReviews } from '@h2r/domain'
+import {
+  PrismaFitmentRepository,
+  PrismaMotorcycleRepository,
+  PrismaOemReferenceRepository,
+} from '@/infrastructure/repositories/PrismaMotorcycleRepository'
+import {
+  ListProducts,
+  GetProductBySlug,
+  GetModelHub,
+  FindByOemReference,
+  CRO_SETTING_KEYS,
+  parseCroSettings,
+  summarizeReviews,
+} from '@h2r/domain'
 import { CACHE_TAGS } from './cache-tags'
 
 export { CACHE_TAGS }
@@ -295,4 +309,91 @@ export const getCachedRelatedProducts = unstable_cache(
   },
   ['related-products'],
   { revalidate: 300, tags: [CACHE_TAGS.products] },
+)
+
+// ── Compatibilidad por modelo de moto (docs/seo/, Fase 2) ─────────────────────
+//
+// Todo lo que sale de aquí está ya filtrado por `verified: true` en el
+// repositorio: la caché nunca guarda compatibilidades sin verificar.
+
+/**
+ * Hub de un modelo: el modelo, sus categorías con conteo y el total.
+ * Devuelve un Result — `NOT_FOUND` si el modelo no existe o no tiene ningún
+ * repuesto compatible verificado (no se publican hubs vacíos).
+ */
+export const getCachedModelHub = unstable_cache(
+  async (brandSlug: string, modelSlug: string, categorySlug?: string) => {
+    const repo = new PrismaMotorcycleRepository()
+    return new GetModelHub(repo).execute({ brandSlug, modelSlug, categorySlug })
+  },
+  ['model-hub'],
+  { revalidate: 600, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+)
+
+/**
+ * Modelos publicables: los que tienen al menos un producto vendible con fitment
+ * verificado. Alimenta `generateStaticParams` y el sitemap de modelos.
+ */
+export const getCachedPublishableModels = unstable_cache(
+  async () => new PrismaMotorcycleRepository().findModelsWithVerifiedFitments(),
+  ['publishable-models'],
+  { revalidate: 3600, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+)
+
+/** Marcas y modelos activos para el selector "¿Qué moto tienes?". */
+export const getCachedMotorcycleCatalog = unstable_cache(
+  async () => {
+    const repo = new PrismaMotorcycleRepository()
+    const [brands, models] = await Promise.all([repo.findBrands(), repo.findAllModels()])
+    return {
+      brands: brands.map((b) => ({ slug: b.slug, name: b.name })),
+      models: models.map((m) => ({
+        slug: m.slug,
+        name: m.name,
+        brandSlug: m.brand.slug,
+        brandName: m.brand.name,
+        cc: m.cc,
+      })),
+    }
+  },
+  ['motorcycle-catalog'],
+  { revalidate: 3600, tags: [CACHE_TAGS.fitments] },
+)
+
+/** Compatibilidades verificadas de un producto — tabla "Compatible con" de la ficha. */
+export const getCachedProductFitments = unstable_cache(
+  async (productId: string) => {
+    const [fitments, oemReferences] = await Promise.all([
+      new PrismaFitmentRepository().findVerifiedByProduct(productId),
+      new PrismaOemReferenceRepository().findByProduct(productId),
+    ])
+    return { fitments, oemReferences }
+  },
+  ['product-fitments'],
+  { revalidate: 600, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+)
+
+/** IDs de productos compatibles con un modelo, opcionalmente de una categoría. */
+export const getCachedProductIdsByModel = unstable_cache(
+  async (modelId: string, categoryId?: string) =>
+    new PrismaFitmentRepository().findProductIdsByModel(modelId, categoryId),
+  ['products-by-model'],
+  { revalidate: 300, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+)
+
+/** Búsqueda por referencia OEM — resuelve /referencia/[oem]. */
+export const getCachedOemSearch = unstable_cache(
+  async (reference: string) => {
+    const repo = new PrismaOemReferenceRepository()
+    return new FindByOemReference(repo).execute({ reference })
+  },
+  ['oem-search'],
+  { revalidate: 600, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+)
+
+/** Cuántas compatibilidades verificadas tiene el catálogo — dato real, calculado. */
+export const getCachedVerifiedFitmentCount = unstable_cache(
+  async () => new PrismaFitmentRepository().countVerified(),
+  ['verified-fitment-count'],
+  { revalidate: 3600, tags: [CACHE_TAGS.fitments] },
 )

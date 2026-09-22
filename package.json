@@ -14,6 +14,7 @@
     "db:studio": "pnpm --filter @h2r/database studio",
     "db:generate": "pnpm --filter @h2r/database generate",
     "db:catalog": "pnpm --filter @h2r/database catalog",
+    "db:motos": "pnpm --filter @h2r/database motorcycles",
     "seo:check": "node scripts/seo-check.mjs",
     "seo:lighthouse": "node scripts/seo-lighthouse.mjs"
   },

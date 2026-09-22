@@ -47,19 +47,36 @@ enum DeliveryMethod {
 
 enum CouponType {
   PERCENTAGE // value = puntos base (1000 = 10.00%)
-  FIXED      // value = centavos COP
+  FIXED // value = centavos COP
 }
 
 enum CouponRestriction {
-  NONE              // sin restricción — cualquier cliente durante la vigencia
+  NONE // sin restricción — cualquier cliente durante la vigencia
   ONCE_PER_CUSTOMER // cada cliente puede usarlo solo una vez
-  FIRST_PURCHASE    // solo clientes sin órdenes aprobadas previas
+  FIRST_PURCHASE // solo clientes sin órdenes aprobadas previas
+}
+
+/// Posicion de montaje de un repuesto en la moto (frenos, llantas, rines, suspension).
+enum FitmentPosition {
+  DELANTERA
+  TRASERA
+  AMBAS
+}
+
+/// Tipo de repuesto, para la ficha y para el feed de Merchant Center.
+/// ORIGINAL   = pieza del fabricante de la moto (OEM)
+/// HOMOLOGADO = equivalente certificado de otra marca
+/// GENERICO   = alternativo sin certificacion del fabricante
+enum PartType {
+  ORIGINAL
+  HOMOLOGADO
+  GENERICO
 }
 
 enum CouponScope {
-  STORE    // aplica a toda la tienda
+  STORE // aplica a toda la tienda
   CATEGORY // aplica a una o más categorías (y sus subcategorías en cascada)
-  PRODUCT  // aplica a un producto específico
+  PRODUCT // aplica a un producto específico
 }
 
 // ─── NextAuth.js required models ─────────────────────────────────────────────
@@ -102,28 +119,28 @@ model VerificationToken {
 // ─── Core models ─────────────────────────────────────────────────────────────
 
 model User {
-  id                  String               @id @default(cuid())
-  email               String               @unique
-  name                String?
-  image               String?
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  name                 String?
+  image                String?
   /// Contraseña hasheada con bcrypt. Null para usuarios OAuth (Google).
-  password            String?
-  role                Role                 @default(CUSTOMER)
+  password             String?
+  role                 Role                 @default(CUSTOMER)
   /// Null mientras el usuario no haya verificado su email. Requerido por PrismaAdapter de NextAuth.
-  emailVerified       DateTime?
-  createdAt           DateTime             @default(now())
+  emailVerified        DateTime?
+  createdAt            DateTime             @default(now())
   /// Timestamp de aceptación de T&C + Política de Privacidad. Null = nunca aceptó explícitamente.
-  acceptedTermsAt     DateTime?
+  acceptedTermsAt      DateTime?
   /// Versión del documento aceptado. Permite detectar si el usuario debe re-aceptar tras una actualización.
   acceptedTermsVersion String?
   /// Consentimiento para recibir comunicaciones de marketing (separado del consentimiento de T&C — Ley 1581/2012).
-  marketingConsent    Boolean              @default(false)
-  marketingConsentAt  DateTime?
-  accounts            Account[]
-  sessions            Session[]
-  orders              Order[]
-  passwordResetTokens PasswordResetToken[]
-  emailOtps           EmailOtp[]
+  marketingConsent     Boolean              @default(false)
+  marketingConsentAt   DateTime?
+  accounts             Account[]
+  sessions             Session[]
+  orders               Order[]
+  passwordResetTokens  PasswordResetToken[]
+  emailOtps            EmailOtp[]
 }
 
 /// Código OTP de 6 dígitos para verificación de email al registrarse.
@@ -175,10 +192,10 @@ model Product {
   name                  String
   slug                  String                    @unique
   description           String                    @db.Text
-  price                 Int                       // centavos COP
+  price                 Int // centavos COP
   /// Precio de referencia tachado ("antes"). Null = sin precio ancla.
   /// CHECK en BD: compareAtPrice IS NULL OR compareAtPrice > price.
-  compareAtPrice        Int?                      // centavos COP
+  compareAtPrice        Int? // centavos COP
   stock                 Int                       @default(0)
   /// Unidades vendidas en pedidos confirmados (prueba social de la PDP, README §22.3).
   /// Se incrementa en la misma transacción que descuenta stock (webhook APPROVED / COD)
@@ -203,7 +220,20 @@ model Product {
   /// Usar softDelete(id) en el repositorio — nunca prisma.product.delete().
   deletedAt             DateTime?
   category              Category                  @relation(fields: [categoryId], references: [id])
+  /// Numero de parte del fabricante del repuesto (Manufacturer Part Number).
+  /// Requerido por Google Merchant Center junto con `partBrand`.
+  mpn                   String?
+  /// Marca del repuesto (no de la moto). Ej: "Brembo", "NGK", "Liqui Moly".
+  partBrand             String?
+  /// Original / homologado / generico. Null = sin clasificar todavia.
+  partType              PartType?
+  /// Garantia en meses segun la politica real del negocio. Null = sin definir.
+  warrantyMonths        Int?
   compatible            MotorcycleCompatibility[]
+  /// Compatibilidades estructuradas (docs/seo/ Fase 2). Sustituye a `compatible`,
+  /// que queda para no romper nada hasta que se migre lo poco que haya.
+  fitments              Fitment[]
+  oemReferences         OemReference[]
   orderItems            OrderItem[]
   structuredDescription ProductDescription?
   coupons               Coupon[]                  @relation("ProductCoupons")
@@ -223,8 +253,8 @@ model Product {
 model ProductPriceHistory {
   id             String   @id @default(cuid())
   productId      String
-  price          Int      // centavos COP
-  compareAtPrice Int?     // centavos COP
+  price          Int // centavos COP
+  compareAtPrice Int? // centavos COP
   /// ADMIN_CREATE | ADMIN_UPDATE | ERP_SYNC
   source         String
   changedAt      DateTime @default(now())
@@ -234,14 +264,14 @@ model ProductPriceHistory {
 }
 
 model ProductDescription {
-  id                 String                      @id @default(cuid())
-  productId          String                      @unique
-  generalDescription String?                     @db.Text
-  product            Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                 String                     @id @default(cuid())
+  productId          String                     @unique
+  generalDescription String?                    @db.Text
+  product            Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
   benefits           ProductBenefit[]
   compatibility      ProductCompatibilityItem[]
-  createdAt          DateTime                    @default(now())
-  updatedAt          DateTime                    @updatedAt
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 
   @@index([productId])
 }
@@ -282,15 +312,15 @@ model MotorcycleCompatibility {
 }
 
 model Order {
-  id                 String          @id @default(cuid())
+  id                 String            @id @default(cuid())
   /// null = compra como invitado (guest checkout, README §22.4).
   userId             String?
   /// Email de contacto del comprador (invitado o registrado). Destino de todos los correos del pedido.
   contactEmail       String
   /// Documento normalizado "CC:1000123456" (normalizeBuyerIdKey en @h2r/domain).
   /// Identifica al cliente para cupones ONCE_PER_CUSTOMER / FIRST_PURCHASE sin necesidad de cuenta.
-  buyerIdKey         String          @default("")
-  status             OrderStatus     @default(PENDING)
+  buyerIdKey         String            @default("")
+  status             OrderStatus       @default(PENDING)
   /// centavos COP — total cobrado/adeudado: subtotal de productos + shippingTotal
   /// cuando el flete se cobró en línea (ver shippingTotal). Para COD o cuando el
   /// flete no se cobra en línea, es solo el subtotal de productos.
@@ -298,11 +328,11 @@ model Order {
   /// centavos COP — componente de flete incluido en `total`. 0 = el negocio absorbió
   /// el flete (pedido COD, toggle SHIPPING_ONLINE_ENABLED desactivado, o falla al
   /// cotizar — ver CreateOrder.execute()).
-  shippingTotal      Int             @default(0)
+  shippingTotal      Int               @default(0)
   shippingAddress    Json
   /// Método de entrega elegido en el checkout. STORE_PICKUP fuerza shippingTotal=0
   /// y excluye el pedido de la cola de envíos Vendelo (VendeloOrderQueueService).
-  deliveryMethod     DeliveryMethod  @default(HOME_DELIVERY)
+  deliveryMethod     DeliveryMethod    @default(HOME_DELIVERY)
   paymentProvider    PaymentProvider
   /// ID del pedido creado en Vendelo API. Null hasta que VendeloOrderQueueService lo procesa.
   vendeloOrderId     String?
@@ -312,20 +342,20 @@ model Order {
   /// Tipo de documento del comprador. Requerido para generar el comprobante de venta
   /// y como identificación válida en el pedido Vendelo (reemplaza el hack del teléfono).
   /// Valores: CC | CE | NIT | PASAPORTE
-  buyerIdType        String          @default("CC")
+  buyerIdType        String            @default("CC")
   /// Número del documento del comprador. Texto porque NIT incluye dígito de verificación
   /// (ej. "900123456-7") y CE puede contener letras.
-  buyerIdNumber      String          @default("")
+  buyerIdNumber      String            @default("")
   /// Razón social — solo aplica cuando buyerIdType es NIT (compras B2B).
   buyerBusinessName  String?
   /// Código del cupón aplicado en esta orden. Se preserva como audit trail
   /// aunque el cupón sea desactivado posteriormente.
   couponCode         String?
   /// centavos COP — monto descontado por el cupón. 0 si no se aplicó cupón.
-  discountAmount     Int             @default(0)
-  createdAt          DateTime        @default(now())
-  user               User?           @relation(fields: [userId], references: [id])
-  coupon             Coupon?         @relation(fields: [couponCode], references: [code])
+  discountAmount     Int               @default(0)
+  createdAt          DateTime          @default(now())
+  user               User?             @relation(fields: [userId], references: [id])
+  coupon             Coupon?           @relation(fields: [couponCode], references: [code])
   couponRedemption   CouponRedemption?
   /// Momento en que se encoló el correo pidiendo reseñas (README §22.6). null = aún no.
   reviewRequestedAt  DateTime?
@@ -361,16 +391,16 @@ model Shipment {
 }
 
 model OrderItem {
-  id              String  @id @default(cuid())
-  orderId         String
-  productId       String
-  quantity        Int
-  priceAtPurchase Int     // centavos COP — precio al momento de la compra
+  id                       String         @id @default(cuid())
+  orderId                  String
+  productId                String
+  quantity                 Int
+  priceAtPurchase          Int // centavos COP — precio al momento de la compra
   /// centavos COP — precio ancla vigente al comprar (null si no había). Solo informativo.
   compareAtPriceAtPurchase Int?
-  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product         Product @relation(fields: [productId], references: [id])
-  review          ProductReview?
+  order                    Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product                  Product        @relation(fields: [productId], references: [id])
+  review                   ProductReview?
 }
 
 /// Reseña verificada (README §22.6): solo compradores reales, una por ítem comprado.
@@ -400,9 +430,9 @@ model Payment {
   id         String          @id @default(cuid())
   orderId    String          @unique
   provider   PaymentProvider
-  externalId String?         // ID de la transacción en Wompi / Mercado Pago
+  externalId String? // ID de la transacción en Wompi / Mercado Pago
   status     PaymentStatus   @default(PENDING)
-  amount     Int             // centavos COP
+  amount     Int // centavos COP
   createdAt  DateTime        @default(now())
   order      Order           @relation(fields: [orderId], references: [id])
 }
@@ -429,7 +459,7 @@ model Coupon {
   createdAt   DateTime          @default(now())
 
   productId   String?
-  product     Product?         @relation("ProductCoupons", fields: [productId], references: [id])
+  product     Product?           @relation("ProductCoupons", fields: [productId], references: [id])
   categories  CouponCategory[]
   orders      Order[]
   redemptions CouponRedemption[]
@@ -579,4 +609,120 @@ model VendeloCity {
   countryCode     String @default("CO")
 
   @@index([name])
+}
+
+// ─── Sistema de compatibilidad por modelo de moto (docs/seo/, Fase 2) ────────
+//
+// En repuestos de moto la busqueda y la compra giran alrededor de la
+// compatibilidad: "que pastillas le sirven a una XR190L". Hasta ahora eso vivia
+// en `ProductCompatibilityItem` como texto libre escrito por el admin, que no es
+// consultable ni indexable, y en `MotorcycleCompatibility`, que nunca se llego a
+// usar. Estas cuatro tablas lo convierten en datos estructurados.
+//
+// REGLA CENTRAL: solo se publica como compatibilidad un `Fitment` con
+// `verified = true`. Una compatibilidad equivocada genera devoluciones y destruye
+// la confianza, asi que el dato sin verificar existe en la BD pero no se muestra
+// ni se indexa.
+
+/// Marca de motocicleta. Ej: AKT, Bajaj, Honda, Yamaha.
+model MotorcycleBrand {
+  id        String            @id @default(cuid())
+  /// Nombre comercial tal como se muestra. Ej: "AKT"
+  name      String            @unique
+  /// Slug para la URL /repuestos/<slug>/... Ej: "akt"
+  slug      String            @unique
+  /// Orden de presentacion en el selector "¿Que moto tienes?" (menor primero).
+  order     Int               @default(0)
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  models    MotorcycleModel[]
+
+  @@index([isActive, order])
+}
+
+/// Modelo concreto de moto. Ej: AKT NKD 125, Bajaj Boxer CT100.
+model MotorcycleModel {
+  id        String          @id @default(cuid())
+  brandId   String
+  /// Nombre del modelo sin la marca. Ej: "NKD 125"
+  name      String
+  /// Slug unico dentro de la marca. URL: /repuestos/akt/nkd-125
+  slug      String
+  /// Cilindrada en cc. Null mientras no este confirmada — nunca se inventa.
+  cc        Int?
+  /// Rango de años en que se vendio el modelo. Null = sin confirmar.
+  yearFrom  Int?
+  yearTo    Int?
+  /// Como lo escribe la gente al buscar: ["NKD", "AK125NKD", "NKD 125 EIII"].
+  /// Alimenta el buscador interno y el selector de moto.
+  aliases   String[]        @default([])
+  /// Texto introductorio del hub del modelo. Lo redacta un humano; sin el, el hub
+  /// se publica igual pero sin introduccion (nunca con texto generado de relleno).
+  intro     String?         @db.Text
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  brand     MotorcycleBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  fitments  Fitment[]
+
+  @@unique([brandId, slug])
+  @@unique([brandId, name])
+  @@index([slug])
+  @@index([isActive])
+}
+
+/// Compatibilidad verificada entre un producto y un modelo de moto.
+/// Es el nucleo del sistema: de aqui salen los hubs de modelo, la tabla
+/// "Compatible con" de la ficha y el badge "✓ Compatible con tu moto".
+model Fitment {
+  id         String          @id @default(cuid())
+  productId  String
+  modelId    String
+  /// Delantera / trasera / ambas. Relevante en frenos, llantas, rines, suspension.
+  position   FitmentPosition @default(AMBAS)
+  /// Acota la compatibilidad a un rango de años del modelo. Null = todos los años.
+  yearFrom   Int?
+  yearTo     Int?
+  /// Matiz de version. Ej: "solo version carburada", "no aplica a la Pro".
+  notes      String?
+  /// DE DONDE SALE EL DATO. Obligatorio: sin fuente no hay verificacion posible.
+  /// Ej: "Manual Bajaj Boxer CT100 2023, pag. 42", "Catalogo proveedor X 2026",
+  /// "Verificado en taller 2026-09-20".
+  source     String
+  /// Solo los fitments verificados se publican y se indexan.
+  verified   Boolean         @default(false)
+  verifiedAt DateTime?
+  /// Quien lo verifico (nombre o email del responsable).
+  verifiedBy String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  model      MotorcycleModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  /// Un producto no puede tener dos fitments identicos para el mismo modelo y posicion.
+  @@unique([productId, modelId, position])
+  /// Cubre el listado del hub: productos verificados de un modelo.
+  @@index([modelId, verified])
+  /// Cubre la tabla "Compatible con" de la ficha de producto.
+  @@index([productId, verified])
+}
+
+/// Referencia original del fabricante (OEM) de un producto.
+/// Mucha gente busca por numero de parte: "5VL-F5121-00".
+model OemReference {
+  id           String   @id @default(cuid())
+  productId    String
+  /// Referencia tal como la imprime el fabricante, con sus guiones.
+  reference    String
+  /// Misma referencia en mayusculas y sin separadores, para buscar sin depender
+  /// de como la escriba el usuario. Ej: "5VLF512100".
+  normalized   String
+  /// Fabricante o marca original de la referencia. Ej: "Yamaha".
+  manufacturer String?
+  createdAt    DateTime @default(now())
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, normalized])
+  @@index([normalized])
 }

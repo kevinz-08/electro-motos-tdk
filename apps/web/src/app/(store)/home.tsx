@@ -19,6 +19,9 @@ import { CategoryGrid } from '@/components/store/CategoryGrid'
 import { SocialProof } from '@/components/store/SocialProof'
 import { CtaMidSection } from '@/components/store/CtaMidSection'
 import { FAQ } from '@/components/store/FAQ'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { faqPageJsonLd } from '@/lib/structured-data'
+import { FAQ_ITEMS } from '@/lib/faq'
 import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal } from '@/lib/cache'
 
 export default async function HomePage() {
@@ -103,7 +106,11 @@ export default async function HomePage() {
       {/* 5. Social proof (testimonios + stats) */}
       <SocialProof />
 
-      {/* 6. FAQ */}
+      {/*
+        6. FAQ — el acordeón visible y su FAQPage salen del mismo array
+        (`FAQ_ITEMS`), así que el marcado no puede contradecir lo que se ve.
+      */}
+      <JsonLd data={faqPageJsonLd(FAQ_ITEMS)} />
       <FAQ />
 
       {/* 7. CTA final combinado */}

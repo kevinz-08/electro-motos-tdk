@@ -36,6 +36,8 @@ import { Analytics } from '@vercel/analytics/next'
 import { AuthSessionProvider } from '@/components/providers/SessionProvider'
 import { DEFAULT_OG_IMAGE } from '@/lib/opengraph'
 import { SITE_URL, canonical } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { organizationJsonLd, webSiteJsonLd } from '@/lib/structured-data'
 import './globals.css'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
@@ -69,6 +71,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es-CO" className={`${geist.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-white text-gray-900" suppressHydrationWarning>
+        {/*
+          Identidad del negocio para buscadores y motores generativos: quién es
+          H2R, su NIT, su dirección y sus perfiles oficiales, más la acción de
+          búsqueda del sitio. Va en el layout raíz para que esté en todas las
+          páginas (docs/seo/ Fase 3).
+        */}
+        <JsonLd data={[organizationJsonLd(), webSiteJsonLd()]} />
         <AuthSessionProvider>{children}</AuthSessionProvider>
         <Toaster theme="dark" position="bottom-right" richColors closeButton />
         <Analytics />

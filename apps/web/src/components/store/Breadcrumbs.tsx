@@ -11,7 +11,8 @@
  * Server Component: no necesita interacción.
  */
 import Link from 'next/link'
-import { absoluteUrl } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { breadcrumbJsonLd } from '@/lib/structured-data'
 
 export interface BreadcrumbItem {
   label: string
@@ -22,25 +23,9 @@ export interface BreadcrumbItem {
 export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
   if (items.length === 0) return null
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: items.map((item, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      name: item.label,
-      ...(item.href ? { item: absoluteUrl(item.href) } : {}),
-    })),
-  }
-
   return (
     <>
-      <script
-        type="application/ld+json"
-        // Mismo escape que en la ficha de producto: evita cerrar el <script>
-        // con contenido de la base de datos.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
-      />
+      <JsonLd data={breadcrumbJsonLd(items)} />
       <nav aria-label="Ruta de navegación">
         <ol className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400">
           {items.map((item, index) => (

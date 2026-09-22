@@ -55,6 +55,9 @@ import {
   getCachedProductFitments,
 } from '@/lib/cache'
 import { FitmentTable } from '@/components/store/FitmentTable'
+import { Breadcrumbs } from '@/components/store/Breadcrumbs'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { productJsonLd } from '@/lib/structured-data'
 import { CompatibilityBadge } from '@/components/store/CompatibilityBadge'
 
 import { AddToCartWithQuantity } from '@/components/store/AddToCartWithQuantity'
@@ -136,7 +139,19 @@ export default async function ProductPage({ params }: PageProps) {
   const product = result.value
 
   const [freshProduct, structuredDescription, croSettings, reviews, compatibility] = await Promise.all([
-    prisma.product.findUnique({ where: { id: product.id }, select: { description: true } }),
+    prisma.product.findUnique({
+      where: { id: product.id },
+      select: {
+        description: true,
+        // Campos de la Fase 2 que alimentan el JSON-LD: la entidad de dominio
+        // `Product` no los lleva, así que se leen aquí.
+        mpn: true,
+        partBrand: true,
+        warrantyMonths: true,
+        // Para las migas: la categoría del producto, con su padre si lo tiene.
+        category: { select: { name: true, slug: true, parent: { select: { name: true, slug: true } } } },
+      },
+    }),
     prisma.productDescription.findUnique({
       where: { productId: product.id },
       include: {
@@ -160,45 +175,56 @@ export default async function ProductPage({ params }: PageProps) {
   }))
   const showReviews = reviews.summary !== null && reviews.summary.count >= croSettings.reviewsMinCount
 
+  // Migas: se usa la categoría padre si existe, que es la que tiene URL propia
+  // en el catálogo; si el producto cuelga de una raíz, se usa esa.
+  const categoryTrail = freshProduct?.category?.parent ?? freshProduct?.category ?? null
+
   const description =
     structuredDescription?.generalDescription ||
     freshProduct?.description ||
     product.description
 
-  // Datos estructurados (schema.org Product). AggregateRating solo con reseñas reales
-  // aprobadas que superen el umbral — Google penaliza ratings sin reseñas visibles.
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.name,
-    sku: product.sku,
-    image: product.images.map((img) => cloudinaryUrl(img, 'detail')),
-    description: description.slice(0, 500),
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: 'COP',
-      price: (product.price / 100).toFixed(0),
-      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+  // ── Datos estructurados (docs/seo/, Fase 3) ────────────────────────────────
+  //
+  // El JSON-LD lo construye `productJsonLd()`, que además del precio y el stock
+  // declara para qué motos sirve el repuesto (`isAccessoryOrSparePartFor`) a
+  // partir de las compatibilidades VERIFICADAS. Eso es lo que permite que un
+  // motor generativo responda "¿qué le sirve a una XR190L?".
+  //
+  // `mpn` y `brand` salen de los campos del producto y se omiten si están
+  // vacíos; la ventana de entrega sale de Settings, el mismo dato que se muestra
+  // en la página. Nada se rellena con valores plausibles.
+  const jsonLd = productJsonLd({
+    product: {
+      ...product,
+      mpn: freshProduct?.mpn ?? null,
+      partBrand: freshProduct?.partBrand ?? null,
+      warrantyMonths: freshProduct?.warrantyMonths ?? null,
     },
-    ...(showReviews && reviews.summary && {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: reviews.summary.average,
-        reviewCount: reviews.summary.count,
-        bestRating: 5,
-        worstRating: 1,
-      },
-    }),
-  }
+    description,
+    images: product.images.map((img) => cloudinaryUrl(img, 'detail')),
+    fitments: compatibility.fitments,
+    oemReferences: compatibility.oemReferences,
+    rating: showReviews && reviews.summary ? reviews.summary : null,
+    deliveryDays: { min: croSettings.shippingEtaMinDays, max: croSettings.shippingEtaMaxDays },
+  })
+
+  const breadcrumbs = [
+    { label: 'Inicio', href: '/' },
+    { label: 'Repuestos', href: '/catalogo' },
+    ...(categoryTrail ? [{ label: categoryTrail.name, href: `/catalogo?category=${categoryTrail.slug}` }] : []),
+    { label: product.name },
+  ]
 
   return (
     <div className="min-h-screen bg-white">
-    <script
-      type="application/ld+json"
-      // JSON.stringify + escape de "<" evita cerrar el <script> con contenido del producto.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
-    />
+    <JsonLd data={jsonLd} />
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      {/* Migas visibles + BreadcrumbList, generados del mismo array (Fase 3) */}
+      <div className="mb-6">
+        <Breadcrumbs items={breadcrumbs} />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
 
         {/* ── Galería de imágenes (hasta 4) ── */}

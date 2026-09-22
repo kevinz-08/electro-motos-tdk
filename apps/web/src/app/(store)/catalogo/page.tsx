@@ -23,6 +23,8 @@ import { CategoryExploreCarousel } from '@/components/store/CategoryExploreCarou
 import { CategoryHeroBanner } from '@/components/store/CategoryHeroBanner'
 import { buildSocialMetadata, getCategoryOgImage } from '@/lib/opengraph'
 import { catalogSeo, NOINDEX_FOLLOW } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { breadcrumbJsonLd, itemListJsonLd } from '@/lib/structured-data'
 import { ProductCarousel } from '@/components/store/ProductCarousel'
 import { FilterDrawer } from '@/components/store/FilterDrawer'
 import { prisma } from '@/infrastructure/database/prisma-client'
@@ -491,8 +493,26 @@ function GridView({
     activeChips.push({ label, removeUrl: url({ minPrice: undefined, maxPrice: undefined, page: undefined }) })
   }
 
+  // Datos estructurados del listado (docs/seo/, Fase 3).
+  //
+  // El ItemList refleja exactamente los productos de esta página y en su mismo
+  // orden — si se marcara el total del catálogo en vez de lo visible, el marcado
+  // estaría mintiendo. Solo se emite en la vista de categoría: en una búsqueda o
+  // con filtros la página lleva `noindex` y marcarla no aporta nada.
+  const structuredData = activeCat
+    ? [
+        itemListJsonLd(`${activeCat.name} para moto`, items),
+        breadcrumbJsonLd([
+          { label: 'Inicio', href: '/' },
+          { label: 'Catálogo', href: '/catalogo' },
+          { label: activeCat.name },
+        ]),
+      ]
+    : null
+
   return (
     <div className="catalog-light bg-white min-h-screen">
+      {structuredData && <JsonLd data={structuredData} />}
 
       {/* ── Breadcrumb + título ── */}
       <div className="border-b border-gray-100">

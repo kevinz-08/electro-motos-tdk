@@ -22,7 +22,9 @@ import { Breadcrumbs } from '@/components/store/Breadcrumbs'
 import { WHATSAPP_URL } from '@/lib/contact'
 import { getCachedModelHub, getCachedProductIdsByModel, getCachedPublishableModels } from '@/lib/cache'
 import { getProductsByIds } from '@/lib/queries/fitment'
-import { absoluteUrl, canonical } from '@/lib/seo'
+import { canonical } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { itemListJsonLd } from '@/lib/structured-data'
 
 export const revalidate = 600
 
@@ -91,26 +93,13 @@ export default async function ModelCategoryPage({ params }: PageProps) {
   // si la caché del hub va por delante del catálogo, se responde 404 igual.
   if (products.length === 0) notFound()
 
-  // ItemList: refleja exactamente los productos visibles, en el mismo orden.
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: `${category.categoryName} para ${name}`,
-    numberOfItems: products.length,
-    itemListElement: products.map((product, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      url: absoluteUrl(`/producto/${product.slug}`),
-      name: product.name,
-    })),
-  }
+  // ItemList: refleja exactamente los productos visibles, en el mismo orden
+  // (docs/seo/, Fase 3 — el marcado se construye con la utilidad central).
+  const jsonLd = itemListJsonLd(`${category.categoryName} para ${name}`, products)
 
   return (
     <div className="bg-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
-      />
+      <JsonLd data={jsonLd} />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <Breadcrumbs

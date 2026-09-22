@@ -10,9 +10,10 @@
  *   /sitemap-paginas.xml      home, catálogo, contacto y legales
  *   /sitemap-categorias.xml   una URL por categoría con productos
  *   /sitemap-productos.xml    una URL por producto activo
+ *   /sitemap-modelos.xml      hubs de modelo y sus categorías (Fase 2)
  *
- * Cuando existan los hubs de modelo (Fase 2) y las guías (Fase 5) se añaden
- * como segmentos nuevos sin tocar los existentes.
+ * Cuando existan las guías (Fase 5) se añaden como un segmento nuevo sin tocar
+ * los existentes.
  *
  * Reglas aplicadas:
  *   - Solo entran URLs indexables. Nada que lleve `noindex`.
@@ -26,6 +27,7 @@
  */
 import { prisma } from '@h2r/database'
 import { absoluteUrl } from '@/lib/seo'
+import { getCachedModelHub, getCachedPublishableModels } from '@/lib/cache'
 
 export interface SitemapEntry {
   url: string
@@ -148,3 +150,42 @@ export const SITEMAP_HEADERS = {
   'Content-Type': 'application/xml; charset=utf-8',
   'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
 } as const
+
+/**
+ * Hubs de modelo y sus páginas de modelo × categoría (docs/seo/, Fase 2).
+ *
+ * Solo entran los modelos que tienen al menos un producto vendible con
+ * compatibilidad **verificada**, y dentro de cada uno, solo las categorías con
+ * productos. Es la misma regla que aplica el 404 de esas rutas: lo que no se
+ * publica, no se anuncia.
+ *
+ * Mientras no haya compatibilidades cargadas, este sitemap sale vacío. Es lo
+ * correcto: no hay nada publicable que ofrecer a los buscadores.
+ */
+export async function getModelEntries(): Promise<SitemapEntry[]> {
+  const models = await getCachedPublishableModels()
+  const entries: SitemapEntry[] = []
+
+  for (const model of models) {
+    const path = `/repuestos/${model.brand.slug}/${model.slug}`
+    entries.push({
+      url: absoluteUrl(path),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    })
+
+    const hub = await getCachedModelHub(model.brand.slug, model.slug)
+    if (!hub.ok) continue
+
+    for (const category of hub.value.categories) {
+      if (category.productCount === 0) continue
+      entries.push({
+        url: absoluteUrl(`${path}/${category.categorySlug}`),
+        changeFrequency: 'weekly',
+        priority: 0.7,
+      })
+    }
+  }
+
+  return entries
+}

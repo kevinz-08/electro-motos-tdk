@@ -118,7 +118,36 @@ va a funcionar (**tarea H-33**).
 Es lo más importante de la lista: sin esto no hay forma de saber qué URLs indexa Google, qué
 búsquedas traen tráfico ni si algo se rompió.
 
-### 4.1 Crear la propiedad
+> **Estado a 2026-09-22:** la propiedad **ya existe y está verificada** como propiedad de *Dominio*
+> (`tiendah2r.com`), con datos desde el 21 de junio de 2026 y 132 clics en ese periodo. El apartado
+> 4.1 queda como referencia por si hay que rehacerla; lo que toca ahora es el 4.0 y, tras desplegar,
+> el 4.2.
+
+### 4.0 ANTES de desplegar: capturar la línea base
+
+Esto es lo único de toda la guía que **no se puede hacer después**. Al desplegar cambian títulos,
+descripciones, canonicals y el sitemap; sin una foto del antes, no hay forma de demostrar qué mejoró
+ni de detectar si algo empeoró.
+
+1. **Rendimiento → Informe completo**
+   - Rango de fechas: **16 meses** (el máximo que guarda Google).
+   - Pestaña **Consultas** → *Exportar* → hoja de cálculo. Guardar como
+     `docs/seo/baseline/gsc-consultas-2026-09.csv`.
+   - Pestaña **Páginas** → *Exportar* → `docs/seo/baseline/gsc-paginas-2026-09.csv`.
+   - Anotar los totales: clics, impresiones, CTR y posición media.
+
+2. **Indexación → Páginas**
+   - Anotar cuántas páginas están **indexadas** y cuántas **no indexadas**.
+   - Abrir el detalle de "No indexadas" y anotar los motivos. Exportar si se puede.
+   - **Mirar si aparecen URLs que ya no existen.** Si el dominio alojó antes otro sitio, puede haber
+     restos indexados que hoy dan 404. Conviene saberlo antes de tocar nada.
+
+3. **Sitemaps** — anotar qué sitemap hay enviado y en qué estado.
+
+Estos tres datos cierran la tarea **H-05** (saber qué URLs tienen tráfico antes de cambiar rutas),
+que es la regla 7 del brief y lo que permite decidir con datos en la Fase 4 en adelante.
+
+### 4.1 Crear la propiedad (ya hecho — referencia)
 
 1. Entrar a **[search.google.com/search-console](https://search.google.com/search-console)** con la
    cuenta de Google del negocio (la misma que se use después para Merchant Center, para no repartir

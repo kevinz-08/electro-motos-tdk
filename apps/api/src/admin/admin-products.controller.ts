@@ -12,6 +12,7 @@ import {
 } from '@h2r/domain'
 import { PRODUCT_REPOSITORY, PRODUCT_DESCRIPTION_REPOSITORY } from '../infrastructure/injection-tokens'
 import { CloudinaryService } from '../infrastructure/services/CloudinaryService'
+import { IndexNowService } from '../infrastructure/services/IndexNowService'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
@@ -35,16 +36,17 @@ export class AdminProductsController {
     @Inject(PRODUCT_REPOSITORY) private readonly productRepo: IProductRepository,
     @Inject(PRODUCT_DESCRIPTION_REPOSITORY) private readonly descRepo: IProductDescriptionRepository,
     private readonly cloudinary: CloudinaryService,
+    private readonly indexNow: IndexNowService,
   ) {}
 
   @Post()
   @HttpCode(201)
   @ApiOperation({ summary: 'Crear producto' })
-  create(@Body() dto: CreateProductDto) {
+  async create(@Body() dto: CreateProductDto) {
     const pricingError = validateProductPricing(dto.price, dto.compareAtPrice)
     if (pricingError) throw new UnprocessableEntityException(pricingError)
 
-    return this.productRepo.save({
+    const created = await this.productRepo.save({
       name: dto.name,
       slug: dto.slug,
       description: dto.description,
@@ -61,6 +63,11 @@ export class AdminProductsController {
       widthCm: dto.widthCm ?? null,
       lengthCm: dto.lengthCm ?? null,
     })
+
+    // Aviso a IndexNow: la ficha nueva existe. Es best-effort y no bloquea.
+    this.indexNow.notifyProduct(created.slug)
+
+    return created
   }
 
   @Put(':id')
@@ -77,7 +84,13 @@ export class AdminProductsController {
       )
       if (pricingError) throw new UnprocessableEntityException(pricingError)
     }
-    return this.productRepo.update(id, dto)
+    const updated = await this.productRepo.update(id, dto)
+
+    // Precio, stock, imágenes o descripción han cambiado: la ficha indexada
+    // quedó desactualizada.
+    this.indexNow.notifyProduct(updated.slug)
+
+    return updated
   }
 
   @Delete(':id')
@@ -106,6 +119,11 @@ export class AdminProductsController {
   @ApiOperation({ summary: 'Actualizar stock de un producto' })
   async updateStock(@Param('id') id: string, @Body() dto: UpdateStockDto) {
     await this.productRepo.updateStock(id, dto.stock)
+
+    // El stock cambia `availability` en el JSON-LD de la ficha.
+    const product = await this.productRepo.findById(id)
+    if (product?.slug) this.indexNow.notifyProduct(product.slug)
+
     return { success: true }
   }
 

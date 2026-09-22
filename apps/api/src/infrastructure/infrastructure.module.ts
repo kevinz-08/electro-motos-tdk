@@ -34,6 +34,7 @@ import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
 import { LogAlertNotificationService } from './services/LogAlertNotificationService'
 import { WompiReconciliationService } from './services/WompiReconciliationService'
 import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupService'
+import { IndexNowService } from './services/IndexNowService'
 
 @Module({
   imports: [PrismaModule],
@@ -64,6 +65,7 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
     WompiReconciliationService,
     ExpiredOrdersCleanupService,
     ReviewRequestService,
+    IndexNowService,
   ],
   exports: [
     COUPON_REPOSITORY,
@@ -87,6 +89,7 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
     VendeloHttpClient,
     VendeloService,
     VendeloOrderQueueService,
+    IndexNowService,
   ],
 })
 export class InfrastructureModule {}

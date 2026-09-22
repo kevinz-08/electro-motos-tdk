@@ -9,8 +9,10 @@
  * - Único elemento interactivo por slide: el botón CTA. Toda la imagen también
  *   enlaza al mismo destino (enlace oculto a lectores de pantalla para no duplicar foco).
  * - La primera slide carga eager con fetchPriority high (LCP); las demás lazy.
+ * - Swipe táctil en móvil (README §25.2): arrastre horizontal > 50 px cambia de slide; los
+ *   gestos verticales se ignoran para no bloquear el scroll de la página.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { getImageProps } from 'next/image'
 import { cloudinaryUrl } from '@/lib/cloudinary'
@@ -28,6 +30,8 @@ interface HeroBannerCarouselProps {
 }
 
 const MOBILE_BREAKPOINT = '(min-width: 768px)'
+/** Desplazamiento horizontal mínimo para que un gesto cuente como swipe. */
+const SWIPE_THRESHOLD_PX = 50
 
 function BannerPicture({ banner, eager }: { banner: BannerItem; eager: boolean }) {
   const common = {
@@ -84,6 +88,30 @@ export function HeroBannerCarousel({ banners }: HeroBannerCarouselProps) {
     setActiveIndex((prev) => (prev + 1) % total)
   }, [total])
 
+  // ── Swipe táctil (móvil) ───────────────────────────────────────────────────
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0]
+    if (!t) return
+    touchStart.current = { x: t.clientX, y: t.clientY }
+    setIsPaused(true)
+  }, [])
+
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = touchStart.current
+    touchStart.current = null
+    setIsPaused(false)
+    const t = e.changedTouches[0]
+    if (!start || !t) return
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    // Solo cuenta si el gesto es claramente horizontal: evita robar el scroll vertical.
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) return
+    if (dx < 0) goNext()
+    else goPrev()
+  }, [goNext, goPrev])
+
   if (total === 0) return null
 
   const active = banners[activeIndex]!
@@ -95,6 +123,9 @@ export function HeroBannerCarousel({ banners }: HeroBannerCarouselProps) {
       className="relative w-full aspect-[4/5] md:aspect-[21/9] md:max-h-[820px] overflow-hidden bg-gray-100"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={() => { touchStart.current = null; setIsPaused(false) }}
     >
       {banners.map((banner, index) => (
         <div

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, ShoppingBag,
-  AlertTriangle, Settings, RefreshCcw, Image, Ticket, Trash2, Star,
+  AlertTriangle, Settings, RefreshCcw, Image, Ticket, Trash2, Star, Megaphone,
 } from 'lucide-react'
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/admin/productos/papelera',        label: 'Papelera',      Icon: Trash2 },
   { href: '/admin/categorias',                label: 'Categorías',    Icon: Tag },
   { href: '/admin/banners',                   label: 'Banners',       Icon: Image },
+  { href: '/admin/promocion',                 label: 'Pop-up',        Icon: Megaphone },
   { href: '/admin/cupones',                   label: 'Cupones',       Icon: Ticket },
   { href: '/admin/pedidos',                   label: 'Pedidos',       Icon: ShoppingBag },
   { href: '/admin/resenas',                   label: 'Reseñas',       Icon: Star },

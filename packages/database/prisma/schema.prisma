@@ -547,6 +547,27 @@ model HeroBanner {
   @@index([isActive, order])
 }
 
+/// Pop-up promocional de la home, administrado en /admin/promocion (README §25.1).
+/// Fila única (id = "default"): el admin edita la promoción vigente en vez de acumular registros.
+model PromoModal {
+  id                   String   @id @default("default")
+  /// Switch del panel admin. false = no se muestra el modal en la home.
+  isActive             Boolean  @default(false)
+  /// URL optimizada de Cloudinary — imagen horizontal (sugerido 1200 × 800), viewport >= 768px.
+  desktopImageUrl      String
+  desktopImagePublicId String
+  /// URL optimizada de Cloudinary — imagen vertical (sugerido 900 × 1200), viewport < 768px.
+  mobileImageUrl       String
+  mobileImagePublicId  String
+  /// Texto alternativo (accesibilidad/SEO). No se muestra en pantalla.
+  altText              String
+  /// Destino al hacer clic: categoría, subcategoría, producto o URL libre.
+  ctaUrl               String
+  createdAt            DateTime @default(now())
+  /// Versión del modal: al cambiar, se vuelve a mostrar a quien ya lo había cerrado.
+  updatedAt            DateTime @updatedAt
+}
+
 /// Catálogo de ciudades colombianas con sus códigos Vendelo.
 /// Se pobla via POST /admin/vendelo/sync-cities y se cachea 24h en el checkout.
 model VendeloCity {

@@ -37,6 +37,7 @@ electrónico. Los administradores gestionan productos, pedidos y stock desde un 
 22. [Optimización de conversión (CRO)](#22-optimización-de-conversión-cro)
 23. [Imágenes de OpenGraph por categoría](#23-imágenes-de-opengraph-por-categoría)
 24. [Buscador del catálogo](#24-buscador-del-catálogo)
+25. [Pop-up promocional y swipe del Hero](#25-pop-up-promocional-y-swipe-del-hero)
 
 ---
 
@@ -1623,3 +1624,49 @@ Consulta ──► normalizar ──► tokens ──► índice en memoria ─�
   categoría, precio ni stock de la búsqueda anterior. El drawer de filtros sí refina la búsqueda actual.
 - Ya no existe el mapa `CATEGORY_KEYWORDS` (slugs de categoría fijos en código): las categorías
   nuevas se vuelven buscables solas porque su nombre entra al índice.
+
+---
+
+## 25. Pop-up promocional y swipe del Hero
+
+### 25.1 Pop-up promocional (modal de la home)
+
+Modal superpuesto que aparece al entrar a la home. Se administra en `/admin/promocion` y reutiliza la
+arquitectura del Hero Banner (dos imágenes + destino + texto alternativo).
+
+**Datos — `PromoModal` (fila única, `id = "default"`):**
+
+| Campo | Uso |
+|---|---|
+| `isActive` | Switch de activación. `false` = no se muestra nada en la home |
+| `desktopImageUrl` / `desktopImagePublicId` | Imagen horizontal (sugerido 1200 × 800 px), viewport ≥ 768 px |
+| `mobileImageUrl` / `mobileImagePublicId` | Imagen vertical (sugerido 900 × 1200 px), viewport < 768 px |
+| `altText` | Texto alternativo (accesibilidad y SEO) |
+| `ctaUrl` | Destino al hacer clic: categoría, subcategoría, producto o URL libre |
+| `updatedAt` | Versión del modal: al cambiarlo, vuelve a mostrarse a quien ya lo había cerrado |
+
+Una sola fila: el admin edita la promoción vigente en lugar de acumular registros. Las imágenes viven en
+Cloudinary (`h2r-online-store/promo-modal`); al reemplazar una variante se borra la anterior del CDN salvo que
+la otra variante siga usándola.
+
+**Frontend (`PromoModal.tsx`, client component):**
+
+- Overlay centrado con fondo atenuado; la imagen completa es un enlace al destino.
+- Cierre con la X, clic en el fondo o tecla `Esc`. Al abrir se bloquea el scroll del body y el foco pasa al
+  botón de cerrar; al cerrar, el foco vuelve al elemento anterior.
+- `<picture>` + `getImageProps()` (art direction): imagen vertical en móvil y horizontal en escritorio.
+- **Frecuencia:** `localStorage["promo-modal-seen"]` guarda la versión (`updatedAt`) y la fecha en que se cerró.
+  No se vuelve a mostrar hasta que pasen 24 h o el admin publique una promoción distinta. Si `localStorage`
+  falla (modo privado), el modal simplemente se muestra.
+
+**Destino del enlace:** el admin elige tipo (catálogo, categoría/subcategoría, producto o enlace libre) y el
+formulario arma el `ctaUrl` (`/catalogo?category=<slug>`, `/producto/<slug>`, etc.), igual que en los banners.
+
+**Caché:** `getCachedPromoModal()` con tag `promo`; guardar en el admin invalida ese tag.
+
+### 25.2 Swipe táctil en el carrusel del Hero
+
+El carrusel soporta gestos en móvil con eventos táctiles nativos (sin librerías): un desplazamiento
+horizontal de más de 50 px cambia de slide, y los verticales se ignoran para no bloquear el scroll de la
+página. El autoplay se pausa mientras el dedo está sobre el carrusel y los puntos de paginación siguen
+sincronizados.

@@ -4,6 +4,44 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 158. Pop-up promocional de la home y swipe táctil en el Hero
+
+**Requerimiento 1 — pop-up promocional (README §24.1):**
+
+- `schema.prisma` + migración `20260921000000_promo_modal` — tabla `PromoModal` de **fila única**
+  (`id = "default"`): `isActive`, dos imágenes con su `publicId`, `altText`, `ctaUrl` y `updatedAt`. Se eligió
+  fila única porque solo hay una promoción vigente; el admin la edita en vez de acumular registros.
+- API `apps/api/src/admin/admin-promo.controller.ts` — `GET`, `PUT` (upsert), `PATCH active` y
+  `POST upload-image` (variant desktop/mobile). Al reemplazar una imagen borra la anterior de Cloudinary, salvo
+  que la otra variante siga usando ese `public_id` (mismo criterio que los banners).
+  `CloudinaryService.uploadPromoModalImage` sube a `h2r-online-store/promo-modal` (1600px / 1080px).
+- Web `components/store/PromoModal.tsx` — overlay centrado, cierre con X, clic en el fondo y `Esc`, bloqueo de
+  scroll, foco al botón de cerrar y devolución del foco al cerrar. `<picture>` + `getImageProps()` para no
+  deformar la imagen en móvil. La imagen completa enlaza al destino.
+  Frecuencia con `localStorage["promo-modal-seen"]`: no reaparece por 24 h salvo que cambie `updatedAt`.
+  La decisión se lee con `useSyncExternalStore` (sin setState en efectos ni mismatch de hidratación).
+- `lib/cache.ts` — `getCachedPromoModal()` con tag `promo` (nuevo en `cache-tags.ts`); guardar en el admin lo
+  invalida. `home.tsx` lo renderiza solo si está activo.
+- Admin `/admin/promocion` + `components/admin/PromoModalManager.tsx` — switch de activación, las dos cargas de
+  imagen con resolución sugerida, texto alternativo y selector de destino: catálogo, categoría/subcategoría
+  (dropdown), producto (buscador por nombre o SKU) o URL libre. Entrada "Pop-up" en `AdminNav`.
+
+**Requerimiento 2 — swipe en el Hero (README §24.2):**
+
+- `components/store/HeroBannerCarousel.tsx` — `touchstart`/`touchend`/`touchcancel` nativos, sin librerías:
+  un arrastre horizontal de más de 50 px cambia de slide y los gestos verticales se ignoran para no bloquear el
+  scroll. El autoplay se pausa mientras el dedo está sobre el carrusel y los puntos siguen sincronizados.
+
+**Verificación:** `tsc --noEmit` limpio en api y web; ESLint sin errores. Sin pruebas en navegador ni en un
+dispositivo táctil real.
+
+**Despliegue:** aplicar `npx prisma migrate deploy` (crea una tabla nueva, no toca datos existentes) antes de
+desplegar la web.
+
+*Última actualización: 2026-09-21*
+
+---
+
 ## 157. PDP: la estimación de entrega pasa a ser una línea de tiempo visual
 
 **Contexto:** el bloque "Cómpralo hoy y recíbelo entre el X y el Y" era una sola frase larga dentro de una

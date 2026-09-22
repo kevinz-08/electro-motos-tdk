@@ -11,6 +11,7 @@
  *   home       → datos específicos de la home (featured products)
  *   catalog    → datos de la vista landing del catálogo
  *   hero       → banners del carrusel hero de la home
+ *   promo      → pop-up promocional de la home
  *   settings   → umbrales de prueba social y estimación de entrega
  *
  * TTLs:
@@ -209,6 +210,23 @@ export const getCachedProductBySlug = unstable_cache(
   },
   ['product-by-slug'],
   { revalidate: 300, tags: [CACHE_TAGS.products] },
+)
+
+/** Pop-up promocional activo de la home, o null si está desactivado o sin configurar. */
+export const getCachedPromoModal = unstable_cache(
+  async () => {
+    const promo = await prisma.promoModal.findUnique({ where: { id: 'default' } })
+    if (!promo || !promo.isActive) return null
+    return {
+      desktopImageUrl: promo.desktopImageUrl,
+      mobileImageUrl: promo.mobileImageUrl,
+      altText: promo.altText,
+      ctaUrl: promo.ctaUrl,
+      version: promo.updatedAt.toISOString(),
+    }
+  },
+  ['promo-modal'],
+  { revalidate: 3600, tags: [CACHE_TAGS.promo] },
 )
 
 // ── Settings de conversión ────────────────────────────────────────────────────

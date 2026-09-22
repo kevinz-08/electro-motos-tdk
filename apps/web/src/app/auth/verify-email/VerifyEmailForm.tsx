@@ -141,7 +141,7 @@ export function VerifyEmailForm({ email }: Props) {
           <Link href="/">
             <Image
               src="/assets/logo.webp"
-              alt="Electro Motos Tony"
+              alt="H2R Online Store"
               width={80}
               height={60}
               className="object-contain mx-auto"

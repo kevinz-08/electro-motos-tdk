@@ -61,7 +61,7 @@ export default async function AuthErrorPage({ searchParams }: PageProps) {
           <Link href="/" className="flex items-center gap-2">
             <Image
               src="/assets/logo.webp"
-              alt="Electro Motos Tony"
+              alt="H2R Online Store"
               width={80}
               height={60}
               className="object-contain block mx-auto"

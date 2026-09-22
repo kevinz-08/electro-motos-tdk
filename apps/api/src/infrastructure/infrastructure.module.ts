@@ -12,6 +12,9 @@ import {
   SHIPMENT_REPOSITORY,
   VENDELO_SHIPPING_PORT,
   ALERT_NOTIFICATION_PORT,
+  MOTORCYCLE_REPOSITORY,
+  FITMENT_REPOSITORY,
+  OEM_REFERENCE_REPOSITORY,
 } from './injection-tokens'
 import { PrismaCouponRepository } from './repositories/PrismaCouponRepository'
 import { PrismaProductRepository } from './repositories/PrismaProductRepository'
@@ -34,6 +37,12 @@ import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
 import { LogAlertNotificationService } from './services/LogAlertNotificationService'
 import { WompiReconciliationService } from './services/WompiReconciliationService'
 import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupService'
+import { IndexNowService } from './services/IndexNowService'
+import {
+  PrismaFitmentRepository,
+  PrismaMotorcycleRepository,
+  PrismaOemReferenceRepository,
+} from './repositories/PrismaMotorcycleRepository'
 
 @Module({
   imports: [PrismaModule],
@@ -48,6 +57,9 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
     { provide: USER_REPOSITORY,                useClass: PrismaUserRepository },
     { provide: SHIPMENT_REPOSITORY,            useClass: PrismaShipmentRepository },
     { provide: VENDELO_SHIPPING_PORT,          useClass: VendeloService },
+    { provide: MOTORCYCLE_REPOSITORY,          useClass: PrismaMotorcycleRepository },
+    { provide: FITMENT_REPOSITORY,             useClass: PrismaFitmentRepository },
+    { provide: OEM_REFERENCE_REPOSITORY,       useClass: PrismaOemReferenceRepository },
     // PAYMENT_SERVICE token → Wompi (pasarela principal Colombia)
     { provide: PAYMENT_SERVICE,    useClass: WompiService },
     // Servicios concretos también disponibles por clase para inyección directa en controllers
@@ -64,6 +76,7 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
     WompiReconciliationService,
     ExpiredOrdersCleanupService,
     ReviewRequestService,
+    IndexNowService,
   ],
   exports: [
     COUPON_REPOSITORY,
@@ -77,6 +90,9 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
     USER_REPOSITORY,
     SHIPMENT_REPOSITORY,
     VENDELO_SHIPPING_PORT,
+    MOTORCYCLE_REPOSITORY,
+    FITMENT_REPOSITORY,
+    OEM_REFERENCE_REPOSITORY,
     PAYMENT_SERVICE,
     ALERT_NOTIFICATION_PORT,
     WompiService,
@@ -87,6 +103,7 @@ import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupServ
     VendeloHttpClient,
     VendeloService,
     VendeloOrderQueueService,
+    IndexNowService,
   ],
 })
 export class InfrastructureModule {}

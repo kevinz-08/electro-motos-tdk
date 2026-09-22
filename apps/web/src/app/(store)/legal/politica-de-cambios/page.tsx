@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
+import { canonical } from '@/lib/seo'
 
 export const metadata: Metadata = {
   title: 'Política de Cambios y Devoluciones',
   description:
     'Política de cambios, devoluciones y reembolsos de H2R Online Store. Condiciones, plazos y proceso.',
+  alternates: canonical('/legal/politica-de-cambios'),
   robots: { index: true, follow: true },
 }
 

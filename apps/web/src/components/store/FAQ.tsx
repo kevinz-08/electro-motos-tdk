@@ -1,40 +1,15 @@
 'use client'
 
 import { useState } from 'react'
+import { FAQ_ITEMS, type FaqItem } from '@/lib/faq'
 
-const ITEMS = [
-  {
-    q: '¿Cuánto tiempo tarda el envío?',
-    a: 'El tiempo de entrega depende de tu ubicación. Para Bucaramanga y área metropolitana, el envío es de 1 a 2 días hábiles. Para el resto de Colombia, el tiempo estimado es de 3 a 7 días hábiles.',
-  },
-  {
-    q: '¿Hacen envíos a todo Colombia?',
-    a: 'Sí, hacemos envíos a todos los departamentos de Colombia. El envío es gratis para pedidos superiores a $500.000 COP.',
-  },
-  {
-    q: '¿Cómo puedo pagar?',
-    a: 'Aceptamos pagos con Wompi (tarjeta de crédito o débito, Nequi, PSE o Bancolombia) y Addi (crédito en cuotas sin tarjeta).',
-  },
-  {
-    q: '¿Tienen garantía los repuestos?',
-    a: 'Todos nuestros productos tienen garantía de hasta 6 meses contra defectos de fábrica. Si tienes algún problema, escríbenos y te damos solución rápida.',
-  },
-  {
-    q: '¿Puedo devolver un producto?',
-    a: 'Sí, aceptamos cambios hasta un máximo de 5 días posteriores a la compra. El producto debe estar en su empaque original y sin usar. Escríbenos y coordinamos el cambio.',
-  },
-  {
-    q: '¿Cómo sé qué repuesto necesita mi moto?',
-    a: 'Puedes consultar nuestro catálogo por categoría o escribirnos a WhatsApp con el modelo y año de tu moto. Te asesoramos para encontrar la pieza correcta.',
-  },
-]
 
 function AccordionItem({
   item,
   isOpen,
   onToggle,
 }: {
-  item: { q: string; a: string }
+  item: FaqItem
   isOpen: boolean
   onToggle: () => void
 }) {
@@ -84,7 +59,7 @@ export function FAQ() {
         </div>
 
         <div className="border-t border-gray-200">
-          {ITEMS.map((item, index) => (
+          {FAQ_ITEMS.map((item, index) => (
             <AccordionItem
               key={index}
               item={item}

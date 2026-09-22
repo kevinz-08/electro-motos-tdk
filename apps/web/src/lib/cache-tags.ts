@@ -9,4 +9,10 @@ export const CACHE_TAGS = {
   promo: 'promo',
   /** Settings de prueba social / estimación de entrega (README §22.3). */
   settings: 'settings',
+  /**
+   * Catálogo de motos y compatibilidades (docs/seo/ Fase 2). Invalidarlo afecta a
+   * los hubs de modelo, al selector "¿Qué moto tienes?" y a la tabla
+   * "Compatible con" de la ficha de producto.
+   */
+  fitments: 'fitments',
 } as const

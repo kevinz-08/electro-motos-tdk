@@ -1,6 +1,10 @@
 /**
  * Índice de búsqueda del catálogo (README §24).
  *
+ * Desde la Fase 2 (docs/seo/), los `tags` de cada documento incluyen las motos
+ * compatibles **verificadas** con sus alias: así "pastillas nkd" encuentra las
+ * pastillas aunque su nombre no diga "NKD".
+ *
  * `buildSearchIndex` lee de Prisma los campos buscables de TODOS los productos no borrados
  * (activos e inactivos, para que el admin también pueda buscar) y los convierte en documentos
  * del motor puro de `@h2r/domain`. `getCachedSearchIndex` lo cachea 5 min con los mismos tags
@@ -30,7 +34,16 @@ export async function buildSearchIndex(): Promise<SearchDoc[]> {
       categoryId: true,
       createdAt: true,
       category: { select: { name: true, parent: { select: { name: true } } } },
-      compatible: { select: { brand: true, model: true } },
+      // Compatibilidades verificadas: alimentan el buscador con el nombre del
+      // modelo y sus alias, para que "pastillas nkd" o "kit arrastre boxer"
+      // encuentren el producto aunque el nombre no mencione la moto
+      // (docs/seo/, Fase 2).
+      fitments: {
+        where: { verified: true },
+        select: {
+          model: { select: { name: true, aliases: true, brand: { select: { name: true } } } },
+        },
+      },
     },
   })
 
@@ -46,7 +59,11 @@ export async function buildSearchIndex(): Promise<SearchDoc[]> {
       categoryId: p.categoryId,
       categoryName: p.category?.name,
       parentCategoryName: p.category?.parent?.name,
-      tags: p.compatible.map((c) => `${c.brand} ${c.model}`),
+      tags: p.fitments.flatMap((f) => [
+        `${f.model.brand.name} ${f.model.name}`,
+        f.model.name,
+        ...f.model.aliases,
+      ]),
       createdAt: p.createdAt.getTime(),
     }),
   )

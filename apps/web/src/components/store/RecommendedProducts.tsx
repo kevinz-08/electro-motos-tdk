@@ -74,12 +74,12 @@ export async function RecommendedProducts({
       </h2>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-        {products.map((product, index) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            priority={index < 2}
-          />
+        {products.map((product) => (
+          // Sin `priority`: estos productos van al final de la ficha, muy por
+          // debajo del pliegue. Precargarlos generaba dos <link rel="preload">
+          // que competían con la imagen del producto — el elemento LCP real
+          // (docs/seo/01-resultados.md).
+          <ProductCard key={product.id} product={product} />
         ))}
       </div>
     </section>

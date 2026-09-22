@@ -19,6 +19,9 @@ import { CategoryGrid } from '@/components/store/CategoryGrid'
 import { SocialProof } from '@/components/store/SocialProof'
 import { CtaMidSection } from '@/components/store/CtaMidSection'
 import { FAQ } from '@/components/store/FAQ'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { faqPageJsonLd } from '@/lib/structured-data'
+import { FAQ_ITEMS } from '@/lib/faq'
 import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal } from '@/lib/cache'
 
 export default async function HomePage() {
@@ -75,8 +78,14 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredProducts.map((product, index) => (
-                <ProductCard key={product.id} product={product} priority={index < 2} />
+              {/*
+                Sin `priority`: los destacados van bajo el hero, que es el
+                elemento LCP de la home. Precargarlos generaba dos
+                <link rel="preload"> que le competían el ancho de banda
+                (docs/seo/01-resultados.md).
+              */}
+              {featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
               ))}
             </div>
             <div className="mt-8 text-center sm:hidden">
@@ -97,7 +106,11 @@ export default async function HomePage() {
       {/* 5. Social proof (testimonios + stats) */}
       <SocialProof />
 
-      {/* 6. FAQ */}
+      {/*
+        6. FAQ — el acordeón visible y su FAQPage salen del mismo array
+        (`FAQ_ITEMS`), así que el marcado no puede contradecir lo que se ve.
+      */}
+      <JsonLd data={faqPageJsonLd(FAQ_ITEMS)} />
       <FAQ />
 
       {/* 7. CTA final combinado */}

@@ -22,6 +22,9 @@ import { CatalogHero } from '@/components/store/CatalogHero'
 import { CategoryExploreCarousel } from '@/components/store/CategoryExploreCarousel'
 import { CategoryHeroBanner } from '@/components/store/CategoryHeroBanner'
 import { buildSocialMetadata, getCategoryOgImage } from '@/lib/opengraph'
+import { catalogSeo, NOINDEX_FOLLOW } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { breadcrumbJsonLd, itemListJsonLd } from '@/lib/structured-data'
 import { ProductCarousel } from '@/components/store/ProductCarousel'
 import { FilterDrawer } from '@/components/store/FilterDrawer'
 import { prisma } from '@/infrastructure/database/prisma-client'
@@ -119,13 +122,15 @@ const CAT: Record<string, { icon: string; desc: string }> = {
 const catIcon = (slug: string) => CAT[slug]?.icon ?? '📦'
 const catDesc = (slug: string) => CAT[slug]?.desc ?? 'Repuestos de alta calidad para tu moto.'
 
+// WebP en vez de JPG (Fase 1 del proyecto SEO): los cinco banners bajan de
+// 734 KB a 429 KB y se cargan los cinco en la vista landing del catálogo.
 const BANNER_FALLBACK = '/assets/bannerByCategory/banner-category-example.jpg'
 const BANNER: Record<string, string> = {
-  'sistema-electrico': '/assets/bannerByCategory/sistema-electrico.jpg',
-  'repuestos':         '/assets/bannerByCategory/repuestos.jpg',
-  'aceites':           '/assets/bannerByCategory/aceites.jpg',
-  'llantas':           '/assets/bannerByCategory/llantas.jpg',
-  'accesorios':        '/assets/bannerByCategory/accesorios.jpg',
+  'sistema-electrico': '/assets/bannerByCategory/sistema-electrico.webp',
+  'repuestos':         '/assets/bannerByCategory/repuestos.webp',
+  'aceites':           '/assets/bannerByCategory/aceites.webp',
+  'llantas':           '/assets/bannerByCategory/llantas.webp',
+  'accesorios':        '/assets/bannerByCategory/accesorios.webp',
 }
 const getBanner = (slug: string) => BANNER[slug] ?? BANNER_FALLBACK
 
@@ -140,37 +145,71 @@ const TRUST = [
 
 // ── Metadata ──────────────────────────────────────────────────────────────────
 
+/**
+ * Metadata del catálogo (Fase 1 del proyecto SEO, docs/seo/).
+ *
+ * Además del título y la descripción, aquí se decide **qué URL del catálogo se
+ * indexa**. El criterio completo está en `catalogSeo()` (lib/seo.ts); en
+ * resumen: solo `/catalogo` y `/catalogo?category=<slug>` (con su paginación)
+ * son indexables. Las búsquedas, los filtros de precio y stock, y cualquier
+ * combinación de facetas salen con `noindex, follow` y canonical hacia la
+ * versión limpia de la que derivan.
+ *
+ * Los títulos siguen la fórmula del brief para listados:
+ * `{Categoría} para moto | Precios en Colombia | H2R` (el sufijo lo añade la
+ * plantilla del layout raíz).
+ */
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
-  const { category, search } = await searchParams
+  const params = await searchParams
+  const { category, search } = params
 
   if (search) {
     const title = `Resultados para "${search}"`
     const description = `Productos que coinciden con "${search}" en el catálogo de repuestos para motos.`
-    return { title, description, ...buildSocialMetadata({ title, description }) }
+    return {
+      title,
+      description,
+      ...catalogSeo(params),
+      ...buildSocialMetadata({ title, description }),
+    }
   }
 
   if (category) {
     const cat = await prisma.category.findUnique({ where: { slug: category } })
     if (cat) {
+      const productCount = await prisma.product.count({
+        where: { categoryId: cat.id, isActive: true, deletedAt: null },
+      })
+      const title = `${cat.name} para moto | Precios en Colombia`
       const description = cat.description ?? catDesc(cat.slug)
       return {
-        title: cat.name,
+        title,
         description,
+        // Un listado sin productos nunca se indexa (hasResults = false).
+        ...catalogSeo(params, productCount > 0),
         // Imagen de la categoría/subcategoría, o la global si no tiene (README §23).
         ...buildSocialMetadata({
-          title: cat.name,
+          title,
           description,
           image: getCategoryOgImage(cat.slug, cat.name),
           url: `/catalogo?category=${cat.slug}`,
         }),
       }
     }
+    // Slug de categoría inexistente: no se indexa.
+    return { title: 'Categoría no encontrada', robots: NOINDEX_FOLLOW }
   }
 
-  const title = 'Catálogo de repuestos para motos'
+  const title = 'Catálogo de repuestos para moto'
   const description =
-    'Explora nuestro catálogo completo de repuestos, aceites, llantas y accesorios para motos. Envío a todo Colombia.'
-  return { title, description, ...buildSocialMetadata({ title, description, url: '/catalogo' }) }
+    'Explora el catálogo completo de repuestos, aceites, llantas y accesorios para moto. ' +
+    'Envío a toda Colombia y pago seguro con Wompi.'
+  return {
+    title,
+    description,
+    ...catalogSeo(params),
+    ...buildSocialMetadata({ title, description, url: '/catalogo' }),
+  }
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -454,8 +493,26 @@ function GridView({
     activeChips.push({ label, removeUrl: url({ minPrice: undefined, maxPrice: undefined, page: undefined }) })
   }
 
+  // Datos estructurados del listado (docs/seo/, Fase 3).
+  //
+  // El ItemList refleja exactamente los productos de esta página y en su mismo
+  // orden — si se marcara el total del catálogo en vez de lo visible, el marcado
+  // estaría mintiendo. Solo se emite en la vista de categoría: en una búsqueda o
+  // con filtros la página lleva `noindex` y marcarla no aporta nada.
+  const structuredData = activeCat
+    ? [
+        itemListJsonLd(`${activeCat.name} para moto`, items),
+        breadcrumbJsonLd([
+          { label: 'Inicio', href: '/' },
+          { label: 'Catálogo', href: '/catalogo' },
+          { label: activeCat.name },
+        ]),
+      ]
+    : null
+
   return (
     <div className="catalog-light bg-white min-h-screen">
+      {structuredData && <JsonLd data={structuredData} />}
 
       {/* ── Breadcrumb + título ── */}
       <div className="border-b border-gray-100">

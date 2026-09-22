@@ -1,0 +1,47 @@
+name: SEO
+
+# Verificación de la base técnica de SEO (Fase 1), de los datos estructurados
+# (Fase 3) y del presupuesto de rendimiento.
+#
+# No corre en cada push: mide contra el sitio ya desplegado, así que se ejecuta
+# semanalmente y a mano cuando hace falta. Los informes de Lighthouse quedan
+# como artefacto del job.
+
+on:
+  schedule:
+    # Lunes a las 07:00 UTC (02:00 en Colombia)
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'URL base a auditar'
+        required: false
+        default: 'https://www.tiendah2r.com'
+
+jobs:
+  seo:
+    name: robots, sitemaps, JSON-LD y Core Web Vitals
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verificar robots, sitemaps, canonical e indexación
+        run: node scripts/seo-check.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"
+
+      - name: Validar los datos estructurados (JSON-LD)
+        run: node scripts/seo-schema.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"
+
+      - name: Presupuesto de rendimiento (Lighthouse móvil)
+        run: node scripts/seo-lighthouse.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"
+
+      - name: Guardar informes de Lighthouse
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: .lighthouse/
+          if-no-files-found: ignore

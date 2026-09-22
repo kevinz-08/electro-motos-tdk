@@ -15,9 +15,9 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | ID | Tarea | Bloquea | Estado |
 |---|---|---|---|
 | **H-01** | **Decidir qué hacer con `SocialProof.tsx`.** Hoy la home muestra 4 testimonios con nombre propio etiquetados "Cliente verificado" y las cifras "500+ clientes satisfechos / 1.200+ repuestos vendidos / 98% recomendación", todo escrito a mano en el código. ¿Son datos reales? Opciones: (a) confirmarlos con respaldo y dejarlos, (b) alimentar la sección desde `ProductReview` (reseñas reales verificadas por compra), (c) retirarlos. Riesgo legal: Ley 1480 de 2011, publicidad engañosa | Fase 4, Fase 5 | ⬜ |
-| **H-02** | **Datos de compatibilidad verificados.** Entregar, para los modelos prioritarios, qué producto del catálogo sirve a qué moto, con año/versión y **fuente** (manual del fabricante, catálogo del proveedor, verificación en taller). Formato sugerido: CSV `sku,marca_moto,modelo_moto,anio_desde,anio_hasta,posicion,fuente,notas`. Sin esto **la Fase 2 no puede publicar nada** | Fase 2 (toda) | ⬜ |
+| **H-02** | **Datos de compatibilidad verificados.** 🔴 **Ahora es LA tarea crítica del proyecto.** El sistema está construido y probado, pero con 0 compatibilidades no publica nada: los hubs dan 404 y el sitemap de modelos va vacío. Llenar la plantilla [`plantilla-compatibilidades.csv`](./plantilla-compatibilidades.csv) (`sku,marca_moto,modelo_moto,posicion,anio_desde,anio_hasta,fuente,notas,verificado`) y subirla a `POST /admin/fitments/import`. La **fuente** es obligatoria: sin ella el importador rechaza la fila | Fase 2 → publicar | ⬜ |
 | **H-03** | **Referencias OEM** de los productos que las tengan (`sku,referencia_oem,fabricante`) | Fase 2, Fase 3 | ⬜ |
-| **H-04** | **Confirmar la lista de modelos prioritarios** del brief (AKT NKD 125, Bajaj Boxer CT100, NMAX 155, XR190L, DR150, Pulsar NS/N, FZ, Hunk 125R, Apache, Raider) contra las ventas reales de H2R y los datos de Search Console | Fase 2, Fase 5 | ⬜ |
+| **H-04** | **Confirmar la lista de modelos prioritarios** (ver también H-39) del brief (AKT NKD 125, Bajaj Boxer CT100, NMAX 155, XR190L, DR150, Pulsar NS/N, FZ, Hunk 125R, Apache, Raider) contra las ventas reales de H2R y los datos de Search Console | Fase 2, Fase 5 | ⬜ |
 | **H-05** | **Dar acceso a Google Search Console** (o exportar consultas, páginas y URLs indexadas de los últimos 12 meses). Sin esto no se puede saber qué URLs tienen tráfico antes de cambiar rutas — regla 7 del brief | Fase 1, Fase 2 | ⬜ |
 
 ---
@@ -60,9 +60,9 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | ID | Tarea | Estado |
 |---|---|---|
 | H-25 | **Aprobar la Fase 0** (`docs/seo/00-auditoria.md`) para poder empezar la Fase 1 | ⬜ |
-| H-26 | Aprobar el **mapa de redirecciones 301** antes de mover las categorías de `?category=` a rutas propias (regla 6) | ⬜ |
-| H-27 | Aprobar la **Fase 2** (sistema de compatibilidad) antes de pasar a la 3 y la 4 | ⬜ |
-| H-28 | Autorizar cualquier **migración de Prisma en producción** antes de aplicarla | ⬜ |
+| H-26 | Aprobar el **mapa de redirecciones 301** antes de mover las categorías de `?category=` a rutas propias (regla 6). No bloquea nada: los hubs de modelo no dependen de ello | ⬜ |
+| H-27 | Aprobar la **Fase 2** (sistema de compatibilidad, `02-compatibilidad.md`) antes de pasar a la 3 y la 4 | ⬜ |
+| H-28 | Autorizar cualquier **migración de Prisma en producción** antes de aplicarla. La de la Fase 2 (`20260922000000_motorcycle_fitment_system`) fue autorizada y aplicada el 2026-09-22 | ✅ |
 
 ---
 
@@ -85,5 +85,17 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-34** | **Reenviar los sitemaps** en Google Search Console y Bing Webmaster Tools: `/sitemap.xml` pasó de ser una lista a un índice, y hay tres sitemaps nuevos (`-paginas`, `-categorias`, `-productos`) | 1 | ⬜ |
 | **H-35** | **Revisar el vídeo recomprimido del catálogo** en un escritorio real y confirmar que la calidad es aceptable. Si no lo es, se regenera con menos compresión desde el original, que sigue en el historial de git | 1 | ⬜ |
 | **H-36** | **Medir Lighthouse en producción tras el despliegue** (`pnpm seo:lighthouse`) y pegar los resultados en `01-resultados.md` §4. Las cifras "después" de la Fase 1 no están confirmadas hasta entonces | 1 | ⬜ |
+
+*Última actualización de este bloque: 2026-09-22*
+
+---
+
+## Nuevas tras la Fase 2 (2026-09-22)
+
+| ID | Tarea | Fase | Estado |
+|---|---|---|---|
+| **H-37** | **Decidir si hace falta una pantalla en el panel** para gestionar compatibilidades, o si basta con subir el CSV a `POST /admin/fitments/import`. Hoy no hay interfaz gráfica para esto | 4 | ⬜ |
+| **H-38** | **Revisar los textos libres de compatibilidad** que ya existen (`ProductCompatibilityItem`, el acordeón de la ficha) y decidir cuáles se convierten en fitments verificados. Hay que leer cada texto y decidir a qué modelo corresponde: no se puede automatizar sin riesgo de inventar compatibilidades | 2 | ⬜ |
+| **H-39** | **Revisar la lista de 32 modelos** de `packages/database/prisma/motorcycles.ts`. Los 10 prioritarios salen del brief; los otros 22 los añadió el agente desde el mercado colombiano, sin confirmar contra las ventas reales. Un modelo mal escrito rompe la importación de CSV, que lo busca por ese nombre exacto | 2 | ⬜ |
 
 *Última actualización de este bloque: 2026-09-22*

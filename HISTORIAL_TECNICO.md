@@ -4,6 +4,103 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 161. Fase 2 del proyecto SEO — sistema de compatibilidad por modelo de moto
+
+**Requerimiento:** construir el núcleo del proyecto (brief §7): modelo de datos de compatibilidad,
+API, rutas de hub de modelo, tabla "Compatible con" en la ficha y selector "¿Qué moto tienes?".
+
+**Migración `20260922000000_motorcycle_fitment_system` — aditiva, reversible y ya aplicada:**
+
+- Enums `FitmentPosition` (DELANTERA/TRASERA/AMBAS) y `PartType` (ORIGINAL/HOMOLOGADO/GENERICO).
+- Tablas `MotorcycleBrand`, `MotorcycleModel`, `Fitment` y `OemReference`.
+- `Product` gana `mpn`, `partBrand`, `partType` y `warrantyMonths`, las cuatro opcionales y fuera de
+  todo DTO del admin: ningún formulario existente cambia.
+- No borra ni modifica nada. El propio `migration.sql` lleva escritos los DROP que la revierten.
+- El SQL se escribió a mano y se contrastó con `prisma migrate diff --from-empty`: coincide.
+
+**La regla que gobierna el sistema:** solo se publica un `Fitment` con `verified = true`. Vive en
+`isPublishable()` (dominio) y se aplica en cada consulta pública del repositorio. Consecuencias
+verificadas: un modelo sin compatibilidades verificadas responde 404 y no entra al sitemap; una
+categoría sin productos para ese modelo, 404; una referencia OEM sin productos, 404.
+
+**Dominio (`packages/domain`, TypeScript puro):**
+
+- `entities/Motorcycle.ts` — entidades y reglas: `isPublishable`, `fitsYear`, `formatYearRange`,
+  `normalizeOemReference`, `toMotorcycleSlug`, `modelSearchTerms`.
+- `repositories/IFitmentRepository.ts` — `IMotorcycleRepository`, `IFitmentRepository`,
+  `IOemReferenceRepository`.
+- `use-cases/fitment/` — `GetModelHub`, `FindByOemReference`, `ImportFitments`, `parseFitmentCsv`.
+- `__tests__/Fitment.test.ts` — 40 tests nuevos (253 en total en el dominio; 96 % de cobertura del
+  módulo, thresholds del paquete superados con holgura).
+
+**Infraestructura:** dos implementaciones del mismo contrato, como manda la arquitectura del repo —
+`apps/web` para las lecturas SSR (van directas a Prisma) y `apps/api` para las escrituras.
+
+**API (NestJS):** `MotorcyclesModule` con 7 endpoints públicos (marcas, modelos, hub, productos por
+modelo, compatibilidades de un producto, búsqueda por OEM) y `AdminFitmentsController` con 5 más,
+incluido `POST /admin/fitments/import`. El importador valida: `fuente` obligatoria (sin fuente no hay
+verificación posible), años coherentes y en rango, posiciones y verificado reconocidos, duplicados
+dentro del archivo, comas entrecomilladas y BOM de Excel. **No crea modelos que no existan** — una
+errata ("Boxer CT 100" vs "Boxer CT100") crearía un modelo duplicado compitiendo con el bueno. Una
+fila que falla no aborta la importación.
+
+**Frontend (Next.js):**
+
+- `/repuestos/[marca]/[modelo]` y `/repuestos/[marca]/[modelo]/[categoria]` — SSG + ISR 10 min, con
+  `generateStaticParams` sobre los modelos publicables.
+- `/referencia/[oem]` — dinámica, `noindex, follow`.
+- `components/store/FitmentTable.tsx` — tabla "Compatible con" en la ficha, enlazando a cada hub, más
+  las referencias OEM. Incluye el aviso de que no estar en la lista no significa que no sirva, sino
+  que no se ha verificado.
+- `components/store/Breadcrumbs.tsx` — migas visibles + `BreadcrumbList`, generados del mismo array
+  para que nunca puedan contradecirse.
+- `MotorcycleSelector` + `MotorcycleSelectorBar` — selector marca → modelo → año (opcional),
+  persistido en la cookie `h2r-moto`.
+- `CompatibilityBadge` — distingue "✓ Compatible con tu NKD 125" de "No confirmado para tu NKD 125".
+  No dice "no sirve": no es lo mismo, y el catálogo de compatibilidades está en construcción.
+- `sitemap-modelos.xml` — cuarto segmento, solo con lo publicable.
+- `lib/search-index.ts` — los `tags` pasan a salir de fitments verificados con los alias del modelo,
+  así "pastillas nkd" encuentra el producto aunque su nombre no diga NKD. Antes leía `compatible`
+  (`MotorcycleCompatibility`), que siempre estuvo vacía.
+
+**Decisión técnica que merece constar:** el badge de compatibilidad **no** lee la cookie en el
+servidor. La ficha de producto es estática (`generateStaticParams` + ISR 5 min) y llamar a
+`cookies()` la habría convertido en dinámica, perdiendo el prerender y empeorando el TTFB de la
+página más importante de la tienda. El badge es un Client Component que lee la cookie al hidratar; la
+tabla "Compatible con", que es lo que necesita ver un crawler, se sigue renderizando en el servidor.
+Comprobado en el build: `/producto/[slug]` sigue marcada como `●`.
+
+**Datos:** `pnpm db:motos` (nuevo, idempotente, nunca borra) carga 8 marcas y 32 modelos. Los 10
+prioritarios salen del brief; los otros 22 se añadieron desde el mercado colombiano y están
+pendientes de confirmar (H-39). El cilindraje solo se declara cuando aparece en el nombre del modelo;
+en Navi, Crypton, FZ 2.0, FZ 25 y Eco Deluxe se dejó en `null` aunque el dato "se sepa", por la misma
+regla de no declarar lo que no viene de una fuente confirmada.
+
+**Verificación end-to-end (2026-09-22):** migración aplicada contra la base real (133 productos, 34
+categorías y 36 pedidos intactos tras aplicarla). Se creó **un** fitment verificado de prueba y una
+referencia OEM, se comprobó el sistema completo y se borraron ambos, dejando la base en 0 fitments.
+Con datos: hub 200 y prerenderizado, conteos reales, `BreadcrumbList` presente, listado con
+`ItemList` y `numberOfItems: 1`, ficha con la tabla enlazando al hub, buscador encontrando el
+producto por la moto compatible, sitemap con 2 URLs. Sin datos: las tres rutas vuelven a 404 y el
+sitemap a 0 URLs. `pnpm seo:check` 42/42, `type-check` y `lint` limpios, 253 tests de dominio y 191
+de API.
+
+**Estado real:** el sistema está completo, pero hay **0 compatibilidades cargadas**, así que no
+publica nada. No es un fallo: el sistema no inventa compatibilidades. El criterio de salida del brief
+(5 modelos navegables) no se puede cumplir sin los datos de H-02, que solo aporta el negocio.
+
+**Fuera de alcance / pendiente:** no hay pantalla de administración para cargar compatibilidades, se
+hace por API con el CSV (H-37). Los textos libres de `ProductCompatibilityItem` siguen sin migrar a
+fitments: hay que leerlos uno a uno y decidir a qué modelo corresponden, no se puede automatizar sin
+riesgo de inventar (H-38). El `isAccessoryOrSparePartFor` del JSON-LD es Fase 3, y ahora ya hay datos
+para hacerlo bien.
+
+**Despliegue:** la migración ya está aplicada. Basta desplegar web y API.
+
+*Última actualización: 2026-09-22*
+
+---
+
 ## 160. Fase 1 del proyecto SEO — base técnica (robots, canonical, sitemaps, IndexNow y Core Web Vitals)
 
 **Requerimiento:** ejecutar la Fase 1 del brief `docs/seo/AGENT-BRIEF.md` tras la aprobación de la

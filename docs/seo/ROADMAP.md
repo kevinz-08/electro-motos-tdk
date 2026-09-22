@@ -8,8 +8,8 @@ terminada la 2. **Las fases 0 y 2 requieren aprobación explícita antes de cont
 |---|---|---|---|---|
 | **0** | Auditoría | ✅ Terminada (2026-09-22) | [`00-auditoria.md`](./00-auditoria.md) | ✅ Aprobada |
 | **1** | Base técnica de SEO | ✅ **Terminada** (2026-09-22) | [`01-resultados.md`](./01-resultados.md) | ⏳ Pendiente de desplegar y volver a medir (H-36) |
-| 2 | Sistema de compatibilidad | 🔜 Siguiente | `02-compatibilidad.md`, `redirecciones.md` | 🔴 Requiere aprobación al cerrar |
-| 3 | Datos estructurados | ⬜ No iniciada | `03-datos-estructurados.md` | — |
+| **2** | Sistema de compatibilidad | ✅ **Terminada** (2026-09-22) | [`02-compatibilidad.md`](./02-compatibilidad.md) | 🔴 **Esperando aprobación — y bloqueada por H-02 para publicar** |
+| 3 | Datos estructurados | 🔜 Siguiente | `03-datos-estructurados.md` | — |
 | 4 | Conversión | ⬜ No iniciada | `04-conversion.md` | — |
 | 5 | Contenido y E-E-A-T | ⬜ No iniciada | `05-contenido.md` | — |
 | 6 | GEO | ⬜ No iniciada | `06-geo.md`, `geo/` | — |
@@ -75,11 +75,37 @@ errores, 213/213 tests de dominio y 191/191 de API.
 
 ---
 
-## Fase 2 — Sistema de compatibilidad 🔜
+## Fase 2 — Sistema de compatibilidad ✅
 
-Núcleo del proyecto y siguiente en la cola. **No arranca sin H-02 (datos de compatibilidad verificados).**
-Modelo de datos → API NestJS → rutas de hub → selector "¿Qué moto tienes?".
-Requiere mapa de redirecciones 301 aprobado (H-26) antes de mover las categorías a rutas propias.
+**Terminada el 2026-09-22.** Detalle en [`02-compatibilidad.md`](./02-compatibilidad.md).
+
+Lo que se construyó:
+
+1. **Modelo de datos** (migración aditiva, ya aplicada): `MotorcycleBrand`,
+   `MotorcycleModel`, `Fitment` y `OemReference`, más `mpn`, `partBrand`, `partType` y
+   `warrantyMonths` en `Product`.
+2. **Dominio**: entidades, reglas y casos de uso en TypeScript puro, con 40 tests nuevos
+   (253 en total, 96 % de cobertura en el módulo).
+3. **API**: 12 endpoints, incluida la importación masiva desde CSV con validación estricta y
+   reporte de errores fila a fila.
+4. **Rutas**: `/repuestos/[marca]/[modelo]`, `/repuestos/[marca]/[modelo]/[categoria]` y
+   `/referencia/[oem]`, con su sitemap propio.
+5. **Ficha de producto**: tabla "Compatible con" enlazada a cada hub, más referencias OEM.
+6. **Selector "¿Qué moto tienes?"** en el header y badge de compatibilidad, sin sacrificar el
+   prerender estático de la ficha de producto.
+7. **Buscador**: "pastillas nkd" encuentra el producto por su moto compatible y sus alias.
+
+**La regla que lo gobierna todo:** solo se publica un fitment con `verified = true`. Un modelo
+sin compatibilidades verificadas responde 404 y no entra al sitemap — nada de páginas por modelo
+que solo cambian el nombre.
+
+**Verificación:** end-to-end contra la base real con un fitment de prueba que se creó, se
+comprobó y se borró. 42/42 en `pnpm seo:check`, type-check y lint limpios, 253 tests de dominio y
+191 de API.
+
+**Estado real:** 8 marcas y 32 modelos cargados, **0 compatibilidades**. Mientras no lleguen los
+datos de H-02, el sistema está completo pero no publica nada. Es lo correcto: no se inventan
+compatibilidades.
 
 ---
 

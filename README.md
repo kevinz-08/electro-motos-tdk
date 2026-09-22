@@ -1781,3 +1781,68 @@ Ambos corren semanalmente y a demanda en `.github/workflows/seo.yml`.
 `getCachedFeaturedProducts()` seleccionaba productos con SQL crudo sin filtrar `deletedAt IS NULL` y luego
 los resolvía con `findById()`, que sí los filtra — un producto de la papelera con stock devolvía `null` y
 reventaba el `.map()`. Detectado al verificar esta fase.
+
+### 26.3 Fase 2 — Sistema de compatibilidad por modelo de moto (2026-09-22)
+
+Es el núcleo del proyecto: en repuestos de moto todo gira alrededor de "¿esto le sirve a mi moto?".
+Detalle completo en `docs/seo/02-compatibilidad.md`.
+
+**Migración `20260922000000_motorcycle_fitment_system`** — aditiva y reversible, ya aplicada. Crea
+dos enums, cuatro tablas y cuatro columnas opcionales en `Product`; no borra ni modifica nada:
+
+| Tabla | Qué guarda |
+|-------|------------|
+| `MotorcycleBrand` | Marca de moto: nombre, slug, orden en el selector |
+| `MotorcycleModel` | Modelo: nombre, slug, `cc?`, `yearFrom?`, `yearTo?`, `aliases[]`, `intro?` |
+| `Fitment` | Producto ↔ modelo, con posición, rango de años, notas, **fuente** y **verificación** |
+| `OemReference` | Referencia original del fabricante, con forma normalizada para buscar |
+
+`Product` gana `mpn`, `partBrand`, `partType` y `warrantyMonths`, las cuatro opcionales y **fuera de
+todo DTO del admin**: ningún formulario existente cambia por tenerlas.
+
+**La regla que gobierna el sistema:**
+
+> Solo se publica un `Fitment` con `verified = true`.
+
+Una compatibilidad equivocada genera una devolución y destruye la confianza. El dato sin verificar
+existe en la base (cargado de un CSV, pendiente de revisión) pero no se muestra, no se cuenta y no
+se indexa. La regla vive en `isPublishable()` (`packages/domain/src/entities/Motorcycle.ts`), no
+repartida por la interfaz. En consecuencia: **un modelo sin compatibilidades verificadas responde
+404 y no entra al sitemap** — nada de páginas por modelo que solo cambian el nombre.
+
+**Rutas nuevas:**
+
+| Ruta | Render |
+|------|--------|
+| `/repuestos/[marca]/[modelo]` | Hub del modelo: categorías con conteo real y productos. SSG + ISR 10 min |
+| `/repuestos/[marca]/[modelo]/[categoria]` | Listado filtrado con `ItemList`. SSG + ISR 10 min |
+| `/referencia/[oem]` | Búsqueda por número de parte original. Dinámica, `noindex, follow` |
+| `/sitemap-modelos.xml` | Solo hubs y categorías publicables |
+
+**Importación masiva:** `POST /admin/fitments/import` con un CSV
+(`sku,marca_moto,modelo_moto,posicion,anio_desde,anio_hasta,fuente,notas,verificado`; plantilla en
+`docs/seo/plantilla-compatibilidades.csv`). La validación es estricta a propósito: `fuente` es
+obligatoria, los años tienen que ser coherentes, se detectan duplicados dentro del archivo y **no se
+crean modelos que no existan** — una errata crearía un modelo duplicado compitiendo con el bueno.
+Una fila que falla no aborta la importación: se aplica lo bueno y se informa del resto con su línea
+y su motivo.
+
+**Selector "¿Qué moto tienes?"** en el header (marca → modelo → año opcional), persistido en la
+cookie `h2r-moto`. El badge de compatibilidad **no** lee la cookie en el servidor: la ficha de
+producto es estática (`generateStaticParams` + ISR) y llamar a `cookies()` la habría vuelto dinámica.
+El badge es un Client Component que lee la cookie al hidratar. No se pierde SEO — un crawler nunca
+tiene moto seleccionada, y lo que sí necesita ver, la tabla "Compatible con", se renderiza en el
+servidor. El badge distingue "✓ Compatible con tu NKD 125" de "No confirmado para tu NKD 125":
+**no confirmado no es lo mismo que no sirve**, y el catálogo está en construcción.
+
+**Buscador:** los `tags` del índice ahora incluyen las motos compatibles verificadas con sus alias,
+así que "pastillas nkd" encuentra el producto aunque su nombre no diga NKD.
+
+**Catálogo de motos:** `pnpm db:motos` carga 8 marcas y 32 modelos (idempotente, nunca borra). Los 10
+modelos prioritarios salen del brief; los otros 22 los añadió el agente desde el mercado colombiano
+y están pendientes de confirmar. El cilindraje solo se declara cuando aparece en el nombre del modelo
+(NKD **125**, NMAX **155**); donde no, queda en `null` y la web no lo muestra.
+
+**Estado:** el sistema está completo y verificado, pero hay **0 compatibilidades cargadas**. Mientras
+siga así no se publica ningún hub. No es un fallo: el sistema no inventa compatibilidades. Cargar los
+datos reales es la tarea H-02 de `docs/seo/HUMAN_TASKS.md`.

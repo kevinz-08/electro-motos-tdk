@@ -13,7 +13,9 @@
     "db:seed": "pnpm --filter @h2r/database seed",
     "db:studio": "pnpm --filter @h2r/database studio",
     "db:generate": "pnpm --filter @h2r/database generate",
-    "db:catalog": "pnpm --filter @h2r/database catalog"
+    "db:catalog": "pnpm --filter @h2r/database catalog",
+    "seo:check": "node scripts/seo-check.mjs",
+    "seo:lighthouse": "node scripts/seo-lighthouse.mjs"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

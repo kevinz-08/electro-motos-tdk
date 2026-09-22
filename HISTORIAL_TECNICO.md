@@ -4,6 +4,153 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 160. Fase 1 del proyecto SEO — base técnica (robots, canonical, sitemaps, IndexNow y Core Web Vitals)
+
+**Requerimiento:** ejecutar la Fase 1 del brief `docs/seo/AGENT-BRIEF.md` tras la aprobación de la
+auditoría: metadatos y localización, robots y sitemaps, IndexNow, y Core Web Vitals. Sin migraciones.
+
+**Metadatos y canonical (problemas M1-M7 de la auditoría):**
+
+- `lib/seo.ts` (nuevo) — host canónico (`https://www.tiendah2r.com`, sin barra final), `canonical()`
+  (canonical absoluto + `hreflang` `es-CO` y `x-default`), `NOINDEX_FOLLOW` y `catalogSeo()`.
+- `layout.tsx` — `lang="es-CO"` (antes `es`), `metadataBase` desde `SITE_URL`, título y descripción que
+  dicen qué se vende y dónde se entrega, y fuera el `keywords` heredado ("taller motos").
+- Canonical absoluto en home, catálogo, categoría, ficha de producto, contacto y las 4 legales. Antes **no
+  había ni un solo canonical en el sitio**.
+- `(store)/page.tsx` — la home pasa a tener metadata propia; antes heredaba la genérica del layout.
+- Catálogo — títulos con fórmula `{Categoría} para moto | Precios en Colombia`.
+- Ficha de producto — la descripción lleva precio formateado en COP y la ventana de despacho leída de
+  `Settings`, no un corte a 160 caracteres. No se menciona el pago contra entrega porque el admin puede
+  desactivarlo (`COD_ENABLED`): una descripción estática no puede prometerlo.
+- Coherencia de entidad: el logo decía `alt="Electro Motos Tony"` en 5 archivos. Unificado a H2R Online Store.
+
+**robots y sitemaps (I1-I6):**
+
+- `app/robots.ts` (nuevo) — antes `/robots.txt` devolvía 404. Permite explícitamente 13 crawlers
+  (Googlebot, Google-Extended, Bingbot, OAI-SearchBot, ChatGPT-User, GPTBot, PerplexityBot, ClaudeBot…),
+  bloquea admin, api, auth, carrito, checkout, pedidos y reseñas, bloquea `?search=` (texto libre = URLs
+  infinitas) y declara los sitemaps. Los demás filtros **no** se bloquean a propósito: para ver un
+  `noindex` hay que poder rastrear la página.
+- `app/sitemap.ts` eliminado. En su lugar, `app/sitemap.xml/route.ts` sirve un **índice** en la misma URL ya
+  enviada a los buscadores, más tres segmentos: `-paginas` (7), `-categorias` (25) y `-productos` (132).
+  Lógica en `lib/sitemap.ts`. Fuera `/auth/login` y `/auth/register` (estaban en el sitemap **y** marcadas
+  `noindex`); dentro las legales, `/contacto`, las 25 categorías y los productos sin stock (la URL responde
+  200 y declara `OutOfStock`). `lastmod` siempre real desde `updatedAt`.
+- `catalogSeo()` — solo `/catalogo` y `?category=<slug>` (con paginación) son indexables; búsquedas,
+  filtros de precio/stock, combinaciones, listados vacíos y slugs inexistentes salen `noindex, follow` con
+  canonical a la versión limpia.
+
+**IndexNow:**
+
+- `IndexNowService` (nuevo) — notifica a Bing, Yandex, Seznam y Naver al crear o editar un producto y al
+  cambiar su stock. Cola en memoria con debounce de 30 s o lote de 100, así 30 guardados seguidos mandan
+  una sola petición. Sin `INDEXNOW_KEY` queda desactivado sin error; un fallo de la API se registra pero
+  nunca rompe el guardado. Registrado en `infrastructure.module.ts` e inyectado en
+  `admin-products.controller.ts`. Clave en `apps/web/public/<clave>.txt`; `INDEXNOW_KEY` y `SITE_URL`
+  añadidas al `--update-env-vars` del deploy de Cloud Run y a `.env.example`.
+
+**Core Web Vitals:**
+
+- `/assets/video-hero-catalog.mp4` — era 87,8 MB (1080p30 a 19,8 Mbps **con pista de audio** en un vídeo
+  `muted`), se servía con `autoplay preload="auto"` y era el elemento LCP de `/catalogo`: 6,8 s de LCP y
+  31,8 MB de página en móvil. Recomprimido a 720p25 sin audio con faststart: **3,7 MB**.
+- `CatalogHero` ahora pinta un póster WebP de 12 KB (nuevo elemento LCP) y `CatalogHeroVideo` (nuevo,
+  client) monta el vídeo solo si la pantalla es ≥ 1024 px, no hay `prefers-reduced-motion`, el navegador no
+  reporta `saveData` ni conexión 2G/3G y el hilo principal está libre (`requestIdleCallback`). En móvil el
+  vídeo ya no se descarga.
+- `RecommendedProducts` y los destacados de la home marcaban `priority` en las dos primeras tarjetas, muy
+  por debajo del pliegue: 4 `<link rel="preload">` compitiendo con el elemento LCP real. Eliminados.
+- Los 5 banners de categoría pasaron a WebP (734 KB → 429 KB); los JPG se borraron del repositorio.
+- La imagen del pop-up promocional lleva `fetchPriority="low"` para no competir con el hero de la home.
+- `scripts/seo-check.mjs` (42 comprobaciones) y `scripts/seo-lighthouse.mjs` (presupuesto de Core Web
+  Vitals), expuestos como `pnpm seo:check` y `pnpm seo:lighthouse`, más `.github/workflows/seo.yml`
+  (semanal + manual).
+
+**Bug de producción corregido de paso:** la home devolvía HTTP 500 de forma intermitente —
+`TypeError: Cannot read properties of null (reading 'id')` en `home.tsx:79`. `getCachedFeaturedProducts()`
+elegía 4 productos con SQL crudo filtrando `stock > 0 AND isActive` **sin `deletedAt IS NULL`**, y luego los
+resolvía con `repo.findById()`, que sí filtra los borrados: si el `ORDER BY RANDOM()` elegía un producto de
+la papelera con stock, entraba un `null` al `.map()`. Corregido en `lib/cache.ts` con el filtro que faltaba
+más un `.filter()` defensivo.
+
+**Documentación:** `docs/seo/01-resultados.md` (nuevo), `ROADMAP.md` y `HUMAN_TASKS.md` actualizados
+(H-23 y H-24 resueltas; H-33 a H-36 nuevas), README sección 26.2.
+
+**Verificación:** `pnpm seo:check` contra un build de producción local → **42/42 comprobaciones correctas**
+(robots 10/10, sitemaps 11/11, canonical e idioma 8/8, indexación de filtros 5/5, ficha 3/3, crawlers de IA
+5/5). `pnpm type-check` limpio en los 6 paquetes, `pnpm lint` sin errores, 213/213 tests de dominio y
+191/191 de API. Build de Next correcto con las 165 páginas.
+
+**Fuera de alcance / pendiente:** las cifras "después" de Lighthouse en producción no están medidas. Se
+intentó una comparación local, pero Chrome headless en emulación móvil no descarga el vídeo de fondo, así
+que la medición local no reproduce el problema real; hay que correr `pnpm seo:lighthouse` contra producción
+tras el despliegue (H-36). IndexNow responde 403 hasta que la clave esté publicada y en Cloud Run (H-33).
+El `altText` de los banners del hero sigue siendo una cadena de espacios: es un dato de la BD y se corrige
+desde `/admin/banners` (H-22).
+
+**Despliegue:** sin migraciones. Basta desplegar web y API. Después: reenviar los sitemaps en Search
+Console y Bing (H-34), ya que `/sitemap.xml` pasó de lista a índice.
+
+*Última actualización: 2026-09-22*
+
+---
+
+## 159. Fase 0 del proyecto SEO / GEO / CRO — auditoría del sitio (sin cambios de código)
+
+**Requerimiento:** ejecutar la Fase 0 del brief `docs/seo/AGENT-BRIEF.md` — auditar el estado real del sitio
+en SEO técnico, GEO (visibilidad en asistentes de IA) y conversión, **sin modificar código de la aplicación**,
+y entregar una lista priorizada por impacto × esfuerzo antes de tocar nada.
+
+**Qué se hizo:**
+
+- Inventario de las 11 plantillas públicas y de las 7 privadas, con su estrategia de render real (home y
+  catálogo: Server Components con `unstable_cache`; PDP: `generateStaticParams` + `revalidate = 300`).
+- Lighthouse 12 en móvil (`--form-factor=mobile --screenEmulation.mobile`, throttling simulado) contra
+  producción para home, catálogo y PDP. Números completos en `docs/seo/00-auditoria.md` §5.
+- Prueba de acceso de 7 crawlers con `curl` (GPTBot, OAI-SearchBot, ChatGPT-User, PerplexityBot, ClaudeBot,
+  Bingbot, Googlebot): los 7 reciben 200 y exactamente el mismo HTML de 147.170 bytes — sin cloaking.
+- Verificación de que precio, stock y nombre viajan en el HTML inicial sin ejecutar JavaScript.
+- Revisión de metadatos, `robots.txt`, `sitemap.xml`, JSON-LD, esquema Prisma y flujo de compra en móvil.
+
+**Hallazgos principales:**
+
+1. `/assets/video-hero-catalog.mp4` pesa **30 MB** y es el elemento LCP de `/catalogo` (`autoplay`,
+   `preload="auto"`): la página pesa 31,8 MB y su LCP es de 6,8 s en móvil.
+2. **Cero `canonical`** en todo el sitio; ningún filtro del catálogo lleva `noindex`, así que
+   `?page`, `?search`, `?minPrice`, `?maxPrice`, `?inStock` y `?showAll` son indexables sin límite.
+3. `GET /robots.txt` → **404**; no existe `app/robots.ts`.
+4. El sitemap tiene 128 URLs e incluye `/auth/login` y `/auth/register`, que están marcadas `noindex`;
+   excluye los productos sin stock y no incluye las páginas legales ni `/contacto`.
+5. `MotorcycleCompatibility` sigue siendo una tabla muerta (el propio esquema lo documenta); la
+   compatibilidad real vive en `ProductCompatibilityItem` como texto libre escrito por el admin.
+6. El único JSON-LD del sitio es `Product` en la PDP; faltan `Organization`, `WebSite`, `BreadcrumbList`,
+   `ItemList` y `FAQPage` (el FAQ de la home ya es visible y solo le falta el marcado).
+7. `SocialProof.tsx` muestra testimonios con nombre propio etiquetados "Cliente verificado" y cifras
+   ("500+ clientes satisfechos", "98% recomendación") escritas a mano en el código → riesgo bajo la Ley 1480
+   de 2011 si no son reales. Registrado como decisión de negocio (H-01), no como bug.
+
+**Archivos creados:**
+
+- `docs/seo/00-auditoria.md` — auditoría completa con la lista priorizada y el apartado para reproducir las
+  mediciones.
+- `docs/seo/HUMAN_TASKS.md` — 32 tareas que no puede hacer el agente (H-01 a H-32), con la fase que bloquea
+  cada una.
+- `docs/seo/ROADMAP.md` — estado de las 8 fases.
+
+**Archivos modificados:** `README.md` — nueva sección 26 (Proyecto SEO / GEO / CRO).
+
+**Verificación:** ninguna. No se tocó código de la aplicación; los tres archivos nuevos y la sección del
+README son documentación. Las mediciones de Lighthouse y de los crawlers se pueden repetir con los comandos
+de `docs/seo/00-auditoria.md` §"Cómo reproducir esta auditoría".
+
+**Fuera de alcance / pendiente:** sin datos de campo (CrUX): la API de PageSpeed Insights respondió 429 sin
+clave, así que todas las métricas son de laboratorio. Tampoco hubo acceso a Search Console, así que no se
+sabe qué URLs tienen tráfico real hoy (H-05). La Fase 1 no arranca hasta que se apruebe esta auditoría (H-25).
+
+*Última actualización: 2026-09-22*
+
+---
+
 ## 158. Pop-up promocional de la home y swipe táctil en el Hero
 
 **Requerimiento 1 — pop-up promocional (README §24.1):**

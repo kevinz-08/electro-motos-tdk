@@ -1670,3 +1670,114 @@ El carrusel soporta gestos en móvil con eventos táctiles nativos (sin librerí
 horizontal de más de 50 px cambia de slide, y los verticales se ignoran para no bloquear el scroll de la
 página. El autoplay se pausa mientras el dedo está sobre el carrusel y los puntos de paginación siguen
 sincronizados.
+
+---
+
+## 26. Proyecto SEO / GEO / CRO
+
+Trabajo por fases para llevar la tienda a rankear en Google Colombia, ser citada por asistentes de IA y
+convertir mejor. Toda la documentación vive en `docs/seo/`:
+
+| Archivo | Qué contiene |
+|---------|--------------|
+| `AGENT-BRIEF.md` | Prompt maestro: rol, contexto de negocio, reglas no negociables y las 8 fases |
+| `ROADMAP.md` | Estado de cada fase — se actualiza al cerrar cada una |
+| `00-auditoria.md` | **Fase 0**: auditoría medida del sitio en producción (rutas, metadatos, indexación, JSON-LD, Lighthouse móvil, crawlers de IA, modelo de datos y conversión) |
+| `HUMAN_TASKS.md` | Todo lo que el agente no puede hacer: decisiones de negocio, datos verificados y accesos externos |
+
+**Reglas del proyecto** (detalle en el brief): nunca inventar compatibilidades, referencias OEM, precios,
+stock, reseñas ni tiempos de envío — lo que falte se marca `TODO(humano)` y se registra en `HUMAN_TASKS.md`;
+migraciones de Prisma siempre aditivas y reversibles; sin patrones oscuros de conversión; y aprobación
+explícita antes de cambiar URLs ya indexadas.
+
+### 26.1 Estado — Fase 0 terminada (2026-09-22)
+
+Auditoría de solo lectura, sin cambios en el código de la aplicación. Los hallazgos que mandan la
+priorización:
+
+1. `/catalogo` pesa **31,8 MB**: `/assets/video-hero-catalog.mp4` son 30 MB (94 % del total) y además es el
+   elemento LCP, que llega a 6,8 s en móvil.
+2. **No existe ni un solo `canonical`** en el sitio y ningún filtro del catálogo (`?page`, `?search`,
+   `?minPrice`, `?maxPrice`, `?inStock`, `?showAll`) lleva `noindex`.
+3. **`robots.txt` devuelve 404** — no hay `robots.ts` en el repo.
+4. **No hay sistema de compatibilidad por modelo de moto**: `MotorcycleCompatibility` está sin uso y lo único
+   vivo es `ProductCompatibilityItem`, texto libre que escribe el admin.
+5. El único JSON-LD del sitio es `Product` en la PDP: faltan `Organization`, `WebSite`, `BreadcrumbList`,
+   `ItemList` y `FAQPage` (este último con el FAQ que ya es visible en la home).
+
+Lo que ya está bien y no se toca: ningún crawler de IA bloqueado (verificado con `curl` para GPTBot,
+OAI-SearchBot, ChatGPT-User, PerplexityBot, ClaudeBot, Bingbot y Googlebot), HTML completo con precio y stock
+sin ejecutar JavaScript, TTFB de 70-80 ms, CLS en 0, cero bloqueo por scripts de terceros, `noindex` correcto
+en todo el área transaccional y prueba social de producto basada en datos reales (`soldCount` y reseñas
+verificadas por compra).
+
+Lighthouse móvil (2026-09-22, producción):
+
+| Plantilla | Rendimiento | SEO | LCP | CLS | TBT | Peso |
+|-----------|-------------|-----|-----|-----|-----|------|
+| Home | 80 | 91 | 4,3 s | 0 | 160 ms | 888 KB |
+| Catálogo | 72 | 100 | 6,8 s | 0 | 100 ms | 31.803 KB |
+| Producto | 88 | 100 | 3,4 s | 0 | 30 ms | 487 KB |
+
+**Pendiente de decisión del negocio:** `components/store/SocialProof.tsx` muestra en la home cuatro
+testimonios con nombre propio etiquetados "Cliente verificado" y las cifras "500+ clientes satisfechos",
+"1.200+ repuestos vendidos" y "98% recomendación", todo escrito a mano en el código. Si no corresponden a
+clientes y pedidos reales hay que alimentarlos desde `ProductReview` o retirarlos (tarea H-01).
+
+La Fase 1 (base técnica de SEO) no arranca hasta que se apruebe la auditoría.
+
+### 26.2 Fase 1 — Base técnica de SEO (2026-09-22)
+
+Detalle completo en `docs/seo/01-resultados.md`. Sin migraciones de base de datos.
+
+**Nuevas rutas generadas:**
+
+| Ruta | Qué sirve |
+|------|-----------|
+| `/robots.txt` | `app/robots.ts` — antes devolvía 404 |
+| `/sitemap.xml` | Índice de sitemaps (antes era una lista de 128 URLs) |
+| `/sitemap-paginas.xml` | Home, catálogo, contacto y las 4 legales (7 URLs) |
+| `/sitemap-categorias.xml` | Una URL por categoría con productos (25 URLs) |
+| `/sitemap-productos.xml` | Productos activos, con y sin stock (132 URLs) |
+
+**`lib/seo.ts` — fuente única de verdad del SEO técnico.** Define el host canónico
+(`https://www.tiendah2r.com`, sin barra final), `canonical()` (emite `<link rel="canonical">` + `hreflang`
+`es-CO` y `x-default`) y `catalogSeo()`, que decide qué URL del catálogo entra al índice:
+
+| URL | Indexación |
+|-----|------------|
+| `/catalogo` y `/catalogo?category=<slug>` (con su paginación) | indexable, canonical a sí misma |
+| `?search=` | `noindex, follow` — texto libre, espacio de rastreo infinito |
+| `?minPrice=` `?maxPrice=` `?inStock=` `?showAll=` y cualquier combinación | `noindex, follow`, canonical a la versión limpia |
+| categoría sin productos o slug inexistente | `noindex, follow` |
+
+Los filtros **no** se bloquean en `robots.txt` a propósito: para que un buscador vea el `noindex` tiene que
+poder rastrear la página. Sí se bloquea `?search=`.
+
+**IndexNow** (`apps/api/src/infrastructure/services/IndexNowService.ts`): avisa a Bing, Yandex, Seznam y
+Naver cuando se crea o edita un producto o cambia su stock. Cola en memoria con *debounce* de 30 s (o lote
+de 100), así que guardar 30 productos seguidos manda una sola petición. Sin `INDEXNOW_KEY` queda
+desactivado sin error. La clave se publica en `apps/web/public/<clave>.txt` y se inyecta en Cloud Run desde
+el workflow de CI. Google no participa del protocolo: para Google vale el sitemap.
+
+**Rendimiento.** El hero de `/catalogo` cargaba un MP4 de 87,8 MB (unos 30 MB transferidos) con
+`autoplay preload="auto"`, y era el elemento LCP: 6,8 s y 31,8 MB de página en móvil. Ahora:
+
+- El vídeo se recomprimió a 720p sin pista de audio (siempre estuvo `muted`): **87,8 MB → 3,7 MB**.
+- El elemento LCP pasa a ser un póster WebP de 12 KB que se pinta de inmediato.
+- `CatalogHeroVideo` (client) monta el vídeo **solo** si la pantalla es ≥ 1024 px, no hay
+  `prefers-reduced-motion`, el navegador no reporta `saveData` ni conexión 2G/3G, y el hilo principal está
+  libre (`requestIdleCallback`). **En móvil el vídeo ya no se descarga.**
+- Se quitaron 4 `<link rel="preload">` de imágenes muy por debajo del pliegue (destacados de la home y
+  productos relacionados de la ficha) que competían con el elemento LCP real.
+- Los 5 banners de categoría pasaron de JPG a WebP: 734 KB → 429 KB.
+
+**Comprobación automática:** `pnpm seo:check [url]` (42 comprobaciones de robots, sitemaps, canonical,
+idioma, reglas de indexación y acceso de los crawlers de IA) y `pnpm seo:lighthouse [url]` (presupuesto de
+Core Web Vitals que falla si LCP > 2,5 s, CLS > 0,1, TBT > 300 ms o la página supera su techo de peso).
+Ambos corren semanalmente y a demanda en `.github/workflows/seo.yml`.
+
+**Bug corregido de paso:** la home devolvía HTTP 500 de forma intermitente porque
+`getCachedFeaturedProducts()` seleccionaba productos con SQL crudo sin filtrar `deletedAt IS NULL` y luego
+los resolvía con `findById()`, que sí los filtra — un producto de la papelera con stock devolvía `null` y
+reventaba el `.map()`. Detectado al verificar esta fase.

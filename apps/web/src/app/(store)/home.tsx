@@ -13,18 +13,20 @@
 import Link from 'next/link'
 import { ProductCard } from '@/components/store/ProductCard'
 import { HeroBannerCarousel } from '@/components/store/HeroBannerCarousel'
+import { PromoModal } from '@/components/store/PromoModal'
 import { TrustBadges } from '@/components/store/TrustBadges'
 import { CategoryGrid } from '@/components/store/CategoryGrid'
 import { SocialProof } from '@/components/store/SocialProof'
 import { CtaMidSection } from '@/components/store/CtaMidSection'
 import { FAQ } from '@/components/store/FAQ'
-import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners } from '@/lib/cache'
+import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal } from '@/lib/cache'
 
 export default async function HomePage() {
-  const [featuredProducts, categories, heroBanners] = await Promise.all([
+  const [featuredProducts, categories, heroBanners, promo] = await Promise.all([
     getCachedFeaturedProducts(),
     getCachedHomeCategories(),
     getCachedHeroBanners(),
+    getCachedPromoModal(),
   ])
 
   const banners = heroBanners.map((b) => ({
@@ -37,6 +39,9 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Pop-up promocional — se administra en /admin/promocion (README §25.1) */}
+      {promo && <PromoModal promo={promo} />}
+
       {/* 1. Hero carrusel con CTA — banners administrables desde /admin/banners */}
       <HeroBannerCarousel banners={banners} />
 

@@ -1,6 +1,7 @@
 # Roadmap SEO / GEO / CRO — H2R Online Store
 
 Estado de las fases definidas en [`AGENT-BRIEF.md`](./AGENT-BRIEF.md).
+Para desplegar lo ya construido: [`DESPLIEGUE.md`](./DESPLIEGUE.md).
 Orden de ejecución: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7. Las fases 3 y 4 pueden avanzar en paralelo una vez
 terminada la 2. **Las fases 0 y 2 requieren aprobación explícita antes de continuar.**
 

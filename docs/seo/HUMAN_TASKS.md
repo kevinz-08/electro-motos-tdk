@@ -26,8 +26,8 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 
 | ID | Tarea | Fase | Estado |
 |---|---|---|---|
-| H-06 | Verificar el sitio en **Google Search Console** y enviar los sitemaps | 1 | ⬜ |
-| H-07 | Verificar el sitio en **Bing Webmaster Tools** y enviar los sitemaps (también habilita IndexNow) | 1 | ⬜ |
+| H-06 | Verificar el sitio en **Google Search Console** y enviar los sitemaps. **Pasos detallados en [`DESPLIEGUE.md`](./DESPLIEGUE.md) §4** | 1 | ⬜ |
+| H-07 | Verificar el sitio en **Bing Webmaster Tools** y enviar los sitemaps (también habilita IndexNow). **Pasos en [`DESPLIEGUE.md`](./DESPLIEGUE.md) §5** | 1 | ⬜ |
 | H-08 | Conseguir una **API key de PageSpeed Insights** (o dar acceso a los datos de campo CrUX) para medir el percentil 75 real desde Colombia | 1 | ⬜ |
 | H-09 | Crear/configurar **Google Merchant Center** para Colombia y activar las fichas gratuitas | 7 | ⬜ |
 | H-10 | Decidir si hay **punto físico atendiendo al público** en Carrera 21 #21-58, Bucaramanga. Si lo hay: crear **Google Business Profile** y **Bing Places**. Si no, no se crea (y el JSON-LD usa `Organization`, no `LocalBusiness`) | 3, 6 | ⬜ |

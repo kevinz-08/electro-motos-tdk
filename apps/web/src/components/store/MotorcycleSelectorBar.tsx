@@ -6,16 +6,31 @@
  * abre instantáneamente, sin fetch, y la barra no obliga a ninguna página a
  * volverse dinámica — no lee cookies en el servidor.
  *
- * Si todavía no hay marcas o modelos cargados, no se renderiza nada: una barra
- * con un selector vacío es peor que no tener barra.
+ * NO SE RENDERIZA SI NO HAY COMPATIBILIDADES VERIFICADAS, y esta es la parte
+ * importante: el catálogo de motos (marcas y modelos) se puede cargar antes que
+ * las compatibilidades, y de hecho así está hoy — 32 modelos, 0 fitments. En ese
+ * estado, un cliente que eligiera su moto vería "No confirmado para tu NKD 125"
+ * en **todos** los productos, porque no hay ni un solo fitment con el que
+ * comparar. Eso siembra duda justo donde el sitio intenta dar confianza: es peor
+ * que no ofrecer el selector.
+ *
+ * Así que la barra aparece sola, sin tocar código, en cuanto se cargue la
+ * primera compatibilidad verificada (tarea H-02). El contador está cacheado una
+ * hora con el tag `fitments`, así que la importación del CSV lo refresca.
  */
-import { getCachedMotorcycleCatalog } from '@/lib/cache'
+import { getCachedMotorcycleCatalog, getCachedVerifiedFitmentCount } from '@/lib/cache'
 import { MotorcycleSelector } from './MotorcycleSelector'
 
 export async function MotorcycleSelectorBar() {
-  const { brands, models } = await getCachedMotorcycleCatalog()
+  const [{ brands, models }, verifiedFitments] = await Promise.all([
+    getCachedMotorcycleCatalog(),
+    getCachedVerifiedFitmentCount(),
+  ])
 
+  // Sin catálogo de motos no hay nada que elegir; sin compatibilidades
+  // verificadas, elegir no sirve de nada (ver el comentario de arriba).
   if (brands.length === 0 || models.length === 0) return null
+  if (verifiedFitments === 0) return null
 
   return (
     <div className="border-b border-white/10 bg-black/95">

@@ -14,14 +14,15 @@ antiguo — el sitio se está indexando de forma normal y sin bloqueos.
 
 ## Motivos de las páginas sin indexar
 
-| Motivo | Páginas | Lectura |
-|---|---|---|
-| Página con redirección | 2 | Esperado: el apex `tiendah2r.com` redirige 308 a `www.tiendah2r.com` (confirmado en la Fase 0) |
-| Excluida por una etiqueta "noindex" | 1 | Esperado: coincide con alguna ruta transaccional (`/carrito`, `/checkout`, `/auth/*`…) que ya llevaba `noindex` antes de este proyecto |
-| *(tercer motivo — pendiente de confirmar el texto exacto)* | — | TODO(humano): completar tras revisar el resto de la tabla en Search Console |
+| Motivo | Fuente | Páginas | Lectura |
+|---|---|---|---|
+| Página con redirección | Sitio web | 2 | Esperado: el apex `tiendah2r.com` redirige 308 a `www.tiendah2r.com` (confirmado en la Fase 0) |
+| Excluida por una etiqueta "noindex" | Sitio web | 1 | Esperado: coincide con alguna ruta transaccional (`/carrito`, `/checkout`, `/auth/*`…) que ya llevaba `noindex` antes de este proyecto |
+| Rastreada: actualmente sin indexar | Sistemas de Google | 1 | Google la vio y decidió no indexarla por su propio criterio (típicamente contenido que considera de bajo valor o muy similar a otra URL ya indexada) — no depende de ninguna etiqueta nuestra. No es urgente: con solo 1 página y sin patrón, no amerita acción antes de desplegar. Revisar después de la Fase 1 si sigue apareciendo o si es una URL distinta cada vez |
 
-**Ninguno de los 4 casos es un problema.** Los tres motivos son consecuencia de decisiones ya tomadas
-antes de la Fase 1, no de un error de rastreo.
+**Ninguno de los 4 casos es un problema.** Tres de los cuatro motivos son consecuencia de decisiones
+ya tomadas antes de este proyecto (el redirect del apex y el `noindex` transaccional); el cuarto es
+una decisión propia de Google sobre una sola URL, sin patrón visible.
 
 ## Qué comparar después de desplegar
 

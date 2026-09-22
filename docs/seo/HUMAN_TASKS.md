@@ -18,7 +18,7 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-02** | **Datos de compatibilidad verificados.** 🔴 **Ahora es LA tarea crítica del proyecto.** El sistema está construido y probado, pero con 0 compatibilidades no publica nada: los hubs dan 404 y el sitemap de modelos va vacío. Llenar la plantilla [`plantilla-compatibilidades.csv`](./plantilla-compatibilidades.csv) (`sku,marca_moto,modelo_moto,posicion,anio_desde,anio_hasta,fuente,notas,verificado`) y subirla a `POST /admin/fitments/import`. La **fuente** es obligatoria: sin ella el importador rechaza la fila | Fase 2 → publicar | ⬜ |
 | **H-03** | **Referencias OEM** de los productos que las tengan (`sku,referencia_oem,fabricante`) | Fase 2, Fase 3 | ⬜ |
 | **H-04** | **Confirmar la lista de modelos prioritarios** (ver también H-39) del brief (AKT NKD 125, Bajaj Boxer CT100, NMAX 155, XR190L, DR150, Pulsar NS/N, FZ, Hunk 125R, Apache, Raider) contra las ventas reales de H2R y los datos de Search Console | Fase 2, Fase 5 | ⬜ |
-| **H-05** | **Dar acceso a Google Search Console** (o exportar consultas, páginas y URLs indexadas de los últimos 12 meses). Sin esto no se puede saber qué URLs tienen tráfico antes de cambiar rutas — regla 7 del brief | Fase 1, Fase 2 | ⬜ |
+| **H-05** | ~~Dar acceso a Google Search Console~~ — **resuelta el 2026-09-22**: línea base capturada en `docs/seo/baseline/` (133 clics, 1.470 impresiones, 35 páginas indexadas, 16 meses). Confirma que la gente ya busca por modelo de moto y que el riesgo de perder tráfico existente con la Fase 1 es mínimo | Fase 1, Fase 2 | ✅ |
 
 ---
 

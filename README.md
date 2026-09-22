@@ -1846,3 +1846,44 @@ y están pendientes de confirmar. El cilindraje solo se declara cuando aparece e
 **Estado:** el sistema está completo y verificado, pero hay **0 compatibilidades cargadas**. Mientras
 siga así no se publica ningún hub. No es un fallo: el sistema no inventa compatibilidades. Cargar los
 datos reales es la tarea H-02 de `docs/seo/HUMAN_TASKS.md`.
+
+### 26.4 Fase 3 — Datos estructurados (2026-09-22)
+
+Hace legible el negocio para Google y para los motores generativos. Detalle en
+`docs/seo/03-datos-estructurados.md`. Sin migraciones.
+
+**Todo el JSON-LD se construye en `apps/web/src/lib/structured-data.ts`** y se inserta con el
+componente `<JsonLd>`, que aplica el escape de `<` (sin él, una descripción de producto que contenga
+`</script>` cerraría la etiqueta antes de tiempo).
+
+| Tipo | Dónde |
+|------|-------|
+| `Organization` (NIT, dirección, `contactPoint`, `sameAs`) | Layout raíz — todas las páginas |
+| `WebSite` + `SearchAction` | Layout raíz |
+| `Product` completo | Ficha de producto |
+| `BreadcrumbList` | Ficha, categoría del catálogo y rutas de modelo |
+| `ItemList` | Categoría del catálogo y modelo × categoría |
+| `FAQPage` | Home |
+
+**Las dos reglas del marcado:**
+
+1. **Nada que no se pueda sostener.** Cada campo opcional sale de la base de datos, de `Settings` o
+   de una página legal publicada; si el dato no existe, el campo **se omite**. Un
+   `OfferShippingDetails` con tiempos inventados es peor que no tenerlo, porque Google lo contrasta
+   con la realidad del envío. Por eso quedan fuera `shippingRate` (el flete se cotiza por ciudad, no
+   hay tarifa plana — H-13), `returnFees` (H-15), `LocalBusiness` (H-10) y el `sameAs` de Mercado
+   Libre, cuya URL del brief devuelve 404 (H-12). Instagram, Facebook y TikTok sí se marcan: se
+   verificó uno por uno que responden 200.
+2. **El marcado refleja lo visible.** Las migas emiten el `<nav>` y el `BreadcrumbList` del mismo
+   array; el FAQ de la home se extrajo a `lib/faq.ts` y lo consumen el acordeón y el `FAQPage`; el
+   `ItemList` lleva los productos de esa página y en su orden.
+
+**Lo que desbloquea para GEO:** el `Product` declara `isAccessoryOrSparePartFor` con entidades
+`Motorcycle` (marca, modelo, `vehicleModelDate` y cilindrada) construidas desde los fitments
+**verificados** de la Fase 2. Sin eso, la compatibilidad solo existe como texto en una tabla; con
+eso, un motor generativo puede responder "¿qué pastillas le sirven a una XR190L?" citando a H2R.
+
+**Validación:** `pnpm seo:schema [url]` recorre home, ficha, categoría y hub de modelo, extrae todo
+el JSON-LD y comprueba que sea parseable y que cada tipo traiga sus campos obligatorios, incluidos
+los anidados (`offers.price`, `offers.availability`…). Corre en `.github/workflows/seo.yml` junto a
+`seo:check` y `seo:lighthouse`.

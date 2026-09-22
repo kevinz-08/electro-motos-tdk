@@ -4,6 +4,78 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 162. Fase 3 del proyecto SEO — datos estructurados (JSON-LD)
+
+**Requerimiento:** brief §8 — utilidad JSON-LD reutilizable y tipada, `Organization`, `WebSite`,
+`Product` completo, `BreadcrumbList`, `ItemList`, `FAQPage` y un script que valide el marcado.
+
+**Centralización:** todo el JSON-LD pasa a construirse en `apps/web/src/lib/structured-data.ts` y a
+insertarse con `components/seo/JsonLd.tsx`. Antes el marcado se escribía a mano en cada página
+(`Product` en la ficha; `BreadcrumbList` e `ItemList` en las rutas de la Fase 2), lo que hacía fácil
+que se desincronizara y imposible validarlo de una vez. El componente aplica el escape de `<`: sin
+él, una descripción de producto que contenga `</script>` cerraría la etiqueta antes de tiempo.
+
+**Marcado nuevo:**
+
+- `Organization` en el layout raíz — `legalName`, `taxID` (NIT 1007784964-5), `logo`, `address`
+  (Carrera 21 #21-58, Bucaramanga), `contactPoint` con `areaServed: CO` y `availableLanguage: es`,
+  `areaServed` Colombia y `sameAs`. Se declara `Organization` y no `LocalBusiness` a propósito:
+  `LocalBusiness` prometería una tienda visitable sin haber confirmado que la hay (H-10).
+- `WebSite` + `SearchAction` hacia `/catalogo?search=`.
+- `Product` completo: `url`, `itemCondition`, `seller` referenciando la organización,
+  `shippingDetails`, `hasMerchantReturnPolicy`, `brand`, `mpn`, `isSimilarTo` con las referencias
+  OEM y, lo importante, **`isAccessoryOrSparePartFor`** con entidades `Motorcycle` (marca, modelo,
+  `vehicleModelDate` y `vehicleEngine`) construidas desde los fitments verificados de la Fase 2.
+- `BreadcrumbList` en ficha de producto y categoría del catálogo, además de las rutas de modelo.
+- `ItemList` en la categoría del catálogo.
+- `FAQPage` en la home.
+
+**Las dos reglas que gobiernan el archivo, y que explican lo que NO se marca:**
+
+1. *Nada que no se pueda sostener.* Cada campo opcional sale de la base de datos, de `Settings` o de
+   una página legal publicada, y si el dato no existe el campo se omite en vez de rellenarse con un
+   valor plausible. Quedan fuera: `shippingRate` (el flete se cotiza por ciudad con la
+   transportadora, no hay tarifa plana que afirmar — H-13), `returnFees` (quién paga el flete de
+   devolución no está definido; declarar `FreeReturn` sin serlo sería una promesa falsa — H-15),
+   `LocalBusiness` (H-10) y el `sameAs` de Mercado Libre, cuya URL en el brief **devuelve 404**
+   (H-12). Los tres perfiles que sí se marcan —Instagram, Facebook y TikTok— se verificaron uno por
+   uno con `curl`: responden 200.
+   Lo que sí se declara y de dónde sale: la ventana de entrega de `shippingDetails` viene de
+   `Settings` (el mismo dato que ve el comprador en la ficha) y los 5 días de devolución de la
+   página legal `/legal/politica-de-cambios`.
+2. *El marcado refleja lo visible.* `Breadcrumbs` emite el `<nav>` y el `BreadcrumbList` del mismo
+   array. El FAQ de la home se extrajo a `lib/faq.ts` y lo consumen el acordeón y el `FAQPage`: antes
+   vivía dentro del componente cliente y no había forma de marcarlo sin duplicarlo. El `ItemList`
+   lleva los productos de esa página y en su orden, no el total del catálogo.
+
+**Validación (`scripts/seo-schema.mjs`, `pnpm seo:schema`):** recorre home, ficha, categoría y hub de
+modelo, extrae todos los bloques JSON-LD y comprueba que sean parseables, que el tipo esperado esté
+presente y que traiga sus campos obligatorios, incluidos los anidados. Añadido a
+`.github/workflows/seo.yml`.
+
+**Verificación (2026-09-22), sobre build de producción local contra la base real:**
+
+- `pnpm seo:schema` → **43/43** sin compatibilidades cargadas.
+- Con un fitment de prueba y `mpn`/`partBrand` cargados → **47/47**, con
+  `isAccessoryOrSparePartFor` emitiendo `Motorcycle` con `vehicleModelDate: "2018-2024"` y
+  `engineDisplacement: 125 CMQ`, y con `brand` y `mpn` presentes. Al vaciar esos datos los campos
+  desaparecen: probado en ambos sentidos.
+- Los datos de prueba se borraron al terminar (0 fitments, campos en `null`, comprobado).
+- `pnpm seo:check` 42/42, `type-check` limpio, `lint` sin errores, 253 tests de dominio y 191 de API.
+
+**Fuera de alcance / pendiente:** `priceValidUntil` no se declara (los precios no tienen vigencia
+definida y poner una fecha sería inventarla). Las reseñas individuales (`Review`) no se marcan, solo
+el `aggregateRating`. El validador comprueba presencia y forma, no semántica: que
+`merchantReturnDays: 5` esté no garantiza que la política siga siendo de 5 días (H-15). Y sobre todo:
+en producción `brand`, `mpn` e `isAccessoryOrSparePartFor` saldrán vacíos hasta que lleguen los datos
+de H-18 y H-02.
+
+**Despliegue:** sin migraciones ni variables nuevas.
+
+*Última actualización: 2026-09-22*
+
+---
+
 ## 161. Fase 2 del proyecto SEO — sistema de compatibilidad por modelo de moto
 
 **Requerimiento:** construir el núcleo del proyecto (brief §7): modelo de datos de compatibilidad,

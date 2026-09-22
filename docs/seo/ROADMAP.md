@@ -9,8 +9,8 @@ terminada la 2. **Las fases 0 y 2 requieren aprobación explícita antes de cont
 | **0** | Auditoría | ✅ Terminada (2026-09-22) | [`00-auditoria.md`](./00-auditoria.md) | ✅ Aprobada |
 | **1** | Base técnica de SEO | ✅ **Terminada** (2026-09-22) | [`01-resultados.md`](./01-resultados.md) | ⏳ Pendiente de desplegar y volver a medir (H-36) |
 | **2** | Sistema de compatibilidad | ✅ Terminada (2026-09-22) | [`02-compatibilidad.md`](./02-compatibilidad.md) | ✅ Aprobada · ⛔ bloqueada por **H-02** para publicar |
-| 3 | Datos estructurados | 🔜 **Definida, esperando aprobación** | `03-datos-estructurados.md` | — |
-| 4 | Conversión | 📋 Definida | `04-conversion.md` | Puede ir en paralelo con la 3 |
+| **3** | Datos estructurados | ✅ **Terminada** (2026-09-22) | [`03-datos-estructurados.md`](./03-datos-estructurados.md) | — |
+| 4 | Conversión | 🔜 Siguiente | `04-conversion.md` | — |
 | 5 | Contenido y E-E-A-T | 📋 Definida | `05-contenido.md` | Necesita revisor técnico (H-21) |
 | 6 | GEO | 📋 Definida | `06-geo.md`, `geo/` | — |
 | 7 | Merchant Center y feed | 📋 Definida | `07-feed.md` | Necesita marca y MPN de los repuestos (H-18) |
@@ -109,47 +109,25 @@ compatibilidades.
 
 ---
 
-## Fase 3 — Datos estructurados 🔜
+## Fase 3 — Datos estructurados ✅
 
-**Objetivo:** que Google y los motores generativos entiendan qué es H2R, qué vende, con qué motos es
-compatible cada repuesto y en qué condiciones lo entrega. Hoy el único JSON-LD del sitio es `Product`
-en la ficha, más `BreadcrumbList` e `ItemList` en las rutas nuevas de la Fase 2.
+**Terminada el 2026-09-22.** Detalle en [`03-datos-estructurados.md`](./03-datos-estructurados.md).
 
-**Qué se construye**
+Se implementó todo lo planificado: utilidad JSON-LD tipada, `Organization` con NIT y perfiles
+verificados, `WebSite` + `SearchAction`, `Product` completo con **`isAccessoryOrSparePartFor`**
+construido desde los fitments verificados, `BreadcrumbList` en ficha y catálogo, `ItemList`,
+`FAQPage` sobre el FAQ visible, y el validador `pnpm seo:schema` (47 comprobaciones) integrado en CI.
 
-1. **Utilidad JSON-LD tipada y reutilizable** (`lib/structured-data.ts`). Hoy el marcado se escribe a
-   mano en cada página; centralizarlo evita que se desincronicen y permite validarlos de una vez.
-2. **`Organization`** en el layout raíz: `name`, `legalName`, `taxID` (NIT 1007784964-5), `url`,
-   `logo`, `address` (Cra 21 #21-58, Bucaramanga), `contactPoint` con `areaServed: "CO"` y
-   `availableLanguage: "es"`, y `sameAs` con los perfiles oficiales.
-3. **`WebSite` + `SearchAction`** apuntando a la búsqueda interna del catálogo.
-4. **`Product` completo**: `brand` (marca del repuesto), `mpn`, `offers.url`, `itemCondition`,
-   `OfferShippingDetails` hacia Colombia, `MerchantReturnPolicy` y —lo importante para este negocio—
-   **`isAccessoryOrSparePartFor`** con entidades `Motorcycle` construidas desde los fitments
-   **verificados** de la Fase 2.
-5. **`BreadcrumbList` en ficha y catálogo** (hoy solo está en las rutas de modelo).
-6. **`ItemList`** en el catálogo y en el hub de modelo.
-7. **`FAQPage`** sobre el FAQ que **ya es visible** en la home. El marcado tiene que coincidir con lo
-   que se ve: no se inventan preguntas para tener qué marcar.
-8. **Script de validación** (`pnpm seo:schema`): recorre una muestra de URLs, extrae todo el JSON-LD,
-   comprueba que sea parseable y que cada tipo traiga sus campos obligatorios. Se suma al workflow
-   `seo.yml`, junto a `seo:check` y `seo:lighthouse`.
+**Verificación:** 43/43 sin datos de compatibilidad y 47/47 con un fitment de prueba que se creó, se
+comprobó y se borró. `brand`, `mpn` e `isAccessoryOrSparePartFor` se probaron en ambos sentidos
+(presentes al cargar los datos, ausentes al vaciarlos).
 
-**Lo que NO se marca sin datos confirmados**
+**Lo que quedó fuera, a propósito:** `shippingRate` (H-13), `returnFees` (H-15), `LocalBusiness`
+(H-10) y el `sameAs` de Mercado Libre, cuya URL en el brief devuelve 404 (H-12). Marcar lo que no se
+puede sostener es peor que no marcarlo.
 
-| Elemento | Necesita | Si falta |
-|---|---|---|
-| `sameAs` de `Organization` | URLs exactas de los perfiles (**H-12**) | Se omite `sameAs` |
-| `OfferShippingDetails` | Tiempos y costos reales por ciudad (**H-13**) | Se omite el bloque de envío |
-| `MerchantReturnPolicy` | Política exacta de devoluciones (**H-15**) | Se omite el bloque de devoluciones |
-| `LocalBusiness` | Confirmar si hay punto físico atendiendo al público (**H-10**) | Se queda en `Organization` |
-| `brand` y `mpn` del producto | Marca y MPN por producto (**H-18**) | Se omiten esos campos |
-
-**Criterio de salida:** JSON-LD válido en el 100 % de las plantillas, verificado por script, y
-`03-datos-estructurados.md` con el antes/después y qué campos quedaron fuera por falta de datos.
-
-**Riesgo principal:** marcar lo que no se puede sostener. Un `OfferShippingDetails` con tiempos
-inventados es peor que no tenerlo, porque Google lo contrasta con la realidad del envío.
+**Objetivo original:** que Google y los motores generativos entiendan qué es H2R, qué vende, con qué
+motos es compatible cada repuesto y en qué condiciones lo entrega.
 
 ---
 

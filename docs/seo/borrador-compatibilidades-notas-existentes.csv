@@ -1,0 +1,37 @@
+sku,marca_moto,modelo_moto,posicion,anio_desde,anio_hasta,fuente,notas,verificado
+3-MAGX9,Bajaj,Pulsar NS 200,ambas,,,"Nota de compatibilidad ya existente en la ficha (acordeon admin): ""PULSAR 200 NS"" - PENDIENTE DE VERIFICAR",,no
+15-S030D,Yamaha,FZ 2.0,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""FZ 16-2.0"" - PENDIENTE DE VERIFICAR","OJO: la nota original dice ""FZ 16"", que podria ser la generacion anterior (FZ16) y no la FZ 2.0 actual. Confirmar si la llanta sirve para ambas generaciones o solo una",no
+15-S030D,Suzuki,Gixxer 150,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150"" - PENDIENTE DE VERIFICAR",,no
+15-S030T,Yamaha,FZ 2.0,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""FZ 16 - 2.0"" - PENDIENTE DE VERIFICAR","Misma duda FZ16 vs FZ 2.0 que en 15-S030D",no
+15-S030T,Suzuki,Gixxer 150,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150"" - PENDIENTE DE VERIFICAR",,no
+15-L2261,Yamaha,FZ 2.0,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""FZ 16-2.0"" - PENDIENTE DE VERIFICAR","Misma duda FZ16 vs FZ 2.0",no
+15-L2261,Suzuki,Gixxer 150,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150-250"" - PENDIENTE DE VERIFICAR","La nota tambien menciona Gixxer 250, que no esta en el catalogo todavia",no
+9-E482,Suzuki,Gixxer 150,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150 SF"" - PENDIENTE DE VERIFICAR","La nota especifica variante SF; confirmar si aplica a toda la Gixxer 150",no
+9-H3330,Suzuki,Gixxer 150,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150 / 250"" - PENDIENTE DE VERIFICAR","La nota tambien menciona Gixxer 250, que no esta en el catalogo todavia",no
+9-H3330,Yamaha,FZ 2.0,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""FZ 2.0"" - PENDIENTE DE VERIFICAR",,no
+3-68020,Yamaha,FZ 2.0,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""YAMAHA FZ 2.0"" - PENDIENTE DE VERIFICAR",,no
+3-68020,Honda,CB160F,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""HONDA CB 160 F"" - PENDIENTE DE VERIFICAR",,no
+9-0209,Suzuki,Gixxer 150,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150 Y 250"" - PENDIENTE DE VERIFICAR","La nota tambien menciona Gixxer 250, que no esta en el catalogo todavia",no
+9-0209,Yamaha,FZ 2.0,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""FZ 2.0"" - PENDIENTE DE VERIFICAR",,no
+9-0209,Bajaj,Pulsar NS 200,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""PULSAR 200 NS"" - PENDIENTE DE VERIFICAR",,no
+5-BULV45,Yamaha,FZ 2.0,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""Yamaha fz 16-2.0"" - PENDIENTE DE VERIFICAR","Misma duda FZ16 vs FZ 2.0",no
+3-68030,Yamaha,FZ 25,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""FZ 250"" - CONFIRMADO por alias ya cargado (FZ 250 es alias de FZ 25) - PENDIENTE DE VERIFICAR EN TALLER",Coincidencia corroborada por dos fuentes independientes: el alias del modelo y la nota original del producto,no
+3-MAGX9,KTM,Duke 200,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""KTM 200"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+9-SLIKTM,KTM,Duke 200,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""KTM 200 NG"" - PENDIENTE DE VERIFICAR","Modelo dado de alta el 2026-09-22. La nota distingue variante NG (no se sabe que significa la sigla)",no
+9-SLIKTM,KTM,Duke 200,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""KTM 200 WO"" - PENDIENTE DE VERIFICAR","Duplicada con la fila anterior salvo por la variante WO del mismo producto; confirmar si aplica a ambas o si son variantes distintas",no
+9-H3330,KTM,Duke 200,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""KTM 200"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+5-BULV45,KTM,Duke 200,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""Ktm duke 200 wo/ng"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+8-Z250,Kawasaki,Z250,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""KAWASAKI Z250"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+15-L2261,Suzuki,Gixxer 250,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150-250"" - PENDIENTE DE VERIFICAR","Modelo dado de alta el 2026-09-22. Confirmar si esta llanta realmente sirve para ambas cilindradas o solo una",no
+9-E482,Suzuki,Gixxer 250,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 250 SF"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+9-H3330,Suzuki,Gixxer 250,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150 / 250"" - PENDIENTE DE VERIFICAR","Modelo dado de alta el 2026-09-22. Confirmar si aplica a ambas cilindradas",no
+3-68030,Suzuki,Gixxer 250,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 250"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+9-0209,Suzuki,Gixxer 250,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""GIXXER 150 Y 250"" - PENDIENTE DE VERIFICAR","Modelo dado de alta el 2026-09-22. Confirmar si aplica a ambas cilindradas",no
+3-68030,Yamaha,XTZ 250,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""XTZ 250"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+3-68030,Honda,CB190R,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""CB 190R"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+9-SLIMT,Yamaha,MT-15,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""YAMAHA MT 15"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+3-68020,Yamaha,MT-15,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""YAMAHA MT15"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+9-E482,Yamaha,R15,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""R 15"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+15-S535,Yamaha,BWS 125,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""BWS 125"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+15-S5352,Yamaha,BWS 125,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""BWS 125"" - PENDIENTE DE VERIFICAR",Modelo dado de alta el 2026-09-22 a partir de esta misma nota,no
+9-SLIP400,Bajaj,Pulsar 400,ambas,,,"Nota de compatibilidad ya existente en la ficha: ""PULSAR 400 Z / NS"" - PENDIENTE DE VERIFICAR","Modelo dado de alta el 2026-09-22, cargado como una sola moto porque la nota no distingue variante Z de NS con certeza",no

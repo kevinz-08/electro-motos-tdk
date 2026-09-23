@@ -1,0 +1,21 @@
+sku,marca_moto,modelo_moto,posicion,anio_desde,anio_hasta,fuente,notas,verificado
+10-0041,Yamaha,XTZ 125,ambas,,,Sugerido por nombre de producto: RAMAL ELECTRICO XTZ 125 ESTARTER M. 2007-2012 - PENDIENTE DE VERIFICAR,El nombre indica el rango 2007-2012; confirmar y pasar a anio_desde/anio_hasta,no
+9-CB190,Honda,CB160F,ambas,,,Sugerido por nombre de producto: FILTRO AIRE ALTO FLUJO CB 190 CB 160 - PENDIENTE DE VERIFICAR,El filtro tambien menciona CB 190 en el nombre; ese modelo no esta en el catalogo de motos todavia,no
+6-CDIXTZ2,Yamaha,XTZ 125,ambas,,,Sugerido por nombre de producto: CDI YAMAHA XTZ 125 M. 2019 - PENDIENTE DE VERIFICAR,El nombre indica el anio 2019; confirmar y pasar a anio_desde/anio_hasta,no
+9-06200,Suzuki,Gixxer 150,ambas,,,Sugerido por nombre de producto: MOTOR ARRANQUE GIXXER 150 - PENDIENTE DE VERIFICAR,,no
+9-STOPNS,Bajaj,Pulsar NS 200,ambas,,,Sugerido por nombre de producto: STOP INTEGRADO PULSAR NS 200 - PENDIENTE DE VERIFICAR,,no
+16-TPSFZ,Yamaha,FZ 2.0,ambas,,,Sugerido por nombre de producto: SENSOR HIBRIDO TPS FZ 2.0 - PENDIENTE DE VERIFICAR,,no
+14-15010,Yamaha,FZ 2.0,ambas,,,Sugerido por nombre de producto: BOMBA DE GASOLINA FZ 2.0 - CRIPTON 115 FI - PENDIENTE DE VERIFICAR,El nombre tambien menciona Cripton 115 FI; ese modelo no esta en el catalogo de motos todavia,no
+9-APACHE,TVS,Apache RTR 160,ambas,,,Sugerido por nombre de producto: FILTRO AIRE ALTO FLUJO APACHE 160 180 200 CARBURADA - PENDIENTE DE VERIFICAR,El nombre menciona 160/180/200; confirmar si aplica solo a la RTR 160 o tambien a la RTR 200 (que si esta en el catalogo),no
+9-GIX150,Suzuki,Gixxer 150,ambas,,,Sugerido por nombre de producto: FILTRO AIRE ALTO FLUJO GIXXER 150/250 - PENDIENTE DE VERIFICAR,El nombre tambien menciona Gixxer 250; ese modelo no esta en el catalogo de motos todavia,no
+9-SNMAX,Yamaha,NMAX 155,ambas,,,Sugerido por nombre de producto: STOP INTEGRADO NMAX V1 - PENDIENTE DE VERIFICAR,El nombre dice V1; confirmar si aplica a todas las versiones de la NMAX,no
+9-3500,Suzuki,Gixxer 150,ambas,,,Sugerido por nombre de producto: FENDER PARA GIXXER 150- 250 - PENDIENTE DE VERIFICAR,El nombre tambien menciona Gixxer 250; ese modelo no esta en el catalogo de motos todavia,no
+4-67700,TVS,Apache RTR 160,ambas,,,Sugerido por nombre de producto: BOBINA DE ALTA APACHE 160 4V - PENDIENTE DE VERIFICAR,,no
+6-04700,Bajaj,Discover 125,ambas,,,Sugerido por nombre de producto: CDI DISCOVER 100 - PENDIENTE DE VERIFICAR,"OJO: el producto dice Discover 100 y el modelo cargado es Discover 125 - confirmar si son compatibles o si hace falta dar de alta la Discover 100 aparte",no
+6-45600,Suzuki,Gixxer 150,ambas,,,Sugerido por nombre de producto: CDI SUZUKI GIXXER 150 - PENDIENTE DE VERIFICAR,,no
+4-B5H,Yamaha,FZ 2.0,ambas,,,Sugerido por nombre de producto: BOBINA DE ALTA FZ 2.0-BWS FI - PENDIENTE DE VERIFICAR,El nombre tambien menciona BWS FI; ese modelo no esta en el catalogo de motos todavia,no
+10-0053,Yamaha,XTZ 125,ambas,,,Sugerido por nombre de producto: RAMAL ELECTRICO XTZ 125 M.N 2018-2023 - PENDIENTE DE VERIFICAR,El nombre indica el rango 2018-2023; confirmar y pasar a anio_desde/anio_hasta,no
+6-ECU,Yamaha,FZ 2.0,ambas,,,Sugerido por nombre de producto: ECU DE YAMAHA FZ 2.0 - PENDIENTE DE VERIFICAR,,no
+7-RR99,Honda,Navi,ambas,,,Sugerido por nombre de producto: REGULADOR RECTIFICADOR HONDA NAVI - PENDIENTE DE VERIFICAR,,no
+9-SLIGIX,Suzuki,Gixxer 150,ambas,,,Sugerido por nombre de producto: SLIDER DE ALTO IMPACTO GIXXER 150 FI - PENDIENTE DE VERIFICAR,,no
+9-DR150,Suzuki,DR150,ambas,,,Sugerido por nombre de producto: FILTRO AIRE ALTO FLUJO DR 150 - PENDIENTE DE VERIFICAR,,no

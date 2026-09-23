@@ -63,12 +63,35 @@ export function parseMyMotorcycle(raw: string | undefined): MyMotorcycle | null 
   }
 }
 
+// Caché del último valor crudo de la cookie y su objeto ya parseado. Es
+// necesaria porque esta función se usa como `getSnapshot` de
+// `useSyncExternalStore` en MotorcycleSelector y CompatibilityBadge, y React
+// exige que ese snapshot sea la MISMA referencia entre llamadas mientras el
+// valor no haya cambiado de verdad.
+//
+// Sin esta caché, cada llamada hacía un JSON.parse nuevo → un objeto nuevo en
+// memoria → React interpretaba eso como "el store cambió" en cada render →
+// loop infinito de re-render → la app se caía entera con
+// "Maximum update depth exceeded" (React error #185) apenas se guardaba una
+// moto por primera vez (antes de guardar, la cookie no existía y la función
+// devolvía siempre `null`, que sí es estable, por eso el bug no se veía hasta
+// el primer guardado).
+let cachedRaw: string | undefined
+let cachedValue: MyMotorcycle | null = null
+
 /** Lee la cookie desde el navegador. En el servidor devuelve `null`. */
 export function readMyMotorcycle(): MyMotorcycle | null {
   if (typeof document === 'undefined') return null
 
   const match = document.cookie.match(new RegExp(`(?:^|; )${MY_MOTORCYCLE_COOKIE}=([^;]*)`))
-  return parseMyMotorcycle(match?.[1])
+  const raw = match?.[1]
+
+  if (raw !== cachedRaw) {
+    cachedRaw = raw
+    cachedValue = parseMyMotorcycle(raw)
+  }
+
+  return cachedValue
 }
 
 /** Guarda la moto y avisa a los componentes suscritos. */

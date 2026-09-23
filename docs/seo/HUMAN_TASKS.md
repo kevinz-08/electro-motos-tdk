@@ -59,9 +59,9 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 
 | ID | Tarea | Estado |
 |---|---|---|
-| H-25 | **Aprobar la Fase 0** (`docs/seo/00-auditoria.md`) para poder empezar la Fase 1 | ⬜ |
+| H-25 | ~~Aprobar la Fase 0~~ — **aprobada** | ✅ |
 | H-26 | Aprobar el **mapa de redirecciones 301** antes de mover las categorías de `?category=` a rutas propias (regla 6). No bloquea nada: los hubs de modelo no dependen de ello | ⬜ |
-| H-27 | Aprobar la **Fase 2** (sistema de compatibilidad, `02-compatibilidad.md`) antes de pasar a la 3 y la 4 | ⬜ |
+| H-27 | ~~Aprobar la Fase 2~~ — **aprobada** | ✅ |
 | H-28 | Autorizar cualquier **migración de Prisma en producción** antes de aplicarla. La de la Fase 2 (`20260922000000_motorcycle_fitment_system`) fue autorizada y aplicada el 2026-09-22 | ✅ |
 
 ---

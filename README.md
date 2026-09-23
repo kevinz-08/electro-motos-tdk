@@ -1887,3 +1887,21 @@ eso, un motor generativo puede responder "¿qué pastillas le sirven a una XR190
 el JSON-LD y comprueba que sea parseable y que cada tipo traiga sus campos obligatorios, incluidos
 los anidados (`offers.price`, `offers.availability`…). Corre en `.github/workflows/seo.yml` junto a
 `seo:check` y `seo:lighthouse`.
+
+### 26.5 Primera carga real de compatibilidades (2026-09-22)
+
+**55 fitments verificados en 20 de 41 modelos**, confirmados por Santiago tras revisar dos borradores
+generados a partir de datos reales del propio catálogo (nunca inventados): el nombre de cada producto
+y las notas de compatibilidad que el negocio ya tenía escritas a mano en el acordeón de cada ficha.
+Detalle completo, incluidos los 9 modelos y 2 marcas que se dieron de alta en el camino, en
+`docs/seo/compatibilidades-importadas-2026-09-22.md`.
+
+Verificado en producción: `/repuestos/yamaha/fz-2-0`, `/repuestos/suzuki/gixxer-150` y
+`/repuestos/ktm/duke-200` ya responden 200. Quedan 21 modelos sin ninguna compatibilidad — se siguen
+cargando con `docs/seo/plantilla-compatibilidades.csv` y `POST /admin/fitments/import`.
+
+**De paso:** `.gitignore` bloqueaba en silencio los CSV de `docs/seo/` (regla `*.csv` pensada para los
+exports de inventario de Optimun); corregido con la excepción `!docs/seo/*.csv`. Y se encontró que
+importar compatibilidades hoy no invalida la caché de Next (`revalidateTag('fitments')`), así que el
+selector de moto y el sitemap de modelos tardan hasta 1 hora en reflejar una carga nueva — se
+autocorrige solo, y queda anotado como H-40 para cuando exista una pantalla de admin (H-37).

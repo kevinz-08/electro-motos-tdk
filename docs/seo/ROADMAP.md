@@ -104,9 +104,10 @@ que solo cambian el nombre.
 comprobó y se borró. 42/42 en `pnpm seo:check`, type-check y lint limpios, 253 tests de dominio y
 191 de API.
 
-**Estado real:** 8 marcas y 32 modelos cargados, **0 compatibilidades**. Mientras no lleguen los
-datos de H-02, el sistema está completo pero no publica nada. Es lo correcto: no se inventan
-compatibilidades.
+**Estado real (actualizado 2026-09-22):** 10 marcas y 41 modelos cargados. **55 fitments
+verificados en 20 modelos**, confirmados por Santiago tras revisar los borradores de análisis —
+ver [`compatibilidades-importadas-2026-09-22.md`](./compatibilidades-importadas-2026-09-22.md).
+Quedan 21 modelos sin ninguna compatibilidad; se sigue cargando con la plantilla y el importador.
 
 ---
 

@@ -4,6 +4,65 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 163. Primera carga real de compatibilidades — 55 fitments verificados en 20 modelos
+
+**Requerimiento:** cargar datos reales de compatibilidad (tarea H-02, la más crítica del proyecto
+SEO) para que el sistema de la Fase 2 empiece a publicar algo.
+
+**Bug encontrado y corregido antes de nada:** `.gitignore` tenía `*.csv` para bloquear exports reales
+de inventario de Optimun, pero eso también bloqueaba en silencio cualquier CSV en `docs/seo/`. La
+plantilla de compatibilidades nunca llegó de verdad al PR de la Fase 2 pese a que el commit decía que
+la añadía. Se agregó la excepción `!docs/seo/*.csv` y se subió la plantilla que faltaba.
+
+**Análisis para construir el borrador** (no fabricado — dos fuentes reales del propio catálogo):
+
+- 20 filas sacadas del **nombre** de cada producto (ej. "FILTRO AIRE ALTO FLUJO DR 150" → DR150).
+- 37 filas sacadas de las **notas de compatibilidad que el negocio ya había escrito a mano** en el
+  acordeón de cada ficha (`ProductCompatibilityItem`) — la fuente más confiable, porque no es una
+  coincidencia de texto sino un dato que alguien del equipo ya anotó.
+- Al cruzar esas notas contra el catálogo de motos, 18 mencionaban un modelo que no existía todavía.
+  Se dieron de alta 2 marcas (KTM, Kawasaki) y 9 modelos (Gixxer 250, XTZ 250, BWS 125, MT-15, R15,
+  CB190R, Pulsar 400) — dar de alta un modelo no afirma ninguna compatibilidad, solo la entidad.
+- Un caso quedó **sin resolver a propósito**: la nota "DINAMIC" en dos llantas de 12" (medida de
+  scooter) podría ser la AKT Dynamic 125 ya cargada, pero no hay forma de confirmarlo sin el catálogo
+  del proveedor. Preguntado directamente, la respuesta fue "no lo sé con certeza" — no se agregó
+  ningún alias.
+- Se detectaron y corrigieron dos falsos positivos del propio análisis: los alias cortos "Gixxer" y
+  "XTZ" (sin número) calzaban con "Gixxer 250" y "XTZ 250", que son modelos de cilindrada distinta,
+  no el mismo con otro nombre.
+- Se encontró además un bug de catálogo ajeno al proyecto: `6-AKRACI` ("CDI AKT 110 RACING") tiene la
+  descripción copiada por error de otro producto (dice "Pulsar NS 200"). No se incluyó en ningún CSV.
+
+**Confirmación y carga:** Santiago revisó los 57 candidatos y confirmó todos. Se cargaron con el mismo
+algoritmo de parseo y coincidencia marca+modelo que usa `POST /admin/fitments/import`
+(`ParseFitmentCsv`/`ImportFitments` de `@h2r/domain`, reproducido por script directo contra la base de
+datos por no haber credenciales de admin de producción en la sesión). Resultado: 56 filas procesadas,
+55 creadas, 1 actualizada (mismo producto+modelo+posición en los dos CSV), 0 fallidas.
+
+**Resultado:** 55 fitments verificados, **20 de 41 modelos con hub publicado**. Verificado en
+producción, no solo en local: `/repuestos/yamaha/fz-2-0`, `/repuestos/suzuki/gixxer-150` y
+`/repuestos/ktm/duke-200` responden 200.
+
+**Hallazgo — falta invalidar caché tras importar (nueva tarea H-40):** ni el endpoint real de
+importación ni esta carga llaman a `revalidateTag('fitments')`. El selector de moto y
+`sitemap-modelos.xml` quedaron con el valor cacheado de antes (0 compatibilidades) hasta que esa
+entrada expire por su TTL de 1 hora — los hubs individuales sí aparecieron al instante porque nunca
+habían sido pedidos antes (cache miss). Se autocorrige solo; queda anotado para cuando se construya
+la pantalla de admin de compatibilidades (H-37).
+
+**Archivos:** `docs/seo/borrador-compatibilidades-candidatas.csv` y `-notas-existentes.csv` (57 filas,
+se quedan en `verificado=no` como registro histórico de que eran una propuesta) ·
+`docs/seo/modelos-faltantes-en-catalogo.md` · `docs/seo/compatibilidades-importadas-2026-09-22.md`
+(resultado real de la carga) · `packages/database/prisma/motorcycles.ts` (2 marcas y 9 modelos
+nuevos) · `.gitignore`.
+
+**Verificación:** `pnpm --filter @h2r/domain test` 253/253 sin cambios (no se tocó lógica de dominio,
+solo datos). Migración: ninguna — son filas nuevas en tablas ya existentes desde la Fase 2.
+
+*Última actualización: 2026-09-22*
+
+---
+
 ## 162. Fase 3 del proyecto SEO — datos estructurados (JSON-LD)
 
 **Requerimiento:** brief §8 — utilidad JSON-LD reutilizable y tipada, `Organization`, `WebSite`,

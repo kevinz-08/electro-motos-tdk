@@ -88,6 +88,10 @@ const CATALOG: SeedBrand[] = [
       { name: 'Pulsar NS 160', slug: 'pulsar-ns-160', cc: 160, aliases: ['NS160', 'NS 160'] },
       { name: 'Pulsar N250', slug: 'pulsar-n250', cc: 250, aliases: ['N250', 'Pulsar N 250'] },
       { name: 'Discover 125', slug: 'discover-125', cc: 125, aliases: ['Discover'] },
+      // Añadido el 2026-09-22 (docs/seo/modelos-faltantes-en-catalogo.md). La
+      // nota original decía "PULSAR 400 Z / NS" sin distinguir variante; se
+      // carga como un solo modelo hasta confirmar si son dos motos distintas.
+      { name: 'Pulsar 400', slug: 'pulsar-400', cc: 400, aliases: ['Pulsar 400Z', 'Pulsar 400 Z', 'Pulsar 400 NS', '400Z'] },
     ],
   },
   {
@@ -99,6 +103,8 @@ const CATALOG: SeedBrand[] = [
       { name: 'CB125F', slug: 'cb125f', cc: 125, aliases: ['CB 125', 'CB125'] },
       { name: 'CB160F', slug: 'cb160f', cc: 160, aliases: ['CB 160', 'CB160'] },
       { name: 'Navi', slug: 'navi', cc: null, aliases: ['Honda Navi'] },
+      // Añadido el 2026-09-22 (docs/seo/modelos-faltantes-en-catalogo.md).
+      { name: 'CB190R', slug: 'cb190r', cc: 190, aliases: ['CB 190R', 'CB190'] },
     ],
   },
   {
@@ -111,6 +117,18 @@ const CATALOG: SeedBrand[] = [
       { name: 'FZ 25', slug: 'fz-25', cc: null, aliases: ['FZ25', 'FZ 250'] },
       { name: 'Crypton', slug: 'crypton', cc: null, aliases: ['Crypton 110'] },
       { name: 'XTZ 125', slug: 'xtz-125', cc: 125, aliases: ['XTZ', 'XTZ125'] },
+      // Añadidos el 2026-09-22 al cruzar las notas de compatibilidad ya
+      // existentes en las fichas (docs/seo/modelos-faltantes-en-catalogo.md).
+      // XTZ 250: cilindrada distinta a la XTZ 125 de arriba — modelo aparte, no
+      // un alias. El alias corto "XTZ" de la XTZ 125 generaba falsos positivos
+      // contra este modelo en el análisis; aquí se usa "XTZ 250" completo.
+      { name: 'XTZ 250', slug: 'xtz-250', cc: 250, aliases: ['XTZ250'] },
+      { name: 'BWS 125', slug: 'bws-125', cc: 125, aliases: ['BWS', 'BWS125'] },
+      // "MT-15" y "R15" traen un número en el nombre que no es la cilindrada real
+      // (~155 cc ambas): igual que con FZ 2.0, se deja cc en null en vez de
+      // adivinar a partir de un número que no lo es.
+      { name: 'MT-15', slug: 'mt-15', cc: null, aliases: ['MT 15', 'MT15', 'Yamaha MT-15'] },
+      { name: 'R15', slug: 'r15', cc: null, aliases: ['R 15', 'YZF R15'] },
     ],
   },
   {
@@ -120,7 +138,11 @@ const CATALOG: SeedBrand[] = [
     models: [
       { name: 'DR150', slug: 'dr150', cc: 150, aliases: ['DR 150', 'DR-150'] },
       { name: 'GN 125', slug: 'gn-125', cc: 125, aliases: ['GN125', 'GN'] },
+      // El alias corto "Gixxer" (sin número) generaba falsos positivos contra
+      // "Gixxer 250" en el análisis de compatibilidades; no se repite ese alias
+      // en el modelo de abajo.
       { name: 'Gixxer 150', slug: 'gixxer-150', cc: 150, aliases: ['Gixxer'] },
+      { name: 'Gixxer 250', slug: 'gixxer-250', cc: 250, aliases: ['Gixxer250'] },
     ],
   },
   {
@@ -152,6 +174,26 @@ const CATALOG: SeedBrand[] = [
       { name: 'Bomber 125', slug: 'bomber-125', cc: 125, aliases: ['Bomber'] },
       { name: 'One 125', slug: 'one-125', cc: 125, aliases: ['Victory One'] },
       { name: 'MRX 150', slug: 'mrx-150', cc: 150, aliases: ['MRX'] },
+    ],
+  },
+  // Marcas añadidas el 2026-09-22 al cruzar las notas de compatibilidad ya
+  // existentes en las fichas (docs/seo/modelos-faltantes-en-catalogo.md).
+  {
+    name: 'KTM',
+    slug: 'ktm',
+    order: 9,
+    models: [
+      // Las notas originales distinguen "NG" y "WO" sin explicar qué significan
+      // esas siglas — se guardan tal cual como alias en vez de interpretarlas.
+      { name: 'Duke 200', slug: 'duke-200', cc: 200, aliases: ['KTM 200', 'Duke 200 NG', 'Duke 200 WO', '200 NG', '200 WO'] },
+    ],
+  },
+  {
+    name: 'Kawasaki',
+    slug: 'kawasaki',
+    order: 10,
+    models: [
+      { name: 'Z250', slug: 'z250', cc: 250, aliases: ['Kawasaki Z250'] },
     ],
   },
 ]

@@ -81,7 +81,7 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 
 | ID | Tarea | Fase | Estado |
 |---|---|---|---|
-| **H-33** | **Verificar IndexNow tras el primer despliegue**: que `https://www.tiendah2r.com/57f804052944e876eedbd2eb22475f65.txt` responda 200 con la clave dentro, y que `INDEXNOW_KEY` y `SITE_URL` estén en la revisión de Cloud Run. Hasta entonces la API responde 403 y el servicio no avisa a nadie | 1 | ⬜ |
+| **H-33** | ~~Verificar IndexNow~~ — **resuelta el 2026-09-22**: `https://www.tiendah2r.com/57f804052944e876eedbd2eb22475f65.txt` responde 200 con la clave | 1 | ✅ |
 | **H-34** | **Reenviar los sitemaps** en Google Search Console y Bing Webmaster Tools: `/sitemap.xml` pasó de ser una lista a un índice, y hay tres sitemaps nuevos (`-paginas`, `-categorias`, `-productos`) | 1 | ⬜ |
 | **H-35** | **Revisar el vídeo recomprimido del catálogo** en un escritorio real y confirmar que la calidad es aceptable. Si no lo es, se regenera con menos compresión desde el original, que sigue en el historial de git | 1 | ⬜ |
 | **H-36** | **Medir Lighthouse en producción tras el despliegue** (`pnpm seo:lighthouse`) y pegar los resultados en `01-resultados.md` §4. Las cifras "después" de la Fase 1 no están confirmadas hasta entonces | 1 | ⬜ |
@@ -97,6 +97,6 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-37** | **Decidir si hace falta una pantalla en el panel** para gestionar compatibilidades, o si basta con subir el CSV a `POST /admin/fitments/import`. Hoy no hay interfaz gráfica para esto | 4 | ⬜ |
 | **H-38** | **Revisar los textos libres de compatibilidad** que ya existen (`ProductCompatibilityItem`, el acordeón de la ficha) y decidir cuáles se convierten en fitments verificados. Hay que leer cada texto y decidir a qué modelo corresponde: no se puede automatizar sin riesgo de inventar compatibilidades | 2 | ⬜ |
 | **H-39** | ~~Revisar la lista de 32 modelos~~ — **avanzada el 2026-09-22**: se dieron de alta 2 marcas y 9 modelos más (41 en total) al cruzar las notas de compatibilidad ya escritas contra el catálogo. Sigue pendiente confirmar los 10 prioritarios del brief contra ventas reales (H-04) y el caso "DINAMIC" (¿es la AKT Dynamic 125 o una moto distinta? — llanta de 12", evidencia contradictoria, sin resolver a propósito) | 2 | 🟡 |
-| **H-40** | **Falta invalidar la caché de Next tras importar compatibilidades.** Ni `POST /admin/fitments/import` ni la carga manual del 2026-09-22 llaman a `revalidateTag('fitments')`. El selector de moto y `sitemap-modelos.xml` se autocorrigen en máximo 1 hora por TTL, pero cuando se construya la pantalla de admin (H-37) hay que hacer que llame a `revalidateAdminCache(['fitments'])` después de cada import exitoso, igual que las demás pantallas del panel | 2, 4 | ⬜ |
+| **H-40** | Falta invalidar la caché de Next tras importar compatibilidades (`revalidateTag('fitments')`). **Se autocorrigió sola por TTL** el 2026-09-22 (selector y `sitemap-modelos.xml` ya muestran los 20 modelos). Sigue pendiente el arreglo de fondo: cuando exista pantalla de admin (H-37), que llame a `revalidateAdminCache(['fitments'])` tras cada import — si no, cada carga futura tarda hasta 1h en verse | 2, 4 | ⬜ |
 
 *Última actualización de este bloque: 2026-09-22*

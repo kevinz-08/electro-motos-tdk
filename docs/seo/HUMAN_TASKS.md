@@ -17,7 +17,7 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-01** | **Decidir qué hacer con `SocialProof.tsx`.** Hoy la home muestra 4 testimonios con nombre propio etiquetados "Cliente verificado" y las cifras "500+ clientes satisfechos / 1.200+ repuestos vendidos / 98% recomendación", todo escrito a mano en el código. ¿Son datos reales? Opciones: (a) confirmarlos con respaldo y dejarlos, (b) alimentar la sección desde `ProductReview` (reseñas reales verificadas por compra), (c) retirarlos. Riesgo legal: Ley 1480 de 2011, publicidad engañosa | Fase 4, Fase 5 | ⬜ |
 | **H-02** | **Datos de compatibilidad verificados.** 🟡 **En marcha.** El 2026-09-22 se cargaron 55 fitments verificados (20 modelos con hub publicado) a partir de los dos CSV de borrador, confirmados por Santiago — ver [`compatibilidades-importadas-2026-09-22.md`](./compatibilidades-importadas-2026-09-22.md). Quedan **21 modelos del catálogo (41 en total) sin ninguna compatibilidad**: seguir cargando con la plantilla [`plantilla-compatibilidades.csv`](./plantilla-compatibilidades.csv) y `POST /admin/fitments/import` | Fase 2 → publicar | 🟡 |
 | **H-03** | **Referencias OEM** de los productos que las tengan (`sku,referencia_oem,fabricante`) | Fase 2, Fase 3 | ⬜ |
-| **H-04** | **Confirmar la lista de modelos prioritarios** (ver también H-39) del brief (AKT NKD 125, Bajaj Boxer CT100, NMAX 155, XR190L, DR150, Pulsar NS/N, FZ, Hunk 125R, Apache, Raider) contra las ventas reales de H2R y los datos de Search Console | Fase 2, Fase 5 | ⬜ |
+| **H-04** | ~~Confirmar la lista de modelos prioritarios~~ — **confirmada el 2026-09-22**: sigue siendo correcta (AKT NKD 125, Bajaj Boxer CT100, NMAX 155, XR190L, DR150, Pulsar NS/N, FZ, Hunk 125R, Apache, Raider) | Fase 2, Fase 5 | ✅ |
 | **H-05** | ~~Dar acceso a Google Search Console~~ — **resuelta el 2026-09-22**: línea base capturada en `docs/seo/baseline/` (133 clics, 1.470 impresiones, 35 páginas indexadas, 16 meses). Confirma que la gente ya busca por modelo de moto y que el riesgo de perder tráfico existente con la Fase 1 es mínimo | Fase 1, Fase 2 | ✅ |
 
 ---
@@ -30,9 +30,9 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | H-07 | Verificar el sitio en **Bing Webmaster Tools** y enviar los sitemaps (también habilita IndexNow). **Pasos en [`DESPLIEGUE.md`](./DESPLIEGUE.md) §5** | 1 | ⬜ |
 | H-08 | Conseguir una **API key de PageSpeed Insights** (o dar acceso a los datos de campo CrUX) para medir el percentil 75 real desde Colombia | 1 | ⬜ |
 | H-09 | Crear/configurar **Google Merchant Center** para Colombia y activar las fichas gratuitas | 7 | ⬜ |
-| H-10 | Decidir si hay **punto físico atendiendo al público** en Carrera 21 #21-58, Bucaramanga. Si lo hay: crear **Google Business Profile** y **Bing Places**. Si no, no se crea (y el JSON-LD usa `Organization`, no `LocalBusiness`) | 3, 6 | ⬜ |
+| H-10 | ~~Decidir si hay punto físico~~ — **confirmado el 2026-09-22**: sí hay, en Carrera 21 #21-58, Bucaramanga, y se pueden recoger pedidos ahí. El JSON-LD ya declara `LocalBusiness` además de `Organization`. **Falta la parte externa** (ver H-41, H-42 más abajo) | 3, 6 | 🟡 |
 | H-11 | Decidir si se instala **GA4** (hoy solo hay Vercel Analytics, sin eventos). Sin analítica de eventos no se puede medir el embudo ni el tráfico desde IA | 4, 6 | ⬜ |
-| H-12 | Confirmar los **perfiles oficiales** para `sameAs`: Instagram `h2r.onlinestore`, Facebook `h2ronlinestore`, TikTok `h2ronlinestore`, Mercado Libre `/pagina/h2ronlinestore/`. Pasar las URLs exactas | 3 | ⬜ |
+| H-12 | ~~Confirmar los perfiles oficiales para `sameAs`~~ — **cerrada el 2026-09-22**: Instagram, Facebook y TikTok ya están y verificados. Se decidió **no incluir Mercado Libre por ahora** (la URL del brief daba 404 de todos modos) | 3 | ✅ |
 
 ---
 
@@ -40,11 +40,11 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 
 | ID | Tarea | Fase | Estado |
 |---|---|---|---|
-| H-13 | **Tiempos de envío reales por ciudad** (Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Eje Cafetero) con Coordinadora. Hoy la PDP dice "1 a 5 días hábiles" de forma genérica y el brief marca este punto como `TODO(humano)`. Se necesitan para `OfferShippingDetails` y para las páginas de envío por ciudad | 3, 4, 5 | ⬜ |
+| H-13 | ~~Tiempos de envío reales por ciudad~~ — **aceptado el 2026-09-22**: el tiempo global de `Settings` (2 a 5 días hábiles) se confirma como aproximado real y suficiente por ahora. Queda abierta la granularidad por ciudad (Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Eje Cafetero) como mejora futura para las páginas de envío por ciudad de la Fase 5, no bloqueante | 3, 4, 5 | ✅ |
 | H-14 | **Umbral de envío gratis**: hoy "$500.000 COP" está escrito a mano en el acordeón de la PDP. ¿Sigue vigente? Debe pasar a `Settings` para ser una única fuente de verdad | 4 | ⬜ |
-| H-15 | **Política de devoluciones exacta** para `MerchantReturnPolicy`: días de retracto, quién paga el flete de devolución, condiciones. Hoy la PDP dice "5 días calendario" | 3, 4 | ⬜ |
-| H-16 | ¿Existe la política **"si no le sirve a tu moto, te lo cambiamos"**? Solo se publica si es real | 4 | ⬜ |
-| H-17 | **Garantía por tipo de producto** (baterías, llantas, eléctricos…): meses y condiciones | 3, 4, 5 | ⬜ |
+| H-15 | ~~Política de devoluciones exacta~~ — **confirmada el 2026-09-22**: siguen siendo 5 días calendario. El flete de devolución se evalúa caso por caso por WhatsApp según la gravedad (a veces cliente, a veces H2R) — no es un valor fijo, así que el JSON-LD sigue sin declarar `returnFees` a propósito (ver el comentario en `structured-data.ts`) | 3, 4 | ✅ |
+| H-16 | ~~¿Existe la política "si no le sirve a tu moto, te lo cambiamos"?~~ — **confirmado el 2026-09-22: NO existe.** No se publicó nunca y no hay que agregarla en ningún lado (FAQ, ficha, JSON-LD) | 4 | ✅ |
+| H-17 | ~~Garantía por tipo de producto~~ — **confirmado el 2026-09-22**: el "hasta 6 meses" genérico que ya dice la home es correcto, no hace falta desglosar por categoría | 3, 4, 5 | ✅ |
 | H-18 | **Marca y tipo de cada repuesto** (original / homologado / genérico) y su `mpn`. Necesario para el feed de Merchant Center y para el `Product` JSON-LD completo | 3, 7 | ⬜ |
 | H-19 | **Reglas de venta cruzada con criterio mecánico** ("kit de arrastre + aceite de cadena", "pastillas + líquido de frenos"). Las define el negocio, no se deducen | 4 | ⬜ |
 | H-20 | **Intervalos de mantenimiento** por modelo, tomados del manual del fabricante, con la fuente citada | 5 | ⬜ |
@@ -97,6 +97,8 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-37** | **Decidir si hace falta una pantalla en el panel** para gestionar compatibilidades, o si basta con subir el CSV a `POST /admin/fitments/import`. Hoy no hay interfaz gráfica para esto | 4 | ⬜ |
 | **H-38** | **Revisar los textos libres de compatibilidad** que ya existen (`ProductCompatibilityItem`, el acordeón de la ficha) y decidir cuáles se convierten en fitments verificados. Hay que leer cada texto y decidir a qué modelo corresponde: no se puede automatizar sin riesgo de inventar compatibilidades | 2 | ⬜ |
 | **H-39** | ~~Revisar la lista de 32 modelos~~ — **avanzada el 2026-09-22**: se dieron de alta 2 marcas y 9 modelos más (41 en total) al cruzar las notas de compatibilidad ya escritas contra el catálogo. Sigue pendiente confirmar los 10 prioritarios del brief contra ventas reales (H-04) y el caso "DINAMIC" (¿es la AKT Dynamic 125 o una moto distinta? — llanta de 12", evidencia contradictoria, sin resolver a propósito) | 2 | 🟡 |
+| **H-41** | **Crear Google Business Profile** para el punto físico de Carrera 21 #21-58, Bucaramanga (confirmado H-10). Pasos: [business.google.com](https://business.google.com) → agregar negocio → verificar dirección (Google manda un código por correo postal o llamada) → activar "recogida en tienda" | 6 | ⬜ |
+| **H-42** | **Crear Bing Places** para el mismo punto físico. Pasos: [bingplaces.com](https://www.bingplaces.com) → puede importarse directo desde Google Business Profile una vez creado (H-41) | 6 | ⬜ |
 | **H-40** | Falta invalidar la caché de Next tras importar compatibilidades (`revalidateTag('fitments')`). **Se autocorrigió sola por TTL** el 2026-09-22 (selector y `sitemap-modelos.xml` ya muestran los 20 modelos). Sigue pendiente el arreglo de fondo: cuando exista pantalla de admin (H-37), que llame a `revalidateAdminCache(['fitments'])` tras cada import — si no, cada carga futura tarda hasta 1h en verse | 2, 4 | ⬜ |
 
 *Última actualización de este bloque: 2026-09-22*

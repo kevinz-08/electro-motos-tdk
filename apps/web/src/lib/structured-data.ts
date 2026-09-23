@@ -60,8 +60,9 @@ function compact<T extends JsonLdNode>(node: T): T {
  * Procedencia de cada dato:
  *   - Razón social, NIT, dirección, teléfono y email → brief (docs/seo/AGENT-BRIEF.md §2).
  *   - Perfiles sociales → los tres que ya publica el pie de página del sitio,
- *     verificados uno por uno (responden 200). El de Mercado Libre queda fuera:
- *     la URL del brief devuelve 404 (tarea H-12).
+ *     verificados uno por uno (responden 200). Mercado Libre queda fuera a
+ *     propósito: la URL del brief devuelve 404 y, confirmado el 2026-09-22,
+ *     no se va a agregar por ahora (tarea H-12, cerrada con esa decisión).
  */
 export const ORGANIZATION = {
   name: SITE_NAME,
@@ -90,14 +91,17 @@ const WEBSITE_ID = `${SITE_URL}/#website`
 /**
  * `Organization` con NIT, dirección real y cobertura nacional.
  *
- * Se declara como `Organization` y no como `LocalBusiness` a propósito: hasta
- * confirmar que hay un punto físico atendiendo al público (tarea H-10),
- * `LocalBusiness` prometería una tienda visitable que quizá no existe.
+ * `@type` declara **los dos tipos a la vez** (`Organization` y `LocalBusiness`):
+ * confirmado el 2026-09-22 que hay un punto físico real en la dirección
+ * registrada y que ahí se pueden recoger pedidos (tarea H-10, cerrada).
+ * `LocalBusiness` no exige horario de atención ni coordenadas geográficas para
+ * ser válido — esos dos datos no están confirmados, así que se omiten en vez
+ * de estimarlos; se pueden añadir después sin tocar el resto del nodo.
  */
 export function organizationJsonLd(): JsonLdNode {
   return {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
+    '@type': ['Organization', 'LocalBusiness'],
     '@id': ORGANIZATION_ID,
     name: ORGANIZATION.name,
     legalName: ORGANIZATION.legalName,
@@ -231,10 +235,19 @@ function shippingDetailsNode(days: { min: number; max: number }): JsonLdNode {
 /**
  * Política de devoluciones.
  *
- * Los 5 días salen de la página legal publicada (`/legal/politica-de-cambios`),
- * no de una suposición. **`returnFees` se omite**: quién paga el flete de
- * devolución no está definido en esa página (tarea H-15), y declarar
- * "FreeReturn" sin que lo sea sería una promesa falsa.
+ * Los 5 días salen de la página legal publicada (`/legal/politica-de-cambios`)
+ * y fueron reconfirmados el 2026-09-22 (siguen vigentes, tarea H-15 cerrada).
+ *
+ * **`returnFees` se sigue omitiendo, ahora por un motivo distinto**: no es que
+ * el dato falte, es que la política real **no es un valor fijo** — quién paga
+ * el flete de devolución se evalúa caso por caso por WhatsApp según la
+ * gravedad (a veces el cliente, a veces H2R). El enum de schema.org
+ * (`FreeReturn`, `ReturnFeesCustomerResponsibility`…) no tiene una opción para
+ * "depende"; declarar cualquiera de esos valores sería afirmar una regla fija
+ * que no existe. Se mantiene fuera del JSON-LD a propósito.
+ *
+ * También confirmado (H-16): **no existe** la política "si no le sirve a tu
+ * moto, te lo cambiamos" — nunca se publicó, y no hay que agregarla.
  */
 function returnPolicyNode(): JsonLdNode {
   return {

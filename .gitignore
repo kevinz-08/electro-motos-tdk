@@ -66,6 +66,11 @@ apps/web/tmp-productos/
 # exports de Optimun (inventario real del negocio — nunca al repo)
 *.xlsx
 *.csv
+# Excepcion: plantillas y borradores de CSV del proyecto SEO (docs/seo/), que
+# son documentacion versionada, no exports de inventario. Sin esta excepcion,
+# `*.csv` los bloqueaba en silencio — asi se perdio la plantilla de
+# compatibilidades en el commit de la Fase 2 sin que git avisara.
+!docs/seo/*.csv
 
 # .md para opencode y claude code
 BACKLOG.md*

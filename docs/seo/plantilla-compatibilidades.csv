@@ -1,0 +1,5 @@
+sku,marca_moto,modelo_moto,posicion,anio_desde,anio_hasta,fuente,notas,verificado
+EJEMPLO-001,AKT,NKD 125,ambas,,,Manual AKT NKD 125 2023 pag. 48,,si
+EJEMPLO-002,Bajaj,Boxer CT100,delantera,2018,,"Catalogo proveedor Brembo 2026, ref. 12345",Solo version con freno de disco,si
+EJEMPLO-003,Yamaha,NMAX,ambas,,,Verificado en taller 2026-09-20 por Santiago,,si
+EJEMPLO-004,Honda,XR190L,trasera,,,Pendiente de confirmar con el manual,Cargado del catalogo del proveedor,no

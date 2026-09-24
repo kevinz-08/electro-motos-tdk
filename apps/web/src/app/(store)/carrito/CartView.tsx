@@ -13,6 +13,7 @@ import { PriceTag } from '@/components/store/PriceTag'
 import { cartSavings } from '@/lib/pricing'
 import { FreeShippingProgress } from '@/components/store/FreeShippingProgress'
 import { CartFunnelTracker } from '@/components/analytics/CartFunnelTracker'
+import { CartCrossSells } from '@/components/store/CartCrossSells'
 
 function formatCOP(cents: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -180,6 +181,9 @@ export function CartView({ freeShippingThreshold }: { freeShippingThreshold: num
 
             {/* Progreso hacia el envío gratis (umbral desde Settings) */}
             <FreeShippingProgress subtotal={cartTotal} threshold={freeShippingThreshold} className="mt-4" />
+
+            {/* Sugerencias de venta cruzada de lo que ya hay en el carrito */}
+            <CartCrossSells className="mt-6" />
 
             {/* Vaciar carrito */}
             <button

@@ -8,7 +8,9 @@ Que el administrador vincule, desde el formulario de edición de un producto, ot
 
 **Dentro del alcance (v1):** vínculos dirigidos A → B, selector con buscador en el admin, bloque en la ficha, filtro por la moto del comprador, medición en GA4.
 
-**Fuera del alcance (se decide después):** kits (rama y PR aparte), sugerencias dentro del carrito, vínculos automáticos en sentido inverso, recomendaciones calculadas por el sistema.
+**Incluido tras las decisiones del 2026-09-24:** sugerencias en el carrito y sentido inverso por casilla (ver §7 y §8; los nombres finales de los archivos están en §8, que manda sobre §4).
+
+**Fuera del alcance:** kits (rama y PR aparte) y recomendaciones calculadas por el sistema.
 
 **Principio rector (igual que `SocialProof` y los fitments):** sin datos cargados no se muestra nada, y nunca se inventa una recomendación. Cada vínculo lo firma una persona del negocio.
 

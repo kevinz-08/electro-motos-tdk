@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { canonical } from '@/lib/seo'
+import { getCachedCroSettings } from '@/lib/cache'
+import { formatCOP } from '@/components/store/PriceTag'
 
 export const metadata: Metadata = {
   title: 'Política de Envíos',
@@ -9,7 +11,8 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export default function PoliticaDeEnviosPage() {
+export default async function PoliticaDeEnviosPage() {
+  const { freeShippingThreshold } = await getCachedCroSettings()
   return (
     <>
       {/* Encabezado */}
@@ -48,8 +51,14 @@ export default function PoliticaDeEnviosPage() {
           </h2>
           <ul className="list-disc list-outside pl-5 space-y-1.5 text-gray-700">
             <li>
-              <strong>Envío gratuito</strong> para compras superiores a{' '}
-              <strong>$500.000 COP</strong>.
+              {freeShippingThreshold > 0 ? (
+                <>
+                  <strong>Envío gratuito</strong> para compras superiores a{' '}
+                  <strong>{formatCOP(freeShippingThreshold)} COP</strong>.
+                </>
+              ) : (
+                <>El costo del envío se calcula según el destino.</>
+              )}
             </li>
             <li>
               Para compras menores, el costo de envío se calcula según el destino

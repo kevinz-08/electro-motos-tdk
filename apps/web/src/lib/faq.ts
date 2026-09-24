@@ -7,24 +7,30 @@
  * con el contenido visible es motivo de penalización, además de una mentira.
  *
  * Las respuestas son las que ya estaban publicadas en el sitio. Al tocarlas hay
- * que comprobar que siguen siendo ciertas: envío gratis desde $500.000 (H-14),
- * garantía de hasta 6 meses (H-17) y cambios en 5 días (H-15) son datos del
- * negocio, no del código.
+ * que comprobar que siguen siendo ciertas: garantía de hasta 6 meses (H-17,
+ * confirmada) y cambios en 5 días (H-15) son datos del negocio, no del código.
+ * El umbral de envío gratis NO está escrito aquí: llega de `Settings`
+ * (`FREE_SHIPPING_THRESHOLD`, H-14) para que exista una sola fuente de verdad.
  */
+import { formatCOP } from '@/components/store/PriceTag'
 
 export interface FaqItem {
   q: string
   a: string
 }
 
-export const FAQ_ITEMS: FaqItem[] = [
+export function buildFaqItems(freeShippingThreshold: number): FaqItem[] {
+  return [
   {
     q: '¿Cuánto tiempo tarda el envío?',
     a: 'El tiempo de entrega depende de tu ubicación. Para Bucaramanga y área metropolitana, el envío es de 1 a 2 días hábiles. Para el resto de Colombia, el tiempo estimado es de 3 a 7 días hábiles.',
   },
   {
     q: '¿Hacen envíos a todo Colombia?',
-    a: 'Sí, hacemos envíos a todos los departamentos de Colombia. El envío es gratis para pedidos superiores a $500.000 COP.',
+    a: 'Sí, hacemos envíos a todos los departamentos de Colombia. ' +
+      (freeShippingThreshold > 0
+        ? `El envío es gratis para pedidos superiores a ${formatCOP(freeShippingThreshold)} COP.`
+        : 'El costo del envío se calcula según el destino.'),
   },
   {
     q: '¿Cómo puedo pagar?',
@@ -42,4 +48,5 @@ export const FAQ_ITEMS: FaqItem[] = [
     q: '¿Cómo sé qué repuesto necesita mi moto?',
     a: 'Puedes consultar nuestro catálogo por categoría o escribirnos a WhatsApp con el modelo y año de tu moto. Te asesoramos para encontrar la pieza correcta.',
   },
-]
+  ]
+}

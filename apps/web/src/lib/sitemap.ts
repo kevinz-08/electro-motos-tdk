@@ -7,7 +7,7 @@
  *
  * Ahora `/sitemap.xml` es un ÍNDICE que apunta a tres sitemaps:
  *
- *   /sitemap-paginas.xml      home, catálogo, contacto y legales
+ *   /sitemap-paginas.xml      home, catálogo, contacto, sobre nosotros, garantías y legales
  *   /sitemap-categorias.xml   una URL por categoría con productos
  *   /sitemap-productos.xml    una URL por producto activo
  *   /sitemap-modelos.xml      hubs de modelo y sus categorías (Fase 2)
@@ -44,6 +44,8 @@ export function getStaticEntries(): SitemapEntry[] {
     { url: absoluteUrl('/'), changeFrequency: 'daily', priority: 1.0 },
     { url: absoluteUrl('/catalogo'), changeFrequency: 'daily', priority: 0.9 },
     { url: absoluteUrl('/contacto'), changeFrequency: 'monthly', priority: 0.5 },
+    { url: absoluteUrl('/sobre-nosotros'), changeFrequency: 'monthly', priority: 0.5 },
+    { url: absoluteUrl('/garantias'), changeFrequency: 'monthly', priority: 0.5 },
     { url: absoluteUrl('/legal/terminos-y-condiciones'), changeFrequency: 'yearly', priority: 0.3 },
     { url: absoluteUrl('/legal/politica-de-envios'), changeFrequency: 'yearly', priority: 0.4 },
     { url: absoluteUrl('/legal/politica-de-cambios'), changeFrequency: 'yearly', priority: 0.4 },

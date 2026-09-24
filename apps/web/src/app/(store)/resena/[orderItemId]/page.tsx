@@ -66,6 +66,16 @@ export default async function ReviewPage({ params, searchParams }: PageProps) {
 
   const image = item.product.images[0]
 
+  // Motos activas agrupadas por marca para "¿en qué moto lo instalaste?".
+  const brands = await prisma.motorcycleBrand.findMany({
+    where: { isActive: true, models: { some: { isActive: true } } },
+    orderBy: [{ order: 'asc' }, { name: 'asc' }],
+    select: {
+      name: true,
+      models: { where: { isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true } },
+    },
+  })
+
   return (
     <div className="max-w-lg mx-auto px-4 py-10">
       <p className="text-xs uppercase tracking-widest text-gray-400 font-semibold mb-2">Compra verificada</p>
@@ -79,7 +89,7 @@ export default async function ReviewPage({ params, searchParams }: PageProps) {
           {item.product.name}
         </Link>
       </div>
-      <ReviewForm orderItemId={orderItemId} token={token!} />
+      <ReviewForm orderItemId={orderItemId} token={token!} motorcycleBrands={brands} />
     </div>
   )
 }

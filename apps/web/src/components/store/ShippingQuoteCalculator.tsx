@@ -24,9 +24,11 @@ interface ShippingQuoteCalculatorProps {
   items: Array<{ productId: string; quantity: number }>
   /** Notifica al carrito el resultado vigente para que actualice el total mostrado. */
   onQuoteChange?: (result: ShippingQuoteResult | null) => void
+  /** Umbral de envío gratis en centavos (desde Settings). 0 = no se menciona. */
+  freeShippingThreshold: number
 }
 
-export function ShippingQuoteCalculator({ city, onCityChange, items, onQuoteChange }: ShippingQuoteCalculatorProps) {
+export function ShippingQuoteCalculator({ city, onCityChange, items, onQuoteChange, freeShippingThreshold }: ShippingQuoteCalculatorProps) {
   const { quote, loading, error } = useShippingQuote(city, items)
 
   useEffect(() => {
@@ -66,7 +68,7 @@ export function ShippingQuoteCalculator({ city, onCityChange, items, onQuoteChan
       )}
 
       <p className="text-xs text-gray-400 mt-1.5">
-        Gratis en compras mayores a $500.000 ·{' '}
+        {freeShippingThreshold > 0 && <>Gratis en compras mayores a {formatCOP(freeShippingThreshold)} · </>}
         <a
           href="/legal/politica-de-envios"
           target="_blank"

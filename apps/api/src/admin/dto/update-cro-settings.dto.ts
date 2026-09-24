@@ -27,4 +27,8 @@ export class UpdateCroSettingsDto {
   @ApiPropertyOptional({ description: 'Hora de corte (0-24, hora Colombia) para despacho el mismo día' })
   @IsOptional() @IsInt() @Min(R.shippingCutoffHour.min) @Max(R.shippingCutoffHour.max)
   shippingCutoffHour?: number
+
+  @ApiPropertyOptional({ description: 'Compra mínima en centavos COP para envío gratis (0 = sin umbral)' })
+  @IsOptional() @IsInt() @Min(R.freeShippingThreshold.min) @Max(R.freeShippingThreshold.max)
+  freeShippingThreshold?: number
 }

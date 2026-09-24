@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { canonical } from '@/lib/seo'
+import { getCachedCroSettings } from '@/lib/cache'
+import { formatCOP } from '@/components/store/PriceTag'
 
 export const metadata: Metadata = {
   title: 'Términos y Condiciones',
@@ -9,7 +11,8 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export default function TerminosYCondicionesPage() {
+export default async function TerminosYCondicionesPage() {
+  const { freeShippingThreshold } = await getCachedCroSettings()
   return (
     <>
       {/* Encabezado del documento */}
@@ -151,8 +154,9 @@ export default function TerminosYCondicionesPage() {
               cambio una vez el pedido ha sido despachado.
             </li>
             <li>
-              <strong>Costos de envío:</strong> gratuito para compras superiores a
-              $500.000 COP; en caso contrario, tiene un costo adicional según el destino.
+              <strong>Costos de envío:</strong> {freeShippingThreshold > 0
+                ? `gratuito para compras superiores a ${formatCOP(freeShippingThreshold)} COP; en caso contrario, tiene un costo adicional según el destino.`
+                : 'se calcula según el destino.'}
             </li>
           </ul>
           <p className="text-gray-700 mt-3">

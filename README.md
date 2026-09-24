@@ -1905,3 +1905,30 @@ exports de inventario de Optimun); corregido con la excepción `!docs/seo/*.csv`
 importar compatibilidades hoy no invalida la caché de Next (`revalidateTag('fitments')`), así que el
 selector de moto y el sitemap de modelos tardan hasta 1 hora en reflejar una carga nueva — se
 autocorrige solo, y queda anotado como H-40 para cuando exista una pantalla de admin (H-37).
+
+### 26.6 Fase 4 — Conversión (en curso, 2026-09-23)
+
+Detalle en `docs/seo/04-conversion.md`. **Sin migraciones de base de datos** en esta primera entrega.
+
+- **`SocialProof` (H-01, decidida): se alimenta solo de `ProductReview`.** `getCachedStoreReviews()` lee
+  las reseñas `APPROVED` con comentario (las 8 más recientes, sin filtrar por estrellas) y el resumen de
+  todas. Sin reseñas con comentario la sección **no se pinta** (nada de relleno). Las cifras (promedio,
+  cantidad, % que recomienda) solo salen con ≥ `REVIEWS_MIN_COUNT` reseñas aprobadas. Se eliminaron los
+  4 testimonios y las 4 cifras escritas a mano.
+- **Umbral de envío gratis en `Settings`** (`FREE_SHIPPING_THRESHOLD`, centavos, default $500.000, 0 = no
+  se promete). Editable en `/admin/configuracion` (en pesos). Alimenta el acordeón de la ficha, el
+  estimador y el carrito, que ahora muestra `FreeShippingProgress` (barra de progreso). `/carrito` pasó
+  a ser un Server Component delgado que lee el umbral y renderiza `CartView`. **Pendiente H-14:**
+  confirmar que $500.000 sigue vigente; FAQ, footer, `TrustBadges` y las páginas legales aún lo llevan
+  escrito a mano.
+- **Ficha de producto:** `StickyBuyBar` (barra fija móvil, aparece al pasar el bloque de compra),
+  `ProductShippingEstimate` (cotizador real de Vendelo por ciudad, comparte la ciudad del carrito),
+  `ConfirmCompatibilityButton` (WhatsApp con producto, SKU y moto seleccionada) y `ProductTrustBlock`
+  (medios de pago, garantía, razón social y NIT desde la misma constante del JSON-LD).
+
+**Segunda entrega (2026-09-23):**
+
+- **Garantía y umbral unificados:** "hasta 6 meses" y envío gratis desde $500.000 (H-14 y H-17 confirmadas). El umbral se lee de `Settings` en FAQ, footer, `TrustBadges`, ficha, carrito y páginas legales.
+- **Reseñas con moto:** `ProductReview.installedModelId` + `installedCity` (migración `20260923000000_review_installed_motorcycle`, aditiva). `POST /reviews` acepta `installedModelId` opcional; el formulario de `/resena/[orderItemId]` ofrece el selector. Se muestra "Le sirvió a una Suzuki DR150 · Cali". No crea `Fitment`.
+- **GA4:** variable `NEXT_PUBLIC_GA_ID` (opcional; sin ella no se carga nada). Solo tras aceptar el aviso de cookies. Ver `lib/analytics.ts`.
+- **Páginas nuevas:** `/sobre-nosotros` y `/garantias`.

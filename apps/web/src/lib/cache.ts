@@ -38,6 +38,7 @@ import {
   summarizeReviews,
 } from '@h2r/domain'
 import { CACHE_TAGS } from './cache-tags'
+import { installedMotorcycleLabel, installedMotorcycleLine } from './review-motorcycle'
 
 export { CACHE_TAGS }
 
@@ -283,16 +284,76 @@ export const getCachedProductReviews = unstable_cache(
         where: { productId, status: 'APPROVED' },
         orderBy: { createdAt: 'desc' },
         take: 6,
-        select: { id: true, rating: true, recommends: true, comment: true, authorName: true, createdAt: true },
+        select: {
+          id: true, rating: true, recommends: true, comment: true, authorName: true, createdAt: true,
+          installedCity: true,
+          installedModel: { select: { name: true, brand: { select: { name: true } } } },
+        },
       }),
     ])
     return {
       summary: summarizeReviews(ratings),
-      latest: latest.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+      latest: latest.map(({ installedModel, installedCity, ...r }) => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+        installedLine: installedMotorcycleLine(installedMotorcycleLabel(installedModel), installedCity, r.recommends),
+      })),
     }
   },
   ['product-reviews'],
   { revalidate: 600, tags: [CACHE_TAGS.products] },
+)
+
+/**
+ * Prueba social de la home (Fase 4, H-01): reseñas APROBADAS de toda la tienda.
+ *
+ * Es la única fuente de `SocialProof`. Devuelve las últimas reseñas que traen
+ * comentario — sin filtrar por estrellas: elegir solo las positivas sería
+ * seleccionar a conveniencia — y el resumen sobre TODAS las aprobadas. Sin
+ * reseñas devuelve `summary: null` y `latest: []`, y la sección no se pinta.
+ * Tag `products`: la moderación en /admin/resenas invalida este tag.
+ */
+export const getCachedStoreReviews = unstable_cache(
+  async () => {
+    const [ratings, latest] = await Promise.all([
+      prisma.productReview.findMany({
+        where: { status: 'APPROVED', product: { deletedAt: null } },
+        select: { rating: true, recommends: true },
+      }),
+      prisma.productReview.findMany({
+        where: {
+          status: 'APPROVED',
+          comment: { not: null },
+          product: { deletedAt: null, isActive: true },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+        select: {
+          id: true,
+          rating: true,
+          recommends: true,
+          comment: true,
+          authorName: true,
+          createdAt: true,
+          installedCity: true,
+          installedModel: { select: { name: true, brand: { select: { name: true } } } },
+          product: { select: { name: true, slug: true } },
+        },
+      }),
+    ])
+    return {
+      summary: summarizeReviews(ratings),
+      latest: latest
+        .filter((r) => (r.comment ?? '').trim().length > 0)
+        .map(({ installedModel, installedCity, ...r }) => ({
+          ...r,
+          createdAt: r.createdAt.toISOString(),
+          installedLine: installedMotorcycleLine(installedMotorcycleLabel(installedModel), installedCity, r.recommends),
+        })),
+    }
+  },
+  ['store-reviews'],
+  { revalidate: 600, tags: [CACHE_TAGS.products, CACHE_TAGS.home] },
 )
 
 // ── Related products ──────────────────────────────────────────────────────────

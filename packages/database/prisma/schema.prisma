@@ -419,11 +419,19 @@ model ProductReview {
   status      String    @default("PENDING")
   createdAt   DateTime  @default(now())
   moderatedAt DateTime?
+  /// "¿En qué moto lo instalaste?" (docs/seo/ Fase 4). Modelo elegido por el comprador
+  /// de la lista de MotorcycleModel. Null = no lo dijo o el producto no depende de la moto.
+  /// Es un dato declarado: NO crea ni verifica ningún Fitment.
+  installedModelId String?
+  /// Ciudad de entrega del pedido, copiada al reseñar ("Cali"). Solo la ciudad, nunca la dirección.
+  installedCity    String?
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  installedModel   MotorcycleModel? @relation(fields: [installedModelId], references: [id], onDelete: SetNull)
 
   @@index([productId, status, createdAt])
   @@index([status, createdAt])
+  @@index([installedModelId])
 }
 
 model Payment {
@@ -665,6 +673,8 @@ model MotorcycleModel {
   updatedAt DateTime        @updatedAt
   brand     MotorcycleBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
   fitments  Fitment[]
+  /// Reseñas donde el comprador declaró haberlo instalado en este modelo.
+  reviews   ProductReview[]
 
   @@unique([brandId, slug])
   @@unique([brandId, name])

@@ -6,7 +6,7 @@
  *   2. TRUST BAR — Sellos de confianza con iconos SVG
  *   3. CATEGORÍAS — Grid horizontal de categorías con imágenes
  *   4. PRODUCTOS DESTACADOS — 4 productos in-stock más recientes
- *   5. SOCIAL PROOF — Testimonios + estadísticas de clientes
+ *   5. SOCIAL PROOF — Reseñas reales de ProductReview (no se pinta si no hay ninguna)
  *   6. FAQ — Acordeón de preguntas frecuentes
  *   7. CTA FINAL — Sección combinada de contacto directo
  */
@@ -21,16 +21,18 @@ import { CtaMidSection } from '@/components/store/CtaMidSection'
 import { FAQ } from '@/components/store/FAQ'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { faqPageJsonLd } from '@/lib/structured-data'
-import { FAQ_ITEMS } from '@/lib/faq'
-import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal } from '@/lib/cache'
+import { buildFaqItems } from '@/lib/faq'
+import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal, getCachedCroSettings } from '@/lib/cache'
 
 export default async function HomePage() {
-  const [featuredProducts, categories, heroBanners, promo] = await Promise.all([
+  const [featuredProducts, categories, heroBanners, promo, cro] = await Promise.all([
     getCachedFeaturedProducts(),
     getCachedHomeCategories(),
     getCachedHeroBanners(),
     getCachedPromoModal(),
+    getCachedCroSettings(),
   ])
+  const faqItems = buildFaqItems(cro.freeShippingThreshold)
 
   const banners = heroBanners.map((b) => ({
     id: b.id,
@@ -108,10 +110,10 @@ export default async function HomePage() {
 
       {/*
         6. FAQ — el acordeón visible y su FAQPage salen del mismo array
-        (`FAQ_ITEMS`), así que el marcado no puede contradecir lo que se ve.
+        (`faqItems`), así que el marcado no puede contradecir lo que se ve.
       */}
-      <JsonLd data={faqPageJsonLd(FAQ_ITEMS)} />
-      <FAQ />
+      <JsonLd data={faqPageJsonLd(faqItems)} />
+      <FAQ items={faqItems} />
 
       {/* 7. CTA final combinado */}
       <CtaMidSection />

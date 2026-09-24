@@ -10,6 +10,8 @@ export interface ReviewableOrderItem {
   buyerFullName: string
   /** true si el ítem ya tiene una reseña (cualquier estado). */
   alreadyReviewed: boolean
+  /** Ciudad de entrega del pedido, para "Le sirvió a una DR150 · Cali". Null si no consta. */
+  buyerCity: string | null
 }
 
 export interface CreateReviewInput {
@@ -19,6 +21,8 @@ export interface CreateReviewInput {
   recommends: boolean
   comment: string | null
   authorName: string
+  installedModelId: string | null
+  installedCity: string | null
 }
 
 /**
@@ -27,6 +31,8 @@ export interface CreateReviewInput {
  */
 export interface IReviewRepository {
   findReviewableOrderItem(orderItemId: string): Promise<ReviewableOrderItem | null>
+  /** true si existe un MotorcycleModel activo con ese id. */
+  motorcycleModelExists(modelId: string): Promise<boolean>
   /** Crea la reseña en estado PENDING. */
   create(input: CreateReviewInput): Promise<ProductReview>
   updateStatus(id: string, status: ReviewStatus): Promise<ProductReview>

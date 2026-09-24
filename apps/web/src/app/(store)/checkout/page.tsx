@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { CheckoutForm } from '@/components/checkout/CheckoutForm'
+import { CartFunnelTracker } from '@/components/analytics/CartFunnelTracker'
 
 export const metadata: Metadata = {
   title: 'Finalizar compra',
@@ -28,6 +29,7 @@ export default async function CheckoutPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <CartFunnelTracker event="begin_checkout" />
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Finalizar compra</h1>
       <CheckoutForm
         userEmail={session?.user ? (session.user.email ?? '') : null}

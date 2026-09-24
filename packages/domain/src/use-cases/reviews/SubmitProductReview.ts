@@ -12,6 +12,8 @@ export interface SubmitProductReviewInput {
   rating: number
   recommends: boolean
   comment?: string | null
+  /** Modelo de moto elegido en "¿en qué moto lo instalaste?". Opcional. */
+  installedModelId?: string | null
 }
 
 /**
@@ -22,7 +24,9 @@ export interface SubmitProductReviewInput {
  *   2. El ítem existe y su pedido está DELIVERED (solo quien recibió el producto reseña).
  *   3. Una reseña por ítem comprado.
  *   4. El nombre público se deriva del destinatario ("Carlos P.") — nunca lo escribe el cliente.
- *   5. Nace PENDING: no cuenta para el rating hasta que el admin la apruebe.
+ *   5. Si declara la moto, el modelo debe existir y estar activo. Es un dato declarado:
+ *      no crea ni verifica ninguna compatibilidad (Fitment).
+ *   6. Nace PENDING: no cuenta para el rating hasta que el admin la apruebe.
  */
 export class SubmitProductReview {
   constructor(private readonly reviewRepo: IReviewRepository) {}
@@ -34,6 +38,11 @@ export class SubmitProductReview {
     const comment = input.comment?.trim() || null
     if (comment && comment.length > REVIEW_COMMENT_MAX_LENGTH) {
       return err(new AppError('VALIDATION_ERROR', `El comentario admite máximo ${REVIEW_COMMENT_MAX_LENGTH} caracteres`))
+    }
+
+    const installedModelId = input.installedModelId?.trim() || null
+    if (installedModelId && !(await this.reviewRepo.motorcycleModelExists(installedModelId))) {
+      return err(new AppError('VALIDATION_ERROR', 'La moto seleccionada no existe'))
     }
 
     const item = await this.reviewRepo.findReviewableOrderItem(input.orderItemId)
@@ -55,6 +64,8 @@ export class SubmitProductReview {
         recommends: input.recommends,
         comment,
         authorName: publicAuthorName(item.buyerFullName),
+        installedModelId,
+        installedCity: installedModelId ? item.buyerCity : null,
       })
       return ok(review)
     } catch (e) {

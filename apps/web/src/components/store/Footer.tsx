@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { WHATSAPP_URL } from '@/lib/contact'
+import { getCachedCroSettings } from '@/lib/cache'
+import { ManageConsentLink } from '@/components/analytics/CookieConsentBanner'
+import { formatCOP } from '@/components/store/PriceTag'
 
 const WHATSAPP_FOOTER_URL = WHATSAPP_URL('Hola Tienda H2R')
 
@@ -14,6 +17,8 @@ const NAV_LINKS = [
 ]
 
 const LEGAL_LINKS = [
+  { href: '/sobre-nosotros', label: 'Sobre nosotros' },
+  { href: '/garantias', label: 'Garantías' },
   { href: '/legal/terminos-y-condiciones', label: 'Términos y condiciones' },
   { href: '/legal/politica-de-privacidad', label: 'Política de privacidad' },
   { href: '/legal/politica-de-envios', label: 'Política de envíos' },
@@ -78,7 +83,8 @@ function MailIcon() {
   )
 }
 
-export function Footer() {
+export async function Footer() {
+  const { freeShippingThreshold } = await getCachedCroSettings()
   const year = new Date().getFullYear()
 
   return (
@@ -88,7 +94,7 @@ export function Footer() {
       <div className="bg-sky-600/10 border-b border-sky-500/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <p className="text-center text-xs sm:text-sm text-sky-300/80 tracking-wide">
-            Envío gratis desde $500.000 &nbsp;·&nbsp; Garantía de hasta 1 año &nbsp;·&nbsp; Atención personalizada por WhatsApp
+            {freeShippingThreshold > 0 && <>Envío gratis desde {formatCOP(freeShippingThreshold)} &nbsp;·&nbsp; </>}Garantía de hasta 6 meses &nbsp;·&nbsp; Atención personalizada por WhatsApp
           </p>
         </div>
       </div>
@@ -170,6 +176,9 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <ManageConsentLink className="text-sm text-gray-400 hover:text-sky-400 hover:translate-x-0.5 inline-flex transition-all duration-150" />
+              </li>
             </ul>
           </div>
 

@@ -11,7 +11,7 @@ terminada la 2. **Las fases 0 y 2 requieren aprobación explícita antes de cont
 | **1** | Base técnica de SEO | ✅ **Terminada** (2026-09-22) | [`01-resultados.md`](./01-resultados.md) | ⏳ Pendiente de desplegar y volver a medir (H-36) |
 | **2** | Sistema de compatibilidad | ✅ Terminada (2026-09-22) | [`02-compatibilidad.md`](./02-compatibilidad.md) | ✅ Aprobada · ⛔ bloqueada por **H-02** para publicar |
 | **3** | Datos estructurados | ✅ **Terminada** (2026-09-22) | [`03-datos-estructurados.md`](./03-datos-estructurados.md) | — |
-| 4 | Conversión | 🔜 Siguiente | `04-conversion.md` | — |
+| **4** | Conversión | 🚧 **Casi cerrada** (2ª entrega 2026-09-23) | [`04-conversion.md`](./04-conversion.md) | — |
 | 5 | Contenido y E-E-A-T | 📋 Definida | `05-contenido.md` | Necesita revisor técnico (H-21) |
 | 6 | GEO | 📋 Definida | `06-geo.md`, `geo/` | — |
 | 7 | Merchant Center y feed | 📋 Definida | `07-feed.md` | Necesita marca y MPN de los repuestos (H-18) |
@@ -133,7 +133,9 @@ motos es compatible cada repuesto y en qué condiciones lo entrega.
 
 ---
 
-## Fase 4 — Conversión 📋
+## Fase 4 — Conversión 🚧
+
+**Primera entrega 2026-09-23** (detalle en [`04-conversion.md`](./04-conversion.md)): ítems 1, 2, 3, 4, 5 y 12 hechos — barra fija móvil, estimador de envío, botón de WhatsApp, bloque de confianza, umbral de envío gratis en `Settings` con barra de progreso y `SocialProof` alimentado solo desde `ProductReview` (sin reseñas reales no se muestra nada). **Segunda entrega 2026-09-23:** garantía unificada en 6 meses, umbral de $500.000 confirmado y leído de `Settings` en todo el sitio, campo "¿en qué moto lo instalaste?" en reseñas (migración pendiente de aplicar, H-43), GA4 con consentimiento (falta el ID, H-45) y páginas `/sobre-nosotros` y `/garantias`. Pendientes: 7 y 8 (H-19), historia y equipo (H-44).
 
 **Objetivo:** que cada visita tenga el camino más corto y confiable hacia la compra. Puede avanzar en
 paralelo con la Fase 3.
@@ -299,7 +301,7 @@ Sin ellas el feed se rechaza o sale incompleto. Crear la cuenta y activar las fi
 | **H-13** tiempos de envío reales | `OfferShippingDetails` (3), estimador (4), páginas de ciudad (5), feed (7) | Se omiten esos bloques |
 | **H-18** marca, MPN y tipo de repuesto | `brand` y `mpn` (3), feed (7) | El feed de Merchant Center no es viable |
 | **H-21** revisor técnico | Fase 5 entera | Los borradores no se publican |
-| **H-01** decisión sobre `SocialProof` | Fase 4 | Siguen los testimonios sin respaldo en la home |
+| ~~**H-01** decisión sobre `SocialProof`~~ — resuelta 2026-09-23: se alimenta desde `ProductReview` | — | — |
 | **H-11** decisión sobre GA4 | Medición de las fases 4 y 6 | No hay embudo ni segmento de IA medible |
 | **H-12** perfiles oficiales | `sameAs` (3) | `Organization` sin perfiles |
 | **H-15** política de devoluciones | `MerchantReturnPolicy` (3) | Se omite |
@@ -307,4 +309,4 @@ Sin ellas el feed se rechaza o sale incompleto. Crear la cuenta y activar las fi
 
 ---
 
-*Última actualización: 2026-09-22*
+*Última actualización: 2026-09-23*

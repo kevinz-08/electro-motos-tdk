@@ -18,15 +18,22 @@ export function CartFunnelTracker({ event }: { event: 'view_cart' | 'begin_check
     const key = `ga-${event}`
     try {
       if (window.sessionStorage.getItem(key)) return
-      window.sessionStorage.setItem(key, '1')
     } catch {
       /* sin storage: se envía igual */
     }
-    track(event, {
+    // Se marca como enviado solo si el evento salió (había consentimiento).
+    const sent = track(event, {
       currency: 'COP',
       value: toPesos(items.reduce((sum, i) => sum + i.product.price * i.quantity, 0)),
       items: items.map((i) => toGaItem(i.product, i.quantity)),
     })
+    if (sent) {
+      try {
+        window.sessionStorage.setItem(key, '1')
+      } catch {
+        /* sin storage */
+      }
+    }
     // Solo al montar con carrito: cambios posteriores de cantidad no son otro evento.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasItems, event])

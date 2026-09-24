@@ -92,11 +92,13 @@ type GtagWindow = Window & { dataLayer?: unknown[] }
 /**
  * Encola un evento en `dataLayer` con el mismo formato que `gtag()`, de modo que
  * funciona aunque gtag.js aún no haya terminado de cargar: GA procesa la cola al
- * iniciar. gtag.js solo reconoce objetos `arguments`, no arreglos, por eso se
+ * iniciar. Devuelve `true` si el evento se encoló y `false` si se descartó (sin
+ * consentimiento o sin ID): quien deduplique debe marcar el evento como enviado
+ * SOLO cuando devuelve `true`, o un evento descartado no se reintenta. gtag.js solo reconoce objetos `arguments`, no arreglos, por eso se
  * empuja `arguments` desde una función normal.
  */
-export function track(name: string, params: Record<string, unknown> = {}): void {
-  if (typeof window === 'undefined' || !GA_ID || readConsent() !== 'granted') return
+export function track(name: string, params: Record<string, unknown> = {}): boolean {
+  if (typeof window === 'undefined' || !GA_ID || readConsent() !== 'granted') return false
   const w = window as GtagWindow
   const layer = (w.dataLayer = w.dataLayer ?? [])
   function gtag(..._args: unknown[]) {
@@ -104,4 +106,5 @@ export function track(name: string, params: Record<string, unknown> = {}): void 
     layer.push(arguments)
   }
   gtag('event', name, params)
+  return true
 }

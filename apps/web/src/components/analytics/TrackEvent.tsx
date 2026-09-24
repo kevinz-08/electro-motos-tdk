@@ -19,15 +19,20 @@ export function TrackEvent({
 }) {
   const serialized = JSON.stringify(params ?? {})
   useEffect(() => {
-    if (dedupeKey) {
+    try {
+      if (dedupeKey && window.sessionStorage.getItem(dedupeKey)) return
+    } catch {
+      /* sin storage: se envía igual */
+    }
+    // La marca de "ya enviado" solo se guarda si el evento realmente salió
+    // (con consentimiento); si se descartó, el siguiente montaje lo reintenta.
+    if (track(name, JSON.parse(serialized) as Record<string, unknown>) && dedupeKey) {
       try {
-        if (window.sessionStorage.getItem(dedupeKey)) return
         window.sessionStorage.setItem(dedupeKey, '1')
       } catch {
-        /* sin storage: se envía igual */
+        /* sin storage */
       }
     }
-    track(name, JSON.parse(serialized) as Record<string, unknown>)
   }, [name, serialized, dedupeKey])
   return null
 }

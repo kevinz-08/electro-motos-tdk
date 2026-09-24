@@ -89,9 +89,12 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-43** | **Aplicar la migración `20260923000000_review_installed_motorcycle`** (reseñas: "¿en qué moto lo instalaste?") con `pnpm --filter @h2r/database migrate:deploy`. Es aditiva y reversible (rollback en el propio SQL). **Hasta que se aplique, `pnpm build` de la web falla** con `ColumnNotFound` al prerenderizar las fichas. Aplicarla ANTES de desplegar | 4 | ⬜ |
 | **H-44** | **Historia, fundadores y equipo para /sobre-nosotros.** Las redes son ilegibles sin sesión, así que la página solo lleva datos ya confirmados. Pegar aquí (o en un archivo) la bio de Instagram/Facebook/TikTok, año de fundación, quiénes son, y fotos si las hay. Con eso se amplía la página | 4, 5 | ⬜ |
 | **H-45** | **GA4:** crear la propiedad y el flujo web, copiar el ID `G-XXXXXXXXXX` a `NEXT_PUBLIC_GA_ID` (Vercel + `.env.local`), marcar `purchase` como conversión, y verificar en DebugView que salen `view_item → add_to_cart → view_cart → begin_checkout → purchase`. Pasos en `04-conversion.md` | 4, 6 | ⬜ |
-| **H-46** | **Reglas de venta cruzada (H-19)**: lista de pares "si compra A, ofrecer B" y de kits por modelo. Explicación y plantilla en `04-conversion.md` | 4 | 🟡 Cambia de enfoque 2026-09-24: no hace falta tabla; el admin vincula productos y arma kits desde el panel (rama `feat/cro-cross-selling-kits`) |
+| **H-46** | **Reglas de venta cruzada (H-19)**: lista de pares "si compra A, ofrecer B" y de kits por modelo. Explicación y plantilla en `04-conversion.md` | 4 | ✅ Implementado 2026-09-24 (venta cruzada). Los kits siguen pendientes |
 
-*Última actualización de este bloque: 2026-09-23*
+| **H-47** | **Aplicar la migración `20260924000000_product_cross_sell`** (tabla de venta cruzada) con `pnpm --filter @h2r/database migrate:deploy`. Aditiva y reversible (`DROP TABLE "ProductCrossSell"`). Sin ella la ficha y el carrito funcionan pero sin el bloque, y el editor del admin muestra un error de carga. Aplicarla antes de desplegar | 4 | ⬜ |
+| **H-48** | **Cargar los vínculos de venta cruzada** desde el formulario de cada producto (buscar producto, motivo opcional, casilla de sentido inverso). Empezar por los pares evidentes: kit de arrastre ↔ aceite de cadena, pastillas ↔ líquido de frenos | 4 | ⬜ |
+
+*Última actualización de este bloque: 2026-09-24*
 
 ---
 

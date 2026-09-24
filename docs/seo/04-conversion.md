@@ -50,13 +50,18 @@ Vendelo.
 - **La ficha sigue estática:** los componentes nuevos son de cliente y leen carrito y cookie de "mi moto"
   al hidratar; el HTML prerenderizado no cambia.
 
+## Tercera entrega — venta cruzada (2026-09-24, rama `feat/cro-cross-selling-kits`)
+
+Ítem 7 del ROADMAP. El admin vincula productos desde el formulario de producto; la ficha y el carrito los muestran ("Normalmente se cambia junto con…" y otras 9 frases). Máx. 4 por producto, motivo opcional, sentido inverso por casilla, se oculta lo agotado, filtro por la moto del comprador. Detalle y decisiones en [`plan-venta-cruzada.md`](./plan-venta-cruzada.md). Migración `20260924000000_product_cross_sell` pendiente de aplicar (H-47).
+
 ## Pendiente para cerrar la fase
 
 | Ítem | Qué falta |
 |---|---|
 | Migración de reseñas | Aplicar `migrate:deploy` (H-43) antes de compilar y desplegar |
 | GA4 | Crear propiedad y configurar `NEXT_PUBLIC_GA_ID` (H-45) |
-| 7 y 8. Venta cruzada y kits | Reglas del negocio (H-19/H-46) y compatibilidades cargadas (H-02) |
+| 7. Venta cruzada | Código listo; falta aplicar la migración (H-47) y que el admin cargue los vínculos |
+| 8. Kits de mantenimiento | Siguiente rama: `/admin/kits` (ver la propuesta del negocio del 2026-09-24) |
 | /sobre-nosotros | Historia y equipo (H-44) |
 
 ## Medición antes / después

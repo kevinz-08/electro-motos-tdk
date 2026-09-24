@@ -1932,3 +1932,11 @@ Detalle en `docs/seo/04-conversion.md`. **Sin migraciones de base de datos** en 
 - **Reseñas con moto:** `ProductReview.installedModelId` + `installedCity` (migración `20260923000000_review_installed_motorcycle`, aditiva). `POST /reviews` acepta `installedModelId` opcional; el formulario de `/resena/[orderItemId]` ofrece el selector. Se muestra "Le sirvió a una Suzuki DR150 · Cali". No crea `Fitment`.
 - **GA4:** variable `NEXT_PUBLIC_GA_ID` (opcional; sin ella no se carga nada). Solo tras aceptar el aviso de cookies. Ver `lib/analytics.ts`.
 - **Páginas nuevas:** `/sobre-nosotros` y `/garantias`.
+
+### 26.7 Venta cruzada (2026-09-24, rama `feat/cro-cross-selling-kits`)
+
+Plan y decisiones en `docs/seo/plan-venta-cruzada.md`. Migración aditiva `20260924000000_product_cross_sell` (tabla `ProductCrossSell`, con CHECK contra autovínculo).
+
+- **Admin:** en `/admin/productos/[id]`, sección "Venta cruzada": buscador de productos por nombre o SKU, hasta 4 sugerencias ordenables, motivo opcional (120 caracteres) y casilla "también sugerir en sentido inverso" por sugerencia. API: `GET|PUT /admin/products/:id/cross-sells` y `GET /admin/products/search`.
+- **Público:** `CrossSellBlock` en la ficha (título de una lista de 10, elegido de forma determinista por producto) y `CartCrossSells` en `/carrito` (`GET /api/cross-sells?ids=…`). Solo se muestran productos activos, no borrados y con stock. Si el sugerido tiene compatibilidades verificadas y ninguna es de la moto elegida por el comprador, se oculta; sin compatibilidades cargadas se muestra. Sin sugerencias, no se pinta nada.
+- **Medición:** `view_item_list`, `select_item` y `add_to_cart` con `item_list_name` `venta_cruzada_ficha` / `venta_cruzada_carrito`.

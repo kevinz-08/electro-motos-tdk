@@ -1,6 +1,6 @@
 # Plan de desarrollo — Venta cruzada (Fase 4, ítem 7)
 
-**Rama:** `feat/cro-cross-selling-kits` · **Estado:** plan, sin código todavía · **Origen:** propuesta del negocio del 2026-09-24 (resuelve el bloqueo H-19/H-46: las reglas ya no las define el agente ni una tabla, las mantiene el admin como datos).
+**Rama:** `feat/cro-cross-selling-kits` · **Estado:** implementado (2026-09-24), pendiente de aplicar la migración y de cargar vínculos · **Origen:** propuesta del negocio del 2026-09-24 (resuelve el bloqueo H-19/H-46: las reglas ya no las define el agente ni una tabla, las mantiene el admin como datos).
 
 ## 1. Objetivo y alcance
 
@@ -119,11 +119,25 @@ WP3 y WP4 pueden avanzar en paralelo una vez que WP2 existe. **La migración (WP
 | Regresión del bug de `useSyncExternalStore` | Reutilizar `readMyMotorcycle`/`subscribeToMyMotorcycle` tal cual y probar con y sin moto seleccionada |
 | Caché desactualizada tras editar | `revalidateAdminCache([products])` al guardar; el ISR de 5 min es el respaldo |
 
-## 7. Decisiones abiertas (a confirmar antes de empezar)
+## 7. Decisiones (confirmadas por el negocio el 2026-09-24)
 
-1. **Tope de 4** sugerencias: ¿está bien?
-2. **Motivo opcional** o **obligatorio**. Recomiendo opcional.
-3. **Vínculo recíproco:** ¿casilla "también sugerir en sentido inverso" en v1, o se deja para después? Recomiendo dejarlo para después: añade reglas de tope y conflictos.
-4. **Título del bloque:** "Normalmente se cambia junto con…" (el de H-19) u otro.
-5. **Carrito:** ¿sugerencias también en `/carrito` ("Completa tu compra")? Recomiendo una segunda entrega, con los mismos datos.
-6. **Producto agotado sugerido:** recomiendo ocultarlo (propuesto). Alternativa: mostrarlo como "Agotado".
+1. **Tope de 4** sugerencias por producto. ✅
+2. **Motivo opcional.** ✅
+3. **Sentido inverso:** casilla **por sugerencia** "también sugerir en sentido inverso" (no automático). Al guardar se AGREGA el producto al final de la lista del sugerido si tiene cupo; nunca se reemplaza ni se quita nada de esa lista. Si la lista del sugerido ya tiene 4, no se puede y se avisa. Quitar un vínculo no quita el inverso. ✅
+4. **Títulos:** 10 frases que varían entre productos. **Se eligen de forma determinista por producto** (hash del id), no aleatoria por visita: un título aleatorio por render descuadraría el HTML prerenderizado con el del cliente (error de hidratación) y cambiaría en cada carga. Ninguna frase afirma ventas ("suele comprarse", "el más vendido"): el vínculo es una recomendación del negocio, no un dato de ventas. ✅
+5. **Carrito:** también se implementa (`/api/cross-sells` + `CartCrossSells`, título fijo "Completa tu compra con…"). ✅
+6. **Producto sugerido agotado:** se oculta (y también el inactivo o borrado). ✅
+
+## 8. Qué se construyó
+
+| Paquete | Archivos principales |
+|---|---|
+| Dominio | `entities/ProductCrossSell.ts`, `repositories/ICrossSellRepository.ts`, `use-cases/crossSell/SetProductCrossSells.ts`, `__tests__/CrossSell.test.ts` (19 tests) |
+| Base de datos y API | `ProductCrossSell` + migración `20260924000000_product_cross_sell`, `PrismaCrossSellRepository`, `GET/PUT /admin/products/:id/cross-sells`, `GET /admin/products/search`, `__tests__/cross-sells.test.ts` |
+| Admin | `components/admin/CrossSellEditor.tsx` dentro de `ProductEditForm` |
+| Ficha y carrito | `lib/cross-sell.ts`, `getCachedCrossSells`, `CrossSellBlock`, `CrossSellList`, `CartCrossSells`, `app/api/cross-sells/route.ts` |
+| Medición | `view_item_list`, `select_item` y `add_to_cart` con `item_list_name` = `venta_cruzada_ficha` o `venta_cruzada_carrito` |
+
+**Detalles a tener en cuenta:** el editor solo envía la lista si logró cargarla y el admin la tocó (un error de lectura nunca borra vínculos); la ficha sigue prerenderizada (SSG) porque el filtro por moto va en el cliente; y si la lectura falla (p. ej. migración sin aplicar) la ficha y el carrito se sirven igual, sin el bloque.
+
+**No hecho:** prueba Playwright de la ficha (necesita datos cargados) y verificación contra la base real con un vínculo de prueba (necesita la migración aplicada).

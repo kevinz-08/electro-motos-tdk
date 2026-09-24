@@ -28,6 +28,7 @@ describe('publicAuthorName', () => {
 function makeRepo(item: ReviewableOrderItem | null) {
   return {
     findReviewableOrderItem: vi.fn().mockResolvedValue(item),
+    motorcycleModelExists: vi.fn().mockImplementation(async (id: string) => id === 'model-1'),
     create: vi.fn().mockImplementation(async (input) => ({ id: 'rev-1', status: 'PENDING', createdAt: new Date(), ...input })),
     updateStatus: vi.fn(),
   } as unknown as IReviewRepository
@@ -39,6 +40,7 @@ const DELIVERED_ITEM: ReviewableOrderItem = {
   orderStatus: 'DELIVERED',
   buyerFullName: 'Laura Gómez',
   alreadyReviewed: false,
+  buyerCity: null,
 }
 
 describe('SubmitProductReview', () => {
@@ -50,8 +52,32 @@ describe('SubmitProductReview', () => {
     expect(result.ok).toBe(true)
     expect(repo.create).toHaveBeenCalledWith({
       productId: 'prod-1', orderItemId: 'item-1', rating: 5, recommends: true,
-      comment: 'Excelente', authorName: 'Laura G.',
+      comment: 'Excelente', authorName: 'Laura G.', installedModelId: null, installedCity: null,
     })
+  })
+
+  it('guarda la moto declarada y la ciudad de entrega', async () => {
+    const repo = makeRepo({ ...DELIVERED_ITEM, buyerCity: 'Cali' })
+    const result = await new SubmitProductReview(repo).execute({
+      orderItemId: 'item-1', rating: 5, recommends: true, installedModelId: 'model-1',
+    })
+    expect(result.ok).toBe(true)
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ installedModelId: 'model-1', installedCity: 'Cali' }))
+  })
+
+  it('no guarda la ciudad si no declaró moto', async () => {
+    const repo = makeRepo({ ...DELIVERED_ITEM, buyerCity: 'Cali' })
+    await new SubmitProductReview(repo).execute({ orderItemId: 'item-1', rating: 5, recommends: true })
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ installedModelId: null, installedCity: null }))
+  })
+
+  it('rechaza una moto inexistente sin crear la reseña', async () => {
+    const repo = makeRepo(DELIVERED_ITEM)
+    const result = await new SubmitProductReview(repo).execute({
+      orderItemId: 'item-1', rating: 5, recommends: true, installedModelId: 'no-existe',
+    })
+    expect(result.ok).toBe(false)
+    expect(repo.create).not.toHaveBeenCalled()
   })
 
   it('rechaza calificaciones fuera de 1–5', async () => {

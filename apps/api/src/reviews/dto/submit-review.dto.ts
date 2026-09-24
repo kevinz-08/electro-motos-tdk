@@ -19,4 +19,8 @@ export class SubmitReviewDto {
   @ApiPropertyOptional({ maxLength: REVIEW_COMMENT_MAX_LENGTH })
   @IsOptional() @IsString() @MaxLength(REVIEW_COMMENT_MAX_LENGTH)
   comment?: string
+
+  @ApiPropertyOptional({ description: 'Id del MotorcycleModel en el que lo instaló ("¿en qué moto lo instalaste?")' })
+  @IsOptional() @IsString() @MaxLength(64)
+  installedModelId?: string
 }

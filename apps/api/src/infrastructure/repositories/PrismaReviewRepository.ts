@@ -12,6 +12,7 @@ import { PrismaService } from '../database/prisma.service'
 type PrismaReviewRow = {
   id: string; productId: string; orderItemId: string; rating: number; recommends: boolean
   comment: string | null; authorName: string; status: string; createdAt: Date
+  installedModelId: string | null; installedCity: string | null
 }
 
 function toDomain(r: PrismaReviewRow): ProductReview {
@@ -25,6 +26,8 @@ function toDomain(r: PrismaReviewRow): ProductReview {
     authorName: r.authorName,
     status: r.status as ReviewStatus,
     createdAt: r.createdAt,
+    installedModelId: r.installedModelId,
+    installedCity: r.installedCity,
   }
 }
 
@@ -43,14 +46,23 @@ export class PrismaReviewRepository implements IReviewRepository {
       },
     })
     if (!item) return null
-    const address = item.order.shippingAddress as { fullName?: string } | null
+    const address = item.order.shippingAddress as { fullName?: string; city?: string } | null
     return {
       orderItemId: item.id,
       productId: item.productId,
       orderStatus: item.order.status as OrderStatus,
       buyerFullName: address?.fullName ?? '',
       alreadyReviewed: item.review !== null,
+      buyerCity: address?.city?.trim() || null,
     }
+  }
+
+  async motorcycleModelExists(modelId: string): Promise<boolean> {
+    const model = await this.prisma.client.motorcycleModel.findFirst({
+      where: { id: modelId, isActive: true },
+      select: { id: true },
+    })
+    return model !== null
   }
 
   async create(input: CreateReviewInput): Promise<ProductReview> {

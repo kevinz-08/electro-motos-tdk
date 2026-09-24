@@ -19,6 +19,7 @@ import type { EmailQueueService } from '../infrastructure/services/EmailQueueSer
 describe('ReviewsController.submit', () => {
   const reviewRepo = {
     findReviewableOrderItem: vi.fn(),
+    motorcycleModelExists: vi.fn().mockResolvedValue(true),
     create: vi.fn(),
     updateStatus: vi.fn(),
   }
@@ -44,7 +45,7 @@ describe('ReviewsController.submit', () => {
 
   it('crea la reseña PENDING con un token válido y pedido entregado', async () => {
     reviewRepo.findReviewableOrderItem.mockResolvedValue({
-      orderItemId: 'item-1', productId: 'prod-1', orderStatus: 'DELIVERED', buyerFullName: 'Ana Ruiz', alreadyReviewed: false,
+      orderItemId: 'item-1', productId: 'prod-1', orderStatus: 'DELIVERED', buyerFullName: 'Ana Ruiz', alreadyReviewed: false, buyerCity: 'Cali',
     })
     reviewRepo.create.mockImplementation(async (input) => ({ id: 'rev-1', status: 'PENDING', createdAt: new Date(), ...input }))
 

@@ -93,6 +93,14 @@ describe('parseCroSettings', () => {
     expect(s.reviewsMinCount).toBe(CRO_SETTING_DEFAULTS.reviewsMinCount)
   })
 
+  it('lee el umbral de envío gratis, admite 0 (sin umbral) y rechaza negativos', () => {
+    expect(parseCroSettings([{ key: 'FREE_SHIPPING_THRESHOLD', value: '70000000' }]).freeShippingThreshold).toBe(70_000_000)
+    expect(parseCroSettings([{ key: 'FREE_SHIPPING_THRESHOLD', value: '0' }]).freeShippingThreshold).toBe(0)
+    expect(parseCroSettings([{ key: 'FREE_SHIPPING_THRESHOLD', value: '-5' }]).freeShippingThreshold).toBe(
+      CRO_SETTING_DEFAULTS.freeShippingThreshold,
+    )
+  })
+
   it('garantiza max >= min en días de envío', () => {
     const s = parseCroSettings([
       { key: 'SHIPPING_ETA_MIN_DAYS', value: '6' },

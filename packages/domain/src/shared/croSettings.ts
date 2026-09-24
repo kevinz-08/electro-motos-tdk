@@ -12,6 +12,7 @@ export const CRO_SETTING_KEYS = {
   shippingEtaMinDays: 'SHIPPING_ETA_MIN_DAYS',
   shippingEtaMaxDays: 'SHIPPING_ETA_MAX_DAYS',
   shippingCutoffHour: 'SHIPPING_CUTOFF_HOUR',
+  freeShippingThreshold: 'FREE_SHIPPING_THRESHOLD',
 } as const
 
 export type CroSettingName = keyof typeof CRO_SETTING_KEYS
@@ -27,6 +28,12 @@ export const CRO_SETTING_DEFAULTS: CroSettings = {
   shippingEtaMinDays: 2,
   shippingEtaMaxDays: 5,
   shippingCutoffHour: 14,
+  /**
+   * Compra mínima (centavos COP) para envío gratis. 0 = sin umbral: la ficha y el
+   * carrito no prometen envío gratis. El default replica lo que el sitio ya decía
+   * a mano ($500.000); confirmar que sigue vigente es la tarea H-14.
+   */
+  freeShippingThreshold: 50_000_000,
 }
 
 /** Rangos válidos por setting — usados tanto al leer (fallback) como al validar en la API. */
@@ -37,6 +44,7 @@ export const CRO_SETTING_RANGES: Record<CroSettingName, { min: number; max: numb
   shippingEtaMinDays: { min: 0, max: 60 },
   shippingEtaMaxDays: { min: 0, max: 60 },
   shippingCutoffHour: { min: 0, max: 24 },
+  freeShippingThreshold: { min: 0, max: 100_000_000_000 },
 }
 
 /**

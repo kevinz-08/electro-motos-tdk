@@ -39,6 +39,7 @@ export class ReviewsController {
       rating: dto.rating,
       recommends: dto.recommends,
       comment: dto.comment,
+      installedModelId: dto.installedModelId,
     })
     if (!result.ok) throw result.error
     return { id: result.value.id, status: result.value.status }

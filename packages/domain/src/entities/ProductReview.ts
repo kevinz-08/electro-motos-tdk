@@ -20,6 +20,10 @@ export interface ProductReview {
   authorName: string
   status: ReviewStatus
   createdAt: Date
+  /** Modelo de moto en el que el comprador dice haberlo instalado (opcional, declarado). */
+  installedModelId?: string | null
+  /** Ciudad de entrega del pedido ("Cali"). Nunca la dirección. */
+  installedCity?: string | null
 }
 
 export const REVIEW_COMMENT_MAX_LENGTH = 1000

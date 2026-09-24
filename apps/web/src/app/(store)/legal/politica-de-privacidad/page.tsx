@@ -114,6 +114,33 @@ export default function PoliticaDePrivacidadPage() {
           </ul>
         </section>
 
+        {/* Cookies y analítica */}
+        <section aria-labelledby="seccion-cookies">
+          <h2 id="seccion-cookies" className="text-lg font-bold text-gray-900 mb-3">
+            4.1. Cookies y analítica
+          </h2>
+          <p className="text-gray-700 mb-3">
+            Con su consentimiento, usamos Google Analytics para medir cómo se usa el sitio: qué
+            páginas se visitan, qué productos se ven o se agregan al carrito y cuántas compras se
+            completan. Estos datos se registran de forma agregada y <strong>no incluyen su nombre,
+            correo, teléfono, documento ni dirección</strong>.
+          </p>
+          <ul className="list-disc list-outside pl-5 space-y-1.5 text-gray-700">
+            <li>
+              Google Analytics no se carga hasta que usted acepta el aviso de cookies. Si rechaza,
+              el sitio funciona igual.
+            </li>
+            <li>
+              Puede cambiar su decisión en cualquier momento desde el enlace «Cookies de analítica»
+              del pie de página.
+            </li>
+            <li>
+              Además, la tienda usa Vercel Analytics para medir visitas de forma agregada, sin
+              cookies de seguimiento.
+            </li>
+          </ul>
+        </section>
+
         {/* Derechos del titular */}
         <section aria-labelledby="seccion-derechos">
           <h2 id="seccion-derechos" className="text-lg font-bold text-gray-900 mb-3">

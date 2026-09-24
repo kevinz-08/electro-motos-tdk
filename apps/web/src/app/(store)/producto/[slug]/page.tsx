@@ -59,6 +59,12 @@ import { Breadcrumbs } from '@/components/store/Breadcrumbs'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { productJsonLd } from '@/lib/structured-data'
 import { CompatibilityBadge } from '@/components/store/CompatibilityBadge'
+import { StickyBuyBar } from '@/components/store/StickyBuyBar'
+import { ProductShippingEstimate } from '@/components/store/ProductShippingEstimate'
+import { ConfirmCompatibilityButton } from '@/components/store/ConfirmCompatibilityButton'
+import { ProductTrustBlock } from '@/components/store/ProductTrustBlock'
+import { TrackEvent } from '@/components/analytics/TrackEvent'
+import { toGaItem, toPesos } from '@/lib/analytics'
 
 import { AddToCartWithQuantity } from '@/components/store/AddToCartWithQuantity'
 import { PayWithAddiButton } from '@/components/store/PayWithAddiButton'
@@ -219,6 +225,10 @@ export default async function ProductPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-white">
     <JsonLd data={jsonLd} />
+    <TrackEvent
+      name="view_item"
+      params={{ currency: 'COP', value: toPesos(product.price), items: [toGaItem(product)] }}
+    />
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Migas visibles + BreadcrumbList, generados del mismo array (Fase 3) */}
       <div className="mb-6">
@@ -292,7 +302,9 @@ export default async function ProductPage({ params }: PageProps) {
               </summary>
               <div className="px-4 py-3 text-xs text-gray-600 space-y-1.5 bg-white border-t border-gray-100">
                 <p>• Despacho en <strong>1 a 5 días hábiles</strong> desde la confirmación del pago.</p>
-                <p>• Envío <strong>gratis</strong> en compras superiores a $500.000 COP.</p>
+                {croSettings.freeShippingThreshold > 0 && (
+                  <p>• Envío <strong>gratis</strong> en compras superiores a {formatCOP(croSettings.freeShippingThreshold)} COP.</p>
+                )}
                 <p>• Cobertura a <strong>todo Colombia</strong> con Coordinadora, Envía e Interrapidísimo.</p>
                 <p>• Una vez despachado, no se aceptan cambios de dirección.</p>
                 <Link
@@ -371,7 +383,10 @@ export default async function ProductPage({ params }: PageProps) {
             <StockStatus stock={product.stock} urgencyThreshold={croSettings.lowStockThreshold} />
           </div>
 
-          <AddToCartWithQuantity product={product} />
+          {/* id="buy-box": el StickyBuyBar (móvil) observa este bloque */}
+          <div id="buy-box">
+            <AddToCartWithQuantity product={product} />
+          </div>
 
           {/*
             Alternativa de pago — abre WhatsApp con consulta pre-armada.
@@ -391,6 +406,13 @@ export default async function ProductPage({ params }: PageProps) {
             />
           </div>
 
+          {/* Confirmar compatibilidad con un asesor, junto a la acción de compra */}
+          <ConfirmCompatibilityButton
+            productName={product.name}
+            productSku={product.sku}
+            className="mt-3"
+          />
+
           {/* Estimación de entrega — justo debajo de las acciones de compra (carrito + Addi) */}
           {product.stock > 0 && (
             <div className="mt-4">
@@ -402,7 +424,19 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
           )}
 
+          {/* Costo de envío a la ciudad del comprador (cotizador real de Vendelo) */}
+          {product.stock > 0 && (
+            <ProductShippingEstimate
+              productId={product.id}
+              price={product.price}
+              freeShippingThreshold={croSettings.freeShippingThreshold}
+              className="mt-4"
+            />
+          )}
+
           <SecurePaymentBadge />
+
+          <ProductTrustBlock warrantyMonths={freshProduct?.warrantyMonths ?? null} className="mt-3" />
 
           <hr className="mt-4 mb-3 border-gray-100" />
 
@@ -460,6 +494,9 @@ export default async function ProductPage({ params }: PageProps) {
                   </time>
                 </div>
                 {r.comment && <p className="text-sm text-gray-700 leading-relaxed">{r.comment}</p>}
+                {r.installedLine && (
+                  <p className="mt-2 text-xs font-medium text-green-700">🏍️ {r.installedLine}</p>
+                )}
                 <p className="text-xs text-gray-500 mt-3">
                   <span className="font-semibold text-gray-700">{r.authorName}</span>
                   {' '}· Compra verificada{r.recommends && ' · Lo recomienda'}
@@ -478,6 +515,9 @@ export default async function ProductPage({ params }: PageProps) {
         />
       </Suspense>
     </div>
+
+    {/* Barra fija de compra en móvil: aparece al pasar el bloque de compra */}
+    <StickyBuyBar product={product} targetId="buy-box" />
     </div>
   )
 }

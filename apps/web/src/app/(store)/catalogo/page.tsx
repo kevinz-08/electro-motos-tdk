@@ -33,6 +33,7 @@ import type { Product } from '@h2r/domain'
 import { getCachedCatalogLanding, getCachedCatalogGrid } from '@/lib/cache'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getPaginationPages } from '@/lib/pagination'
+import { TrackEvent } from '@/components/analytics/TrackEvent'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -513,6 +514,7 @@ function GridView({
   return (
     <div className="catalog-light bg-white min-h-screen">
       {structuredData && <JsonLd data={structuredData} />}
+      {params.search && <TrackEvent name="search" params={{ search_term: params.search }} />}
 
       {/* ── Breadcrumb + título ── */}
       <div className="border-b border-gray-100">

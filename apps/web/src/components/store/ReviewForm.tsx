@@ -10,7 +10,21 @@ import { apiClient } from '@/lib/api-client'
 const MAX_COMMENT = 1000
 const LABELS = ['', 'Malo', 'Regular', 'Bueno', 'Muy bueno', 'Excelente']
 
-export function ReviewForm({ orderItemId, token }: { orderItemId: string; token: string }) {
+export interface MotorcycleBrandOption {
+  name: string
+  models: Array<{ id: string; name: string }>
+}
+
+export function ReviewForm({
+  orderItemId,
+  token,
+  motorcycleBrands = [],
+}: {
+  orderItemId: string
+  token: string
+  motorcycleBrands?: MotorcycleBrandOption[]
+}) {
+  const [installedModelId, setInstalledModelId] = useState('')
   const [rating, setRating] = useState(0)
   const [hover, setHover] = useState(0)
   const [recommends, setRecommends] = useState<boolean | null>(null)
@@ -32,6 +46,7 @@ export function ReviewForm({ orderItemId, token }: { orderItemId: string; token:
         rating,
         recommends,
         ...(comment.trim() && { comment: comment.trim() }),
+        ...(installedModelId && { installedModelId }),
       })
       if (!res.ok) {
         setError(res.error ?? 'No se pudo enviar tu reseña')
@@ -102,6 +117,33 @@ export function ReviewForm({ orderItemId, token }: { orderItemId: string; token:
           ))}
         </div>
       </fieldset>
+
+      {motorcycleBrands.length > 0 && (
+        <div>
+          <label htmlFor="review-moto" className="block text-sm font-semibold text-gray-900 mb-2">
+            ¿En qué moto lo instalaste? <span className="font-normal text-gray-400">(opcional)</span>
+          </label>
+          <select
+            id="review-moto"
+            value={installedModelId}
+            onChange={(e) => setInstalledModelId(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-sky-400"
+          >
+            <option value="">No aplica / prefiero no decirlo</option>
+            {motorcycleBrands.map((brand) => (
+              <optgroup key={brand.name} label={brand.name}>
+                {brand.models.map((m) => (
+                  <option key={m.id} value={m.id}>{brand.name} {m.name}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            Si la eliges, publicaremos “Le sirvió a una [moto] · [ciudad de entrega]” junto a tu reseña. Solo la
+            ciudad, nunca tu dirección.
+          </p>
+        </div>
+      )}
 
       <div>
         <label htmlFor="review-comment" className="block text-sm font-semibold text-gray-900 mb-2">

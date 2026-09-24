@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FAQ_ITEMS, type FaqItem } from '@/lib/faq'
+import type { FaqItem } from '@/lib/faq'
 
 
 function AccordionItem({
@@ -43,7 +43,7 @@ function AccordionItem({
   )
 }
 
-export function FAQ() {
+export function FAQ({ items }: { items: FaqItem[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
@@ -59,7 +59,7 @@ export function FAQ() {
         </div>
 
         <div className="border-t border-gray-200">
-          {FAQ_ITEMS.map((item, index) => (
+          {items.map((item, index) => (
             <AccordionItem
               key={index}
               item={item}

@@ -11,6 +11,16 @@ import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
 import { CACHE_TAGS } from '@/lib/cache-tags'
 
+/** Campos que se guardan en centavos pero el admin edita en pesos COP. */
+const PESO_FIELDS: ReadonlyArray<keyof CroSettings> = ['freeShippingThreshold']
+
+const toInput = (name: keyof CroSettings, stored: number) =>
+  String(PESO_FIELDS.includes(name) ? stored / 100 : stored)
+const toStored = (name: keyof CroSettings, input: string) => {
+  const n = parseInt(input, 10)
+  return PESO_FIELDS.includes(name) ? n * 100 : n
+}
+
 const FIELDS: Array<{ name: keyof CroSettings; label: string; help: string; min: number; max: number }> = [
   { name: 'socialProofMinSold', label: 'Mínimo de ventas para "🔥 X personas han comprado"', help: 'Por debajo de este número el contador no se muestra.', min: 0, max: 100000 },
   { name: 'reviewsMinCount', label: 'Mínimo de reseñas para mostrar estrellas', help: 'Evita mostrar un promedio con muy pocas opiniones.', min: 1, max: 1000 },
@@ -18,12 +28,13 @@ const FIELDS: Array<{ name: keyof CroSettings; label: string; help: string; min:
   { name: 'shippingEtaMinDays', label: 'Entrega: días hábiles mínimos', help: 'Desde el despacho hasta la entrega.', min: 0, max: 60 },
   { name: 'shippingEtaMaxDays', label: 'Entrega: días hábiles máximos', help: 'Debe ser mayor o igual al mínimo.', min: 0, max: 60 },
   { name: 'shippingCutoffHour', label: 'Hora de corte para despachar el mismo día', help: 'Hora de Colombia (0-24). Después de esta hora se cuenta desde el siguiente día hábil.', min: 0, max: 24 },
+  { name: 'freeShippingThreshold', label: 'Envío gratis desde (COP)', help: 'Compra mínima en pesos. Alimenta la ficha, el carrito y la barra de progreso. 0 = no se promete envío gratis.', min: 0, max: 1000000000 },
 ]
 
 export function CroSettingsForm({ initial }: { initial: CroSettings }) {
   const { data: session } = useSession()
   const [values, setValues] = useState<Record<keyof CroSettings, string>>(
-    Object.fromEntries(FIELDS.map((f) => [f.name, String(initial[f.name])])) as Record<keyof CroSettings, string>,
+    Object.fromEntries(FIELDS.map((f) => [f.name, toInput(f.name, initial[f.name])])) as Record<keyof CroSettings, string>,
   )
   const [status, setStatus] = useState<{ type: 'ok' | 'error'; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -31,7 +42,7 @@ export function CroSettingsForm({ initial }: { initial: CroSettings }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setStatus(null)
-    const payload = Object.fromEntries(FIELDS.map((f) => [f.name, parseInt(values[f.name], 10)]))
+    const payload = Object.fromEntries(FIELDS.map((f) => [f.name, toStored(f.name, values[f.name])]))
     if (Object.values(payload).some((v) => Number.isNaN(v))) {
       setStatus({ type: 'error', message: 'Todos los campos deben ser números enteros' })
       return

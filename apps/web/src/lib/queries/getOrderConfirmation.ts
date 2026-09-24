@@ -5,6 +5,7 @@ export type OrderConfirmationItem = {
   id: string
   productName: string
   productSlug: string
+  productSku: string
   productImage: string | null
   quantity: number
   priceAtPurchase: number
@@ -49,7 +50,7 @@ export async function getOrderConfirmation(orderId: string, access: OrderAccess)
     include: {
       items: {
         include: {
-          product: { select: { name: true, slug: true, images: true } },
+          product: { select: { name: true, slug: true, sku: true, images: true } },
         },
       },
     },
@@ -87,6 +88,7 @@ export async function getOrderConfirmation(orderId: string, access: OrderAccess)
       id: item.id,
       productName: item.product.name,
       productSlug: item.product.slug,
+      productSku: item.product.sku,
       productImage: item.product.images[0] ?? null,
       quantity: item.quantity,
       priceAtPurchase: item.priceAtPurchase,

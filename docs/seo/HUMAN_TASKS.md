@@ -14,7 +14,7 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 
 | ID | Tarea | Bloquea | Estado |
 |---|---|---|---|
-| **H-01** | **Decidir qué hacer con `SocialProof.tsx`.** Hoy la home muestra 4 testimonios con nombre propio etiquetados "Cliente verificado" y las cifras "500+ clientes satisfechos / 1.200+ repuestos vendidos / 98% recomendación", todo escrito a mano en el código. ¿Son datos reales? Opciones: (a) confirmarlos con respaldo y dejarlos, (b) alimentar la sección desde `ProductReview` (reseñas reales verificadas por compra), (c) retirarlos. Riesgo legal: Ley 1480 de 2011, publicidad engañosa | Fase 4, Fase 5 | ⬜ |
+| **H-01** | ~~**Decidir qué hacer con `SocialProof.tsx`**~~ — **resuelta el 2026-09-23**: se alimenta solo desde `ProductReview`; sin reseñas reales no se muestra nada. Detalle anterior: Hoy la home muestra 4 testimonios con nombre propio etiquetados "Cliente verificado" y las cifras "500+ clientes satisfechos / 1.200+ repuestos vendidos / 98% recomendación", todo escrito a mano en el código. ¿Son datos reales? Opciones: (a) confirmarlos con respaldo y dejarlos, (b) alimentar la sección desde `ProductReview` (reseñas reales verificadas por compra), (c) retirarlos. Riesgo legal: Ley 1480 de 2011, publicidad engañosa | Fase 4, Fase 5 | ✅ |
 | **H-02** | **Datos de compatibilidad verificados.** 🟡 **En marcha.** El 2026-09-22 se cargaron 55 fitments verificados (20 modelos con hub publicado) a partir de los dos CSV de borrador, confirmados por Santiago — ver [`compatibilidades-importadas-2026-09-22.md`](./compatibilidades-importadas-2026-09-22.md). Quedan **21 modelos del catálogo (41 en total) sin ninguna compatibilidad**: seguir cargando con la plantilla [`plantilla-compatibilidades.csv`](./plantilla-compatibilidades.csv) y `POST /admin/fitments/import` | Fase 2 → publicar | 🟡 |
 | **H-03** | **Referencias OEM** de los productos que las tengan (`sku,referencia_oem,fabricante`) | Fase 2, Fase 3 | ⬜ |
 | **H-04** | ~~Confirmar la lista de modelos prioritarios~~ — **confirmada el 2026-09-22**: sigue siendo correcta (AKT NKD 125, Bajaj Boxer CT100, NMAX 155, XR190L, DR150, Pulsar NS/N, FZ, Hunk 125R, Apache, Raider) | Fase 2, Fase 5 | ✅ |
@@ -31,7 +31,7 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | H-08 | Conseguir una **API key de PageSpeed Insights** (o dar acceso a los datos de campo CrUX) para medir el percentil 75 real desde Colombia | 1 | ⬜ |
 | H-09 | Crear/configurar **Google Merchant Center** para Colombia y activar las fichas gratuitas | 7 | ⬜ |
 | H-10 | ~~Decidir si hay punto físico~~ — **confirmado el 2026-09-22**: sí hay, en Carrera 21 #21-58, Bucaramanga, y se pueden recoger pedidos ahí. El JSON-LD ya declara `LocalBusiness` además de `Organization`. **Falta la parte externa** (ver H-41, H-42 más abajo) | 3, 6 | 🟡 |
-| H-11 | Decidir si se instala **GA4** (hoy solo hay Vercel Analytics, sin eventos). Sin analítica de eventos no se puede medir el embudo ni el tráfico desde IA | 4, 6 | ⬜ |
+| H-11 | ~~Decidir si se instala GA4~~ — **decidido el 2026-09-23: se instala.** Código listo; falta crear la propiedad y poner `NEXT_PUBLIC_GA_ID` (ver H-45). Antes: Decidir si se instala **GA4** (hoy solo hay Vercel Analytics, sin eventos). Sin analítica de eventos no se puede medir el embudo ni el tráfico desde IA | 4, 6 | ⬜ |
 | H-12 | ~~Confirmar los perfiles oficiales para `sameAs`~~ — **cerrada el 2026-09-22**: Instagram, Facebook y TikTok ya están y verificados. Se decidió **no incluir Mercado Libre por ahora** (la URL del brief daba 404 de todos modos) | 3 | ✅ |
 
 ---
@@ -41,10 +41,10 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | ID | Tarea | Fase | Estado |
 |---|---|---|---|
 | H-13 | ~~Tiempos de envío reales por ciudad~~ — **aceptado el 2026-09-22**: el tiempo global de `Settings` (2 a 5 días hábiles) se confirma como aproximado real y suficiente por ahora. Queda abierta la granularidad por ciudad (Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Eje Cafetero) como mejora futura para las páginas de envío por ciudad de la Fase 5, no bloqueante | 3, 4, 5 | ✅ |
-| H-14 | **Umbral de envío gratis**: hoy "$500.000 COP" está escrito a mano en el acordeón de la PDP. ¿Sigue vigente? Debe pasar a `Settings` para ser una única fuente de verdad | 4 | ⬜ |
+| H-14 | ~~**Umbral de envío gratis**~~ — **confirmado el 2026-09-23: $500.000.** Ya vive en `Settings` (`FREE_SHIPPING_THRESHOLD`) y todos los textos lo leen de ahí. Antes: **Umbral de envío gratis**: hoy "$500.000 COP" está escrito a mano en el acordeón de la PDP. ¿Sigue vigente? Debe pasar a `Settings` para ser una única fuente de verdad | 4 | ⬜ |
 | H-15 | ~~Política de devoluciones exacta~~ — **confirmada el 2026-09-22**: siguen siendo 5 días calendario. El flete de devolución se evalúa caso por caso por WhatsApp según la gravedad (a veces cliente, a veces H2R) — no es un valor fijo, así que el JSON-LD sigue sin declarar `returnFees` a propósito (ver el comentario en `structured-data.ts`) | 3, 4 | ✅ |
 | H-16 | ~~¿Existe la política "si no le sirve a tu moto, te lo cambiamos"?~~ — **confirmado el 2026-09-22: NO existe.** No se publicó nunca y no hay que agregarla en ningún lado (FAQ, ficha, JSON-LD) | 4 | ✅ |
-| H-17 | ~~Garantía por tipo de producto~~ — **confirmado el 2026-09-22**: el "hasta 6 meses" genérico que ya dice la home es correcto, no hace falta desglosar por categoría | 3, 4, 5 | ✅ |
+| H-17 | ~~Garantía por tipo de producto~~ (reconfirmado 2026-09-23: **"hasta 6 meses"** en todo el sitio; se corrigieron el footer y `TrustBadges`, que decían "1 año") — **confirmado el 2026-09-22**: el "hasta 6 meses" genérico que ya dice la home es correcto, no hace falta desglosar por categoría | 3, 4, 5 | ✅ |
 | H-18 | **Marca y tipo de cada repuesto** (original / homologado / genérico) y su `mpn`. Necesario para el feed de Merchant Center y para el `Product` JSON-LD completo | 3, 7 | ⬜ |
 | H-19 | **Reglas de venta cruzada con criterio mecánico** ("kit de arrastre + aceite de cadena", "pastillas + líquido de frenos"). Las define el negocio, no se deducen | 4 | ⬜ |
 | H-20 | **Intervalos de mantenimiento** por modelo, tomados del manual del fabricante, con la fuente citada | 5 | ⬜ |
@@ -86,7 +86,12 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-35** | **Revisar el vídeo recomprimido del catálogo** en un escritorio real y confirmar que la calidad es aceptable. Si no lo es, se regenera con menos compresión desde el original, que sigue en el historial de git | 1 | ⬜ |
 | **H-36** | **Medir Lighthouse en producción tras el despliegue** (`pnpm seo:lighthouse`) y pegar los resultados en `01-resultados.md` §4. Las cifras "después" de la Fase 1 no están confirmadas hasta entonces | 1 | ⬜ |
 
-*Última actualización de este bloque: 2026-09-22*
+| **H-43** | **Aplicar la migración `20260923000000_review_installed_motorcycle`** (reseñas: "¿en qué moto lo instalaste?") con `pnpm --filter @h2r/database migrate:deploy`. Es aditiva y reversible (rollback en el propio SQL). **Hasta que se aplique, `pnpm build` de la web falla** con `ColumnNotFound` al prerenderizar las fichas. Aplicarla ANTES de desplegar | 4 | ⬜ |
+| **H-44** | **Historia, fundadores y equipo para /sobre-nosotros.** Las redes son ilegibles sin sesión, así que la página solo lleva datos ya confirmados. Pegar aquí (o en un archivo) la bio de Instagram/Facebook/TikTok, año de fundación, quiénes son, y fotos si las hay. Con eso se amplía la página | 4, 5 | ⬜ |
+| **H-45** | **GA4:** crear la propiedad y el flujo web, copiar el ID `G-XXXXXXXXXX` a `NEXT_PUBLIC_GA_ID` (Vercel + `.env.local`), marcar `purchase` como conversión, y verificar en DebugView que salen `view_item → add_to_cart → view_cart → begin_checkout → purchase`. Pasos en `04-conversion.md` | 4, 6 | ⬜ |
+| **H-46** | **Reglas de venta cruzada (H-19)**: lista de pares "si compra A, ofrecer B" y de kits por modelo. Explicación y plantilla en `04-conversion.md` | 4 | ⬜ |
+
+*Última actualización de este bloque: 2026-09-23*
 
 ---
 

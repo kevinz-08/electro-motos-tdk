@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Product } from '@h2r/domain'
 import { toast } from 'sonner'
 import { useCart } from '@/lib/cart'
+import { toGaItem, toPesos, track } from '@/lib/analytics'
 
 interface AddToCartWithQuantityProps {
   product: Product
@@ -28,6 +29,11 @@ export function AddToCartWithQuantity({ product }: AddToCartWithQuantityProps) {
 
   const handleAdd = () => {
     addItem(product, quantity)
+    track('add_to_cart', {
+      currency: 'COP',
+      value: toPesos(product.price * quantity),
+      items: [toGaItem(product, quantity)],
+    })
     toast.success('Agregado al carrito', { description: product.name })
   }
 

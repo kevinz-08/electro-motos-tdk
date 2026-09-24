@@ -4,6 +4,50 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 164. Fase 4 del proyecto SEO — conversión (primera entrega)
+
+**Requerimiento:** desarrollar la Fase 4 del `ROADMAP.md`. Decisión del negocio sobre H-01:
+`SocialProof.tsx` se alimenta desde `ProductReview`; si no hay reseñas reales, no se muestra nada.
+
+**Hecho:**
+
+- `SocialProof` pasa a Server Component sobre `getCachedStoreReviews()` (`lib/cache.ts`, tags `products` y
+  `home`). Sin reseñas aprobadas con comentario devuelve `null`. Cifras solo con ≥ `reviewsMinCount`.
+  Reseñas más recientes sin filtrar por estrellas (elegir solo las buenas sería selección a
+  conveniencia). Scroll horizontal movido a `ReviewsCarousel` (cliente). Eliminados los testimonios y
+  cifras inventados.
+- `freeShippingThreshold` en `CRO_SETTING_KEYS` (`FREE_SHIPPING_THRESHOLD`, centavos), con DTO de la API,
+  campo en `CroSettingsForm` (el admin escribe pesos) y test de dominio. Sustituye el "$500.000" a mano
+  en el acordeón de la ficha y en `ShippingQuoteCalculator`.
+- Carrito: `page.tsx` (servidor) + `CartView.tsx` (cliente, movido con `git mv`) + `FreeShippingProgress`.
+- Ficha: `StickyBuyBar`, `ProductShippingEstimate`, `ConfirmCompatibilityButton`, `ProductTrustBlock`.
+  `ProductTrustBlock` no afirma un plazo de garantía genérico porque el sitio se contradice (FAQ dice
+  "hasta 6 meses", footer y `TrustBadges` dicen "hasta 1 año"): usa `warrantyMonths` del producto si existe.
+- `ConfirmCompatibilityButton` no promete cambio por incompatibilidad (esa política no existe, H-16).
+
+**Verificación:** 254/254 tests de dominio, `type-check` limpio, `lint` sin errores (0 avisos nuevos) y
+`build` de producción correcto.
+
+**Sin hacer (depende del negocio o de otra decisión):** venta cruzada y kits (H-19), analítica de
+eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migración), página de garantías.
+
+---
+
+## 165. Fase 4 — cierre: garantía, umbral, reseñas con moto, GA4 y páginas de confianza
+
+**Requerimiento:** aplicar las decisiones del negocio para cerrar la Fase 4: garantía "hasta 6 meses", umbral $500.000, campo de moto en reseñas, instalar GA4 y crear "Sobre nosotros" y garantías.
+
+**Hecho:**
+
+- Garantía unificada en 6 meses (footer y `TrustBadges` decían 1 año). Umbral leído de `Settings` en `faq.ts` (`buildFaqItems`), footer, `TrustBadges` y las dos páginas legales.
+- Reseñas: columnas `installedModelId`/`installedCity`, caso de uso valida el modelo (`motorcycleModelExists`), DTO, formulario con selector, y línea visible en ficha y home. 3 tests de dominio nuevos.
+- GA4 con `@next/third-parties`: `lib/analytics.ts`, `GoogleAnalyticsLoader`, `CookieConsentBanner`, `TrackEvent`, `CartFunnelTracker`; eventos en ficha, tarjetas, barra fija, carrito, checkout, confirmación, catálogo y WhatsApp. Sección 4.1 de cookies en la política de privacidad.
+- `/sobre-nosotros` y `/garantias`, en sitemap y footer. Redes sociales ilegibles sin sesión: no se inventó historia ni equipo (H-44).
+
+**Verificación:** 257/257 tests de dominio, 191/191 de API, `type-check` limpio, lint sin errores. **El build de producción NO se pudo verificar** tras la migración: la base no la tiene aplicada (H-43) y el prerender de fichas falla con `ColumnNotFound`.
+
+---
+
 ## 163. Primera carga real de compatibilidades — 55 fitments verificados en 20 modelos
 
 **Requerimiento:** cargar datos reales de compatibilidad (tarea H-02, la más crítica del proyecto

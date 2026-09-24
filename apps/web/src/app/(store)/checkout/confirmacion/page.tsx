@@ -6,6 +6,8 @@ import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
 import { OrderItemThumbnail } from '@/components/store/OrderItemThumbnail'
 import { CartCleaner } from '@/components/checkout/CartCleaner'
 import { OrderStatusPoller } from '@/components/checkout/OrderStatusPoller'
+import { TrackEvent } from '@/components/analytics/TrackEvent'
+import { toPesos } from '@/lib/analytics'
 
 interface PageProps {
   searchParams: Promise<{ orderId?: string; token?: string }>
@@ -83,6 +85,25 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       {isPaid && <CartCleaner orderId={order.id} />}
+      {/* GA4 purchase: solo con pago aprobado o contra entrega, una vez por pedido y pestaña.
+          Lleva el id del pedido como transaction_id para que GA deduplique; sin datos personales. */}
+      {(isPaid || isCod) && (
+        <TrackEvent
+          name="purchase"
+          dedupeKey={`ga-purchase-${order.id}`}
+          params={{
+            transaction_id: order.id,
+            currency: 'COP',
+            value: toPesos(order.total),
+            items: order.items.map((i) => ({
+              item_id: i.productSku,
+              item_name: i.productName,
+              price: toPesos(i.priceAtPurchase),
+              quantity: i.quantity,
+            })),
+          }}
+        />
+      )}
       {isPending && <OrderStatusPoller orderId={order.id} token={token} />}
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
 

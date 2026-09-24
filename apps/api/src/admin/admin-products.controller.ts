@@ -1,16 +1,19 @@
 import {
   Body, Controller, Delete, Get, HttpCode, HttpException, Inject, NotFoundException,
-  Param, Patch, Post, Put, UnprocessableEntityException, UploadedFile, UseInterceptors,
+  Param, Patch, Post, Put, Query, UnprocessableEntityException, UploadedFile, UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger'
 import {
   IProductRepository,
   IProductDescriptionRepository,
+  ICrossSellRepository,
+  SetProductCrossSells,
   UpsertProductDescription,
   validateProductPricing,
 } from '@h2r/domain'
-import { PRODUCT_REPOSITORY, PRODUCT_DESCRIPTION_REPOSITORY } from '../infrastructure/injection-tokens'
+import { PRODUCT_REPOSITORY, PRODUCT_DESCRIPTION_REPOSITORY, CROSS_SELL_REPOSITORY } from '../infrastructure/injection-tokens'
+import { PrismaService } from '../infrastructure/database/prisma.service'
 import { CloudinaryService } from '../infrastructure/services/CloudinaryService'
 import { IndexNowService } from '../infrastructure/services/IndexNowService'
 import { Roles } from '../auth/decorators/roles.decorator'
@@ -18,6 +21,7 @@ import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
 import { UpdateStockDto } from './dto/update-stock.dto'
 import { UpsertProductDescriptionDto } from './dto/upsert-description.dto'
+import { SetCrossSellsDto } from './dto/set-cross-sells.dto'
 
 const ERROR_HTTP_STATUS: Record<string, number> = {
   NOT_FOUND: 404,
@@ -35,6 +39,8 @@ export class AdminProductsController {
   constructor(
     @Inject(PRODUCT_REPOSITORY) private readonly productRepo: IProductRepository,
     @Inject(PRODUCT_DESCRIPTION_REPOSITORY) private readonly descRepo: IProductDescriptionRepository,
+    @Inject(CROSS_SELL_REPOSITORY) private readonly crossSellRepo: ICrossSellRepository,
+    private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
     private readonly indexNow: IndexNowService,
   ) {}
@@ -149,6 +155,61 @@ export class AdminProductsController {
       throw new HttpException(result.error.message, status)
     }
 
+    return result.value
+  }
+
+  // ── Venta cruzada (docs/seo/plan-venta-cruzada.md) ─────────────────────────
+
+  @Get('search')
+  @ApiOperation({ summary: 'Buscar productos por nombre o SKU (selector de venta cruzada)' })
+  async searchProducts(@Query('q') q?: string, @Query('excludeId') excludeId?: string) {
+    const term = (q ?? '').trim()
+    if (term.length < 2) return []
+    const rows = await this.prisma.client.product.findMany({
+      where: {
+        deletedAt: null,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+        OR: [
+          { name: { contains: term, mode: 'insensitive' } },
+          { sku: { contains: term, mode: 'insensitive' } },
+        ],
+      },
+      orderBy: { name: 'asc' },
+      take: 10,
+      select: { id: true, name: true, sku: true, price: true, stock: true, isActive: true, images: true },
+    })
+    return rows.map(({ images, ...p }) => ({ ...p, image: images[0] ?? null }))
+  }
+
+  @Get(':id/cross-sells')
+  @ApiOperation({ summary: 'Sugerencias de venta cruzada de un producto, en orden' })
+  async getCrossSells(@Param('id') id: string) {
+    const links = await this.crossSellRepo.findByProduct(id)
+    if (links.length === 0) return []
+    const products = await this.prisma.client.product.findMany({
+      where: { id: { in: links.map((l) => l.relatedId) }, deletedAt: null },
+      select: { id: true, name: true, sku: true, price: true, stock: true, isActive: true, images: true },
+    })
+    const byId = new Map(products.map((p) => [p.id, p]))
+    return links.flatMap((l) => {
+      const p = byId.get(l.relatedId)
+      if (!p) return []
+      const { images, ...rest } = p
+      return [{ ...rest, image: images[0] ?? null, reason: l.reason, order: l.order }]
+    })
+  }
+
+  @Put(':id/cross-sells')
+  @ApiOperation({
+    summary: 'Fijar la lista completa de sugerencias de un producto (máx. 4). '
+      + 'reciprocal=true en un ítem agrega este producto a la lista del sugerido si hay cupo.',
+  })
+  async setCrossSells(@Param('id') id: string, @Body() dto: SetCrossSellsDto) {
+    const result = await new SetProductCrossSells(this.crossSellRepo).execute({ productId: id, items: dto.items })
+    if (!result.ok) {
+      const status = ERROR_HTTP_STATUS[result.error.code] ?? 500
+      throw new HttpException(result.error.message, status)
+    }
     return result.value
   }
 

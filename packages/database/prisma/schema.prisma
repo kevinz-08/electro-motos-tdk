@@ -239,6 +239,10 @@ model Product {
   coupons               Coupon[]                  @relation("ProductCoupons")
   priceHistory          ProductPriceHistory[]
   reviews               ProductReview[]
+  /// Venta cruzada (docs/seo/plan-venta-cruzada.md): productos que ESTE producto sugiere...
+  crossSells            ProductCrossSell[]     @relation("CrossSellSource")
+  /// ...y fichas donde ESTE producto aparece como sugerencia.
+  crossSoldBy           ProductCrossSell[]     @relation("CrossSellTarget")
 
   /// Cubre el filtro mas comun del catalogo y del admin: por categoria, activos, con stock.
   @@index([categoryId, isActive, stock])
@@ -246,6 +250,29 @@ model Product {
   @@index([isActive, createdAt])
   /// Cubre el filtro de papelera y excluye soft-deleted de todas las queries normales.
   @@index([deletedAt])
+}
+
+/// Venta cruzada: en la ficha de `product` se sugiere `related` ("normalmente se cambia
+/// junto con…"). Lo define un administrador a mano — nada se calcula ni se deduce.
+/// El vinculo es DIRIGIDO: que `related` sugiera a `product` es otra fila.
+/// CHECK en BD: productId <> relatedId. Maximo 4 por producto (lo hace cumplir el dominio).
+model ProductCrossSell {
+  id        String   @id @default(cuid())
+  /// Producto en cuya ficha se muestra la sugerencia.
+  productId String
+  /// Producto sugerido.
+  relatedId String
+  /// "Se cambia junto con las pastillas". Null = solo el titulo del bloque.
+  reason    String?
+  /// Posicion en el bloque (menor primero).
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation("CrossSellSource", fields: [productId], references: [id], onDelete: Cascade)
+  related   Product  @relation("CrossSellTarget", fields: [relatedId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, relatedId])
+  @@index([productId, order])
+  @@index([relatedId])
 }
 
 /// Historial de cambios de precio. Respaldo de que el precio de referencia

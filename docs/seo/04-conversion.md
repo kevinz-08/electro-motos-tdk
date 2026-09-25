@@ -54,6 +54,10 @@ Vendelo.
 
 Ítem 7 del ROADMAP. El admin vincula productos desde el formulario de producto; la ficha y el carrito los muestran ("Normalmente se cambia junto con…" y otras 9 frases). Máx. 4 por producto, motivo opcional, sentido inverso por casilla, se oculta lo agotado, filtro por la moto del comprador. Detalle y decisiones en [`plan-venta-cruzada.md`](./plan-venta-cruzada.md). Migración `20260924000000_product_cross_sell` pendiente de aplicar (H-47).
 
+## Cuarta entrega — kits de productos (2026-09-25, rama `feat/product-kits`)
+
+Ítem 8 del ROADMAP. Vista propia en el panel admin (`/admin/kits`, como pidió el negocio, no dentro del formulario de producto). Un kit es un conjunto de 2 a 8 productos con precio y disponibilidad calculados en vivo; agregarlo al carrito expande sus productos como líneas normales, sin tocar el checkout. Páginas propias indexables `/kits` y `/kits/[slug]`, con JSON-LD y sitemap. Detalle y decisiones en [`plan-kits.md`](./plan-kits.md). Migración `20260925000000_product_kits` pendiente de aplicar (H-49).
+
 ## Pendiente para cerrar la fase
 
 | Ítem | Qué falta |
@@ -61,7 +65,7 @@ Vendelo.
 | Migración de reseñas | Aplicar `migrate:deploy` (H-43) antes de compilar y desplegar |
 | GA4 | Crear propiedad y configurar `NEXT_PUBLIC_GA_ID` (H-45) |
 | 7. Venta cruzada | Código listo; falta aplicar la migración (H-47) y que el admin cargue los vínculos |
-| 8. Kits de mantenimiento | Siguiente rama: `/admin/kits` (ver la propuesta del negocio del 2026-09-24) |
+| 8. Kits de mantenimiento | Código listo; falta aplicar la migración (H-49) y armar los primeros kits (H-50) |
 | /sobre-nosotros | Historia y equipo (H-44) |
 
 ## Medición antes / después

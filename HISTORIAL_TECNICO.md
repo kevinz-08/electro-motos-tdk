@@ -33,6 +33,24 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 167. Kits de productos (Fase 4, ítem 8)
+
+**Requerimiento:** segunda mitad de la propuesta del negocio del 2026-09-24 — una vista dedicada en el panel admin para agrupar productos en kits con precio total visible. Decisiones del 2026-09-25: páginas propias `/kits/[slug]` indexables, 2 a 8 productos por kit, descuento en centavos fijos, mención del kit en la ficha de sus productos desde ya, sección del admin llamada "Kits".
+
+**Hecho:**
+
+- **Dominio:** `computeKitPrice`/`computeKitAvailability`/`isKitVisible`/`isKitItemCompatible` (funciones puras) y `SetKit` (2 a 8 ítems, sin repetidos, cantidades enteras ≥ 1, slug único, productos existentes, descuento validado contra la suma REAL calculada server-side — nunca confía en un total que mande el cliente). 17 tests nuevos.
+- **Base de datos y API:** tablas `Kit`/`KitItem`, `PrismaKitRepository`, `AdminKitsController` con los mismos verbos que `admin-products.controller.ts`. 7 tests nuevos.
+- **Admin:** vista propia `/admin/kits` (lista) y `/admin/kits/[id]` (`KitEditForm`), como pidió el negocio — no colgado del formulario de producto. Reutiliza el buscador `GET /admin/products/search` de la venta cruzada y `GET /motorcycles/models` ya existente para el selector de moto.
+- **Público:** `KitCard`/`KitsSection` en el hub de modelo, `/kits`, `/kits/[slug]` y `ProductKitMention` en la ficha de producto. Agregar un kit al carrito es N `addItem()` de productos reales — cero cambios en `Order`/`OrderItem`/pagos/Vendelo.
+- **SEO:** `/kits/[slug]` con JSON-LD `Product`, `/kits` con `ItemList`, `sitemap-kits.xml` sumado al índice y a `robots.ts`. Un kit sin disponibilidad no se publica ni se indexa — misma regla que los hubs de modelo.
+
+**Bug propio detectado y corregido durante la verificación:** `ProductKitMention` (la mención en la ficha) no tenía el mismo `try/catch` que el resto de las lecturas de kits, así que sin la migración aplicada tumbaba el build entero de `/producto/[slug]`. Se corrigió antes de hacer commit — el build completo se volvió a correr y pasó.
+
+**Verificación:** 294/294 tests de dominio, 203/203 de API, type-check limpio, lint sin errores nuevos, y `pnpm build` de producción correcto **sin la migración aplicada** (todas las lecturas de kits degradan a "sin kits" en vez de romper la página). **No verificado contra la base real** (falta aplicar la migración, H-49) **ni con Playwright.**
+
+---
+
 ## 166. Venta cruzada (Fase 4, ítem 7)
 
 **Requerimiento:** el negocio propuso que el admin vincule productos desde el formulario (venta cruzada) y, aparte, arme kits. Decisiones: tope de 4, motivo opcional, sentido inverso con casilla, 10 títulos, sugerencias también en el carrito y ocultar lo agotado. Se implementa primero la venta cruzada, en la rama `feat/cro-cross-selling-kits`.

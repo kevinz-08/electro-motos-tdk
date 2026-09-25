@@ -1940,3 +1940,13 @@ Plan y decisiones en `docs/seo/plan-venta-cruzada.md`. Migración aditiva `20260
 - **Admin:** en `/admin/productos/[id]`, sección "Venta cruzada": buscador de productos por nombre o SKU, hasta 4 sugerencias ordenables, motivo opcional (120 caracteres) y casilla "también sugerir en sentido inverso" por sugerencia. API: `GET|PUT /admin/products/:id/cross-sells` y `GET /admin/products/search`.
 - **Público:** `CrossSellBlock` en la ficha (título de una lista de 10, elegido de forma determinista por producto) y `CartCrossSells` en `/carrito` (`GET /api/cross-sells?ids=…`). Solo se muestran productos activos, no borrados y con stock. Si el sugerido tiene compatibilidades verificadas y ninguna es de la moto elegida por el comprador, se oculta; sin compatibilidades cargadas se muestra. Sin sugerencias, no se pinta nada.
 - **Medición:** `view_item_list`, `select_item` y `add_to_cart` con `item_list_name` `venta_cruzada_ficha` / `venta_cruzada_carrito`.
+
+### 26.8 Kits de productos (2026-09-25, rama `feat/product-kits`)
+
+Plan y decisiones en `docs/seo/plan-kits.md`. Migración aditiva `20260925000000_product_kits` (tablas `Kit` y `KitItem`).
+
+- **Admin:** vista propia `/admin/kits` (no dentro del formulario de producto): lista con precio y disponibilidad en vivo, y `/admin/kits/[id]` para crear o editar — buscador de productos, cantidad por ítem (2 a 8), descuento en centavos fijos, modelo de moto opcional y precio final recalculado al momento. API: `GET/POST/PUT/DELETE /admin/kits`.
+- **Público:** `KitCard`/`KitsSection` en el hub de modelo (si el kit está asociado), en `/kits` (índice indexable) y en `/kits/[slug]` (ficha propia con JSON-LD `Product`). `ProductKitMention` en la ficha de un producto que forma parte de un kit ("Este producto está en el Kit…"). Un kit se oculta si le falta stock a cualquiera de sus productos, o si alguno está inactivo o borrado.
+- **Carrito:** "Agregar kit" agrega cada producto del kit como una línea normal, con la cantidad definida en el kit — el checkout, el pago y el stock no saben que existen los kits.
+- **Precio y disponibilidad nunca se guardan:** se calculan en cada lectura a partir del precio y el stock reales de los productos, con las mismas funciones del dominio en el admin y en la tienda.
+- **SEO:** `sitemap-kits.xml` (solo kits con disponibilidad), declarado en `robots.ts`.

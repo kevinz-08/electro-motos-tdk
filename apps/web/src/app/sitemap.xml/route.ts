@@ -19,6 +19,7 @@ export function GET() {
     { url: absoluteUrl('/sitemap-categorias.xml') },
     { url: absoluteUrl('/sitemap-productos.xml') },
     { url: absoluteUrl('/sitemap-modelos.xml') },
+    { url: absoluteUrl('/sitemap-kits.xml') },
   ])
 
   return new Response(body, { headers: SITEMAP_HEADERS })

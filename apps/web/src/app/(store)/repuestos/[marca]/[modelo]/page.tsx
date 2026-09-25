@@ -31,7 +31,9 @@ import {
   getCachedModelHub,
   getCachedProductIdsByModel,
   getCachedPublishableModels,
+  getCachedKitsByModel,
 } from '@/lib/cache'
+import { KitsSection } from '@/components/store/KitsSection'
 import { getProductsByIds } from '@/lib/queries/fitment'
 import { canonical } from '@/lib/seo'
 
@@ -82,6 +84,15 @@ export default async function ModelHubPage({ params }: PageProps) {
 
   const productIds = await getCachedProductIdsByModel(model.id)
   const products = await getProductsByIds(productIds.slice(0, FEATURED_LIMIT))
+
+  // Kits: complemento opcional — si la lectura falla (p. ej. migración sin
+  // aplicar) el hub se sirve igual, sin esta sección.
+  let kits: Awaited<ReturnType<typeof getCachedKitsByModel>> = []
+  try {
+    kits = await getCachedKitsByModel(model.id)
+  } catch (e) {
+    console.error('[kits] no se pudieron leer los kits del modelo', e)
+  }
 
   return (
     <div className="bg-white">
@@ -136,6 +147,9 @@ export default async function ModelHubPage({ params }: PageProps) {
 
         {/* ── Categorías con conteo real ───────────────────────────────── */}
         <ModelCategoryGrid categories={categories} brandSlug={marca} modelSlug={modelo} />
+
+        {/* ── Kits para esta moto ──────────────────────────────────────── */}
+        <KitsSection kits={kits} heading={`Kits para tu ${model.name}`} className="mt-14" />
 
         {/* ── Productos compatibles ────────────────────────────────────── */}
         {products.length > 0 && (

@@ -371,6 +371,82 @@ export function kitItemListJsonLd(kits: { name: string; slug: string }[]): JsonL
   }
 }
 
+// ── Revisores y guías de mantenimiento (docs/seo/, Fase 5) ────────────────────
+
+export interface PersonJsonLdInput {
+  name: string
+  slug: string
+  headline: string | null
+  bio: string
+  credentials: string[]
+  photoUrl: string | null
+}
+
+/**
+ * `Person` de un revisor técnico (`/autores/[slug]`). Solo lleva lo que el
+ * administrador escribió: los años de experiencia van en el texto visible, no
+ * como propiedad, porque schema.org no tiene un campo estándar para ellos y
+ * inventar uno sería marcado que no corresponde a nada.
+ */
+export function personJsonLd(person: PersonJsonLdInput): JsonLdNode {
+  const url = absoluteUrl(`/autores/${person.slug}`)
+  return compact({
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    '@id': `${url}#person`,
+    name: person.name,
+    url,
+    jobTitle: person.headline ?? undefined,
+    description: person.bio.slice(0, 500),
+    image: person.photoUrl ?? undefined,
+    hasCredential:
+      person.credentials.length > 0
+        ? person.credentials.map((c) => ({ '@type': 'EducationalOccupationalCredential', name: c }))
+        : undefined,
+    worksFor: { '@id': ORGANIZATION_ID },
+  })
+}
+
+export interface MaintenanceGuideJsonLdInput {
+  brandSlug: string
+  modelSlug: string
+  title: string
+  description: string
+  /** ISO. */
+  reviewedAt: string
+  reviewer: { name: string; slug: string }
+  itemLabels: string[]
+}
+
+/**
+ * `WebPage` de una guía de mantenimiento con `reviewedBy` y `lastReviewed`:
+ * las dos propiedades estándar de schema.org para "esta página la revisó
+ * alguien con nombre, en esta fecha" — el marcado de E-E-A-T de la Fase 5. La
+ * fecha sale de la revisión que registró el administrador, no de la de hoy.
+ */
+export function maintenanceGuideJsonLd(guide: MaintenanceGuideJsonLdInput): JsonLdNode {
+  const url = absoluteUrl(`/guias/mantenimiento/${guide.brandSlug}/${guide.modelSlug}`)
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': url,
+    url,
+    name: guide.title,
+    description: guide.description,
+    inLanguage: 'es-CO',
+    lastReviewed: guide.reviewedAt.slice(0, 10),
+    dateModified: guide.reviewedAt,
+    reviewedBy: { '@id': `${absoluteUrl(`/autores/${guide.reviewer.slug}`)}#person`, '@type': 'Person', name: guide.reviewer.name },
+    publisher: { '@id': ORGANIZATION_ID },
+    mainEntity: {
+      '@type': 'ItemList',
+      name: 'Puntos de control de mantenimiento',
+      numberOfItems: guide.itemLabels.length,
+      itemListElement: guide.itemLabels.map((name, index) => ({ '@type': 'ListItem', position: index + 1, name })),
+    },
+  }
+}
+
 // ── Migas, listados y FAQ ────────────────────────────────────────────────────
 
 export interface BreadcrumbEntry {

@@ -11,7 +11,7 @@ import Image from 'next/image'
 import type { Metadata } from 'next'
 import { Breadcrumbs } from '@/components/store/Breadcrumbs'
 import { JsonLd } from '@/components/seo/JsonLd'
-import { kitJsonLd, breadcrumbJsonLd } from '@/lib/structured-data'
+import { kitJsonLd } from '@/lib/structured-data'
 import { canonical, NOINDEX_FOLLOW } from '@/lib/seo'
 import { cloudinaryUrl } from '@/lib/cloudinary'
 import { PriceTag } from '@/components/store/PriceTag'
@@ -75,11 +75,9 @@ export default async function KitPage({ params }: PageProps) {
         name="view_item"
         params={{ currency: 'COP', value: toPesos(kit.price), items: [{ item_id: kit.slug, item_name: kit.name, price: toPesos(kit.price), quantity: 1, item_list_name: 'kit' }] }}
       />
+      {/* El BreadcrumbList lo emite el componente <Breadcrumbs> de abajo: no se duplica aquí. */}
       <JsonLd
-        data={[
-          kitJsonLd({ name: kit.name, slug: kit.slug, description: kit.description, price: kit.price, availableUnits: kit.availableUnits, images }),
-          breadcrumbJsonLd([{ label: 'Inicio', href: '/' }, { label: 'Kits', href: '/kits' }, { label: kit.name }]),
-        ]}
+        data={kitJsonLd({ name: kit.name, slug: kit.slug, description: kit.description, price: kit.price, availableUnits: kit.availableUnits, images })}
       />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <Breadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: 'Kits', href: '/kits' }, { label: kit.name }]} />

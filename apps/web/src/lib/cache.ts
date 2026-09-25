@@ -41,6 +41,7 @@ import { CACHE_TAGS } from './cache-tags'
 import { installedMotorcycleLabel, installedMotorcycleLine } from './review-motorcycle'
 import { findCrossSellSuggestions } from './cross-sell'
 import { findKitsByModel, findKitBySlug, findAllVisibleKits, findKitsContainingProduct } from './kits'
+import { findMaintenanceGuide, findReviewerBySlug, findPublishedGuideEntries, hasPublishedGuide } from './guides'
 
 export { CACHE_TAGS }
 
@@ -414,6 +415,37 @@ export const getCachedKitsContainingProduct = unstable_cache(
   async (productId: string) => findKitsContainingProduct(productId),
   ['kits-containing-product'],
   { revalidate: 300, tags: KIT_CACHE_TAGS },
+)
+
+/**
+ * Revisores técnicos y guías de mantenimiento (docs/seo/, Fase 5). Tag `guides`
+ * (lo invalida el admin al guardar) más `products`, porque cada punto de control
+ * muestra el precio y el stock reales del repuesto enlazado.
+ */
+const GUIDE_CACHE_TAGS = [CACHE_TAGS.guides, CACHE_TAGS.products]
+
+export const getCachedMaintenanceGuide = unstable_cache(
+  async (brandSlug: string, modelSlug: string) => findMaintenanceGuide(brandSlug, modelSlug),
+  ['maintenance-guide'],
+  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+)
+
+export const getCachedReviewerBySlug = unstable_cache(
+  async (slug: string) => findReviewerBySlug(slug),
+  ['reviewer-by-slug'],
+  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+)
+
+export const getCachedPublishedGuideEntries = unstable_cache(
+  async () => findPublishedGuideEntries(),
+  ['published-guide-entries'],
+  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+)
+
+export const getCachedHasPublishedGuide = unstable_cache(
+  async (modelId: string) => hasPublishedGuide(modelId),
+  ['has-published-guide'],
+  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
 )
 
 // ── Compatibilidad por modelo de moto (docs/seo/, Fase 2) ─────────────────────

@@ -20,6 +20,7 @@ export function GET() {
     { url: absoluteUrl('/sitemap-productos.xml') },
     { url: absoluteUrl('/sitemap-modelos.xml') },
     { url: absoluteUrl('/sitemap-kits.xml') },
+    { url: absoluteUrl('/sitemap-guias.xml') },
   ])
 
   return new Response(body, { headers: SITEMAP_HEADERS })

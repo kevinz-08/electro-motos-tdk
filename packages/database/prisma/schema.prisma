@@ -245,6 +245,8 @@ model Product {
   crossSoldBy           ProductCrossSell[]     @relation("CrossSellTarget")
   /// Kits (docs/seo/plan-kits.md) que incluyen este producto.
   kitItems              KitItem[]
+  /// Puntos de control de guias de mantenimiento que enlazan a este producto (Fase 5).
+  maintenanceItems      MaintenanceItem[]
 
   /// Cubre el filtro mas comun del catalogo y del admin: por categoria, activos, con stock.
   @@index([categoryId, isActive, stock])
@@ -318,6 +320,80 @@ model KitItem {
 
   @@unique([kitId, productId])
   @@index([kitId, order])
+  @@index([productId])
+}
+
+// ─── Fase 5: contenido y E-E-A-T (docs/seo/) ─────────────────────────────────
+
+/// Revisor tecnico (H-21): persona con conocimiento mecanico que revisa y firma las guias
+/// de mantenimiento. Lo administra /admin/revisores y se publica en /autores/[slug].
+/// Todo lo que se muestra lo escribe el administrador; nada se completa por defecto.
+model TechnicalReviewer {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  /// Rol o titulo corto ("Mecanico de motos"). Opcional.
+  headline        String?
+  /// Anos de experiencia. Null = no declarado. CHECK en BD: 0..80.
+  yearsExperience Int?
+  /// Resumen de trayectoria (texto libre).
+  bio             String   @db.Text
+  /// Certificaciones o formacion, una por elemento.
+  credentials     String[] @default([])
+  photoUrl        String?
+  /// public_id de Cloudinary, para borrar la foto al reemplazarla o eliminar al revisor.
+  photoPublicId   String?
+  /// Inactivo = /autores/[slug] responde 404 y las guias que firma dejan de publicarse.
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  guides          MaintenanceGuide[]
+
+  @@index([isActive])
+}
+
+/// Guia de mantenimiento de UN modelo de moto (H-20). Existir con al menos un
+/// MaintenanceItem y con un revisor activo = publicada en /guias/mantenimiento/[marca]/[modelo].
+/// Sin guia guardada, la ruta responde 404: no hay pagina generica ni texto de relleno.
+model MaintenanceGuide {
+  id         String   @id @default(cuid())
+  modelId    String   @unique
+  /// De donde salen los intervalos (manual, taller...). Obligatorio: no se inventan datos.
+  source     String
+  /// Quien revisa y firma la guia. Obligatorio (H-21). ON DELETE RESTRICT: un revisor con
+  /// guias no se puede borrar y dejar contenido publicado sin firma.
+  reviewerId String
+  notes      String?  @db.Text
+  /// Fecha de la ultima revision; se muestra como "revisado el ...".
+  reviewedAt DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  model      MotorcycleModel   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  reviewer   TechnicalReviewer @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  items      MaintenanceItem[]
+
+  @@index([reviewerId])
+}
+
+/// Un punto de control dentro de una guia ("Aceite de motor", "Bujia"...).
+model MaintenanceItem {
+  id             String  @id @default(cuid())
+  guideId        String
+  label          String
+  /// Cada cuantos km. Null si el intervalo es solo por tiempo.
+  intervalKm     Int?
+  /// Cada cuantos meses. Null si es solo por kilometraje.
+  /// CHECK en BD: al menos uno de los dos, y ambos > 0 cuando existen.
+  intervalMonths Int?
+  notes          String?
+  /// Repuesto exacto de H2R para este punto de control (opcional).
+  productId      String?
+  order          Int     @default(0)
+  guide          MaintenanceGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  product        Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@unique([guideId, label])
+  @@index([guideId, order])
   @@index([productId])
 }
 
@@ -750,6 +826,8 @@ model MotorcycleModel {
   reviews   ProductReview[]
   /// Kits (docs/seo/plan-kits.md) asociados a este modelo.
   kits      Kit[]
+  /// Guia de mantenimiento de este modelo (Fase 5, H-20). Una por modelo.
+  maintenanceGuide MaintenanceGuide?
 
   @@unique([brandId, slug])
   @@unique([brandId, name])

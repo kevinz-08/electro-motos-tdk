@@ -12,6 +12,7 @@
  *   /sitemap-productos.xml    una URL por producto activo
  *   /sitemap-modelos.xml      hubs de modelo y sus categorías (Fase 2)
  *   /sitemap-kits.xml         kits visibles (Fase 4 ítem 8)
+ *   /sitemap-guias.xml        guías de mantenimiento publicadas y páginas de sus revisores (Fase 5)
  *
  * Cuando existan las guías (Fase 5) se añaden como un segmento nuevo sin tocar
  * los existentes.
@@ -28,7 +29,7 @@
  */
 import { prisma } from '@h2r/database'
 import { absoluteUrl } from '@/lib/seo'
-import { getCachedModelHub, getCachedPublishableModels, getCachedAllVisibleKits } from '@/lib/cache'
+import { getCachedModelHub, getCachedPublishableModels, getCachedAllVisibleKits, getCachedPublishedGuideEntries } from '@/lib/cache'
 
 export interface SitemapEntry {
   url: string
@@ -133,6 +134,28 @@ export async function getKitEntries(): Promise<SitemapEntry[]> {
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }))
+}
+
+/**
+ * Guías de mantenimiento publicadas y páginas de autor (docs/seo/, Fase 5).
+ * Misma regla que kits y hubs: solo entra lo que se puede publicar. `lastmod` es
+ * la fecha de revisión que registró el administrador, un dato real.
+ */
+export async function getGuideEntries(): Promise<SitemapEntry[]> {
+  const { guides, reviewers } = await getCachedPublishedGuideEntries()
+  return [
+    ...guides.map((g) => ({
+      url: absoluteUrl(`/guias/mantenimiento/${g.brandSlug}/${g.modelSlug}`),
+      lastModified: g.reviewedAt,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    })),
+    ...reviewers.map((r) => ({
+      url: absoluteUrl(`/autores/${r.slug}`),
+      changeFrequency: 'monthly' as const,
+      priority: 0.5,
+    })),
+  ]
 }
 
 export function buildUrlSet(entries: SitemapEntry[]): string {

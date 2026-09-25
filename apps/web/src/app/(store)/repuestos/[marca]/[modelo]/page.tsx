@@ -32,6 +32,7 @@ import {
   getCachedProductIdsByModel,
   getCachedPublishableModels,
   getCachedKitsByModel,
+  getCachedHasPublishedGuide,
 } from '@/lib/cache'
 import { KitsSection } from '@/components/store/KitsSection'
 import { getProductsByIds } from '@/lib/queries/fitment'
@@ -94,6 +95,15 @@ export default async function ModelHubPage({ params }: PageProps) {
     console.error('[kits] no se pudieron leer los kits del modelo', e)
   }
 
+  // Guía de mantenimiento (Fase 5, H-20): el enlace solo aparece si el modelo tiene
+  // una guía publicable. Sin guía guardada no se muestra nada — no hay versión genérica.
+  let hasGuide = false
+  try {
+    hasGuide = await getCachedHasPublishedGuide(model.id)
+  } catch (e) {
+    console.error('[guias] no se pudo consultar la guía del modelo', e)
+  }
+
   return (
     <div className="bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -147,6 +157,20 @@ export default async function ModelHubPage({ params }: PageProps) {
 
         {/* ── Categorías con conteo real ───────────────────────────────── */}
         <ModelCategoryGrid categories={categories} brandSlug={marca} modelSlug={modelo} />
+
+        {/* ── Guía de mantenimiento (solo si existe) ───────────────────── */}
+        {hasGuide && (
+          <Link
+            href={`/guias/mantenimiento/${marca}/${modelo}`}
+            className="mt-10 flex items-center justify-between gap-4 rounded-2xl border border-sky-100 bg-sky-50/60 px-5 py-4 transition-colors hover:border-sky-200 hover:bg-sky-50"
+          >
+            <span>
+              <span className="block font-bold text-gray-900">Guía de mantenimiento de la {model.name}</span>
+              <span className="block text-sm text-gray-600">Cada cuántos kilómetros cambiar aceite, bujía, kit de arrastre y más, con su fuente y su revisor.</span>
+            </span>
+            <span aria-hidden="true" className="text-sky-600">→</span>
+          </Link>
+        )}
 
         {/* ── Kits para esta moto ──────────────────────────────────────── */}
         <KitsSection kits={kits} heading={`Kits para tu ${model.name}`} className="mt-14" />

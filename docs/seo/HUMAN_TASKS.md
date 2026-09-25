@@ -47,8 +47,8 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | H-17 | ~~Garantía por tipo de producto~~ (reconfirmado 2026-09-23: **"hasta 6 meses"** en todo el sitio; se corrigieron el footer y `TrustBadges`, que decían "1 año") — **confirmado el 2026-09-22**: el "hasta 6 meses" genérico que ya dice la home es correcto, no hace falta desglosar por categoría | 3, 4, 5 | ✅ |
 | H-18 | **Marca y tipo de cada repuesto** (original / homologado / genérico) y su `mpn`. Necesario para el feed de Merchant Center y para el `Product` JSON-LD completo | 3, 7 | ⬜ |
 | H-19 | **Reglas de venta cruzada con criterio mecánico** ("kit de arrastre + aceite de cadena", "pastillas + líquido de frenos"). Las define el negocio, no se deducen | 4 | ⬜ |
-| H-20 | **Intervalos de mantenimiento** por modelo, tomados del manual del fabricante, con la fuente citada | 5 | ⬜ |
-| H-21 | **Revisor técnico**: una persona con conocimiento mecánico que revise y firme las guías (nombre, foto, experiencia) para las páginas de autor y el E-E-A-T | 5 | ⬜ |
+| H-20 | **Intervalos de mantenimiento** por modelo, tomados del manual del fabricante, con la fuente citada. **Cambia de enfoque (2026-09-26):** ya no se entregan en un documento; el administrador los carga en `/admin/mantenimiento` (la fuente es obligatoria para guardar). Falta cargarlos (H-52) | 5 | 🟡 |
+| H-21 | **Revisor técnico**: una persona con conocimiento mecánico que revise y firme las guías (nombre, foto, experiencia) para las páginas de autor y el E-E-A-T. **Cambia de enfoque (2026-09-26):** el administrador lo registra, con foto, en `/admin/revisores`. Falta registrarlo (H-52) | 5 | 🟡 |
 | H-22 | **Corregir el `altText` de los banners del hero** desde `/admin/banners`: hoy es una cadena de espacios. Es lo único que impide que la home llegue a SEO 100 — el resto de la Fase 1 ya está hecho | 1 | ✅ (2026-09-24: corregido) |
 | H-23 | ~~Decidir qué hacer con `/assets/video-hero-catalog.mp4` (30 MB)~~ — **resuelta en la Fase 1**: el original estaba en el repositorio, se recomprimió (87,8 MB → 3,7 MB, sin audio, 720p), se añadió un póster de 12 KB como elemento LCP y el vídeo ya no se descarga en móvil. Queda H-35 (revisar la calidad) | 1 | ✅ |
 | H-24 | ~~Confirmar el dominio canónico~~ — **resuelta en la Fase 1**: se adoptó `https://www.tiendah2r.com` (sin barra final) como canónico, que es a donde ya redirigía el apex con un 308. Avisar si debe ser el apex | 1 | ✅ |
@@ -105,7 +105,10 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-49** | **Aplicar la migración `20260925000000_product_kits`** (tablas `Kit`/`KitItem`) con `pnpm --filter @h2r/database migrate:deploy`. Aditiva y reversible (`DROP TABLE "KitItem"; DROP TABLE "Kit";`). Sin ella, `/admin/kits` funciona pero no lista nada, y las páginas públicas se sirven sin el bloque de kits. Aplicarla antes de desplegar | 4 | ⬜ |
 | **H-50** | **Armar los primeros kits** desde `/admin/kits`: nombre, productos con cantidad, descuento opcional y el modelo de moto si aplica. Empezar por los que ya sugiere el ROADMAP: "Kit NKD 125: aceite + filtro + bujía" | 4 | ⬜ |
 
-*Última actualización de este bloque: 2026-09-25*
+| **H-51** | **Aplicar la migración `20260925120000_phase5_reviewers_maintenance`** (tablas `TechnicalReviewer`, `MaintenanceGuide`, `MaintenanceItem`) con `pnpm --filter @h2r/database migrate:deploy`. Aditiva y reversible (rollback en el propio SQL). Sin ella `/admin/revisores` y `/admin/mantenimiento` no funcionan y las páginas públicas se sirven sin guías. Aplicarla antes de desplegar | 5 | ⬜ |
+| **H-52** | **Registrar al revisor técnico y cargar las guías.** (1) `/admin/revisores/nuevo`: nombre, foto, años de experiencia y trayectoria. (2) `/admin/mantenimiento`: por cada modelo, revisor, **fuente** (manual del fabricante o taller), fecha y los intervalos reales. Empezar por los 5 modelos prioritarios (AKT NKD 125, Bajaj Boxer CT100, NMAX 155, XR190L, DR150). Nada se inventa: sin fuente no se puede guardar | 5 | ⬜ |
+
+*Última actualización de este bloque: 2026-09-26*
 
 ---
 

@@ -1950,3 +1950,13 @@ Plan y decisiones en `docs/seo/plan-kits.md`. Migración aditiva `20260925000000
 - **Carrito:** "Agregar kit" agrega cada producto del kit como una línea normal, con la cantidad definida en el kit — el checkout, el pago y el stock no saben que existen los kits.
 - **Precio y disponibilidad nunca se guardan:** se calculan en cada lectura a partir del precio y el stock reales de los productos, con las mismas funciones del dominio en el admin y en la tienda.
 - **SEO:** `sitemap-kits.xml` (solo kits con disponibilidad), declarado en `robots.ts`.
+
+### 26.9 Fase 5 (inicio) — revisores técnicos y guías de mantenimiento (2026-09-26, rama `feat/phase5-reviewers-maintenance`)
+
+Migración aditiva `20260925120000_phase5_reviewers_maintenance` (tablas `TechnicalReviewer`, `MaintenanceGuide`, `MaintenanceItem`). Resuelve H-21 y H-20 dándole al administrador un panel en vez de pedirle los datos a mano.
+
+- **Revisores (H-21) — `/admin/revisores`:** alta, edición y borrado de un revisor técnico con nombre, **foto** (sube a Cloudinary con el mismo patrón que los banners; al reemplazarla o borrar al revisor, la anterior se elimina del CDN), título, años de experiencia, trayectoria, certificaciones y un interruptor activo/inactivo. Se publica en `/autores/[slug]` (JSON-LD `Person`). Un revisor que todavía firma guías **no se puede eliminar** (se le pide reasignarlas o desactivarlo).
+- **Intervalos (H-20) — `/admin/mantenimiento`:** lista de los 41 modelos con el estado de su guía (*Sin guía*, *Publicada*, *Oculta*) y editor por modelo: revisor, **fuente**, fecha de revisión, nota general y hasta 12 puntos de control, cada uno con intervalo en km, en meses o ambos, un detalle y, opcionalmente, **el repuesto exacto de H2R** enlazado. Los nombres sugeridos (aceite, bujía, kit de arrastre…) solo insertan el nombre: **nunca hay un intervalo por defecto**.
+- **Regla de publicación:** guardar una guía la publica sola en `/guias/mantenimiento/[marca]/[modelo]`, pero solo si tiene al menos un punto de control **y** un revisor activo. La **fuente** y el **revisor** son obligatorios para guardar: es la forma en que el sistema hace cumplir "sin revisor técnico no se publica" y "los intervalos no se inventan".
+- **Sin página genérica:** no existía ninguna página de mantenimiento genérica que ocultar. El comportamiento equivalente es que, sin guía guardada, la ruta responde 404 y el hub `/repuestos/[marca]/[modelo]` no muestra ningún enlace; con guía, aparece el enlace.
+- **SEO:** `WebPage` con `reviewedBy` y `lastReviewed` (fecha de la revisión registrada, no la de hoy), apertura con respuesta directa armada solo con datos guardados, encabezados en forma de pregunta, tabla y `sitemap-guias.xml` (solo guías publicables y revisores activos con guías).

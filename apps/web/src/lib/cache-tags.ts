@@ -15,4 +15,6 @@ export const CACHE_TAGS = {
    * "Compatible con" de la ficha de producto.
    */
   fitments: 'fitments',
+  /** Kits de productos (docs/seo/plan-kits.md, Fase 4 ítem 8). */
+  kits: 'kits',
 } as const

@@ -17,4 +17,6 @@ export const CACHE_TAGS = {
   fitments: 'fitments',
   /** Kits de productos (docs/seo/plan-kits.md, Fase 4 ítem 8). */
   kits: 'kits',
+  /** Revisores técnicos y guías de mantenimiento (docs/seo/, Fase 5). */
+  guides: 'guides',
 } as const

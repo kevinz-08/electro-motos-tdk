@@ -63,6 +63,7 @@ import { StickyBuyBar } from '@/components/store/StickyBuyBar'
 import { ProductShippingEstimate } from '@/components/store/ProductShippingEstimate'
 import { ConfirmCompatibilityButton } from '@/components/store/ConfirmCompatibilityButton'
 import { ProductTrustBlock } from '@/components/store/ProductTrustBlock'
+import { CrossSellBlock } from '@/components/store/CrossSellBlock'
 import { TrackEvent } from '@/components/analytics/TrackEvent'
 import { toGaItem, toPesos } from '@/lib/analytics'
 
@@ -437,6 +438,9 @@ export default async function ProductPage({ params }: PageProps) {
           <SecurePaymentBadge />
 
           <ProductTrustBlock warrantyMonths={freshProduct?.warrantyMonths ?? null} className="mt-3" />
+
+          {/* Venta cruzada: sugerencias cargadas por el admin (no se muestra si no hay ninguna visible) */}
+          <CrossSellBlock productId={product.id} className="mt-5" />
 
           <hr className="mt-4 mb-3 border-gray-100" />
 

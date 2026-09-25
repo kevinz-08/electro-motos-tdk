@@ -33,6 +33,23 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 166. Venta cruzada (Fase 4, ítem 7)
+
+**Requerimiento:** el negocio propuso que el admin vincule productos desde el formulario (venta cruzada) y, aparte, arme kits. Decisiones: tope de 4, motivo opcional, sentido inverso con casilla, 10 títulos, sugerencias también en el carrito y ocultar lo agotado. Se implementa primero la venta cruzada, en la rama `feat/cro-cross-selling-kits`.
+
+**Hecho:**
+
+- **Dominio:** reglas puras (visibilidad, compatibilidad con la moto, mezcla de sugerencias del carrito, título determinista) y el caso de uso `SetProductCrossSells` (tope, duplicados, autovínculo, motivo, existencia, sentido inverso solo agregando). 19 tests nuevos.
+- **Base de datos y API:** tabla `ProductCrossSell`, `PrismaCrossSellRepository` (el sentido inverso usa una transacción con conteo), tres endpoints admin y 5 tests.
+- **Admin:** `CrossSellEditor` controlado; el formulario solo envía la lista si logró cargarla y fue modificada, para que un fallo de lectura no borre vínculos.
+- **Público:** bloque en la ficha y en el carrito; la ficha sigue SSG porque el filtro por moto es de cliente y reutiliza el snapshot estable de `readMyMotorcycle`.
+
+**Decisiones a destacar:** el título "al azar" es determinista por producto (uno aleatorio por render rompe la hidratación y cambia en cada visita); ninguna frase afirma ventas; y un fallo de lectura (p. ej. la migración sin aplicar) degrada a "sin bloque" en vez de tumbar la ficha, algo que el build de producción confirmó.
+
+**Verificación:** 276/276 tests de dominio, 196/196 de API, type-check limpio, lint sin errores y build de producción correcto (con la migración sin aplicar, por diseño). **No verificado contra la base real** (falta aplicar la migración, H-47) **ni con Playwright.**
+
+---
+
 ## 165. Fase 4 — cierre: garantía, umbral, reseñas con moto, GA4 y páginas de confianza
 
 **Requerimiento:** aplicar las decisiones del negocio para cerrar la Fase 4: garantía "hasta 6 meses", umbral $500.000, campo de moto en reseñas, instalar GA4 y crear "Sobre nosotros" y garantías.

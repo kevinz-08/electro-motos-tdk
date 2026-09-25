@@ -15,6 +15,7 @@ export * from './entities/Coupon'
 export * from './entities/Motorcycle'
 export * from './entities/Order'
 export * from './entities/Product'
+export * from './entities/ProductCrossSell'
 export * from './entities/ProductDescription'
 export * from './entities/ProductReview'
 export * from './entities/RecipientTrust'
@@ -24,6 +25,7 @@ export * from './entities/User'
 
 // ── Interfaces de repositorio ────────────────────────────────────────────────
 export * from './repositories/ICouponRepository'
+export * from './repositories/ICrossSellRepository'
 export * from './repositories/IFitmentRepository'
 export * from './repositories/IInventorySyncRepository'
 export * from './repositories/IOrderRepository'
@@ -51,6 +53,7 @@ export * from './search/searchIndex'
 
 // ── Use cases ────────────────────────────────────────────────────────────────
 export * from './use-cases/coupons/ValidateCoupon'
+export * from './use-cases/crossSell/SetProductCrossSells'
 export * from './use-cases/fitment/FindByOemReference'
 export * from './use-cases/fitment/GetModelHub'
 export * from './use-cases/fitment/ImportFitments'

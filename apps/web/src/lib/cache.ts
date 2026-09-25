@@ -39,6 +39,7 @@ import {
 } from '@h2r/domain'
 import { CACHE_TAGS } from './cache-tags'
 import { installedMotorcycleLabel, installedMotorcycleLine } from './review-motorcycle'
+import { findCrossSellSuggestions } from './cross-sell'
 
 export { CACHE_TAGS }
 
@@ -370,6 +371,17 @@ export const getCachedRelatedProducts = unstable_cache(
   },
   ['related-products'],
   { revalidate: 300, tags: [CACHE_TAGS.products] },
+)
+
+/**
+ * Sugerencias de venta cruzada de un producto (docs/seo/plan-venta-cruzada.md).
+ * Tags `products` y `fitments`: guardar el producto en el admin invalida
+ * `products`, y una carga de compatibilidades invalida `fitments`.
+ */
+export const getCachedCrossSells = unstable_cache(
+  async (productId: string) => findCrossSellSuggestions(productId),
+  ['cross-sells'],
+  { revalidate: 600, tags: [CACHE_TAGS.products, CACHE_TAGS.fitments] },
 )
 
 // ── Compatibilidad por modelo de moto (docs/seo/, Fase 2) ─────────────────────

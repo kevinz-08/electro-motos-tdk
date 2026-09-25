@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Product } from '@h2r/domain'
+import { toast } from 'sonner'
 import { X, ImagePlus, Loader2, Plus, Trash2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
 import { CACHE_TAGS } from '@/lib/cache-tags'
+import { CrossSellEditor, type CrossSellDraft } from '@/components/admin/CrossSellEditor'
 
 interface Category {
   id: string
@@ -54,6 +56,30 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Venta cruzada: `null` = cargando o no disponible. Solo se envía al guardar si
+  // llegó a cargarse Y el admin la tocó, para que un error de lectura no borre nada.
+  const [crossSells, setCrossSells] = useState<CrossSellDraft[] | null>(null)
+  const [crossSellsError, setCrossSellsError] = useState<string | null>(null)
+  const [crossSellsDirty, setCrossSellsDirty] = useState(false)
+  const accessToken = session?.user?.accessToken
+
+  useEffect(() => {
+    if (!product?.id || !accessToken) return
+    let cancelled = false
+    void apiClient(accessToken)
+      .get<Array<Omit<CrossSellDraft, 'reason' | 'reciprocal'> & { reason: string | null }>>(
+        `/admin/products/${product.id}/cross-sells`,
+      )
+      .then((res) => {
+        if (cancelled) return
+        if (!res.ok) return setCrossSellsError(res.error)
+        setCrossSells(res.data.map((r) => ({ ...r, reason: r.reason ?? '', reciprocal: false })))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [product?.id, accessToken])
+
   const [benefits, setBenefits] = useState<Benefit[]>(initialBenefits)
   const [compatibility, setCompatibility] = useState<CompatibilityEntry[]>(initialCompatibility)
 
@@ -183,6 +209,28 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
             .filter((c) => c.body.trim())
             .map((c, i) => ({ body: c.body.trim(), order: i })),
         })
+      }
+
+      // Venta cruzada: solo si se cargó y se modificó (ver el estado de arriba).
+      if (productId && crossSells !== null && crossSellsDirty) {
+        const res = await client.put<{ reciprocal: { added: string[]; alreadyLinked: string[]; full: string[] } }>(
+          `/admin/products/${productId}/cross-sells`,
+          {
+            items: crossSells.map((c) => ({
+              relatedId: c.id,
+              ...(c.reason.trim() && { reason: c.reason.trim() }),
+              ...(c.reciprocal && { reciprocal: true }),
+            })),
+          },
+        )
+        if (!res.ok) throw new Error(res.error ?? 'Error al guardar la venta cruzada')
+        const { full, added } = res.data.reciprocal
+        if (added.length > 0) toast.success(`Sentido inverso aplicado en ${added.length} producto(s)`)
+        if (full.length > 0) {
+          toast.warning(
+            `No se pudo sugerir este producto en ${full.length} ficha(s): ya tenían el máximo de sugerencias.`,
+          )
+        }
       }
 
       await revalidateAdminCache([CACHE_TAGS.products])
@@ -611,6 +659,16 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
 
         {uploadError && <p className="text-sm text-red-400">{uploadError}</p>}
       </div>
+
+      <CrossSellEditor
+        productId={product?.id}
+        items={crossSells}
+        loadError={crossSellsError}
+        onChange={(next) => {
+          setCrossSells(next)
+          setCrossSellsDirty(true)
+        }}
+      />
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">

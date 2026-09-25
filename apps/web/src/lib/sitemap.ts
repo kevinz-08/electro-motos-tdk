@@ -11,6 +11,7 @@
  *   /sitemap-categorias.xml   una URL por categoría con productos
  *   /sitemap-productos.xml    una URL por producto activo
  *   /sitemap-modelos.xml      hubs de modelo y sus categorías (Fase 2)
+ *   /sitemap-kits.xml         kits visibles (Fase 4 ítem 8)
  *
  * Cuando existan las guías (Fase 5) se añaden como un segmento nuevo sin tocar
  * los existentes.
@@ -27,7 +28,7 @@
  */
 import { prisma } from '@h2r/database'
 import { absoluteUrl } from '@/lib/seo'
-import { getCachedModelHub, getCachedPublishableModels } from '@/lib/cache'
+import { getCachedModelHub, getCachedPublishableModels, getCachedAllVisibleKits } from '@/lib/cache'
 
 export interface SitemapEntry {
   url: string
@@ -120,6 +121,19 @@ function escapeXml(value: string): string {
 }
 
 const toW3C = (date: Date) => date.toISOString()
+
+/**
+ * Kits visibles (docs/seo/plan-kits.md). Un kit sin disponibilidad no entra —
+ * misma regla que los hubs de modelo: lo que no se publica, no se anuncia.
+ */
+export async function getKitEntries(): Promise<SitemapEntry[]> {
+  const kits = await getCachedAllVisibleKits()
+  return kits.map((k) => ({
+    url: absoluteUrl(`/kits/${k.slug}`),
+    changeFrequency: 'weekly' as const,
+    priority: 0.6,
+  }))
+}
 
 export function buildUrlSet(entries: SitemapEntry[]): string {
   const urls = entries

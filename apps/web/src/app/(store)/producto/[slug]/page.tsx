@@ -64,6 +64,7 @@ import { ProductShippingEstimate } from '@/components/store/ProductShippingEstim
 import { ConfirmCompatibilityButton } from '@/components/store/ConfirmCompatibilityButton'
 import { ProductTrustBlock } from '@/components/store/ProductTrustBlock'
 import { CrossSellBlock } from '@/components/store/CrossSellBlock'
+import { ProductKitMention } from '@/components/store/ProductKitMention'
 import { TrackEvent } from '@/components/analytics/TrackEvent'
 import { toGaItem, toPesos } from '@/lib/analytics'
 
@@ -441,6 +442,9 @@ export default async function ProductPage({ params }: PageProps) {
 
           {/* Venta cruzada: sugerencias cargadas por el admin (no se muestra si no hay ninguna visible) */}
           <CrossSellBlock productId={product.id} className="mt-5" />
+
+          {/* "Este producto está en el Kit…" — no se muestra si no hay ninguno */}
+          <ProductKitMention productId={product.id} className="mt-3" />
 
           <hr className="mt-4 mb-3 border-gray-100" />
 

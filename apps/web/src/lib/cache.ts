@@ -40,6 +40,7 @@ import {
 import { CACHE_TAGS } from './cache-tags'
 import { installedMotorcycleLabel, installedMotorcycleLine } from './review-motorcycle'
 import { findCrossSellSuggestions } from './cross-sell'
+import { findKitsByModel, findKitBySlug, findAllVisibleKits, findKitsContainingProduct } from './kits'
 
 export { CACHE_TAGS }
 
@@ -382,6 +383,37 @@ export const getCachedCrossSells = unstable_cache(
   async (productId: string) => findCrossSellSuggestions(productId),
   ['cross-sells'],
   { revalidate: 600, tags: [CACHE_TAGS.products, CACHE_TAGS.fitments] },
+)
+
+/**
+ * Kits de productos (docs/seo/plan-kits.md, Fase 4 ítem 8). Tags `kits`,
+ * `products` y `fitments`: cambia con el precio/stock de sus productos, con
+ * la edición del kit en el admin y con las compatibilidades cargadas.
+ */
+const KIT_CACHE_TAGS = [CACHE_TAGS.kits, CACHE_TAGS.products, CACHE_TAGS.fitments]
+
+export const getCachedKitsByModel = unstable_cache(
+  async (modelId: string) => findKitsByModel(modelId),
+  ['kits-by-model'],
+  { revalidate: 300, tags: KIT_CACHE_TAGS },
+)
+
+export const getCachedKitBySlug = unstable_cache(
+  async (slug: string) => findKitBySlug(slug),
+  ['kit-by-slug'],
+  { revalidate: 300, tags: KIT_CACHE_TAGS },
+)
+
+export const getCachedAllVisibleKits = unstable_cache(
+  async () => findAllVisibleKits(),
+  ['kits-all-visible'],
+  { revalidate: 300, tags: KIT_CACHE_TAGS },
+)
+
+export const getCachedKitsContainingProduct = unstable_cache(
+  async (productId: string) => findKitsContainingProduct(productId),
+  ['kits-containing-product'],
+  { revalidate: 300, tags: KIT_CACHE_TAGS },
 )
 
 // ── Compatibilidad por modelo de moto (docs/seo/, Fase 2) ─────────────────────

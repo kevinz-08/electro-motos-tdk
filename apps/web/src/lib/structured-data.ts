@@ -316,6 +316,61 @@ export function productJsonLd({
   })
 }
 
+// ── Kits (docs/seo/plan-kits.md, Fase 4 ítem 8) ──────────────────────────────
+
+export interface KitJsonLdInput {
+  name: string
+  slug: string
+  description: string | null
+  /** Centavos COP. */
+  price: number
+  availableUnits: number
+  images: string[]
+}
+
+/**
+ * `Product` de un kit. Mismo criterio que `productJsonLd`: solo se llama para
+ * kits ya visibles (disponibilidad > 0), así que `availability` es siempre
+ * `InStock` — un kit sin disponibilidad no se publica y no llega aquí.
+ */
+export function kitJsonLd(kit: KitJsonLdInput): JsonLdNode {
+  const url = absoluteUrl(`/kits/${kit.slug}`)
+  return compact({
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: kit.name,
+    image: kit.images,
+    description: (kit.description ?? kit.name).slice(0, 500),
+    url,
+    offers: compact({
+      '@type': 'Offer',
+      url,
+      priceCurrency: 'COP',
+      price: (kit.price / 100).toFixed(0),
+      availability: 'https://schema.org/InStock',
+      itemCondition: 'https://schema.org/NewCondition',
+      seller: { '@id': ORGANIZATION_ID },
+      hasMerchantReturnPolicy: returnPolicyNode(),
+    }),
+  })
+}
+
+/** `ItemList` de `/kits`, en el orden en que se ven. */
+export function kitItemListJsonLd(kits: { name: string; slug: string }[]): JsonLdNode {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Kits de mantenimiento',
+    numberOfItems: kits.length,
+    itemListElement: kits.map((kit, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      url: absoluteUrl(`/kits/${kit.slug}`),
+      name: kit.name,
+    })),
+  }
+}
+
 // ── Migas, listados y FAQ ────────────────────────────────────────────────────
 
 export interface BreadcrumbEntry {

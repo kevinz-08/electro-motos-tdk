@@ -105,7 +105,10 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-49** | **Aplicar la migración `20260925000000_product_kits`** (tablas `Kit`/`KitItem`) con `pnpm --filter @h2r/database migrate:deploy`. Aditiva y reversible (`DROP TABLE "KitItem"; DROP TABLE "Kit";`). Sin ella, `/admin/kits` funciona pero no lista nada, y las páginas públicas se sirven sin el bloque de kits. Aplicarla antes de desplegar | 4 | ⬜ |
 | **H-50** | **Armar los primeros kits** desde `/admin/kits`: nombre, productos con cantidad, descuento opcional y el modelo de moto si aplica. Empezar por los que ya sugiere el ROADMAP: "Kit NKD 125: aceite + filtro + bujía" | 4 | ⬜ |
 
-*Última actualización de este bloque: 2026-09-25*
+| **H-51** | **Aplicar la migración `20260925120000_phase5_reviewers_maintenance`** (tablas `TechnicalReviewer`, `MaintenanceGuide`, `MaintenanceItem`) con `pnpm --filter @h2r/database migrate:deploy`. Aditiva y reversible (rollback en el propio SQL). Sin ella `/admin/revisores` y `/admin/mantenimiento` no funcionan y las páginas públicas se sirven sin guías. Aplicarla antes de desplegar | 5 | ⬜ |
+| **H-52** | **Registrar al revisor técnico y cargar las guías.** (1) `/admin/revisores/nuevo`: nombre, foto, años de experiencia y trayectoria. (2) `/admin/mantenimiento`: por cada modelo, revisor, **fuente** (manual del fabricante o taller), fecha y los intervalos reales. Empezar por los 5 modelos prioritarios (AKT NKD 125, Bajaj Boxer CT100, NMAX 155, XR190L, DR150). Nada se inventa: sin fuente no se puede guardar | 5 | ⬜ |
+
+*Última actualización de este bloque: 2026-09-26*
 
 ---
 

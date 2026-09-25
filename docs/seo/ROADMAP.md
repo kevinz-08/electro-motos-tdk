@@ -12,7 +12,7 @@ terminada la 2. **Las fases 0 y 2 requieren aprobación explícita antes de cont
 | **2** | Sistema de compatibilidad | ✅ Terminada (2026-09-22) | [`02-compatibilidad.md`](./02-compatibilidad.md) | ✅ Aprobada · ⛔ bloqueada por **H-02** para publicar |
 | **3** | Datos estructurados | ✅ **Terminada** (2026-09-22) | [`03-datos-estructurados.md`](./03-datos-estructurados.md) | — |
 | **4** | Conversión | 🚧 **Casi cerrada** (2ª entrega 2026-09-23) | [`04-conversion.md`](./04-conversion.md) | — |
-| 5 | Contenido y E-E-A-T | 📋 Definida | `05-contenido.md` | Necesita revisor técnico (H-21) |
+| 5 | Contenido y E-E-A-T | 🚧 En curso | `05-contenido.md` | Necesita revisor técnico (H-21) |
 | 6 | GEO | 📋 Definida | `06-geo.md`, `geo/` | — |
 | 7 | Merchant Center y feed | 📋 Definida | `07-feed.md` | Necesita marca y MPN de los repuestos (H-18) |
 
@@ -192,7 +192,9 @@ las métricas antes y después.
 
 ---
 
-## Fase 5 — Contenido y E-E-A-T 📋
+## Fase 5 — Contenido y E-E-A-T 🚧
+
+**Primera entrega 2026-09-26** (rama `feat/phase5-reviewers-maintenance`): revisores técnicos administrables desde `/admin/revisores` con página pública `/autores/[slug]` (H-21), y guías de mantenimiento por modelo administrables desde `/admin/mantenimiento` con página pública `/guias/mantenimiento/[marca]/[modelo]` (H-20). Es el arranque del ítem 1 (infraestructura) y del ítem 2 (guías por modelo) de abajo, sin el modelo genérico de MDX. Pendiente aplicar su migración (H-51) y cargar los datos reales (H-52).
 
 **Objetivo:** ser la fuente que Google y las IAs citan sobre repuestos de moto en Colombia.
 

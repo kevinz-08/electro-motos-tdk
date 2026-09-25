@@ -33,6 +33,29 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 170. Fase 5 (inicio): revisores técnicos (H-21) e intervalos de mantenimiento por modelo (H-20)
+
+**Requerimiento:** el administrador no tiene a mano los datos del revisor técnico ni los intervalos de mantenimiento, y necesita gestionarlos dinámicamente desde el panel: (1) formulario del revisor con nombre, foto, experiencia y trayectoria, reflejado en la vista pública; (2) formulario de intervalos por modelo que, al guardarse, hace que la sección genérica de mantenimiento deje de mostrarse.
+
+**Decisiones:**
+
+- **No existía una página genérica de mantenimiento que ocultar** (verificado en el código y el esquema). Se construyó el comportamiento equivalente: sin guía guardada la ruta responde 404 y el hub no enlaza nada; con guía, se publica sola.
+- **La fuente y el revisor activo son obligatorios** para guardar una guía. Así el sistema hace cumplir las dos reglas del proyecto (los intervalos no se inventan; ninguna pieza se publica sin quien la firme) sin una cola de aprobación aparte, y sin que el administrador tenga que acordarse.
+- **Una guía se oculta si su revisor se desactiva** en vez de quedar firmada por una página que ya no existe; y un revisor con guías no se puede eliminar.
+- **Nunca hay intervalos por defecto:** las etiquetas sugeridas solo insertan el nombre del punto de control.
+- **Ruta `/guias/mantenimiento/[marca]/[modelo]`** (segmentos anidados, como `/repuestos/[marca]/[modelo]`) en vez del slug unido con guiones que mencionaba el ROADMAP: con slugs que ya contienen guiones (`nkd-125`) el slug unido es ambiguo de interpretar.
+- Se añadió el enlace opcional al repuesto exacto de H2R en cada punto de control (el ROADMAP lo pide para la tabla de intervalos).
+
+**Hecho:** dominio (`TechnicalReviewer`, `MaintenanceGuide`, `SaveTechnicalReviewer`, `DeleteTechnicalReviewer`, `SetMaintenanceGuide`, 26 tests), tablas y migración aditiva, repositorios Prisma y dos controladores admin (16 tests), `/admin/revisores` y `/admin/mantenimiento`, lectura pública cacheada con degradación elegante si falta la migración, `/autores/[slug]`, `/guias/mantenimiento/[marca]/[modelo]`, enlace en el hub, `sitemap-guias.xml` y JSON-LD `Person` / `WebPage` con `reviewedBy`.
+
+**De paso:** `/kits/[slug]` emitía el `BreadcrumbList` dos veces (el componente `Breadcrumbs` ya lo genera); corregido.
+
+**Incidente:** un error inesperado borró el trabajo sin commitear del lado público (lectura, páginas, sitemap). Se rehízo desde cero y se commiteó después de cada bloque; quedó como regla de trabajo. Además, desde esta entrega las ramas **no se publican**: solo se commitea en local.
+
+**Verificación:** 320/320 tests de dominio, 219/219 de API, type-check limpio, lint en la línea base (24 avisos preexistentes) y `pnpm build` correcto **sin la migración aplicada** (todas las lecturas públicas degradan a "sin guía"). **No verificado contra la base real** (migración sin aplicar, H-51) **ni el flujo de subida de foto** (necesita credenciales de Cloudinary y sesión de administrador).
+
+---
+
 ## 169. H-36 — segunda ronda: por qué un simple retraso no basta para el LCP, y el preload storm de /catalogo
 
 **Requerimiento:** tras desplegar la corrección de `link-text` y el primer intento de diferir `PromoModal`

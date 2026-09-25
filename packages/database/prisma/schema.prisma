@@ -243,6 +243,8 @@ model Product {
   crossSells            ProductCrossSell[]     @relation("CrossSellSource")
   /// ...y fichas donde ESTE producto aparece como sugerencia.
   crossSoldBy           ProductCrossSell[]     @relation("CrossSellTarget")
+  /// Kits (docs/seo/plan-kits.md) que incluyen este producto.
+  kitItems              KitItem[]
 
   /// Cubre el filtro mas comun del catalogo y del admin: por categoria, activos, con stock.
   @@index([categoryId, isActive, stock])
@@ -273,6 +275,50 @@ model ProductCrossSell {
   @@unique([productId, relatedId])
   @@index([productId, order])
   @@index([relatedId])
+}
+
+/// Kit de productos (docs/seo/plan-kits.md, Fase 4 item 8). NUNCA tiene stock propio:
+/// su precio y su disponibilidad se calculan en vivo a partir de sus KitItem. Lo arma
+/// un administrador desde /admin/kits.
+model Kit {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  /// Texto corto para la tarjeta y la meta description. Opcional.
+  description   String?   @db.Text
+  /// Centavos COP a descontar de la suma de los items. 0 = sin descuento.
+  /// CHECK en BD: discountCents >= 0. El caso de uso SetKit ademas exige que sea
+  /// estrictamente menor que la suma de los items (el kit nunca cuesta $0 o menos).
+  discountCents Int       @default(0)
+  /// Modelo de moto al que se asocia, para agruparlo en su hub. Null = kit generico.
+  modelId       String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  /// null = activo. Non-null = soft-deleted desde /admin/kits. Nunca prisma.kit.delete().
+  deletedAt     DateTime?
+  model         MotorcycleModel? @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  items         KitItem[]
+
+  @@index([isActive, deletedAt])
+  @@index([modelId])
+}
+
+/// Un producto dentro de un Kit, con su cantidad.
+model KitItem {
+  id        String @id @default(cuid())
+  kitId     String
+  productId String
+  /// CHECK en BD: quantity > 0.
+  quantity  Int    @default(1)
+  /// Posicion en la tarjeta del kit (menor primero).
+  order     Int    @default(0)
+  kit       Kit     @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([kitId, productId])
+  @@index([kitId, order])
+  @@index([productId])
 }
 
 /// Historial de cambios de precio. Respaldo de que el precio de referencia
@@ -702,6 +748,8 @@ model MotorcycleModel {
   fitments  Fitment[]
   /// Reseñas donde el comprador declaró haberlo instalado en este modelo.
   reviews   ProductReview[]
+  /// Kits (docs/seo/plan-kits.md) asociados a este modelo.
+  kits      Kit[]
 
   @@unique([brandId, slug])
   @@unique([brandId, name])

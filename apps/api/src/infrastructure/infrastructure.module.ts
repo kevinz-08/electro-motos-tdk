@@ -15,6 +15,7 @@ import {
   MOTORCYCLE_REPOSITORY,
   FITMENT_REPOSITORY,
   CROSS_SELL_REPOSITORY,
+  KIT_REPOSITORY,
   OEM_REFERENCE_REPOSITORY,
 } from './injection-tokens'
 import { PrismaCouponRepository } from './repositories/PrismaCouponRepository'
@@ -33,6 +34,7 @@ import { EmailQueueService } from './services/EmailQueueService'
 import { ReviewRequestService } from './services/ReviewRequestService'
 import { PrismaReviewRepository } from './repositories/PrismaReviewRepository'
 import { PrismaCrossSellRepository } from './repositories/PrismaCrossSellRepository'
+import { PrismaKitRepository } from './repositories/PrismaKitRepository'
 import { VendeloHttpClient } from './services/VendeloHttpClient'
 import { VendeloService } from './services/VendeloService'
 import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
@@ -62,6 +64,7 @@ import {
     { provide: MOTORCYCLE_REPOSITORY,          useClass: PrismaMotorcycleRepository },
     { provide: FITMENT_REPOSITORY,             useClass: PrismaFitmentRepository },
     { provide: CROSS_SELL_REPOSITORY,          useClass: PrismaCrossSellRepository },
+    { provide: KIT_REPOSITORY,                 useClass: PrismaKitRepository },
     { provide: OEM_REFERENCE_REPOSITORY,       useClass: PrismaOemReferenceRepository },
     // PAYMENT_SERVICE token → Wompi (pasarela principal Colombia)
     { provide: PAYMENT_SERVICE,    useClass: WompiService },
@@ -96,6 +99,7 @@ import {
     MOTORCYCLE_REPOSITORY,
     FITMENT_REPOSITORY,
     CROSS_SELL_REPOSITORY,
+    KIT_REPOSITORY,
     OEM_REFERENCE_REPOSITORY,
     PAYMENT_SERVICE,
     ALERT_NOTIFICATION_PORT,

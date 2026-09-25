@@ -33,6 +33,30 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 168. H-36 — Lighthouse en producción: dos causas reales encontradas y corregidas
+
+**Requerimiento:** Santiago corrió `pnpm seo:lighthouse` contra producción (H-36) y reportó 7 presupuestos
+incumplidos. Se investigaron los reportes JSON completos en vez de asumir la causa.
+
+**Hallazgo 1 — SEO 92 en las tres plantillas:** un único audit fallaba, `link-text`, por el enlace "Más
+información" del aviso de cookies de GA4 (Fase 4). No tenía nada que ver con H-22 (`altText` de los
+banners), que Santiago ya había corregido. Corregido el texto del enlace.
+
+**Hallazgo 2 — LCP de home sin mejorar (4,4 s) pese al hero optimizado en la Fase 1:** el elemento LCP real
+no era el hero, era `PromoModal`. Se mostraba apenas terminaba de hidratar; su imagen de 900×1200 con
+`fetchPriority="low"` seguía siendo el contenido más grande pintado en el viewport, y `fetchPriority` no
+excluye un elemento de ser candidato a LCP, solo afecta la prioridad de red. Corregido: el pop-up ahora
+espera a `window.load` + tiempo de hilo libre (mismo patrón que `CatalogHeroVideo`) antes de mostrarse.
+
+**Sin resolver, anotado:** catálogo (6,4 s) y producto (3,0 s) siguen sobre el presupuesto de LCP (2,5 s)
+pese a que sus imágenes ya llevan `priority`. No se encontró la causa en esta sesión — queda para una
+sesión de perfilado aparte, después de medir de nuevo con estas dos correcciones desplegadas.
+
+**Verificación:** type-check limpio, lint sin problemas nuevos, build de producción correcto.
+`docs/seo/01-resultados.md` y `HUMAN_TASKS.md` actualizados con las cifras y los hallazgos.
+
+---
+
 ## 167. Kits de productos (Fase 4, ítem 8)
 
 **Requerimiento:** segunda mitad de la propuesta del negocio del 2026-09-24 — una vista dedicada en el panel admin para agrupar productos en kits con precio total visible. Decisiones del 2026-09-25: páginas propias `/kits/[slug]` indexables, 2 a 8 productos por kit, descuento en centavos fijos, mención del kit en la ficha de sus productos desde ya, sección del admin llamada "Kits".

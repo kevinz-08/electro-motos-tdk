@@ -10,6 +10,8 @@ import { AdminBannersController } from './admin-banners.controller'
 import { AdminPromoController } from './admin-promo.controller'
 import { AdminFitmentsController } from './admin-fitments.controller'
 import { AdminKitsController } from './admin-kits.controller'
+import { AdminReviewersController } from './admin-reviewers.controller'
+import { AdminMaintenanceController } from './admin-maintenance.controller'
 
 @Module({
   imports: [InfrastructureModule],
@@ -24,6 +26,8 @@ import { AdminKitsController } from './admin-kits.controller'
     AdminPromoController,
     AdminFitmentsController,
     AdminKitsController,
+    AdminReviewersController,
+    AdminMaintenanceController,
   ],
 })
 export class AdminModule {}

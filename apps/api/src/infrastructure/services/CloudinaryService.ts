@@ -73,6 +73,11 @@ export class CloudinaryService {
     return this.uploadImage(file, 'h2r-online-store/promo-modal', `promo-${variant}`, { width, crop: 'limit' })
   }
 
+  /** Foto del revisor tecnico (Fase 5, H-21): cuadrada, 800 px alcanzan para la pagina de autor. */
+  async uploadReviewerPhoto(file: Buffer, slug: string): Promise<UploadResult> {
+    return this.uploadImage(file, 'h2r-online-store/reviewers', slug, { width: 800, crop: 'limit' })
+  }
+
   async deleteImage(publicId: string): Promise<void> {
     await cloudinary.uploader.destroy(publicId)
   }

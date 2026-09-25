@@ -35,7 +35,7 @@ export function CookieConsentBanner() {
           Usamos cookies de analítica (Google Analytics) para entender qué páginas te sirven y mejorar la tienda. No
           guardamos datos personales en ellas.{' '}
           <Link href="/legal/politica-de-privacidad#seccion-cookies" className="text-sky-600 underline">
-            Más información
+            Más información sobre las cookies de analítica
           </Link>
         </p>
         <div className="flex shrink-0 gap-2">

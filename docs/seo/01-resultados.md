@@ -244,6 +244,35 @@ Además: `pnpm type-check` limpio en los 6 paquetes, `pnpm lint` sin errores, 21
 | Catálogo | 72 | 6,8 s | 31.803 KB |
 | Producto | 88 | 3,4 s | 487 KB |
 
+**Lighthouse en producción (después, medido el 2026-09-25 con `pnpm seo:lighthouse`, tarea H-36):**
+
+| Plantilla | Rendimiento | SEO | LCP | Peso |
+|---|---|---|---|---|
+| Home | 85 | 92 | 4,4 s | 964 KB |
+| Catálogo | 77 | 92 | 6,4 s | 1.511 KB |
+| Producto | 94 | 92 | 3,0 s | 461 KB |
+
+7 presupuestos incumplidos: SEO en las tres plantillas, LCP en las tres, y Rendimiento en catálogo.
+**Dos hallazgos reales, no cosméticos:**
+
+1. **La causa del SEO 92 no era el `altText` de los banners (H-22)** — eso ya se había corregido. Era otra
+   cosa: `link-text` fallaba en las tres plantillas por el enlace "Más información" del aviso de cookies
+   de GA4 (Fase 4), un texto no descriptivo para lectores de pantalla y para Google. Corregido: ahora dice
+   "Más información sobre las cookies de analítica".
+2. **El elemento LCP real de la home no era el hero, era el pop-up promocional.** El comentario del código
+   ya avisaba que `PromoModal` "aparece tras la hidratación" con `fetchPriority="low"`, pero
+   `fetchPriority` solo afecta la prioridad de red, no si el navegador lo cuenta como LCP: al mostrarse de
+   inmediato tras hidratar, su imagen de 900×1200 es el elemento más grande pintado en el viewport, así
+   que Lighthouse lo mide a él, no al hero — y por eso el peso total y el LCP de home casi no bajaron pese
+   a que el hero llevaba meses optimizado. Corregido: el pop-up ahora espera a `window.load` + tiempo de
+   hilo libre (mismo patrón de `CatalogHeroVideo`) antes de mostrarse, así el LCP real vuelve a ser el
+   hero. De paso deja de ser un interstitial intrusivo apenas se carga la página.
+
+**Pendiente de remedir tras desplegar estas dos correcciones** — el LCP de catálogo y producto siguen por
+encima del presupuesto (2,5 s) incluso con el póster/la imagen principal marcados `priority`; no se
+encontró la causa exacta en esta sesión (candidatos: crecimiento del JS por las fases 3-4, latencia de
+Vercel, o el perfil de throttling de Lighthouse). Necesita una sesión de perfilado aparte.
+
 ---
 
 ## 5. Riesgos y deuda

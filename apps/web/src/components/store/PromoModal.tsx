@@ -11,6 +11,12 @@
  *   (`version` = updatedAt). Si localStorage falla (modo privado), el modal se muestra igual.
  *   La decisión se lee con useSyncExternalStore: en SSR devuelve false (no se renderiza) y tras
  *   hidratar consulta localStorage, sin setState dentro de un efecto ni mismatch de hidratación.
+ * - Aparición diferida (docs/seo/, H-36): antes se mostraba apenas terminaba de hidratar, y su
+ *   imagen (900×1200) se convertía en el elemento LCP real de la home en vez del hero — Lighthouse en
+ *   producción lo confirmó (home no bajaba de ~4,4 s pese a que el hero ya estaba optimizado). Ahora
+ *   espera a `window.load` + un momento de hilo libre (mismo patrón que `CatalogHeroVideo`), para que
+ *   el contenido principal ya se haya pintado antes de competir por el LCP. De paso evita el patrón de
+ *   "interstitial intrusivo" que penaliza Google en móvil.
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
@@ -59,7 +65,31 @@ export function PromoModal({ promo }: { promo: PromoModalData }) {
   const previouslyFocused = useRef<Element | null>(null)
 
   const showable = useSyncExternalStore(subscribe, () => !wasDismissed(promo.version), noneOnServer)
-  const open = showable && !closedByUser
+  const [readyToShow, setReadyToShow] = useState(false)
+  const open = showable && !closedByUser && readyToShow
+
+  // Espera a que la carga termine y el hilo quede libre antes de mostrarse —
+  // ver el porqué en el comentario del encabezado (LCP).
+  useEffect(() => {
+    let idleHandle: number | undefined
+    const idle = window.requestIdleCallback ?? ((cb: IdleRequestCallback) => window.setTimeout(cb, 1000))
+    const cancelIdle = window.cancelIdleCallback ?? window.clearTimeout
+
+    const onLoad = () => {
+      idleHandle = idle(() => setReadyToShow(true)) as number
+    }
+
+    if (document.readyState === 'complete') {
+      onLoad()
+    } else {
+      window.addEventListener('load', onLoad)
+    }
+
+    return () => {
+      window.removeEventListener('load', onLoad)
+      if (idleHandle !== undefined) cancelIdle(idleHandle)
+    }
+  }, [])
 
   const close = useCallback(() => {
     setClosedByUser(true)

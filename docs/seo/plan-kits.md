@@ -1,6 +1,6 @@
 # Plan de desarrollo — Kits de productos (Fase 4, ítem 8)
 
-**Rama:** `feat/product-kits` (creada desde `main`, que ya tiene la venta cruzada mergeada — PR #45) · **Estado:** plan, sin código todavía · **Origen:** propuesta del negocio del 2026-09-24, segunda mitad ("Kits de Productos"): una vista dedicada en el panel admin para agrupar productos en un conjunto promocional.
+**Rama:** `feat/product-kits` · **Estado:** implementado (2026-09-25), pendiente de aplicar la migración y de cargar kits reales · **Origen:** propuesta del negocio del 2026-09-24, segunda mitad ("Kits de Productos"): una vista dedicada en el panel admin para agrupar productos en un conjunto promocional.
 
 Relacionado: [`plan-venta-cruzada.md`](./plan-venta-cruzada.md) (ya implementado y mergeado). Los kits reutilizan varios de sus patrones — buscador de productos, editor controlado, filtro por moto — pero son una entidad de catálogo distinta, no una extensión de la venta cruzada.
 
@@ -170,7 +170,34 @@ WP3 y WP4 pueden avanzar en paralelo una vez que WP2 existe. WP5 depende de que 
 | Páginas de kits agotados indexadas (si se confirma el alcance B) | Misma regla que los hubs de modelo: `generateStaticParams` y el sitemap solo incluyen kits con `availableUnits > 0` |
 | Migración pendiente rompe el build | `getCachedKitsByModel`/`getCachedKitBySlug` envueltos en try/catch, igual que `CrossSellBlock`: sin la tabla, la página se sirve sin el bloque |
 
-## 8. Decisiones a confirmar antes de empezar
+## 8. Decisiones (confirmadas por el negocio el 2026-09-25)
+
+1. **Alcance SEO:** B — páginas propias `/kits/[slug]` + índice `/kits`, indexables, con `sitemap-kits.xml`. ✅
+2. **Rango de ítems:** 2 a 8. ✅
+3. **Descuento:** solo centavos fijos. ✅
+4. **Mención en la ficha del producto:** incluida desde esta entrega (`ProductKitMention`). ✅
+5. **Nombre de la sección del admin:** "Kits". ✅
+
+## 9. Qué se construyó
+
+| Paquete | Archivos principales |
+|---|---|
+| Dominio | `entities/Kit.ts` (precio, disponibilidad, compatibilidad), `repositories/IKitRepository.ts`, `use-cases/kits/SetKit.ts`, `__tests__/Kit.test.ts` (17 tests) |
+| Base de datos y API | `Kit`/`KitItem` + migración `20260925000000_product_kits`, `PrismaKitRepository`, `AdminKitsController` (listar, obtener, crear, editar, borrar), `__tests__/kits.test.ts` (7 tests) |
+| Admin | `/admin/kits` (lista) y `/admin/kits/[id]` (`KitEditForm`: buscador, cantidades, descuento, precio en vivo, selector de modelo) |
+| Público | `lib/kits.ts`, cachés en `lib/cache.ts`, `KitCard`/`KitsSection` (hub de modelo, `/kits`, ficha del kit), `ProductKitMention` en la ficha de producto |
+| SEO | `/kits/[slug]` y `/kits` indexables, `kitJsonLd`/`kitItemListJsonLd`, `sitemap-kits.xml`, declarado en `robots.ts` |
+| Medición | `add_to_cart` (con `item_list_name: 'kit'`, un ítem por producto del kit) al agregar; `view_item` al abrir `/kits/[slug]` |
+
+**Detalles a tener en cuenta:**
+- **Nunca se guarda un precio ni una disponibilidad.** Se calculan con las mismas funciones puras del dominio (`computeKitPrice`, `computeKitAvailability`) tanto en el admin como en la tienda — nunca dos fórmulas para el mismo número.
+- **Agregar un kit es N `addItem()` de productos reales**, con las cantidades del kit. Cero cambios en `Order`, `OrderItem`, pagos o Vendelo.
+- **Todas las lecturas públicas degradan con gracia** si la tabla no existe (migración sin aplicar): `try/catch` en `generateStaticParams`, en cada página y en `sitemap-kits.xml`. Verificado con `pnpm build` completo sin la migración aplicada.
+- Un kit sin disponibilidad (`availableUnits === 0`) no se publica, no entra al sitemap y no se prerenderiza — misma regla que los hubs de modelo.
+
+**No hecho:** prueba Playwright y verificación contra la base real con un kit de prueba (ambas necesitan la migración aplicada).
+
+## 10. Decisiones a confirmar antes de empezar
 
 1. **Alcance SEO (§3):** ¿A (solo bloque) o B (páginas propias `/kits/[slug]` + índice, recomendado)? Cambia el tamaño del WP5 y si hay `sitemap-kits.xml`.
 2. **Rango de ítems:** ¿2 a 8 está bien, o prefieres otro tope?

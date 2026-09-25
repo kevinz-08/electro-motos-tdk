@@ -94,7 +94,10 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-47** | **Aplicar la migración `20260924000000_product_cross_sell`** (tabla de venta cruzada) con `pnpm --filter @h2r/database migrate:deploy`. Aditiva y reversible (`DROP TABLE "ProductCrossSell"`). Sin ella la ficha y el carrito funcionan pero sin el bloque, y el editor del admin muestra un error de carga. Aplicarla antes de desplegar | 4 | ⬜ |
 | **H-48** | **Cargar los vínculos de venta cruzada** desde el formulario de cada producto (buscar producto, motivo opcional, casilla de sentido inverso). Empezar por los pares evidentes: kit de arrastre ↔ aceite de cadena, pastillas ↔ líquido de frenos | 4 | ⬜ |
 
-*Última actualización de este bloque: 2026-09-24*
+| **H-49** | **Aplicar la migración `20260925000000_product_kits`** (tablas `Kit`/`KitItem`) con `pnpm --filter @h2r/database migrate:deploy`. Aditiva y reversible (`DROP TABLE "KitItem"; DROP TABLE "Kit";`). Sin ella, `/admin/kits` funciona pero no lista nada, y las páginas públicas se sirven sin el bloque de kits. Aplicarla antes de desplegar | 4 | ⬜ |
+| **H-50** | **Armar los primeros kits** desde `/admin/kits`: nombre, productos con cantidad, descuento opcional y el modelo de moto si aplica. Empezar por los que ya sugiere el ROADMAP: "Kit NKD 125: aceite + filtro + bujía" | 4 | ⬜ |
+
+*Última actualización de este bloque: 2026-09-25*
 
 ---
 

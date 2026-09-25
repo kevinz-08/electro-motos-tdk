@@ -5,9 +5,18 @@ interface Props {
   name: string
   description: string
   imageSrc: string
+  /**
+   * true solo para la primera sección de categoría, la única que puede quedar
+   * cerca del viewport inicial en móvil (docs/seo/, H-36). Las demás van con
+   * `loading="lazy"`: sin esto, el navegador las trataba como recursos
+   * tempranos y sus 5 `<link rel="preload">` competían por ancho de banda con
+   * el póster del hero, que es el elemento LCP real de /catalogo — el mismo
+   * antipatrón que ya se había corregido una vez en la Fase 1 (README).
+   */
+  eager?: boolean
 }
 
-export function CategoryHeroBanner({ slug, name, description, imageSrc }: Props) {
+export function CategoryHeroBanner({ slug, name, description, imageSrc, eager = false }: Props) {
   return (
     <div className="relative w-full bg-black min-h-[200px] sm:min-h-[320px] md:min-h-[380px]">
       {/* Imagen con object-cover para llenar el contenedor independientemente del aspect-ratio */}
@@ -15,6 +24,8 @@ export function CategoryHeroBanner({ slug, name, description, imageSrc }: Props)
       <img
         src={imageSrc}
         alt={name}
+        loading={eager ? undefined : 'lazy'}
+        fetchPriority={eager ? 'high' : 'low'}
         className="absolute inset-0 w-full h-full object-cover"
       />
 

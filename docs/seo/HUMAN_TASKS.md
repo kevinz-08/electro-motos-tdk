@@ -84,7 +84,15 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-33** | ~~Verificar IndexNow~~ — **resuelta el 2026-09-22**: `https://www.tiendah2r.com/57f804052944e876eedbd2eb22475f65.txt` responde 200 con la clave | 1 | ✅ |
 | **H-34** | **Reenviar los sitemaps** en Google Search Console y Bing Webmaster Tools: `/sitemap.xml` pasó de ser una lista a un índice, y hay tres sitemaps nuevos (`-paginas`, `-categorias`, `-productos`) | 1 | ✅ (2026-09-24: reenviados en Search Console y Bing) |
 | **H-35** | **Revisar el vídeo recomprimido del catálogo** en un escritorio real y confirmar que la calidad es aceptable. Si no lo es, se regenera con menos compresión desde el original, que sigue en el historial de git | 1 | ⬜ |
-| **H-36** | ~~Medir Lighthouse en producción tras el despliegue~~ — **medido el 2026-09-25.** Resultados y dos hallazgos reales (el SEO 92 no era H-22, era un link no descriptivo del aviso de GA4; el LCP real de home era el pop-up promocional, no el hero) en `01-resultados.md`. Ambos corregidos en `fix/lighthouse-h36-findings`. **Sigue pendiente**: catálogo y producto siguen sobre el presupuesto de LCP (2,5 s) por una causa no identificada — remedir tras desplegar y, si sigue, agendar una sesión de perfilado | 1 | 🟡 |
+| **H-36** | ~~Medir Lighthouse en producción tras el despliegue~~ — **medido el 2026-09-25/26, dos rondas.** Cuatro hallazgos reales en `01-resultados.md`: (1) el SEO 92 no
+  era H-22, era un link no descriptivo del aviso de cookies de GA4 — corregido, SEO 100 confirmado en la
+  segunda medición; (2) el LCP de home era el pop-up promocional, no el hero — un simple retraso no basta
+  porque el LCP sigue midiéndose hasta la primera interacción real, así que ahora espera al primer scroll
+  o a 4 s de respaldo; (3) `/catalogo` preload-aba los 5 banners de categoría en vez de solo el primero
+  (reintroducido tras corregirse una vez en la Fase 1) — corregido; (4) el `Render Delay` y el TBT de
+  producto empeoraron entre la primera y la segunda medición, compatible con el crecimiento de JS de las
+  fases 3-4, sin causa confirmada — necesita perfilado con DevTools, no solo el CLI de Lighthouse.
+  Todo en `fix/lighthouse-h36-findings`. **Falta remedir tras desplegar la ronda 2** | 1 | 🟡 |
 
 | **H-43** | **Aplicar la migración `20260923000000_review_installed_motorcycle`** (reseñas: "¿en qué moto lo instalaste?") con `pnpm --filter @h2r/database migrate:deploy`. Es aditiva y reversible (rollback en el propio SQL). **Hasta que se aplique, `pnpm build` de la web falla** con `ColumnNotFound` al prerenderizar las fichas. Aplicarla ANTES de desplegar | 4 | ⬜ |
 | **H-44** | **Historia, fundadores y equipo para /sobre-nosotros.** Las redes son ilegibles sin sesión, así que la página solo lleva datos ya confirmados. Pegar aquí (o en un archivo) la bio de Instagram/Facebook/TikTok, año de fundación, quiénes son, y fotos si las hay. Con eso se amplía la página | 4, 5 | ⬜ |

@@ -33,6 +33,40 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 169. H-36 — segunda ronda: por qué un simple retraso no basta para el LCP, y el preload storm de /catalogo
+
+**Requerimiento:** tras desplegar la corrección de `link-text` y el primer intento de diferir `PromoModal`
+(entrada #168), Santiago volvió a correr `pnpm seo:lighthouse`. SEO subió a 100/100 en las tres plantillas
+(confirma la entrada #168), pero el LCP de home casi no bajó (4,48 s) — el reporte seguía señalando al
+pop-up como elemento LCP.
+
+**Por qué no bastaba con retrasar por tiempo:** el LCP no deja de medirse en `window.load` — el navegador
+sigue aceptando un candidato más grande hasta la primera interacción real del usuario. Como Lighthouse
+nunca interactúa, cualquier retraso por tiempo se captura igual, solo que más tarde. Medido el
+`boundingRect` real, el pop-up pinta más área en pantalla que el hero, así que en el laboratorio siempre
+iba a ganar. Esto tampoco es solo un artefacto de Lighthouse: para un visitante real de primera vez que no
+interactúa antes de que aparezca, Google también lo registrará como su LCP de campo (CrUX) — la señal que
+de verdad pesa en el ranking.
+
+**Corregido:** `PromoModal` ahora espera a lo primero que ocurra entre el primer scroll real del visitante
+(>150px) o 4 s de respaldo, en vez de un simple `setTimeout`. Deja de competir por el LCP tanto en campo
+real (la mayoría interactúa o navega antes) como, con suerte, en el laboratorio.
+
+**Segundo hallazgo, sin relación con el pop-up:** `/catalogo` seguía preload-ando los 5 banners de
+categoría de la vista landing (`CategoryHeroBanner`), no solo el primero — el mismo antipatrón de
+"preloads que compiten con el LCP" que ya se había corregido una vez en la Fase 1, reintroducido después.
+Aportaba la mitad del retraso del póster (`Load Delay` 48 %, 3,05 s). Corregido: solo la primera sección
+carga eager; el resto lleva `loading="lazy"` explícito.
+
+**Sin resolver, anotado:** el `Render Delay` y el TBT de la ficha de producto empeoraron entre la primera
+y la segunda medición (TBT falló por primera vez, 326,5 ms). Compatible con el crecimiento de JS de las
+fases 3-4 (venta cruzada, kits, GA4, barra fija móvil), pero no se confirmó la causa. Necesita perfilar con
+el panel Performance de DevTools, no solo el CLI de Lighthouse.
+
+**Verificación:** type-check limpio, lint sin problemas nuevos, build de producción correcto.
+
+---
+
 ## 168. H-36 — Lighthouse en producción: dos causas reales encontradas y corregidas
 
 **Requerimiento:** Santiago corrió `pnpm seo:lighthouse` contra producción (H-36) y reportó 7 presupuestos

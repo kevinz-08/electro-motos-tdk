@@ -268,10 +268,36 @@ Además: `pnpm type-check` limpio en los 6 paquetes, `pnpm lint` sin errores, 21
    hilo libre (mismo patrón de `CatalogHeroVideo`) antes de mostrarse, así el LCP real vuelve a ser el
    hero. De paso deja de ser un interstitial intrusivo apenas se carga la página.
 
-**Pendiente de remedir tras desplegar estas dos correcciones** — el LCP de catálogo y producto siguen por
-encima del presupuesto (2,5 s) incluso con el póster/la imagen principal marcados `priority`; no se
-encontró la causa exacta en esta sesión (candidatos: crecimiento del JS por las fases 3-4, latencia de
-Vercel, o el perfil de throttling de Lighthouse). Necesita una sesión de perfilado aparte.
+**Segunda medición (2026-09-25, mismo día, tras desplegar las dos correcciones de arriba):** SEO subió a
+**100/100 en las tres plantillas** — confirma que `link-text` era la única causa. El LCP de home casi no
+bajó (4,48 s), y eso llevó a un tercer hallazgo, más de fondo que los dos anteriores:
+
+3. **Retrasar la aparición del pop-up (`window.load` + hilo libre) no alcanza, porque el LCP no deja de
+   medirse en `load`.** El navegador sigue aceptando un candidato a LCP más grande hasta la primera
+   interacción real del usuario; como el robot de Lighthouse nunca interactúa, cualquier retraso por
+   tiempo termina siendo capturado igual — el reporte confirmó que el elemento seguía siendo el pop-up,
+   solo que 300 ms más tarde. Además, midiendo el rectángulo real (`boundingRect`), el pop-up pinta más
+   área en pantalla que el propio hero. Esto no es solo un artefacto del laboratorio: para cualquier
+   visitante real de primera vez que no interactúa antes de que el pop-up aparezca, Google también
+   registrará el pop-up como su LCP de campo (CrUX), que es la señal que realmente usa para ranking —
+   pesa más que este número de laboratorio.
+4. **`/catalogo` seguía preload-ando los 5 banners de categoría de la vista landing**, no solo el
+   primero (el mismo antipatrón de "preloads que compiten con el LCP" que ya se había corregido una vez
+   en la Fase 1, aparentemente reintroducido después). Contribuía la mitad del retraso del póster
+   (`Load Delay` 48 %, 3,05 s).
+
+**Corregido:**
+
+- El pop-up ahora espera al primer scroll real del visitante o a 4 s de respaldo (lo que ocurra primero),
+  en vez de un simple retraso por tiempo — así deja de ser el LCP tanto en campo real (la mayoría de
+  visitantes interactúa o navega antes) como, probablemente, en el laboratorio.
+- `CategoryHeroBanner`: solo el primero de los 5 banners de `/catalogo` se carga eager; el resto lleva
+  `loading="lazy"` explícito.
+
+**Sigue sin explicación (anotado, no corregido en esta sesión):** el `Render Delay` de producto subió a
+56 % (1,72 s) y su TBT falló por primera vez (326,5 ms) en la segunda medición — compatible con que el JS
+que hidrata la ficha creció en las fases 3 y 4 (venta cruzada, kits, GA4, barra fija móvil, etc.), pero no
+se confirmó la causa exacta. Requiere perfilar con el DevTools Performance panel, no solo Lighthouse CLI.
 
 ---
 

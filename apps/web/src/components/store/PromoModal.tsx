@@ -11,12 +11,17 @@
  *   (`version` = updatedAt). Si localStorage falla (modo privado), el modal se muestra igual.
  *   La decisión se lee con useSyncExternalStore: en SSR devuelve false (no se renderiza) y tras
  *   hidratar consulta localStorage, sin setState dentro de un efecto ni mismatch de hidratación.
- * - Aparición diferida (docs/seo/, H-36): antes se mostraba apenas terminaba de hidratar, y su
- *   imagen (900×1200) se convertía en el elemento LCP real de la home en vez del hero — Lighthouse en
- *   producción lo confirmó (home no bajaba de ~4,4 s pese a que el hero ya estaba optimizado). Ahora
- *   espera a `window.load` + un momento de hilo libre (mismo patrón que `CatalogHeroVideo`), para que
- *   el contenido principal ya se haya pintado antes de competir por el LCP. De paso evita el patrón de
- *   "interstitial intrusivo" que penaliza Google en móvil.
+ * - Aparición diferida a scroll o 4 s (docs/seo/, H-36): antes se mostraba apenas terminaba de
+ *   hidratar. Su imagen mide más área en pantalla que el propio hero (en móvil, más alta incluso con
+ *   menos ancho), así que SIEMPRE se convertía en el elemento LCP real de la home en vez del hero —
+ *   Lighthouse en producción lo confirmó, y esperar solo a `window.load` + hilo libre no alcanzó (el
+ *   LCP sigue actualizándose con cualquier elemento más grande hasta la primera interacción del
+ *   usuario, así que un simple retraso nunca lo evita si el navegador de prueba no interactúa).
+ *   Ahora espera a lo primero que ocurra entre **el primer scroll del visitante** o
+ *   `PROMO_FALLBACK_DELAY_MS` — así nunca es el primer contenido pintado (nunca compite por LCP) y de
+ *   paso deja de ser un interstitial que salta apenas se abre la página, que Google también penaliza
+ *   en móvil. Quien no interactúa (como el robot de Lighthouse) lo ve tras el retraso igual, para que
+ *   el pop-up siga cumpliendo su función comercial.
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
@@ -26,6 +31,10 @@ import { cloudinaryUrl } from '@/lib/cloudinary'
 const STORAGE_KEY = 'promo-modal-seen'
 const HIDE_FOR_MS = 24 * 60 * 60 * 1000
 const DESKTOP_BREAKPOINT = '(min-width: 768px)'
+/** Quien no hace scroll (incluido el robot de Lighthouse) lo ve tras este tiempo igual. */
+const PROMO_FALLBACK_DELAY_MS = 4000
+/** Cuánto hay que bajar para contar como "el visitante ya interactuó con la página". */
+const SCROLL_TRIGGER_PX = 150
 
 export interface PromoModalData {
   desktopImageUrl: string
@@ -68,26 +77,18 @@ export function PromoModal({ promo }: { promo: PromoModalData }) {
   const [readyToShow, setReadyToShow] = useState(false)
   const open = showable && !closedByUser && readyToShow
 
-  // Espera a que la carga termine y el hilo quede libre antes de mostrarse —
-  // ver el porqué en el comentario del encabezado (LCP).
+  // Se muestra en cuanto ocurra lo primero entre un scroll real o el retraso de
+  // respaldo — ver el porqué en el comentario del encabezado (LCP).
   useEffect(() => {
-    let idleHandle: number | undefined
-    const idle = window.requestIdleCallback ?? ((cb: IdleRequestCallback) => window.setTimeout(cb, 1000))
-    const cancelIdle = window.cancelIdleCallback ?? window.clearTimeout
-
-    const onLoad = () => {
-      idleHandle = idle(() => setReadyToShow(true)) as number
+    const onScroll = () => {
+      if (window.scrollY > SCROLL_TRIGGER_PX) setReadyToShow(true)
     }
-
-    if (document.readyState === 'complete') {
-      onLoad()
-    } else {
-      window.addEventListener('load', onLoad)
-    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    const fallback = window.setTimeout(() => setReadyToShow(true), PROMO_FALLBACK_DELAY_MS)
 
     return () => {
-      window.removeEventListener('load', onLoad)
-      if (idleHandle !== undefined) cancelIdle(idleHandle)
+      window.removeEventListener('scroll', onScroll)
+      window.clearTimeout(fallback)
     }
   }, [])
 

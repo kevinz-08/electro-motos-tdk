@@ -379,14 +379,17 @@ function LandingView({
       </section>
 
       {/* ── 3. SECCIONES POR CATEGORÍA (scroll vertical) ─────────── */}
-      {categories.map((cat) => (
+      {categories.map((cat, index) => (
         <section key={cat.id} className="border-t c-divider">
 
+          {/* Solo la primera puede quedar cerca del viewport inicial en móvil — las
+              demás van diferidas para no competirle ancho de banda al póster del hero (H-36). */}
           <CategoryHeroBanner
             slug={cat.slug}
             name={cat.name}
             description={catDesc(cat.slug)}
             imageSrc={getBanner(cat.slug)}
+            eager={index === 0}
           />
 
           {cat.products.length > 0 && (

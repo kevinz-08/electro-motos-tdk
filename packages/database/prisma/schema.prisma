@@ -348,6 +348,8 @@ model TechnicalReviewer {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   guides          MaintenanceGuide[]
+  /// Articulos (Fase 5, item 1) que este revisor firmo.
+  articles        Article[]
 
   @@index([isActive])
 }
@@ -828,6 +830,8 @@ model MotorcycleModel {
   kits      Kit[]
   /// Guia de mantenimiento de este modelo (Fase 5, H-20). Una por modelo.
   maintenanceGuide MaintenanceGuide?
+  /// Articulos (comparativas, guias) que tratan sobre este modelo.
+  articles         Article[]
 
   @@unique([brandId, slug])
   @@unique([brandId, name])
@@ -888,4 +892,66 @@ model OemReference {
 
   @@unique([productId, normalized])
   @@index([normalized])
+}
+
+// ─── Fase 5 (docs/seo/): articulos e Indice de Precios ──────────────────────
+
+enum ArticleStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+}
+
+enum ArticleKind {
+  GUIA
+  COMPARATIVA
+}
+
+/// Articulo de contenido: comparativas, guia de revision tecnico-mecanica y
+/// cualquier guia que no sea la tabla de intervalos por modelo. Se publica en
+/// /guias/[slug] solo con status PUBLISHED y un revisor tecnico ACTIVO.
+model Article {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  title           String
+  kind            ArticleKind   @default(GUIA)
+  /// Respuesta directa de apertura, 40 a 60 palabras (regla del dominio).
+  directAnswer    String        @db.Text
+  /// Markdown restringido (parseArticleBody): sin HTML.
+  body            String        @db.Text
+  metaDescription String?
+  sources         String[]      @default([])
+  authorName      String
+  /// ON DELETE RESTRICT: un revisor que firma articulos no se puede borrar.
+  reviewerId      String?
+  reviewedAt      DateTime?
+  /// Modelo de moto del que trata (opcional). Si se borra el modelo, queda en null.
+  modelId         String?
+  status          ArticleStatus @default(DRAFT)
+  /// Primera publicacion. No cambia al editar.
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  reviewer        TechnicalReviewer? @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  model           MotorcycleModel?   @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([reviewerId])
+  @@index([modelId])
+}
+
+/// Corte del Indice de Precios de Repuestos de Moto (Fase 5, item 4). Cada fila
+/// es una foto inmutable del catalogo en una fecha: la pagina publica muestra la
+/// ultima y compara con la anterior. Se genera con `pnpm seo:price-index`.
+model PriceIndexSnapshot {
+  id                 String   @id @default(cuid())
+  /// Fecha de corte (dia, zona America/Bogota). Una por dia.
+  cutoffDate         DateTime @unique @db.Date
+  /// Version de la metodologia con la que se calculo, para no comparar peras con manzanas.
+  methodologyVersion Int
+  /// Productos que entraron en el calculo (activos, con precio y sin borrar).
+  productCount       Int
+  /// Resultado completo: por categoria y por modelo (ver PriceIndexData en el dominio).
+  data               Json
+  createdAt          DateTime @default(now())
 }

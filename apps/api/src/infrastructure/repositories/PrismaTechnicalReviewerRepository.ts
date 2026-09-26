@@ -42,8 +42,13 @@ export class PrismaTechnicalReviewerRepository implements ITechnicalReviewerRepo
     return row !== null
   }
 
-  countGuides(reviewerId: string): Promise<number> {
-    return this.prisma.client.maintenanceGuide.count({ where: { reviewerId } })
+  /** Guías de mantenimiento + artículos que firma: con cualquiera de los dos no se puede borrar. */
+  async countGuides(reviewerId: string): Promise<number> {
+    const [guides, articles] = await Promise.all([
+      this.prisma.client.maintenanceGuide.count({ where: { reviewerId } }),
+      this.prisma.client.article.count({ where: { reviewerId } }),
+    ])
+    return guides + articles
   }
 
   async delete(id: string): Promise<void> {

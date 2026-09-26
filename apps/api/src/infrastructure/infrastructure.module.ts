@@ -19,6 +19,7 @@ import {
   TECHNICAL_REVIEWER_REPOSITORY,
   MAINTENANCE_GUIDE_REPOSITORY,
   OEM_REFERENCE_REPOSITORY,
+  ARTICLE_REPOSITORY,
 } from './injection-tokens'
 import { PrismaCouponRepository } from './repositories/PrismaCouponRepository'
 import { PrismaProductRepository } from './repositories/PrismaProductRepository'
@@ -39,6 +40,7 @@ import { PrismaCrossSellRepository } from './repositories/PrismaCrossSellReposit
 import { PrismaKitRepository } from './repositories/PrismaKitRepository'
 import { PrismaTechnicalReviewerRepository } from './repositories/PrismaTechnicalReviewerRepository'
 import { PrismaMaintenanceGuideRepository } from './repositories/PrismaMaintenanceGuideRepository'
+import { PrismaArticleRepository } from './repositories/PrismaArticleRepository'
 import { VendeloHttpClient } from './services/VendeloHttpClient'
 import { VendeloService } from './services/VendeloService'
 import { VendeloOrderQueueService } from './services/VendeloOrderQueueService'
@@ -71,6 +73,7 @@ import {
     { provide: KIT_REPOSITORY,                 useClass: PrismaKitRepository },
     { provide: TECHNICAL_REVIEWER_REPOSITORY,  useClass: PrismaTechnicalReviewerRepository },
     { provide: MAINTENANCE_GUIDE_REPOSITORY,   useClass: PrismaMaintenanceGuideRepository },
+    { provide: ARTICLE_REPOSITORY,             useClass: PrismaArticleRepository },
     { provide: OEM_REFERENCE_REPOSITORY,       useClass: PrismaOemReferenceRepository },
     // PAYMENT_SERVICE token → Wompi (pasarela principal Colombia)
     { provide: PAYMENT_SERVICE,    useClass: WompiService },
@@ -109,6 +112,7 @@ import {
     TECHNICAL_REVIEWER_REPOSITORY,
     MAINTENANCE_GUIDE_REPOSITORY,
     OEM_REFERENCE_REPOSITORY,
+    ARTICLE_REPOSITORY,
     PAYMENT_SERVICE,
     ALERT_NOTIFICATION_PORT,
     WompiService,

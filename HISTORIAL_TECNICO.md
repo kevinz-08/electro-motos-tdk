@@ -33,6 +33,24 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 171. Cierre SEO — A1: compatibilidades desde el panel (H-37, H-40)
+
+**Requerimiento:** plan de cierre de las fases 4 y 5 aprobado el 2026-09-26. Primer bloque: que el administrador cargue compatibilidades sin llamar a la API a mano y que se vean al momento. Desde aquí todo el bloque SEO-GEO-CRO va en la rama única `feat/seo-geo-cro` (ahorro de *Deployment Storage* en Vercel).
+
+**Hecho:**
+
+- Dominio: `SaveFitment` + `validateFitmentInput` (`use-cases/fitment/SaveFitment.ts`) — mismas reglas que el CSV para una sola fila: fuente obligatoria (máx. 300), notas (máx. 300), años enteros 1950–2100 y en orden, modelo existente y activo, `verifiedBy`/`verifiedAt` solo si se verifica. 10 tests nuevos en `Fitment.test.ts`.
+- API (`admin-fitments.controller.ts`): `POST /admin/fitments`, `GET /admin/fitments/models/summary` (verificadas y pendientes por modelo con un `groupBy`) y `DELETE /admin/fitments/oem/:id`. DTO `SaveFitmentDto`. 6 tests en `admin-fitments.test.ts`.
+- Web: `/admin/compatibilidades` (`CompatibilityManager`): importador de CSV con plantilla descargable y reporte por línea, alta/edición de modelos (al editar se conserva el slug para no romper la URL del hub) y tabla de modelos con enlace al hub publicado. Entrada "Compatibilidades" en `AdminNav`.
+- Web: `ProductFitmentsEditor` dentro del formulario de producto — guarda al momento (no espera a "Guardar cambios"), verifica/despublica, elimina, y gestiona referencias OEM. Botones `type="button"` y Enter bloqueado para no enviar el formulario del producto.
+- Toda escritura llama a `revalidateAdminCache(['fitments', 'products'])` (H-40).
+
+**Archivos:** `packages/domain/src/use-cases/fitment/SaveFitment.ts`, `packages/domain/src/index.ts`, `packages/domain/src/__tests__/Fitment.test.ts`, `apps/api/src/admin/admin-fitments.controller.ts`, `apps/api/src/admin/dto/save-fitment.dto.ts`, `apps/api/src/__tests__/admin-fitments.test.ts`, `apps/web/src/app/admin/compatibilidades/page.tsx`, `apps/web/src/components/admin/CompatibilityManager.tsx`, `apps/web/src/components/admin/ProductFitmentsEditor.tsx`, `apps/web/src/components/admin/ProductEditForm.tsx`, `apps/web/src/components/admin/AdminNav.tsx`, `README.md` (§26.10).
+
+**Verificación:** tests de dominio y API en verde, `type-check` limpio en web y API, `lint` sin avisos nuevos.
+
+---
+
 ## 170. Fase 5 (inicio): revisores técnicos (H-21) e intervalos de mantenimiento por modelo (H-20)
 
 **Requerimiento:** el administrador no tiene a mano los datos del revisor técnico ni los intervalos de mantenimiento, y necesita gestionarlos dinámicamente desde el panel: (1) formulario del revisor con nombre, foto, experiencia y trayectoria, reflejado en la vista pública; (2) formulario de intervalos por modelo que, al guardarse, hace que la sección genérica de mantenimiento deje de mostrarse.

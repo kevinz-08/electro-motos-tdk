@@ -10,6 +10,7 @@ import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
 import { CACHE_TAGS } from '@/lib/cache-tags'
 import { CrossSellEditor, type CrossSellDraft } from '@/components/admin/CrossSellEditor'
+import { ProductFitmentsEditor } from '@/components/admin/ProductFitmentsEditor'
 
 interface Category {
   id: string
@@ -669,6 +670,8 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
           setCrossSellsDirty(true)
         }}
       />
+
+      <ProductFitmentsEditor productId={product?.id} />
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">

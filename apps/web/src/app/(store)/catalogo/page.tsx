@@ -597,6 +597,45 @@ function GridView({
           </div>
         )}
 
+        {/* Subcategorías como enlaces reales (Fase 5, ítem 8): el FilterDrawer navega
+            con JavaScript y un buscador no lo sigue, así que sin esto las
+            subcategorías del sitemap quedaban huérfanas. En una categoría padre se
+            listan sus hijas; en una hija, sus hermanas y la madre. */}
+        {activeCat && (() => {
+          const parent =
+            parentCategories.find((p) => p.slug === activeCat.slug) ??
+            parentCategories.find((p) => p.children.some((c) => c.slug === activeCat.slug))
+          if (!parent || parent.children.length === 0) return null
+          const isParent = parent.slug === activeCat.slug
+          return (
+            <nav aria-label={`Subcategorías de ${parent.name}`} className="mb-6 flex flex-wrap items-center gap-2">
+              {!isParent && (
+                <Link
+                  href={`/catalogo?category=${parent.slug}`}
+                  className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-900"
+                >
+                  ← Todo {parent.name}
+                </Link>
+              )}
+              {parent.children.map((child) =>
+                child.slug === activeCat.slug ? (
+                  <span key={child.id} aria-current="page" className="rounded-full bg-gray-900 px-3 py-1.5 text-xs font-medium text-white">
+                    {child.name}
+                  </span>
+                ) : (
+                  <Link
+                    key={child.id}
+                    href={`/catalogo?category=${child.slug}`}
+                    className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-900"
+                  >
+                    {child.name}
+                  </Link>
+                ),
+              )}
+            </nav>
+          )
+        })()}
+
         {/* ── Grid de productos ── */}
         {items.length === 0 ? (
           <EmptyState

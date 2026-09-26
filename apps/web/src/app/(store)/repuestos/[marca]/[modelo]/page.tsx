@@ -115,7 +115,7 @@ export default async function ModelHubPage({ params }: PageProps) {
         <Breadcrumbs
           items={[
             { label: 'Inicio', href: '/' },
-            { label: 'Repuestos', href: '/catalogo' },
+            { label: 'Repuestos', href: '/repuestos' },
             // La marca no enlaza: la ruta /repuestos/[marca] no existe todavía y
             // no se crea hasta que haya varios modelos publicables por marca.
             { label: model.brand.name },

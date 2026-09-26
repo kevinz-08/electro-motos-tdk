@@ -94,3 +94,4 @@ politicas_pagina/
 .VSCodeCounter
 # Informes locales de pnpm seo:lighthouse
 .lighthouse/
+.seo/

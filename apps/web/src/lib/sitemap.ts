@@ -66,7 +66,7 @@ export function getStaticEntries(): SitemapEntry[] {
  */
 export async function getCategoryEntries(): Promise<SitemapEntry[]> {
   const categories = await prisma.category.findMany({
-    select: { slug: true, id: true },
+    select: { slug: true, id: true, parentId: true },
   })
 
   const grouped = await prisma.product.groupBy({
@@ -79,6 +79,20 @@ export async function getCategoryEntries(): Promise<SitemapEntry[]> {
   const statsByCategory = new Map(
     grouped.map((g) => [g.categoryId, { count: g._count._all, lastMod: g._max.updatedAt }]),
   )
+
+  // Una categoría padre no tiene productos propios: los suma de sus hijas. Sin
+  // esto las cinco categorías padre (enlazadas desde el home y el footer, e
+  // indexables) no entraban al sitemap.
+  for (const c of categories) {
+    if (!c.parentId) continue
+    const child = statsByCategory.get(c.id)
+    if (!child) continue
+    const parent = statsByCategory.get(c.parentId) ?? { count: 0, lastMod: null }
+    statsByCategory.set(c.parentId, {
+      count: parent.count + child.count,
+      lastMod: !parent.lastMod || (child.lastMod && child.lastMod > parent.lastMod) ? child.lastMod : parent.lastMod,
+    })
+  }
 
   return categories
     .map((c) => ({ slug: c.slug, stats: statsByCategory.get(c.id) }))
@@ -213,6 +227,9 @@ export const SITEMAP_HEADERS = {
 export async function getModelEntries(): Promise<SitemapEntry[]> {
   const models = await getCachedPublishableModels()
   const entries: SitemapEntry[] = []
+
+  // Índice de modelos (enlazado interno, Fase 5 ítem 8). Solo si hay algo que listar.
+  if (models.length) entries.push({ url: absoluteUrl('/repuestos'), changeFrequency: 'weekly', priority: 0.7 })
 
   for (const model of models) {
     const path = `/repuestos/${model.brand.slug}/${model.slug}`

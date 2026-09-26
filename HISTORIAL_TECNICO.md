@@ -33,6 +33,28 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 175. Cierre SEO — B7: enlazado interno (Fase 5, ítem 8)
+
+**Requerimiento:** "ninguna página comercial a más de 3 clics del home, con reporte de páginas huérfanas".
+
+**Diagnóstico (producción, 2026-09-26, con el script nuevo):** 216 URLs en los sitemaps; **93 problemas bloqueantes**: 24 subcategorías huérfanas (el filtro de subcategorías del catálogo navega con `router.push` y no genera enlaces rastreables), 69 páginas comerciales a 4–5 clics (16 productos, 5 hubs de modelo y 48 páginas modelo+categoría: los hubs solo se alcanzaban desde las fichas de producto porque el selector "¿Qué moto tienes?" es JavaScript). Además, las 4 categorías padre estaban enlazadas e indexables pero fuera del sitemap. 0 enlaces rotos.
+
+**Hecho:**
+
+- `scripts/seo-links.mjs` + `pnpm seo:links [url]`: rastreo en anchura desde el home (mismo host, sin rutas privadas, del catálogo solo `?category=`/`?page=`), cruce con todos los sitemaps, histograma de profundidad, huérfanas, enlaces rotos y URLs con menos enlaces entrantes; detalle en `.seo/links-report.json` (ignorado en git). Sale con 1 si hay comerciales a >3 clics, comerciales huérfanas o rotos. Añadido al workflow semanal `seo.yml` (y `.seo/` a los artefactos).
+- Catálogo (`/catalogo?category=…`): navegación de subcategorías con `<Link>` reales (hijas en la categoría padre; hermanas y madre en la hija).
+- `/repuestos`: índice de marcas y modelos con hub publicado (`noindex` si no hay ninguno), en el sitemap de modelos. Las migas de los hubs enlazan a `/repuestos` en vez de a `/catalogo`.
+- Footer: "Repuestos por moto", "Kits", "Guías de mantenimiento" y "Contacto".
+- `sitemap-categorias.xml`: las categorías padre entran si su árbol tiene productos (conteo y `lastmod` agregados desde las hijas).
+
+**Resultado (build de producción local contra la misma base):** 240 URLs en sitemaps, profundidad máxima 3 (1 / 18 / 100 / 121 por nivel), **0 comerciales a más de 3 clics, 0 huérfanas, 0 rotos**. `seo:check` 42/42 y `seo:schema` 47/47 sin cambios.
+
+**Archivos:** `scripts/seo-links.mjs`, `package.json`, `.gitignore`, `.github/workflows/seo.yml`, `apps/web/src/app/(store)/catalogo/page.tsx`, `apps/web/src/app/(store)/repuestos/page.tsx`, `apps/web/src/app/(store)/repuestos/[marca]/[modelo]/page.tsx`, `apps/web/src/app/(store)/repuestos/[marca]/[modelo]/[categoria]/page.tsx`, `apps/web/src/components/store/Footer.tsx`, `apps/web/src/lib/sitemap.ts`, `README.md`.
+
+**Nota:** el job semanal de CI mide producción, así que fallará hasta que se despliegue esta rama.
+
+---
+
 ## 174. Cierre SEO — B3: costo anual de mantenimiento por modelo (Fase 5, ítem 3)
 
 **Requerimiento:** "costo anual de mantenimiento por modelo, calculado desde los precios reales del catálogo, de modo que se actualice solo" — sin inventar el uso de la moto.

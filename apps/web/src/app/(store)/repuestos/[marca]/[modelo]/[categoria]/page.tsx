@@ -105,7 +105,7 @@ export default async function ModelCategoryPage({ params }: PageProps) {
         <Breadcrumbs
           items={[
             { label: 'Inicio', href: '/' },
-            { label: 'Repuestos', href: '/catalogo' },
+            { label: 'Repuestos', href: '/repuestos' },
             { label: model.brand.name },
             { label: model.name, href: `/repuestos/${marca}/${modelo}` },
             { label: category.categoryName },

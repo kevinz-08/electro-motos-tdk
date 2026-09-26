@@ -1993,3 +1993,9 @@ Desde esta entrega el bloque SEO-GEO-CRO se trabaja en **una sola rama** (`feat/
 - La cuenta la hace `computeAnnualMaintenanceCost` (dominio, probada): veces al año = la mayor entre `km al año ÷ intervalo en km` y `12 ÷ intervalo en meses` ("lo que ocurra primero"), multiplicada por el precio actual del repuesto enlazado.
 - **Nada se inventa:** no hay kilometraje por defecto (sin él solo cuentan los puntos que van por tiempo), los puntos sin repuesto enlazado (o con el repuesto inactivo) se listan aparte como "sin precio en H2R" y el total dice explícitamente que no incluye mano de obra.
 - Se actualiza sola: lee el precio vivo del producto (caché de 10 min, invalidada al editar productos).
+
+**B7 — Enlazado interno (Fase 5, ítem 8).** `pnpm seo:links [url]` rastrea el sitio desde el home como un buscador y lo cruza con los sitemaps: profundidad en clics, páginas huérfanas, enlaces rotos y URLs con pocos enlaces entrantes (detalle en `.seo/links-report.json`). Falla si una página comercial (producto, hub, kit, categoría) queda a más de 3 clics o huérfana, o si hay enlaces rotos; corre en el workflow semanal `seo.yml`.
+
+- **Antes (producción, 2026-09-26):** 93 problemas — 24 subcategorías huérfanas (el filtro de subcategorías navega con JavaScript) y 69 páginas comerciales a 4–5 clics (los hubs de modelo solo se alcanzaban desde las fichas).
+- **Arreglos:** enlaces reales de subcategoría en la vista de categoría; índice `/repuestos` (marcas → modelos con hub publicado); footer con "Repuestos por moto", "Kits", "Guías de mantenimiento" y "Contacto"; categorías padre en `sitemap-categorias.xml`; las migas de los hubs apuntan a `/repuestos`.
+- **Después (build local):** 240 URLs, todas a 3 clics o menos, 0 huérfanas, 0 enlaces rotos.

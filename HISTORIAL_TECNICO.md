@@ -33,6 +33,38 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 177. Cierre SEO — A2: la causa del render delay de la ficha de producto (H-36, punto 4)
+
+**Requerimiento:** H-36 dejó sin explicar el `Render Delay` de la ficha (56 %, 1,7–2,4 s) y su TBT, atribuidos "probablemente" al JS de las fases 3 y 4.
+
+**Diagnóstico (informe de producción `.lighthouse/producto.json` + mediciones nuevas):** no era el JS. **El elemento LCP de la ficha era el párrafo del aviso de cookies de GA4**, no la foto del producto. Causa encadenada:
+
+1. La imagen principal (`ProductImageGallery`) llevaba `animate-fadeIn` desde la primera pintura: arranca en opacidad 0, y Chrome no toma como candidata a LCP una imagen pintada con opacidad 0.
+2. Sin la foto como candidata, el siguiente elemento grande era el aviso de cookies, que aparece al hidratar → 2,4 s de render delay.
+3. De paso se confirmó que **GA4 ya está activo en producción** (`G-27M2WKZ9WF` en el bundle): el aviso solo se pinta si hay `NEXT_PUBLIC_GA_ID` (H-45 pasa a 🟡).
+
+**Hecho:**
+
+- `ProductImageGallery`: la animación solo se aplica al cambiar de imagen (`fadeKey > 0`); la inicial va `loading="eager"` + `fetchPriority="high"` (Next 16 depreca `priority`, ver `node_modules/next/dist/docs/.../image.md`).
+- `ProductCard`: `priority` → `loading`/`fetchPriority` explícitos (misma deprecación).
+- `CookieConsentBanner`: se muestra tras la primera interacción real (scroll, toque, clic o tecla), vía `useSyncExternalStore`. El LCP deja de medirse con la primera interacción, así que el aviso ya no compite en ninguna plantilla; GA no carga sin consentimiento, así que no se pierden datos de quien acepta.
+- `layout.tsx`: `preconnect('https://res.cloudinary.com')` (todas las imágenes de producto vienen de ahí).
+
+**Medición (Lighthouse 12 móvil, misma máquina, misma ficha `cortavientos-shadow-negro`):**
+
+| | Producción (antes) | Build local (después) |
+|---|---|---|
+| Elemento LCP | Aviso de cookies (texto) | **Foto del producto** |
+| Render delay | 2.304 ms | **141 ms** |
+| TBT | 40 ms (210 ms en el informe del 25-09) | 50–90 ms |
+| LCP simulado | 3,5 s | 4,4 s |
+
+El LCP simulado "sube" porque ahora mide lo que el comprador de verdad espera ver (la foto, desde Cloudinary en 4G lenta simulada) en vez de un texto; el 3,5 s anterior medía el elemento equivocado. El dato que manda es el de campo (CrUX, H-08) tras desplegar.
+
+**Archivos:** `apps/web/src/components/store/{ProductImageGallery,ProductCard}.tsx`, `apps/web/src/components/analytics/CookieConsentBanner.tsx`, `apps/web/src/app/layout.tsx`, `docs/seo/01-resultados.md`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
 ## 176. Cierre SEO — B4: Índice de Precios de Repuestos de Moto (Fase 5, ítem 4)
 
 **Requerimiento:** página de datos generada desde el catálogo, con metodología explícita, fecha de corte y gráficos, actualizable cada semestre, publicada tras revisión humana (criterio de salida de la Fase 5).

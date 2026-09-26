@@ -63,15 +63,21 @@ export function ProductImageGallery({ images, productName }: Props) {
       {/* ── Imagen principal ─────────────────────────────────────────── */}
       <div className="relative aspect-square bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
 
-        {/* Imagen con fade-in al cambiar */}
+        {/* Imagen con fade-in SOLO al cambiar (fadeKey > 0). La primera pintura va sin
+            animación: una imagen que arranca en opacidad 0 no cuenta como candidata a
+            LCP, y entonces Chrome tomaba como LCP el aviso de cookies que aparece tras
+            hidratar (render delay de 2,4 s en producción, H-36). */}
         <Image
           key={fadeKey}
           src={cloudinaryUrl(imgs[current], 'detail')}
           alt={`${productName} — imagen ${current + 1}`}
           fill
-          className="object-contain p-6 animate-fadeIn"
+          className={`object-contain p-6${fadeKey > 0 ? ' animate-fadeIn' : ''}`}
           sizes="(max-width: 768px) 100vw, 50vw"
-          priority={current === 0}
+          // Next 16 depreca `priority`: la imagen inicial es el LCP de la ficha, así que
+          // carga eager y con prioridad alta; al cambiar de imagen ya no hace falta.
+          loading="eager"
+          fetchPriority={fadeKey === 0 ? 'high' : 'auto'}
           placeholder="blur"
           blurDataURL={IMAGE_BLUR_PLACEHOLDER}
         />

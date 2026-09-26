@@ -299,6 +299,13 @@ bajó (4,48 s), y eso llevó a un tercer hallazgo, más de fondo que los dos ant
 que hidrata la ficha creció en las fases 3 y 4 (venta cruzada, kits, GA4, barra fija móvil, etc.), pero no
 se confirmó la causa exacta. Requiere perfilar con el DevTools Performance panel, no solo Lighthouse CLI.
 
+**Resuelto el 2026-09-26 (cierre de fases 4 y 5, A2):** no era el JS. El elemento LCP de la ficha era el
+**párrafo del aviso de cookies de GA4**: la foto principal arrancaba con `animate-fadeIn` (opacidad 0) y Chrome
+no la contaba como candidata, así que el aviso — que aparece al hidratar — ganaba con 2,4 s de render delay.
+Arreglo: la foto se pinta sin animación la primera vez (`loading="eager"`, `fetchPriority="high"`), el aviso
+espera a la primera interacción y se añadió `preconnect` a Cloudinary. Medido en local: el LCP pasa a ser la
+foto y el render delay baja de 2.304 ms a 141 ms. Detalle en `HISTORIAL_TECNICO.md` §177.
+
 ---
 
 ## 5. Riesgos y deuda

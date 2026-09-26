@@ -20,9 +20,42 @@ import {
 
 const noConsentOnServer = (): ConsentState => null
 
+/**
+ * El aviso espera a la primera interacción real (scroll, toque, clic o tecla).
+ * Si apareciera al hidratar, su párrafo podía ser el elemento más grande pintado
+ * y Chrome lo tomaba como LCP (pasó en la ficha de producto: 2,4 s de render
+ * delay, H-36). El LCP deja de medirse con la primera interacción, así que desde
+ * ese momento el aviso ya no compite. GA no carga sin consentimiento: esperar no
+ * hace perder datos de nadie que haya aceptado.
+ */
+let interacted = false
+const interactionListeners = new Set<() => void>()
+const INTERACTION_EVENTS = ['scroll', 'pointerdown', 'keydown', 'touchstart'] as const
+
+function markInteracted() {
+  if (interacted) return
+  interacted = true
+  for (const event of INTERACTION_EVENTS) window.removeEventListener(event, markInteracted)
+  interactionListeners.forEach((listener) => listener())
+}
+
+function subscribeToInteraction(listener: () => void) {
+  interactionListeners.add(listener)
+  if (!interacted && interactionListeners.size === 1) {
+    for (const event of INTERACTION_EVENTS) window.addEventListener(event, markInteracted, { passive: true })
+  }
+  return () => {
+    interactionListeners.delete(listener)
+  }
+}
+
+const hasInteracted = () => interacted
+const notInteractedOnServer = () => false
+
 export function CookieConsentBanner() {
   const consent = useSyncExternalStore(subscribeToConsent, readConsent, noConsentOnServer)
-  if (!GA_ID || consent !== null) return null
+  const ready = useSyncExternalStore(subscribeToInteraction, hasInteracted, notInteractedOnServer)
+  if (!GA_ID || consent !== null || !ready) return null
 
   return (
     <div

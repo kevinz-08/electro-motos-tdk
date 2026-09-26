@@ -105,7 +105,7 @@ export default async function MaintenanceGuidePage({ params }: PageProps) {
         })}
       />
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-        <Breadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: 'Guías de mantenimiento' }, { label: modelLabel }]} />
+        <Breadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: 'Guías', href: '/guias' }, { label: modelLabel }]} />
 
         <header className="mt-6">
           <h1 className="text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">

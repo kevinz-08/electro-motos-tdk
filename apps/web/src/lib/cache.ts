@@ -42,6 +42,7 @@ import { installedMotorcycleLabel, installedMotorcycleLine } from './review-moto
 import { findCrossSellSuggestions } from './cross-sell'
 import { findKitsByModel, findKitBySlug, findAllVisibleKits, findKitsContainingProduct } from './kits'
 import { findMaintenanceGuide, findReviewerBySlug, findPublishedGuideEntries, hasPublishedGuide } from './guides'
+import { findPublishedArticle } from './articles'
 
 export { CACHE_TAGS }
 
@@ -445,6 +446,13 @@ export const getCachedPublishedGuideEntries = unstable_cache(
 export const getCachedHasPublishedGuide = unstable_cache(
   async (modelId: string) => hasPublishedGuide(modelId),
   ['has-published-guide'],
+  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+)
+
+/** Artículo publicado por slug (Fase 5, ítem 1). Mismo tag que las guías. */
+export const getCachedPublishedArticle = unstable_cache(
+  async (slug: string) => findPublishedArticle(slug),
+  ['published-article'],
   { revalidate: 600, tags: GUIDE_CACHE_TAGS },
 )
 

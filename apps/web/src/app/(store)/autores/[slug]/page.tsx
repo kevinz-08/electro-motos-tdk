@@ -104,7 +104,7 @@ export default async function ReviewerPage({ params }: PageProps) {
               {reviewer.guides.map((g) => (
                 <li key={g.href}>
                   <Link href={g.href} className="text-sky-600 underline hover:text-sky-700">
-                    Mantenimiento de la {g.label}
+                    {g.label}
                   </Link>
                 </li>
               ))}

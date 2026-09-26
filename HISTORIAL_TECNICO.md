@@ -33,6 +33,25 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 172. Cierre SEO — B1: infraestructura de artículos (Fase 5, ítem 1)
+
+**Requerimiento:** comparativas, guía de revisión técnico-mecánica y demás guías de texto libre necesitan autor, revisor técnico, estados de publicación y fuentes. Decisión (plan aprobado 2026-09-26): base de datos + editor en el panel, no MDX.
+
+**Hecho:**
+
+- Dominio: `entities/Article.ts` (estados `DRAFT → IN_REVIEW → PUBLISHED`, tipos `GUIA`/`COMPARATIVA`, `validateArticleDraft`, `articlePublishBlockers`, `isArticlePublishable`, `countWords`, slug `mantenimiento` reservado), `entities/ArticleBody.ts` (Markdown restringido → árbol de datos: `##`/`###`, párrafos, listas, tablas, negrita, cursiva, código y enlaces solo `http(s)` o `/…`; `extractArticleHeadings`, `extractInternalLinks`), `IArticleRepository` y `SaveArticle` (publicar exige respuesta directa de 40–60 palabras, cuerpo, fuente, revisor activo y fecha de revisión; `publishedAt` se fija la primera vez). 30 tests en `Articles.test.ts`.
+- Base de datos: migración aditiva `20260926000000_phase5_content` (`Article` con CHECK "publicado ⇒ revisor y fecha", FK RESTRICT al revisor y SET NULL al modelo; y `PriceIndexSnapshot` para B4). **Sin aplicar**: H-54. Verificada contra `prisma migrate diff` desde la base actual.
+- API: `AdminArticlesController` (`/admin/articles` CRUD), `SaveArticleDto`, `PrismaArticleRepository`, token `ARTICLE_REPOSITORY`. `countGuides` del revisor ahora suma artículos: un revisor que firma artículos tampoco se puede borrar. 6 tests.
+- Web público: `/guias/[slug]` (respuesta directa, índice de encabezados, fuentes, revisor, fechas visibles, JSON-LD `WebPage` + `Article` con `reviewedBy`, `lastReviewed` y `citation`), `/guias` (índice; `noindex` mientras esté vacío), artículos en la página de autor y en `sitemap-guias.xml`. Migas de la guía de mantenimiento enlazan a `/guias`. `ArticleBody` pinta el árbol como elementos React (nunca `dangerouslySetInnerHTML`).
+- Web panel: `/admin/guias` (avisa si falta la migración) y `ArticleEditForm` con contador de palabras, vista previa y lista de pendientes para publicar. Entrada "Guías" en `AdminNav`.
+- Todo lo público es tolerante a la migración sin aplicar (try/catch → 404 o lista vacía).
+
+**Archivos:** `packages/domain/src/entities/{Article,ArticleBody}.ts`, `packages/domain/src/repositories/IArticleRepository.ts`, `packages/domain/src/use-cases/content/SaveArticle.ts`, `packages/domain/src/__tests__/Articles.test.ts`, `packages/database/prisma/{schema.prisma,migrations/20260926000000_phase5_content/}`, `apps/api/src/admin/{admin-articles.controller.ts,dto/save-article.dto.ts,admin.module.ts}`, `apps/api/src/infrastructure/{injection-tokens.ts,infrastructure.module.ts,repositories/PrismaArticleRepository.ts,repositories/PrismaTechnicalReviewerRepository.ts}`, `apps/api/src/__tests__/admin-articles.test.ts`, `apps/web/src/lib/{articles,guides,cache,sitemap,structured-data}.ts`, `apps/web/src/components/content/ArticleBody.tsx`, `apps/web/src/components/admin/{ArticleEditForm,AdminNav}.tsx`, `apps/web/src/app/(store)/guias/{page.tsx,[slug]/page.tsx}`, `apps/web/src/app/(store)/guias/mantenimiento/[marca]/[modelo]/page.tsx`, `apps/web/src/app/(store)/autores/[slug]/page.tsx`, `apps/web/src/app/admin/guias/`, `README.md`, `docs/seo/HUMAN_TASKS.md` (H-54).
+
+**Verificación:** tests de dominio y API en verde, `type-check` limpio en web y API, `lint` sin avisos en los archivos nuevos.
+
+---
+
 ## 171. Cierre SEO — A1: compatibilidades desde el panel (H-37, H-40)
 
 **Requerimiento:** plan de cierre de las fases 4 y 5 aprobado el 2026-09-26. Primer bloque: que el administrador cargue compatibilidades sin llamar a la API a mano y que se vean al momento. Desde aquí todo el bloque SEO-GEO-CRO va en la rama única `feat/seo-geo-cro` (ahorro de *Deployment Storage* en Vercel).

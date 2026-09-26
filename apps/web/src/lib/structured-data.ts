@@ -447,6 +447,56 @@ export function maintenanceGuideJsonLd(guide: MaintenanceGuideJsonLdInput): Json
   }
 }
 
+export interface ArticleJsonLdInput {
+  slug: string
+  title: string
+  description: string
+  authorName: string
+  /** ISO. */
+  publishedAt: string
+  /** ISO. */
+  updatedAt: string
+  /** ISO. */
+  reviewedAt: string
+  reviewer: { name: string; slug: string }
+  sources: string[]
+}
+
+/**
+ * `WebPage` de un artículo (Fase 5, ítem 1) con `reviewedBy`/`lastReviewed`
+ * (mismo patrón E-E-A-T que las guías de mantenimiento) y un `Article` como
+ * entidad principal. `citation` lista las fuentes que la página muestra.
+ */
+export function articleJsonLd(article: ArticleJsonLdInput): JsonLdNode {
+  const url = absoluteUrl(`/guias/${article.slug}`)
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': url,
+    url,
+    name: article.title,
+    description: article.description,
+    inLanguage: 'es-CO',
+    lastReviewed: article.reviewedAt.slice(0, 10),
+    reviewedBy: { '@id': `${absoluteUrl(`/autores/${article.reviewer.slug}`)}#person`, '@type': 'Person', name: article.reviewer.name },
+    publisher: { '@id': ORGANIZATION_ID },
+    mainEntity: {
+      '@type': 'Article',
+      headline: article.title,
+      description: article.description,
+      datePublished: article.publishedAt,
+      dateModified: article.updatedAt,
+      // "Equipo H2R" (o similar) es la organización; cualquier otro nombre es una persona.
+      author: /\bH2R\b/i.test(article.authorName)
+        ? { '@id': ORGANIZATION_ID }
+        : { '@type': 'Person', name: article.authorName },
+      publisher: { '@id': ORGANIZATION_ID },
+      inLanguage: 'es-CO',
+      ...(article.sources.length ? { citation: article.sources } : {}),
+    },
+  }
+}
+
 // ── Migas, listados y FAQ ────────────────────────────────────────────────────
 
 export interface BreadcrumbEntry {

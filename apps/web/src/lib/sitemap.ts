@@ -142,8 +142,17 @@ export async function getKitEntries(): Promise<SitemapEntry[]> {
  * la fecha de revisión que registró el administrador, un dato real.
  */
 export async function getGuideEntries(): Promise<SitemapEntry[]> {
-  const { guides, reviewers } = await getCachedPublishedGuideEntries()
+  const { guides, articles, reviewers } = await getCachedPublishedGuideEntries()
+  const hasContent = guides.length + articles.length > 0
   return [
+    // El índice /guias solo existe en el sitemap si tiene algo que listar.
+    ...(hasContent ? [{ url: absoluteUrl('/guias'), changeFrequency: 'weekly' as const, priority: 0.6 }] : []),
+    ...articles.map((a) => ({
+      url: absoluteUrl(`/guias/${a.slug}`),
+      lastModified: new Date(a.updatedAt),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    })),
     ...guides.map((g) => ({
       url: absoluteUrl(`/guias/mantenimiento/${g.brandSlug}/${g.modelSlug}`),
       lastModified: g.reviewedAt,

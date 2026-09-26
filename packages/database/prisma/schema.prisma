@@ -953,5 +953,10 @@ model PriceIndexSnapshot {
   productCount       Int
   /// Resultado completo: por categoria y por modelo (ver PriceIndexData en el dominio).
   data               Json
-  createdAt          DateTime @default(now())
+  /// Borrador hasta que una persona revisa las cifras y lo publica (criterio de salida de la Fase 5).
+  isPublished        Boolean   @default(false)
+  publishedAt        DateTime?
+  createdAt          DateTime  @default(now())
+
+  @@index([isPublished, cutoffDate])
 }

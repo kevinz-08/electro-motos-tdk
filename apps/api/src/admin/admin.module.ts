@@ -13,6 +13,7 @@ import { AdminKitsController } from './admin-kits.controller'
 import { AdminReviewersController } from './admin-reviewers.controller'
 import { AdminMaintenanceController } from './admin-maintenance.controller'
 import { AdminArticlesController } from './admin-articles.controller'
+import { AdminPriceIndexController } from './admin-price-index.controller'
 
 @Module({
   imports: [InfrastructureModule],
@@ -30,6 +31,7 @@ import { AdminArticlesController } from './admin-articles.controller'
     AdminReviewersController,
     AdminMaintenanceController,
     AdminArticlesController,
+    AdminPriceIndexController,
   ],
 })
 export class AdminModule {}

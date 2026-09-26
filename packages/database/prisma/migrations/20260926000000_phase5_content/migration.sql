@@ -47,9 +47,12 @@ CREATE TABLE "PriceIndexSnapshot" (
     "methodologyVersion" INTEGER NOT NULL,
     "productCount" INTEGER NOT NULL,
     "data" JSONB NOT NULL,
+    "isPublished" BOOLEAN NOT NULL DEFAULT false,
+    "publishedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PriceIndexSnapshot_pkey" PRIMARY KEY ("id")
 );
 
 CREATE UNIQUE INDEX "PriceIndexSnapshot_cutoffDate_key" ON "PriceIndexSnapshot"("cutoffDate");
+CREATE INDEX "PriceIndexSnapshot_isPublished_cutoffDate_idx" ON "PriceIndexSnapshot"("isPublished", "cutoffDate");

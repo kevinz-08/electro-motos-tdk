@@ -8,6 +8,8 @@ import {
   SUGGESTED_MAINTENANCE_LABELS,
   formatKm,
   formatMonths,
+  formatInterval,
+  summarizeMaintenanceIntervals,
   isMaintenanceGuidePublishable,
   validateMaintenanceItem,
 } from '@/domain/entities/MaintenanceGuide'
@@ -247,5 +249,27 @@ describe('SetMaintenanceGuide', () => {
     ;(repo.save as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('db'))
     const r = await new SetMaintenanceGuide(repo).execute(guideInput)
     expect(!r.ok && r.error.code).toBe('INTERNAL_ERROR')
+  })
+})
+
+// ── Respuesta directa de la guía (B2, formato citable) ───────────────────────
+
+describe('formatInterval / summarizeMaintenanceIntervals', () => {
+  it('km, meses o ambos', () => {
+    expect(formatInterval({ intervalKm: 3000, intervalMonths: 3 })).toBe('cada 3.000 km o 3 meses (lo que ocurra primero)')
+    expect(formatInterval({ intervalKm: 6000, intervalMonths: null })).toBe('cada 6.000 km')
+    expect(formatInterval({ intervalKm: null, intervalMonths: 1 })).toBe('cada 1 mes')
+  })
+  it('resume los primeros puntos, en minúscula inicial y sin inventar nada', () => {
+    const items = [
+      { label: 'Aceite de motor', intervalKm: 3000, intervalMonths: 3 },
+      { label: 'Bujía', intervalKm: 6000, intervalMonths: null },
+      { label: 'Filtro de aire', intervalKm: null, intervalMonths: 12 },
+      { label: 'Llantas', intervalKm: 20000, intervalMonths: null },
+    ]
+    expect(summarizeMaintenanceIntervals(items)).toBe(
+      'aceite de motor cada 3.000 km o 3 meses (lo que ocurra primero); bujía cada 6.000 km; filtro de aire cada 12 meses',
+    )
+    expect(summarizeMaintenanceIntervals([])).toBe('')
   })
 })

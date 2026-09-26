@@ -33,6 +33,23 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 173. Cierre SEO — B2: guías de mantenimiento en formato citable y enlazadas
+
+**Requerimiento:** Fase 5, ítem 2 — que las guías por modelo abran con una respuesta directa verificable y se conecten con hub, kits y artículos (parte del enlazado interno del ítem 8).
+
+**Hecho:**
+
+- Dominio (`entities/MaintenanceGuide.ts`): `formatInterval` y `summarizeMaintenanceIntervals` (primeros 3 puntos con su intervalo real; lista vacía → cadena vacía). 2 tests nuevos en `Phase5Content.test.ts`.
+- `/guias/mantenimiento/[marca]/[modelo]`: apertura "Según {fuente}, la {moto} necesita …", "Última actualización" visible, nueva sección "¿Dónde consigo los repuestos para la …?" con hub (si publicado), kits del modelo y artículos del modelo, y enlace a `/guias`.
+- Hub `/repuestos/[marca]/[modelo]`: sección "Guías sobre la …" con los artículos publicados del modelo.
+- `lib/guides.ts` expone el `id` del modelo; `lib/articles.ts` + `getCachedArticlesByModel` (tag `guides`).
+
+**Archivos:** `packages/domain/src/entities/MaintenanceGuide.ts`, `packages/domain/src/__tests__/Phase5Content.test.ts`, `apps/web/src/lib/{guides,articles,cache}.ts`, `apps/web/src/app/(store)/guias/mantenimiento/[marca]/[modelo]/page.tsx`, `apps/web/src/app/(store)/repuestos/[marca]/[modelo]/page.tsx`, `README.md`.
+
+**Verificación:** tests de dominio en verde, `type-check` y `lint` limpios.
+
+---
+
 ## 172. Cierre SEO — B1: infraestructura de artículos (Fase 5, ítem 1)
 
 **Requerimiento:** comparativas, guía de revisión técnico-mecánica y demás guías de texto libre necesitan autor, revisor técnico, estados de publicación y fuentes. Decisión (plan aprobado 2026-09-26): base de datos + editor en el panel, no MDX.

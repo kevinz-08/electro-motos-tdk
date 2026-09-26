@@ -111,3 +111,28 @@ export function formatKm(km: number): string {
 export function formatMonths(months: number): string {
   return `${months} ${months === 1 ? 'mes' : 'meses'}`
 }
+
+/** "cada 3.000 km o 3 meses (lo que ocurra primero)" / "cada 6.000 km" / "cada 12 meses". */
+export function formatInterval(item: Pick<MaintenanceItem, 'intervalKm' | 'intervalMonths'>): string {
+  const km = item.intervalKm !== null ? formatKm(item.intervalKm) : null
+  const months = item.intervalMonths !== null ? formatMonths(item.intervalMonths) : null
+  if (km && months) return `cada ${km} o ${months} (lo que ocurra primero)`
+  return `cada ${km ?? months}`
+}
+
+/**
+ * Respuesta directa de la guía (Fase 5, formato citable): los primeros puntos
+ * de control con su intervalo real, en una frase. Solo usa lo guardado: con 0
+ * puntos devuelve una cadena vacía, nunca un intervalo inventado.
+ *
+ *   "aceite de motor cada 3.000 km o 3 meses (lo que ocurra primero); bujía cada 6.000 km"
+ */
+export function summarizeMaintenanceIntervals(
+  items: ReadonlyArray<Pick<MaintenanceItem, 'label' | 'intervalKm' | 'intervalMonths'>>,
+  max = 3,
+): string {
+  return items
+    .slice(0, max)
+    .map((item) => `${item.label.charAt(0).toLowerCase()}${item.label.slice(1)} ${formatInterval(item)}`)
+    .join('; ')
+}

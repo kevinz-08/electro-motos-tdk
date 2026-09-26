@@ -98,6 +98,19 @@ export async function findPublishedArticles(): Promise<PublicArticleSummary[]> {
     .map((r) => ({ slug: r.slug, title: r.title, kind: r.kind, directAnswer: r.directAnswer, updatedAt: r.updatedAt.toISOString() }))
 }
 
+/** Artículos publicados sobre un modelo de moto (hub del modelo y su guía de mantenimiento). */
+export async function findPublishedArticlesByModel(modelId: string): Promise<Array<{ slug: string; title: string; kind: ArticleKind }>> {
+  const rows = await prisma.article.findMany({
+    where: { ...PUBLISHED_WHERE, modelId },
+    orderBy: { updatedAt: 'desc' },
+    select: {
+      slug: true, title: true, kind: true, directAnswer: true, body: true, sources: true, status: true,
+      reviewerId: true, reviewedAt: true, reviewer: { select: { isActive: true } },
+    },
+  })
+  return rows.filter((r) => isArticlePublishable(r, r.reviewer)).map((r) => ({ slug: r.slug, title: r.title, kind: r.kind }))
+}
+
 /** Artículos publicados que firma un revisor (para su página de autor). */
 export async function findPublishedArticlesByReviewer(reviewerId: string): Promise<Array<{ label: string; href: string }>> {
   const rows = await prisma.article.findMany({

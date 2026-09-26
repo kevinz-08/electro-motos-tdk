@@ -43,7 +43,7 @@ export interface PublicGuideItem extends Pick<MaintenanceItem, 'label' | 'interv
 }
 
 export interface PublicMaintenanceGuide {
-  model: { name: string; slug: string; brandName: string; brandSlug: string; cc: number | null }
+  model: { id: string; name: string; slug: string; brandName: string; brandSlug: string; cc: number | null }
   source: string
   notes: string | null
   /** ISO — la fecha visible "revisado el…" y el `dateModified` del JSON-LD. */
@@ -82,7 +82,7 @@ export async function findMaintenanceGuide(brandSlug: string, modelSlug: string)
   const guide = await prisma.maintenanceGuide.findFirst({
     where: { model: { slug: modelSlug, isActive: true, brand: { slug: brandSlug, isActive: true } } },
     include: {
-      model: { select: { name: true, slug: true, cc: true, brand: { select: { name: true, slug: true } } } },
+      model: { select: { id: true, name: true, slug: true, cc: true, brand: { select: { name: true, slug: true } } } },
       reviewer: { select: REVIEWER_SELECT },
       items: {
         orderBy: { order: 'asc' },
@@ -93,7 +93,7 @@ export async function findMaintenanceGuide(brandSlug: string, modelSlug: string)
   if (!guide || !isMaintenanceGuidePublishable(guide, guide.reviewer)) return null
 
   return {
-    model: { name: guide.model.name, slug: guide.model.slug, cc: guide.model.cc, brandName: guide.model.brand.name, brandSlug: guide.model.brand.slug },
+    model: { id: guide.model.id, name: guide.model.name, slug: guide.model.slug, cc: guide.model.cc, brandName: guide.model.brand.name, brandSlug: guide.model.brand.slug },
     source: guide.source,
     notes: guide.notes,
     reviewedAt: guide.reviewedAt.toISOString(),

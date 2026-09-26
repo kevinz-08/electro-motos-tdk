@@ -1980,3 +1980,10 @@ Desde esta entrega el bloque SEO-GEO-CRO se trabaja en **una sola rama** (`feat/
 - **Markdown restringido, sin HTML:** `##`/`###`, párrafos, listas, tablas, **negrita**, *cursiva*, `código` y enlaces (solo `https://` o rutas internas `/…`). Lo interpreta `parseArticleBody` (dominio, probado) y se pinta como elementos React: nunca `dangerouslySetInnerHTML`, así que un texto pegado no puede inyectar scripts.
 - **Público:** `/guias/[slug]` (respuesta directa arriba, índice de encabezados, fuentes, revisor con enlace a `/autores/[slug]`, fecha de revisión visible, JSON-LD `WebPage` + `Article` con `reviewedBy`) y `/guias` (índice de artículos y guías de mantenimiento publicadas). Ambos entran en `sitemap-guias.xml`.
 - **Panel:** `/admin/guias` (lista con estado) y editor con contador de palabras de la respuesta directa, vista previa del Markdown y la lista de lo que falta para publicar.
+
+**B2 — Guías por modelo en formato citable (Fase 5, ítem 2).** La infraestructura de guías de mantenimiento ya existía (§26.9); faltaba que la apertura respondiera con datos y que la guía conectara con el resto del sitio.
+
+- **Respuesta directa real:** la guía abre con "Según {fuente}, la {moto} necesita aceite de motor cada 3.000 km o 3 meses (lo que ocurra primero); bujía cada…", armada por `summarizeMaintenanceIntervals` (dominio) con los tres primeros puntos de control guardados. Sin puntos no hay frase: nunca un intervalo inventado.
+- **"Última actualización"** visible junto a la fecha de revisión.
+- **Enlazado guía ↔ hub ↔ kits ↔ artículos:** la guía enlaza el hub del modelo (si está publicado; si no, la búsqueda del catálogo), sus kits con precio y los artículos sobre ese modelo; el hub del modelo lista los artículos que tratan sobre él. Cada pieza es opcional y tolerante a fallos de lectura.
+

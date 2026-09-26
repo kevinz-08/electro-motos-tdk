@@ -22,6 +22,7 @@ import {
 } from '../entities/Motorcycle'
 import { parseFitmentCsv, parseCsvLine } from '../use-cases/fitment/ParseFitmentCsv'
 import { ImportFitments } from '../use-cases/fitment/ImportFitments'
+import { SaveFitment, validateFitmentInput } from '../use-cases/fitment/SaveFitment'
 import { GetModelHub } from '../use-cases/fitment/GetModelHub'
 import { FindByOemReference } from '../use-cases/fitment/FindByOemReference'
 import type { ModelHub } from '../repositories/IFitmentRepository'
@@ -484,5 +485,81 @@ describe('FindByOemReference', () => {
     const result = await new FindByOemReference(repo as any).execute({ reference: 'ABC-123' })
 
     expect(!result.ok && result.error.code).toBe('NOT_FOUND')
+  })
+})
+
+// ── SaveFitment (formulario del panel, H-37) ─────────────────────────────────
+
+describe('validateFitmentInput', () => {
+  const base = { productId: 'p1', modelId: nkd.id, position: 'AMBAS' as const, source: 'Manual AKT 2023', verified: true }
+
+  it('acepta una compatibilidad mínima', () => {
+    expect(validateFitmentInput(base)).toBeNull()
+  })
+  it('exige fuente y limita su largo y el de las notas', () => {
+    expect(validateFitmentInput({ ...base, source: '   ' })).toMatch(/fuente/)
+    expect(validateFitmentInput({ ...base, source: 'x'.repeat(301) })).not.toBeNull()
+    expect(validateFitmentInput({ ...base, notes: 'x'.repeat(301) })).not.toBeNull()
+  })
+  it('rechaza posiciones desconocidas', () => {
+    expect(validateFitmentInput({ ...base, position: 'LATERAL' as never })).not.toBeNull()
+  })
+  it('valida los años: enteros, en rango y en orden', () => {
+    expect(validateFitmentInput({ ...base, yearFrom: 2018, yearTo: 2024 })).toBeNull()
+    expect(validateFitmentInput({ ...base, yearFrom: 2018, yearTo: null })).toBeNull()
+    expect(validateFitmentInput({ ...base, yearFrom: 2024, yearTo: 2018 })).toMatch(/posterior/)
+    expect(validateFitmentInput({ ...base, yearFrom: 1800 })).not.toBeNull()
+    expect(validateFitmentInput({ ...base, yearTo: 2020.5 })).not.toBeNull()
+  })
+})
+
+describe('SaveFitment', () => {
+  const input = {
+    productId: 'prod-1', modelId: nkd.id, position: 'AMBAS' as const,
+    source: '  Manual AKT 2023, pág. 12  ', notes: '  ', verified: true, savedBy: 'admin@h2r.co',
+  }
+  const withProduct = () => {
+    const repos = makeRepos()
+    const productRepo = { ...repos.productRepo, findById: async (id: string) => (id === 'prod-1' ? { id } : null) }
+    return { ...repos, productRepo }
+  }
+
+  it('guarda normalizando textos y deja constancia de quién verificó', async () => {
+    const { motorcycleRepo, fitmentRepo, productRepo, upserts } = withProduct()
+    const result = await new SaveFitment(motorcycleRepo as any, fitmentRepo as any, productRepo as any).execute(input)
+    expect(result.ok).toBe(true)
+    const saved = upserts[0] as Record<string, unknown>
+    expect(saved.source).toBe('Manual AKT 2023, pág. 12')
+    expect(saved.notes).toBeNull()
+    expect(saved.verifiedBy).toBe('admin@h2r.co')
+    expect(saved.verifiedAt).toBeInstanceOf(Date)
+  })
+  it('sin verificar no guarda quién ni cuándo', async () => {
+    const { motorcycleRepo, fitmentRepo, productRepo, upserts } = withProduct()
+    await new SaveFitment(motorcycleRepo as any, fitmentRepo as any, productRepo as any).execute({ ...input, verified: false })
+    const saved = upserts[0] as Record<string, unknown>
+    expect(saved.verifiedBy).toBeNull()
+    expect(saved.verifiedAt).toBeNull()
+  })
+  it('rechaza sin tocar la base si los datos no son válidos', async () => {
+    const { motorcycleRepo, fitmentRepo, productRepo, upserts } = withProduct()
+    const result = await new SaveFitment(motorcycleRepo as any, fitmentRepo as any, productRepo as any).execute({ ...input, source: '' })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
+    expect(upserts).toHaveLength(0)
+  })
+  it('NOT_FOUND si el producto o el modelo no existen', async () => {
+    const { motorcycleRepo, fitmentRepo, productRepo } = withProduct()
+    const useCase = new SaveFitment(motorcycleRepo as any, fitmentRepo as any, productRepo as any)
+    const noProduct = await useCase.execute({ ...input, productId: 'otro' })
+    const noModel = await useCase.execute({ ...input, modelId: 'otro' })
+    expect(!noProduct.ok && noProduct.error.code).toBe('NOT_FOUND')
+    expect(!noModel.ok && noModel.error.code).toBe('NOT_FOUND')
+  })
+  it('INTERNAL_ERROR si falla el repositorio', async () => {
+    const { motorcycleRepo, fitmentRepo, productRepo } = withProduct()
+    const broken = { ...fitmentRepo, upsert: async () => { throw new Error('db') } }
+    const result = await new SaveFitment(motorcycleRepo as any, broken as any, productRepo as any).execute(input)
+    expect(!result.ok && result.error.code).toBe('INTERNAL_ERROR')
   })
 })

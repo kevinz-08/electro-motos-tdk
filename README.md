@@ -1960,3 +1960,15 @@ Migración aditiva `20260925120000_phase5_reviewers_maintenance` (tablas `Techni
 - **Regla de publicación:** guardar una guía la publica sola en `/guias/mantenimiento/[marca]/[modelo]`, pero solo si tiene al menos un punto de control **y** un revisor activo. La **fuente** y el **revisor** son obligatorios para guardar: es la forma en que el sistema hace cumplir "sin revisor técnico no se publica" y "los intervalos no se inventan".
 - **Sin página genérica:** no existía ninguna página de mantenimiento genérica que ocultar. El comportamiento equivalente es que, sin guía guardada, la ruta responde 404 y el hub `/repuestos/[marca]/[modelo]` no muestra ningún enlace; con guía, aparece el enlace.
 - **SEO:** `WebPage` con `reviewedBy` y `lastReviewed` (fecha de la revisión registrada, no la de hoy), apertura con respuesta directa armada solo con datos guardados, encabezados en forma de pregunta, tabla y `sitemap-guias.xml` (solo guías publicables y revisores activos con guías).
+
+### 26.10 Cierre de las fases 4 y 5 (desde 2026-09-26, rama única `feat/seo-geo-cro`)
+
+Desde esta entrega el bloque SEO-GEO-CRO se trabaja en **una sola rama** (`feat/seo-geo-cro`) en vez de una por sub-entrega, para no multiplicar despliegues de preview en Vercel. Plan aprobado el 2026-09-26: ver `docs/seo/ROADMAP.md`.
+
+**A1 — Compatibilidades desde el panel (H-37, H-40).** Hasta ahora la única forma de cargar compatibilidades era subir un CSV a la API a mano, y cada carga tardaba hasta 1 h en verse (TTL de la caché).
+
+- **`/admin/compatibilidades`:** tabla de los modelos de moto con cuántas compatibilidades verificadas y pendientes tiene cada uno (y enlace al hub si está publicado), formulario para dar de alta o editar un modelo (marca, nombre, cc, años, alias, introducción del hub) e **importador de CSV** con la plantilla descargable y el reporte de altas, actualizaciones y errores fila a fila.
+- **Formulario de producto → "Compatibilidades y referencias OEM":** lista las compatibilidades del producto (verificadas y pendientes), permite agregar una (modelo, posición, años, notas, **fuente obligatoria**, casilla *verificada*), verificar o desverificar las pendientes y eliminar; y lo mismo con las referencias OEM.
+- **Reglas:** las mismas que el CSV, en un solo sitio del dominio (`SaveFitment`): la fuente es obligatoria, los años deben ser coherentes y no se pueden crear modelos desde el formulario de producto. Verificar deja constancia de quién y cuándo.
+- **Caché:** cada alta, edición, borrado o importación llama a `revalidateAdminCache(['fitments', 'products'])`, así que los hubs, el selector de moto y la tabla "Compatible con" se actualizan al momento (H-40).
+- **API nueva:** `POST /admin/fitments` (alta o edición por producto + modelo + posición), `GET /admin/fitments/models/summary` y `DELETE /admin/fitments/oem/:id`.

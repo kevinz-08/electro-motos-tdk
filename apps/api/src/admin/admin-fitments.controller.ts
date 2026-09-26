@@ -6,6 +6,7 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger'
 import {
   ImportFitments,
+  SaveFitment,
   parseFitmentCsv,
   toMotorcycleSlug,
   normalizeOemReference,
@@ -25,11 +26,12 @@ import { Roles } from '../auth/decorators/roles.decorator'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { CreateMotorcycleModelDto } from './dto/create-motorcycle-model.dto'
 import { CreateOemReferenceDto } from './dto/create-oem-reference.dto'
+import { SaveFitmentDto } from './dto/save-fitment.dto'
 
 /**
  * Administración del sistema de compatibilidad (docs/seo/, Fase 2).
  *
- * Tres cosas:
+ * Cuatro cosas:
  *   1. Alta de marcas y modelos de moto. Se hace desde aquí, a mano, porque el
  *      catálogo de modelos es el esqueleto del sistema: si lo pudiera crear el
  *      importador de CSV, cualquier errata ("Boxer CT 100" vs "Boxer CT100")
@@ -37,6 +39,8 @@ import { CreateOemReferenceDto } from './dto/create-oem-reference.dto'
  *   2. Importación masiva de compatibilidades desde CSV, con reporte de errores
  *      fila a fila.
  *   3. Alta de referencias OEM.
+ *   4. Alta, edición y verificación de compatibilidades una a una desde el
+ *      formulario de producto (H-37), con las mismas reglas que el CSV.
  *
  * El límite de 5 MB del CSV da para decenas de miles de filas; más que eso no
  * debería subirse de una vez por la petición HTTP.
@@ -112,7 +116,55 @@ export class AdminFitmentsController {
     return model
   }
 
+  @Get('models/summary')
+  @ApiOperation({ summary: 'Modelos (activos e inactivos) con el conteo de compatibilidades verificadas y pendientes' })
+  async modelsSummary() {
+    const [models, counts] = await Promise.all([
+      this.prisma.client.motorcycleModel.findMany({
+        include: { brand: { select: { name: true, slug: true } } },
+        orderBy: [{ brand: { order: 'asc' } }, { brand: { name: 'asc' } }, { name: 'asc' }],
+      }),
+      this.prisma.client.fitment.groupBy({ by: ['modelId', 'verified'], _count: { _all: true } }),
+    ])
+
+    const byModel = new Map<string, { verified: number; pending: number }>()
+    for (const c of counts) {
+      const entry = byModel.get(c.modelId) ?? { verified: 0, pending: 0 }
+      if (c.verified) entry.verified += c._count._all
+      else entry.pending += c._count._all
+      byModel.set(c.modelId, entry)
+    }
+
+    return models.map((m) => ({
+      id: m.id,
+      name: m.name,
+      slug: m.slug,
+      cc: m.cc,
+      yearFrom: m.yearFrom,
+      yearTo: m.yearTo,
+      aliases: m.aliases,
+      intro: m.intro,
+      isActive: m.isActive,
+      brandName: m.brand.name,
+      brandSlug: m.brand.slug,
+      ...(byModel.get(m.id) ?? { verified: 0, pending: 0 }),
+    }))
+  }
+
   // ── Compatibilidades de un producto ────────────────────────────────────────
+
+  @Post()
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Crear o actualizar una compatibilidad (clave: producto + modelo + posición)' })
+  async save(
+    @Body() dto: SaveFitmentDto,
+    @CurrentUser() user: { email?: string; userId?: string } | undefined,
+  ) {
+    const useCase = new SaveFitment(this.motorcycleRepo, this.fitmentRepo, this.productRepo)
+    const result = await useCase.execute({ ...dto, savedBy: user?.email ?? user?.userId ?? 'admin' })
+    if (!result.ok) throw result.error
+    return result.value
+  }
 
   @Get('product/:productId')
   @ApiOperation({ summary: 'Compatibilidades de un producto, verificadas y sin verificar' })
@@ -147,6 +199,14 @@ export class AdminFitmentsController {
       normalized: normalizeOemReference(dto.reference),
       manufacturer: dto.manufacturer ?? null,
     })
+  }
+
+  @Delete('oem/:id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Eliminar una referencia original' })
+  async removeOem(@Param('id') id: string) {
+    await this.prisma.client.oemReference.delete({ where: { id } })
+    return { success: true }
   }
 
   // ── Importación masiva ─────────────────────────────────────────────────────

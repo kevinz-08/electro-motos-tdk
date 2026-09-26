@@ -33,6 +33,21 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 174. Cierre SEO — B3: costo anual de mantenimiento por modelo (Fase 5, ítem 3)
+
+**Requerimiento:** "costo anual de mantenimiento por modelo, calculado desde los precios reales del catálogo, de modo que se actualice solo" — sin inventar el uso de la moto.
+
+**Hecho:**
+
+- Dominio (`entities/MaintenanceGuide.ts`): `computeAnnualMaintenanceCost(items, kmPerYear)` — veces al año = `máx(km ÷ intervaloKm, 12 ÷ intervaloMeses)` ("lo que ocurra primero"), costo = veces × precio vivo del repuesto; separa los puntos sin precio (`withoutPrice`) y los de solo kilometraje cuando no hay km (`needsKm`); limita km a 200.000. 5 tests nuevos.
+- Web: `MaintenanceCostCalculator` (cliente) en la guía de mantenimiento, sección "¿Cuánto cuesta al año mantener la …?", solo si al menos un punto tiene repuesto enlazado. Sin kilometraje por defecto; aviso de que no incluye mano de obra.
+
+**Archivos:** `packages/domain/src/entities/MaintenanceGuide.ts`, `packages/domain/src/__tests__/Phase5Content.test.ts`, `apps/web/src/components/store/MaintenanceCostCalculator.tsx`, `apps/web/src/app/(store)/guias/mantenimiento/[marca]/[modelo]/page.tsx`, `README.md`.
+
+**Verificación:** 33/33 en `Phase5Content.test.ts`, `type-check` y `lint` limpios.
+
+---
+
 ## 173. Cierre SEO — B2: guías de mantenimiento en formato citable y enlazadas
 
 **Requerimiento:** Fase 5, ítem 2 — que las guías por modelo abran con una respuesta directa verificable y se conecten con hub, kits y artículos (parte del enlazado interno del ítem 8).

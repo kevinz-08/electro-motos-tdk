@@ -1987,3 +1987,9 @@ Desde esta entrega el bloque SEO-GEO-CRO se trabaja en **una sola rama** (`feat/
 - **"Última actualización"** visible junto a la fecha de revisión.
 - **Enlazado guía ↔ hub ↔ kits ↔ artículos:** la guía enlaza el hub del modelo (si está publicado; si no, la búsqueda del catálogo), sus kits con precio y los artículos sobre ese modelo; el hub del modelo lista los artículos que tratan sobre él. Cada pieza es opcional y tolerante a fallos de lectura.
 
+
+**B3 — Costo anual de mantenimiento por modelo (Fase 5, ítem 3).** Calculadora en cada guía de mantenimiento: el visitante escribe **cuántos kilómetros recorre al año** y ve cuántas veces le toca cada punto de control y cuánto le cuesta al año con los **precios de hoy en H2R**.
+
+- La cuenta la hace `computeAnnualMaintenanceCost` (dominio, probada): veces al año = la mayor entre `km al año ÷ intervalo en km` y `12 ÷ intervalo en meses` ("lo que ocurra primero"), multiplicada por el precio actual del repuesto enlazado.
+- **Nada se inventa:** no hay kilometraje por defecto (sin él solo cuentan los puntos que van por tiempo), los puntos sin repuesto enlazado (o con el repuesto inactivo) se listan aparte como "sin precio en H2R" y el total dice explícitamente que no incluye mano de obra.
+- Se actualiza sola: lee el precio vivo del producto (caché de 10 min, invalidada al editar productos).

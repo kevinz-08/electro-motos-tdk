@@ -26,6 +26,7 @@ import { maintenanceGuideJsonLd } from '@/lib/structured-data'
 import { canonical, NOINDEX_FOLLOW } from '@/lib/seo'
 import { cloudinaryUrl } from '@/lib/cloudinary'
 import { WHATSAPP_URL } from '@/lib/contact'
+import { MaintenanceCostCalculator } from '@/components/store/MaintenanceCostCalculator'
 import {
   getCachedArticlesByModel,
   getCachedKitsByModel,
@@ -191,6 +192,24 @@ export default async function MaintenanceGuidePage({ params }: PageProps) {
             </table>
           </div>
         </section>
+
+        {/* Costo anual (ítem 3): solo si al menos un punto tiene su repuesto de H2R enlazado. */}
+        {guide.items.some((i) => i.product) && (
+          <section className="mt-10" aria-labelledby="costo">
+            <h2 id="costo" className="text-2xl font-bold text-gray-900">
+              ¿Cuánto cuesta al año mantener la {guide.model.name}?
+            </h2>
+            <MaintenanceCostCalculator
+              modelName={guide.model.name}
+              items={guide.items.map((i) => ({
+                label: i.label,
+                intervalKm: i.intervalKm,
+                intervalMonths: i.intervalMonths,
+                unitPrice: i.product?.price ?? null,
+              }))}
+            />
+          </section>
+        )}
 
         {guide.notes && (
           <section className="mt-10" aria-labelledby="condiciones">

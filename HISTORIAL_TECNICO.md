@@ -33,6 +33,23 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 179. Cierre SEO — B5: borradores de comparativas y guía de revisión técnico-mecánica (Fase 5, ítems 5 y 6)
+
+**Requerimiento:** borradores de las comparativas y de la guía de revisión técnico-mecánica, con criterios concretos y tablas, que no se publican sin revisión de alguien con conocimiento mecánico.
+
+**Hecho:** `docs/seo/borradores/` (no se cargaron en la base porque la migración de H-54 no está aplicada; se pegan en `/admin/guias` después):
+
+- `guia-revision-tecnico-mecanica-moto.md` (Guía): cuándo toca la RTM de una moto, qué revisa el CDA, tabla "falla típica → qué cambiar antes de ir" enlazada a categorías reales, lista para preparar la moto en casa.
+- `repuesto-original-vs-generico-moto.md` (Comparativa): tabla original / homologado / genérico, en qué piezas no ahorrar, dónde un genérico de marca sirve, cómo saber si le sirve a tu moto.
+- `como-elegir-aceite-moto-trabajo.md` (Guía): viscosidad, JASO MA/MA2/MB, API, por qué no aceite de carro con embrague húmedo, intervalos en uso intenso; enlaza guías y las marcas de aceite del catálogo.
+- `README.md`: cómo cargarlos y qué no se escribió (la comparativa de marcas de pastillas por modelo requiere H-18: `partBrand` vacío en los 133 productos).
+
+**Reglas aplicadas:** cada cifra normativa o técnica que el revisor debe confirmar va marcada `[VERIFICAR]`; no hay datos de durabilidad ni rendimiento inventados. Validados con las funciones del dominio: respuesta directa de 51–58 palabras, cuerpo sin errores de formato, todos los enlaces internos existen en producción. Nueva tarea H-56.
+
+**Archivos:** `docs/seo/borradores/{README,guia-revision-tecnico-mecanica-moto,repuesto-original-vs-generico-moto,como-elegir-aceite-moto-trabajo}.md`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
 ## 178. Cierre SEO — A3: prueba E2E del embudo de GA4
 
 **Requerimiento:** que el embudo de la Fase 4 (ítem 11) quede verificado antes de que GA4 acumule datos, sin depender de mirar DebugView a mano.

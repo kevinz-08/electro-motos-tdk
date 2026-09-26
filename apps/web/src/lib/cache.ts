@@ -43,6 +43,7 @@ import { findCrossSellSuggestions } from './cross-sell'
 import { findKitsByModel, findKitBySlug, findAllVisibleKits, findKitsContainingProduct } from './kits'
 import { findMaintenanceGuide, findReviewerBySlug, findPublishedGuideEntries, hasPublishedGuide } from './guides'
 import { findPublishedArticle, findPublishedArticlesByModel } from './articles'
+import { findPublishedPriceIndex } from './price-index'
 
 export { CACHE_TAGS }
 
@@ -454,6 +455,13 @@ export const getCachedPublishedArticle = unstable_cache(
   async (slug: string) => findPublishedArticle(slug),
   ['published-article'],
   { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+)
+
+/** Último corte publicado del Índice de Precios (Fase 5, ítem 4). Lo invalida el admin al publicar. */
+export const getCachedPublishedPriceIndex = unstable_cache(
+  async () => findPublishedPriceIndex(),
+  ['published-price-index'],
+  { revalidate: 3600, tags: [CACHE_TAGS.priceIndex] },
 )
 
 /** Artículos publicados sobre un modelo (enlazado hub ↔ guías, Fase 5). */

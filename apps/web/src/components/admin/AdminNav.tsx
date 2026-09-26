@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Package, Tag, ShoppingBag,
-  AlertTriangle, Settings, RefreshCcw, Image, Ticket, Trash2, Star, Megaphone, Boxes, UserCheck, Wrench, Bike, BookOpen,
+  AlertTriangle, Settings, RefreshCcw, Image, Ticket, Trash2, Star, Megaphone, Boxes, UserCheck, Wrench, Bike, BookOpen, BarChart3,
 } from 'lucide-react'
 
 const navItems = [
@@ -18,6 +18,7 @@ const navItems = [
   { href: '/admin/compatibilidades',          label: 'Compatibilidades', Icon: Bike },
   { href: '/admin/kits',                      label: 'Kits',          Icon: Boxes },
   { href: '/admin/guias',                     label: 'Guías',         Icon: BookOpen },
+  { href: '/admin/indice-precios',            label: 'Índice precios', Icon: BarChart3 },
   { href: '/admin/revisores',                 label: 'Revisores',     Icon: UserCheck },
   { href: '/admin/mantenimiento',             label: 'Mantenimiento', Icon: Wrench },
   { href: '/admin/pedidos',                   label: 'Pedidos',       Icon: ShoppingBag },

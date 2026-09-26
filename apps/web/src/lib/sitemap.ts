@@ -29,7 +29,8 @@
  */
 import { prisma } from '@h2r/database'
 import { absoluteUrl } from '@/lib/seo'
-import { getCachedModelHub, getCachedPublishableModels, getCachedAllVisibleKits, getCachedPublishedGuideEntries } from '@/lib/cache'
+import { getCachedModelHub, getCachedPublishableModels, getCachedAllVisibleKits, getCachedPublishedGuideEntries, getCachedPublishedPriceIndex } from '@/lib/cache'
+import { PRICE_INDEX_PATH } from '@/lib/price-index'
 
 export interface SitemapEntry {
   url: string
@@ -157,8 +158,12 @@ export async function getKitEntries(): Promise<SitemapEntry[]> {
  */
 export async function getGuideEntries(): Promise<SitemapEntry[]> {
   const { guides, articles, reviewers } = await getCachedPublishedGuideEntries()
-  const hasContent = guides.length + articles.length > 0
+  const priceIndex = await getCachedPublishedPriceIndex().catch(() => null)
+  const hasContent = guides.length + articles.length > 0 || priceIndex !== null
   return [
+    ...(priceIndex
+      ? [{ url: absoluteUrl(PRICE_INDEX_PATH), lastModified: new Date(priceIndex.publishedAt), changeFrequency: 'monthly' as const, priority: 0.8 }]
+      : []),
     // El índice /guias solo existe en el sitemap si tiene algo que listar.
     ...(hasContent ? [{ url: absoluteUrl('/guias'), changeFrequency: 'weekly' as const, priority: 0.6 }] : []),
     ...articles.map((a) => ({

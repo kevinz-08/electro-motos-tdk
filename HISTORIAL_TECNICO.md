@@ -33,6 +33,28 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 176. Cierre SEO — B4: Índice de Precios de Repuestos de Moto (Fase 5, ítem 4)
+
+**Requerimiento:** página de datos generada desde el catálogo, con metodología explícita, fecha de corte y gráficos, actualizable cada semestre, publicada tras revisión humana (criterio de salida de la Fase 5).
+
+**Decisiones:** los cortes se generan desde el panel (no por script de terminal) y nacen como borrador; una persona revisa las cifras y publica. Un corte publicado no se regenera sin retirarlo antes, para que una cifra citada no cambie en silencio. La página pinta el corte guardado, nunca recalcula.
+
+**Hecho:**
+
+- Dominio (`entities/PriceIndex.ts`): `computePriceIndex` (metodología v1: activos, sin borrar, precio > 0; por categoría n, mediana, P25/P75 por interpolación lineal, mín., máx.; muestra mínima 5), `comparePriceIndexes` (variación de la mediana solo con la misma metodología), `quantile`, `priceIndexCutoffDate` (día de Bogotá). 11 tests.
+- Migración pendiente `20260926000000_phase5_content`: `PriceIndexSnapshot` gana `isPublished` y `publishedAt` (+ índice). Sigue sin aplicar (H-54).
+- API: `AdminPriceIndexController` — `GET /admin/price-index`, `POST snapshot` (upsert del día; 422 si ya está publicado), `POST :id/publish` (422 sin categorías publicables; conserva la primera fecha de publicación), `POST :id/unpublish`. 4 tests.
+- Web: `/indice-precios-repuestos-moto` (respuesta directa con datos del corte, gráfico `PriceIndexChart` de mediana + rango intercuartílico en un solo tono con tooltip por hover y foco, tabla completa, variación contra el corte anterior, metodología y forma de citar, JSON-LD `Dataset`); 404 sin corte publicado. Entra en `sitemap-guias.xml` y en `/guias` solo si hay corte publicado. Tag de caché `price-index`.
+- Panel: `/admin/indice-precios` (`PriceIndexManager`): generar, revisar tabla, publicar o retirar. Entrada "Índice precios" en `AdminNav`.
+
+**Simulación con el catálogo real (solo lectura, 2026-09-26):** 133 productos, 11 categorías publicables (CDI y Ramales con la mediana más alta, $180.000), 14 con muestra insuficiente. Hallazgo para el negocio (H-55): varias categorías son marcas (SKY, Liquimoly, Kontrol) y "Motores de Arraque" tiene una errata.
+
+**Archivos:** `packages/domain/src/entities/PriceIndex.ts`, `packages/domain/src/__tests__/PriceIndex.test.ts`, `packages/domain/src/index.ts`, `packages/database/prisma/{schema.prisma,migrations/20260926000000_phase5_content/migration.sql}`, `apps/api/src/admin/{admin-price-index.controller.ts,admin.module.ts}`, `apps/api/src/__tests__/admin-price-index.test.ts`, `apps/web/src/lib/{price-index,cache,cache-tags,sitemap,structured-data}.ts`, `apps/web/src/components/content/PriceIndexChart.tsx`, `apps/web/src/components/admin/{PriceIndexManager,AdminNav}.tsx`, `apps/web/src/app/(store)/indice-precios-repuestos-moto/page.tsx`, `apps/web/src/app/(store)/guias/page.tsx`, `apps/web/src/app/admin/indice-precios/page.tsx`, `README.md`, `docs/seo/HUMAN_TASKS.md`.
+
+**Verificación:** tests de dominio y API en verde, `type-check` limpio, `lint` sin avisos en los archivos nuevos.
+
+---
+
 ## 175. Cierre SEO — B7: enlazado interno (Fase 5, ítem 8)
 
 **Requerimiento:** "ninguna página comercial a más de 3 clics del home, con reporte de páginas huérfanas".

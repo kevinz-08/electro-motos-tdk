@@ -497,6 +497,44 @@ export function articleJsonLd(article: ArticleJsonLdInput): JsonLdNode {
   }
 }
 
+export interface PriceIndexJsonLdInput {
+  /** YYYY-MM-DD */
+  cutoffDate: string
+  /** ISO */
+  publishedAt: string
+  productCount: number
+  categoryNames: string[]
+}
+
+/**
+ * `Dataset` del Índice de Precios (Fase 5, ítem 4). Es el tipo que Google
+ * Dataset Search y los motores generativos entienden como "datos citables":
+ * fecha de corte (`temporalCoverage`), creador y qué mide.
+ */
+export function priceIndexJsonLd(index: PriceIndexJsonLdInput): JsonLdNode {
+  const url = absoluteUrl('/indice-precios-repuestos-moto')
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    '@id': `${url}#dataset`,
+    url,
+    name: 'Índice de Precios de Repuestos de Moto en Colombia',
+    description: `Precio mediano, percentiles 25 y 75, mínimo y máximo por categoría de ${index.productCount} referencias de repuestos de moto del catálogo de H2R Online Store, corte del ${index.cutoffDate}.`,
+    inLanguage: 'es-CO',
+    temporalCoverage: index.cutoffDate,
+    datePublished: index.publishedAt,
+    spatialCoverage: { '@type': 'Place', name: 'Colombia' },
+    creator: { '@id': ORGANIZATION_ID },
+    publisher: { '@id': ORGANIZATION_ID },
+    isAccessibleForFree: true,
+    variableMeasured: index.categoryNames.map((name) => ({
+      '@type': 'PropertyValue',
+      name: `Precio mediano — ${name}`,
+      unitText: 'COP',
+    })),
+  }
+}
+
 // ── Migas, listados y FAQ ────────────────────────────────────────────────────
 
 export interface BreadcrumbEntry {

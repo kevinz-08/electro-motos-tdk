@@ -13,7 +13,8 @@ import type { Metadata } from 'next'
 import { ARTICLE_KIND_LABELS, type ArticleKind } from '@h2r/domain'
 import { Breadcrumbs } from '@/components/store/Breadcrumbs'
 import { canonical, NOINDEX_FOLLOW } from '@/lib/seo'
-import { getCachedPublishedGuideEntries } from '@/lib/cache'
+import { getCachedPublishedGuideEntries, getCachedPublishedPriceIndex } from '@/lib/cache'
+import { PRICE_INDEX_PATH } from '@/lib/price-index'
 
 export const revalidate = 600
 
@@ -32,7 +33,8 @@ const DESCRIPTION =
 
 export async function generateMetadata(): Promise<Metadata> {
   const { guides, articles } = await loadEntries()
-  const empty = guides.length + articles.length === 0
+  const priceIndex = await getCachedPublishedPriceIndex().catch(() => null)
+  const empty = guides.length + articles.length === 0 && !priceIndex
   return {
     title: TITLE,
     description: DESCRIPTION,
@@ -46,6 +48,7 @@ const formatDate = (iso: string) =>
 
 export default async function GuidesIndexPage() {
   const { guides, articles } = await loadEntries()
+  const priceIndex = await getCachedPublishedPriceIndex().catch(() => null)
   const byKind = (kind: ArticleKind) => articles.filter((a) => a.kind === kind)
   const sections = (['GUIA', 'COMPARATIVA'] as const).filter((k) => byKind(k).length > 0)
 
@@ -56,7 +59,22 @@ export default async function GuidesIndexPage() {
         <h1 className="mt-6 text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">{TITLE}</h1>
         <p className="mt-3 max-w-2xl text-gray-600">{DESCRIPTION}</p>
 
-        {guides.length + articles.length === 0 && (
+        {priceIndex && (
+          <Link
+            href={PRICE_INDEX_PATH}
+            className="mt-8 flex items-center justify-between gap-4 rounded-2xl border border-sky-100 bg-sky-50/60 px-5 py-4 transition-colors hover:border-sky-200"
+          >
+            <span>
+              <span className="block font-bold text-gray-900">Índice de Precios de Repuestos de Moto</span>
+              <span className="block text-sm text-gray-600">
+                Precio mediano por categoría de {priceIndex.data.productCount} referencias, con metodología y fecha de corte.
+              </span>
+            </span>
+            <span aria-hidden="true" className="text-sky-600">→</span>
+          </Link>
+        )}
+
+        {guides.length + articles.length === 0 && !priceIndex && (
           <p className="mt-10 rounded-2xl border border-gray-200 p-6 text-sm text-gray-500">
             Estamos preparando las primeras guías con nuestro revisor técnico. Mientras tanto, busca tu repuesto en el{' '}
             <Link href="/catalogo" className="text-sky-600 underline">

@@ -33,6 +33,22 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 180. Cierre SEO — Bloque C: verificación y documentación del cierre de las fases 4 y 5
+
+**Verificación completa de la rama `feat/seo-geo-cro`:**
+
+- Dominio: **377/377 tests** (antes 254), cobertura 95,3 % líneas / 93,9 % ramas (umbral 80/70).
+- API: **235/235 tests** (antes 191). `nest build` correcto.
+- `pnpm type-check`: 6/6 paquetes limpios. `pnpm lint`: 0 errores; ningún aviso nuevo en archivos tocados.
+- `pnpm --filter @h2r/web build` correcto (la ausencia de la tabla `Article` se maneja sin romper el build).
+- Contra el build local: `seo:check` 42/42, `seo:schema` 47/47, `seo:links` 0 problemas, E2E del embudo GA4 2/2.
+
+**Documentación:** nuevo `docs/seo/05-contenido.md` (entregable de la Fase 5 con estado por ítem, reglas, medición y lo que falta para el criterio de salida); ROADMAP, `04-conversion.md` y HUMAN_TASKS al día (H-37 y H-40 resueltas, H-02 apunta al panel).
+
+**Pendiente humano para publicar:** H-54 (migración), H-52 (revisor y guías), H-55 (primer corte del índice), H-56 (revisar borradores), H-45 (conversión `purchase` + 2 semanas de datos), H-48/H-50 (venta cruzada y kits).
+
+---
+
 ## 179. Cierre SEO — B5: borradores de comparativas y guía de revisión técnico-mecánica (Fase 5, ítems 5 y 6)
 
 **Requerimiento:** borradores de las comparativas y de la guía de revisión técnico-mecánica, con criterios concretos y tablas, que no se publican sin revisión de alguien con conocimiento mecánico.

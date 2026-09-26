@@ -33,6 +33,24 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 178. Cierre SEO — A3: prueba E2E del embudo de GA4
+
+**Requerimiento:** que el embudo de la Fase 4 (ítem 11) quede verificado antes de que GA4 acumule datos, sin depender de mirar DebugView a mano.
+
+**Hecho:** `apps/web/e2e/analytics.spec.ts` (Playwright, proyecto `chromium`):
+
+- Toma un producto real con stock del sitemap, acepta el consentimiento por `localStorage` y recorre ficha → "Agregar al carrito" → `/carrito` → `/checkout`, comprobando en `window.dataLayer` `view_item`, `add_to_cart` (con valor > 0), `view_cart` y `begin_checkout`.
+- Verifica que ningún evento lleve claves fuera de una lista blanca (moneda, valor, ítems con id/nombre/precio/cantidad, término de búsqueda…): nada de nombre, email, teléfono ni dirección.
+- Segundo caso: con el consentimiento rechazado no se encola ningún evento.
+- **Bloquea toda petición a Google** (`context.route`) para no ensuciar la propiedad real con visitas de prueba. Sin `NEXT_PUBLIC_GA_ID` el test se salta con aviso.
+- `purchase` no se simula (requiere un pago real); sale en `/checkout/confirmacion`.
+
+**Resultado:** 2/2 contra el build de producción local con el ID real de GA4.
+
+**Archivos:** `apps/web/e2e/analytics.spec.ts`, `README.md`.
+
+---
+
 ## 177. Cierre SEO — A2: la causa del render delay de la ficha de producto (H-36, punto 4)
 
 **Requerimiento:** H-36 dejó sin explicar el `Render Delay` de la ficha (56 %, 1,7–2,4 s) y su TBT, atribuidos "probablemente" al JS de las fases 3 y 4.

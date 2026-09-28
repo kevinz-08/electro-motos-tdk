@@ -12,6 +12,7 @@ import type { Metadata } from 'next'
 import { signIn, auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { CircleCheck } from 'lucide-react'
 import { LoginForm } from './LoginForm'
 import Image from 'next/image'
 
@@ -51,8 +52,9 @@ export default async function LoginPage({ searchParams }: PageProps) {
         </div>
 
         {verified && (
-          <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm rounded-lg px-4 py-3 mb-6">
-            ✅ Correo verificado correctamente. Ya puedes iniciar sesión.
+          <div className="flex items-start gap-2 bg-green-500/10 border border-green-500/30 text-green-400 text-sm rounded-lg px-4 py-3 mb-6">
+            <CircleCheck className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            Correo verificado correctamente. Ya puedes iniciar sesión.
           </div>
         )}
 

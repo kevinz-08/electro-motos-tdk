@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Motorbike } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Página no encontrada',
@@ -16,7 +17,7 @@ export default function NotFound() {
       </p>
 
       {/* Ícono */}
-      <div className="text-5xl -mt-4 mb-6">🏍️</div>
+      <Motorbike className="w-14 h-14 -mt-4 mb-6 text-sky-500" aria-hidden="true" />
 
       {/* Texto */}
       <h1 className="text-2xl sm:text-3xl font-black text-gray-900 mb-3">

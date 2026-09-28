@@ -7,6 +7,7 @@
  */
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { HeartHandshake, Lock, Package, SearchX, type LucideIcon } from 'lucide-react'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { verifyReviewToken } from '@/lib/order-access-token'
 import { cloudinaryUrl } from '@/lib/cloudinary'
@@ -22,11 +23,24 @@ interface PageProps {
   searchParams: Promise<{ token?: string }>
 }
 
-function Message({ icon, title, body }: { icon: string; title: string; body: string }) {
+const MESSAGE_TONES = {
+  info: 'bg-sky-50 text-sky-500',
+  success: 'bg-green-50 text-green-600',
+  error: 'bg-red-50 text-red-600',
+} as const
+
+function Message({ icon: Icon, tone = 'info', title, body }: {
+  icon: LucideIcon
+  tone?: keyof typeof MESSAGE_TONES
+  title: string
+  body: string
+}) {
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="text-center max-w-sm">
-        <div className="text-5xl mb-4" aria-hidden="true">{icon}</div>
+        <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${MESSAGE_TONES[tone]}`}>
+          <Icon className="h-8 w-8" aria-hidden="true" />
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{title}</h1>
         <p className="text-gray-500 mb-6">{body}</p>
         <Link href="/catalogo" className="inline-block bg-sky-400 text-black px-6 py-3 rounded-xl font-bold hover:bg-sky-500 transition-colors">
@@ -42,7 +56,7 @@ export default async function ReviewPage({ params, searchParams }: PageProps) {
   const { token } = await searchParams
 
   if (!verifyReviewToken(orderItemId, token)) {
-    return <Message icon="🔒" title="Enlace no válido" body="Usa el enlace del correo que te enviamos para calificar tu compra." />
+    return <Message icon={Lock} tone="error" title="Enlace no válido" body="Usa el enlace del correo que te enviamos para calificar tu compra." />
   }
 
   const item = await prisma.orderItem.findUnique({
@@ -55,13 +69,13 @@ export default async function ReviewPage({ params, searchParams }: PageProps) {
   })
 
   if (!item) {
-    return <Message icon="🔍" title="Producto no encontrado" body="No encontramos este producto en tus pedidos." />
+    return <Message icon={SearchX} title="Producto no encontrado" body="No encontramos este producto en tus pedidos." />
   }
   if (item.review) {
-    return <Message icon="🙌" title="¡Ya calificaste este producto!" body="Gracias por ayudar a otros motociclistas a elegir mejor." />
+    return <Message icon={HeartHandshake} tone="success" title="¡Ya calificaste este producto!" body="Gracias por ayudar a otros motociclistas a elegir mejor." />
   }
   if (item.order.status !== 'DELIVERED') {
-    return <Message icon="📦" title="Aún no puedes calificar" body="Podrás calificar el producto cuando tu pedido sea entregado." />
+    return <Message icon={Package} title="Aún no puedes calificar" body="Podrás calificar el producto cuando tu pedido sea entregado." />
   }
 
   const image = item.product.images[0]

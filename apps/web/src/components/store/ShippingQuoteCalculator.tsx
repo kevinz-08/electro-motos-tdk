@@ -7,6 +7,7 @@
  * bloquear "Finalizar pedido", solo se omite el costo mostrado.
  */
 import { useEffect } from 'react'
+import { PartyPopper } from 'lucide-react'
 import { CitySelector, type CityOption } from '@/components/checkout/CitySelector'
 import { useShippingQuote, type ShippingQuoteResult } from '@/lib/shipping-quote'
 
@@ -44,7 +45,8 @@ export function ShippingQuoteCalculator({ city, onCityChange, items, onQuoteChan
         {city && loading && <span className="text-gray-400">Calculando...</span>}
         {city && !loading && quote && quote.freeShipping && (
           <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs bg-green-50 px-2 py-0.5 rounded-full">
-            🎉 ¡Envío gratis!
+            <PartyPopper className="w-3.5 h-3.5" aria-hidden="true" />
+            ¡Envío gratis!
           </span>
         )}
         {city && !loading && quote && !quote.freeShipping && (

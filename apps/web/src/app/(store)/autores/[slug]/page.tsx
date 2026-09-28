@@ -7,6 +7,7 @@
  * lectura falle responde 404: nunca se muestra una página a medias.
  */
 import Link from 'next/link'
+import { Wrench } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { formatExperience } from '@h2r/domain'
@@ -73,7 +74,9 @@ export default async function ReviewerPage({ params }: PageProps) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={reviewer.photoUrl} alt={reviewer.name} width={160} height={160} className="h-32 w-32 shrink-0 rounded-full object-cover sm:h-40 sm:w-40" />
           ) : (
-            <span aria-hidden="true" className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-gray-100 text-4xl sm:h-40 sm:w-40">🔧</span>
+            <span aria-hidden="true" className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-sky-50 sm:h-40 sm:w-40">
+              <Wrench className="h-12 w-12 text-sky-500 sm:h-16 sm:w-16" />
+            </span>
           )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-sky-600">Revisor técnico</p>

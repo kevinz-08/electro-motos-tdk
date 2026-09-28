@@ -11,6 +11,7 @@
  * reservado en el dominio para que no choquen.
  */
 import Link from 'next/link'
+import { Wrench } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { ARTICLE_KIND_LABELS, extractArticleHeadings, formatExperience, parseArticleBody } from '@h2r/domain'
@@ -148,8 +149,8 @@ export default async function ArticlePage({ params }: PageProps) {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={reviewer.photoUrl} alt={reviewer.name} width={80} height={80} className="h-20 w-20 shrink-0 rounded-full object-cover" />
             ) : (
-              <span aria-hidden="true" className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gray-100 text-2xl">
-                🔧
+              <span aria-hidden="true" className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-sky-50">
+                <Wrench className="h-8 w-8 text-sky-500" />
               </span>
             )}
             <div className="text-sm text-gray-700">

@@ -21,6 +21,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { PartyPopper } from 'lucide-react'
 import type { CreateOrderResponse } from '@h2r/types'
 import { useCart } from '@/lib/cart'
 import { WompiWidget } from './WompiWidget'
@@ -808,7 +809,8 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
               )}
               {deliveryMethod === 'HOME_DELIVERY' && selectedCity && !shippingLoading && shippingQuote && shippingQuote.freeShipping && (
                 <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs bg-green-50 px-2 py-0.5 rounded-full">
-                  🎉 ¡ENVÍO GRATIS!
+                  <PartyPopper className="w-3.5 h-3.5" aria-hidden="true" />
+                  ¡ENVÍO GRATIS!
                 </span>
               )}
               {deliveryMethod === 'HOME_DELIVERY' && selectedCity && !shippingLoading && shippingQuote && !shippingQuote.freeShipping && (

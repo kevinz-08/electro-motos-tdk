@@ -5,6 +5,7 @@
  * nada: el negocio no promete envío gratis. Es solo informativa: el cobro real
  * del flete lo decide la cotización de Vendelo, no este componente.
  */
+import { PartyPopper } from 'lucide-react'
 import { formatCOP } from '@/components/store/PriceTag'
 
 export function FreeShippingProgress({
@@ -26,7 +27,10 @@ export function FreeShippingProgress({
     <div className={`rounded-xl border px-4 py-3 ${reached ? 'border-green-200 bg-green-50' : 'border-sky-100 bg-sky-50'} ${className}`}>
       <p className={`text-sm font-medium ${reached ? 'text-green-700' : 'text-gray-700'}`}>
         {reached ? (
-          <>🎉 ¡Tu pedido tiene envío gratis!</>
+          <span className="inline-flex items-center gap-1.5">
+            <PartyPopper className="w-4 h-4" aria-hidden="true" />
+            ¡Tu pedido tiene envío gratis!
+          </span>
         ) : (
           <>
             Te faltan <strong>{formatCOP(remaining)}</strong> para el envío gratis

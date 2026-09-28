@@ -4,6 +4,7 @@
  * Sin kits que incluyan este producto, no se pinta nada.
  */
 import Link from 'next/link'
+import { Package } from 'lucide-react'
 import { getCachedKitsContainingProduct } from '@/lib/cache'
 
 export async function ProductKitMention({ productId, className = '' }: { productId: string; className?: string }) {
@@ -19,7 +20,7 @@ export async function ProductKitMention({ productId, className = '' }: { product
 
   return (
     <div className={`rounded-xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm ${className}`}>
-      <span aria-hidden="true">📦</span>{' '}
+      <Package className="mr-1.5 inline-block w-4 h-4 -mt-0.5 text-sky-500" aria-hidden="true" />
       {kits.length === 1 ? (
         <>
           Este producto está en el{' '}

@@ -5,6 +5,7 @@
  * enlace autoriza el envío a POST /reviews en NestJS.
  */
 import { useState } from 'react'
+import { HeartHandshake, Star, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 
 const MAX_COMMENT = 1000
@@ -61,7 +62,7 @@ export function ReviewForm({
   if (done) {
     return (
       <div role="status" className="text-center bg-green-50 border border-green-200 rounded-xl p-8">
-        <div className="text-4xl mb-3" aria-hidden="true">🙌</div>
+        <HeartHandshake className="mx-auto mb-3 w-10 h-10 text-green-600" aria-hidden="true" />
         <p className="font-bold text-gray-900 mb-1">¡Gracias por tu opinión!</p>
         <p className="text-sm text-gray-600">La publicaremos después de una breve revisión.</p>
       </div>
@@ -83,9 +84,12 @@ export function ReviewForm({
               onMouseEnter={() => setHover(value)}
               aria-label={`${value} ${value === 1 ? 'estrella' : 'estrellas'}`}
               aria-pressed={rating === value}
-              className="p-1 text-4xl leading-none transition-transform hover:scale-110"
+              className="p-1 transition-transform hover:scale-110"
             >
-              <span className={value <= shown ? 'text-amber-400' : 'text-gray-200'}>★</span>
+              <Star
+                className={`w-9 h-9 ${value <= shown ? 'fill-amber-400 text-amber-400' : 'fill-gray-200 text-gray-200'}`}
+                aria-hidden="true"
+              />
             </button>
           ))}
           <span className="ml-2 text-sm text-gray-500 min-w-[5rem]">{LABELS[shown]}</span>
@@ -96,8 +100,8 @@ export function ReviewForm({
         <legend className="text-sm font-semibold text-gray-900 mb-2">¿Recomendarías este producto? *</legend>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { value: true, label: '👍 Sí' },
-            { value: false, label: '👎 No' },
+            { value: true, label: 'Sí', Icon: ThumbsUp },
+            { value: false, label: 'No', Icon: ThumbsDown },
           ].map((opt) => (
             <label
               key={String(opt.value)}
@@ -112,6 +116,7 @@ export function ReviewForm({
                 checked={recommends === opt.value}
                 onChange={() => setRecommends(opt.value)}
               />
+              <opt.Icon className="w-4 h-4 text-sky-500" aria-hidden="true" />
               {opt.label}
             </label>
           ))}

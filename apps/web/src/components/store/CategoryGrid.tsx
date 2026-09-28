@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { Category } from '@h2r/domain'
+import { CircleDot, Cog, Droplet, Wrench, Zap, type LucideIcon } from 'lucide-react'
 
-const CAT_ICONS: Record<string, string> = {
-  'sistema-electrico': '⚡',
-  'repuestos': '🔧',
-  'aceites': '🛢️',
-  'llantas': '🏍️',
-  'accesorios': '🔩',
+const CAT_ICONS: Record<string, LucideIcon> = {
+  'sistema-electrico': Zap,
+  'repuestos': Wrench,
+  'aceites': Droplet,
+  'llantas': CircleDot,
+  'accesorios': Cog,
 }
 
 const CATEGORY_IMAGES: Record<string, string> = {
@@ -45,7 +46,7 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
 
         <div className="flex items-stretch justify-start lg:justify-center gap-4 overflow-x-auto lg:overflow-visible scrollbar-hide pb-2">
           {categories.map((cat) => {
-            const icon = CAT_ICONS[cat.slug]
+            const Icon = CAT_ICONS[cat.slug]
             const desc = CATEGORY_DESCRIPTIONS[cat.slug]
             const imgSrc = CATEGORY_IMAGES[cat.slug] ?? '/assets/category/default.jpg'
 
@@ -63,9 +64,9 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
                     sizes="180px"
                     className="object-contain p-3 transition-transform duration-500 group-hover:scale-110"
                   />
-                  {icon && (
-                    <span className="absolute top-1.5 right-1.5 text-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      {icon}
+                  {Icon && (
+                    <span className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <Icon className="w-5 h-5 text-sky-500" aria-hidden="true" />
                     </span>
                   )}
                 </div>

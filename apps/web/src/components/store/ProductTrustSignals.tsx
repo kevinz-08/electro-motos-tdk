@@ -5,11 +5,12 @@
  * configurado en /admin/configuracion — nunca se muestran cifras inventadas
  * (Ley 1480 / SIC).
  */
+import { Flame, Star as StarIcon } from 'lucide-react'
 
 // ── Ventas ────────────────────────────────────────────────────────────────────
 
 /**
- * "🔥 +X personas han comprado o recomiendan este producto".
+ * "+X personas han comprado o recomiendan este producto".
  * X = recomendaciones de la tienda física (admin) + ventas online reales (soldCount),
  * así el número sube solo con cada compra confirmada.
  */
@@ -20,7 +21,7 @@ export function SoldCountBadge({
   if (total <= 0 || total < minSold) return null
   return (
     <p className="inline-flex items-center gap-1.5 text-sm font-medium text-orange-600">
-      <span aria-hidden="true">🔥</span>
+      <Flame className="w-4 h-4 text-sky-500 shrink-0" aria-hidden="true" />
       +{total.toLocaleString('es-CO')} {total === 1 ? 'persona ha comprado o recomienda' : 'personas han comprado o recomiendan'} este producto
     </p>
   )
@@ -38,21 +39,16 @@ export interface RatingSummary {
 }
 
 function Star({ fill }: { fill: number }) {
-  // fill: 0..1 — porción rellena de la estrella
-  const id = `star-${Math.round(fill * 100)}`
+  // fill: 0..1 — porción rellena de la estrella (estrella gris debajo, ámbar recortada encima)
   return (
-    <svg className="w-4 h-4" viewBox="0 0 20 20" aria-hidden="true">
-      <defs>
-        <linearGradient id={id}>
-          <stop offset={`${fill * 100}%`} stopColor="#f59e0b" />
-          <stop offset={`${fill * 100}%`} stopColor="#e5e7eb" />
-        </linearGradient>
-      </defs>
-      <path
-        fill={`url(#${id})`}
-        d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.43 4.4a1 1 0 00.95.69h4.63c.97 0 1.37 1.24.59 1.81l-3.75 2.72a1 1 0 00-.36 1.12l1.43 4.4c.3.92-.76 1.69-1.54 1.12l-3.75-2.72a1 1 0 00-1.18 0l-3.75 2.72c-.78.57-1.84-.2-1.54-1.12l1.43-4.4a1 1 0 00-.36-1.12L.99 9.83c-.78-.57-.38-1.81.59-1.81h4.63a1 1 0 00.95-.69l1.43-4.4z"
-      />
-    </svg>
+    <span className="relative inline-block w-4 h-4" aria-hidden="true">
+      <StarIcon className="absolute inset-0 w-4 h-4 fill-gray-200 text-gray-200" />
+      {fill > 0 && (
+        <span className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+          <StarIcon className="w-4 h-4 fill-amber-400 text-amber-400" />
+        </span>
+      )}
+    </span>
   )
 }
 

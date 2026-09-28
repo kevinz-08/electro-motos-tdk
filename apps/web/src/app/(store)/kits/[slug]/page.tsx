@@ -14,6 +14,7 @@ import { JsonLd } from '@/components/seo/JsonLd'
 import { kitJsonLd } from '@/lib/structured-data'
 import { canonical, NOINDEX_FOLLOW } from '@/lib/seo'
 import { cloudinaryUrl } from '@/lib/cloudinary'
+import { ImagePlaceholder } from '@/components/ui/ImagePlaceholder'
 import { PriceTag } from '@/components/store/PriceTag'
 import { KitCard } from '@/components/store/KitCard'
 import { TrackEvent } from '@/components/analytics/TrackEvent'
@@ -97,7 +98,7 @@ export default async function KitPage({ params }: PageProps) {
                 {item.image ? (
                   <Image src={cloudinaryUrl(item.image, 'thumbnail')} alt={item.name} fill sizes="64px" className="object-contain p-1" />
                 ) : (
-                  <span className="flex h-full items-center justify-center text-xl text-gray-300">📦</span>
+                  <ImagePlaceholder />
                 )}
               </Link>
               <div className="min-w-0 flex-1">

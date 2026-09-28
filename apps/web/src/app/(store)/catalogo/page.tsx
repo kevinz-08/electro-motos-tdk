@@ -31,6 +31,7 @@ import { prisma } from '@/infrastructure/database/prisma-client'
 import { WHATSAPP_URL } from '@/lib/contact'
 import type { Product } from '@h2r/domain'
 import { getCachedCatalogLanding, getCachedCatalogGrid } from '@/lib/cache'
+import { SearchX } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getPaginationPages } from '@/lib/pagination'
 import { TrackEvent } from '@/components/analytics/TrackEvent'
@@ -97,30 +98,24 @@ function buildUrl(
 
 // ── Metadata de categorías (padres) ──────────────────────────────────────────
 
-const CAT: Record<string, { icon: string; desc: string }> = {
+const CAT: Record<string, { desc: string }> = {
   'sistema-electrico': {
-    icon: '',
     desc: 'Ramales, reguladores, CDI, bobinas y baterías. Todo para mantener el sistema eléctrico de tu moto en perfectas condiciones.',
   },
   'repuestos': {
-    icon: '',
     desc: 'Filtros de aire, bujías, frenos y repuestos de motor. Piezas originales y de calidad para tu moto.',
   },
   'aceites': {
-    icon: '',
     desc: 'Aceites Liquimoly y SKY de alta calidad para proteger y alargar la vida útil del motor de tu moto.',
   },
   'llantas': {
-    icon: '',
     desc: 'Llantas para asfalto, campo y todo tipo de terreno. Agarre, durabilidad y seguridad en cada kilómetro.',
   },
   'accesorios': {
-    icon: '',
     desc: 'Espejos, exploradores, bombillas LED, equipamiento y más accesorios para personalizar tu moto.',
   },
 }
 
-const catIcon = (slug: string) => CAT[slug]?.icon ?? '📦'
 const catDesc = (slug: string) => CAT[slug]?.desc ?? 'Repuestos de alta calidad para tu moto.'
 
 // WebP en vez de JPG (Fase 1 del proyecto SEO): los cinco banners bajan de
@@ -399,7 +394,7 @@ function LandingView({
                   <div>
                     <h3 className="text-xl font-black c-text">Productos Populares</h3>
                     <p className="text-xs c-text-3 mt-0.5">
-                      {catIcon(cat.slug)} {cat.name}
+                      {cat.name}
                     </p>
                   </div>
                   <Link
@@ -531,7 +526,7 @@ function GridView({
           </nav>
           <h1 className="text-2xl md:text-3xl font-black text-gray-900">
             {activeCat
-              ? <>{catIcon(activeCat.slug)} {activeCat.name}</>
+              ? activeCat.name
               : params.search
                 ? <>Resultados para &ldquo;{params.search}&rdquo;</>
                 : 'Todo el catálogo'}
@@ -639,7 +634,7 @@ function GridView({
         {/* ── Grid de productos ── */}
         {items.length === 0 ? (
           <EmptyState
-            icon="🔍"
+            icon={SearchX}
             title="Sin resultados"
             description="No encontramos productos con esos filtros."
             action={{ label: 'Ver todo el catálogo', href: '/catalogo' }}

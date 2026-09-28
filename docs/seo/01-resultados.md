@@ -308,7 +308,7 @@ foto y el render delay baja de 2.304 ms a 141 ms. Detalle en `HISTORIAL_TECNICO.
 
 ---
 
-**Búsqueda de marca "tienda h2r" (2026-09-28).** Google mostraba `/sobre-nosotros` en vez de la home, porque la home ponía la marca al final del título, no la nombraba en la descripción y no tenía `<h1>`. Corregido: título "Tienda H2R | Repuestos para moto con envío a toda Colombia", `<h1>` visible bajo el hero, pregunta "¿Qué es Tienda H2R?" en el FAQ, y `/sobre-nosotros` con título y descripción de "quiénes somos". `seo:check` lo vigila (44 comprobaciones). Tras desplegar hay que pedir la reindexación en Search Console (H-59). Detalle en `HISTORIAL_TECNICO.md` §186.
+**Búsqueda de marca "tienda h2r" (2026-09-28).** Google mostraba `/sobre-nosotros` en vez de la home, porque la home ponía la marca al final del título, no la nombraba en la descripción y no tenía `<h1>`. Corregido: título "Tienda H2R | Repuestos para moto con envío a toda Colombia", `<h1>` visible bajo el hero, pregunta "¿Qué es Tienda H2R?" en el FAQ, y `/sobre-nosotros` con título y descripción de "quiénes somos". `seo:check` lo vigila (44 comprobaciones). Tras desplegar hay que pedir la reindexación en Search Console (H-59). Detalle en `HISTORIAL_TECNICO.md` §188.
 
 ---
 

@@ -60,6 +60,8 @@ la línea base registrada** (la primera medición completa): sin ella no hay for
 
 ## Registro
 
+Plantilla lista para abrir en Excel o Google Sheets: [`registro-prompts.csv`](./registro-prompts.csv) (120 filas: 30 prompts × 4 motores, solo hay que llenar las columnas de resultado). Cada mes se duplica la hoja y se cambia la columna `mes`.
+
 Una fila por prompt y motor. Posición: `—` si no menciona a H2R; `1`, `2`… si aparece en una lista; `texto` si la
 menciona sin lista.
 

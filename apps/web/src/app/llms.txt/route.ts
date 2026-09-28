@@ -31,7 +31,11 @@ export async function GET() {
     }),
   ])
   const { store, shipping } = facts
-  const payments = ['PSE', 'Nequi', 'tarjetas de crédito y débito (Wompi)', ...(facts.cashOnDelivery ? ['pago contra entrega'] : [])]
+  const payments = [
+    'PSE', 'Nequi', 'tarjetas de crédito y débito (Wompi)',
+    'Addi (crédito en cuotas, se coordina con un asesor por WhatsApp)',
+    ...(facts.cashOnDelivery ? ['pago contra entrega'] : []),
+  ]
 
   const lines: string[] = [
     `# ${store.name}`,
@@ -40,7 +44,7 @@ export async function GET() {
     '',
     `- Razón social: ${store.legalName} · NIT ${store.taxId}`,
     `- Tienda física y recogida de pedidos: ${store.address.street}, ${store.address.locality} (${store.address.region}, Colombia)`,
-    `- Envíos: a toda Colombia, entrega estimada de ${shipping.minDays} a ${shipping.maxDays} días hábiles${shipping.freeShippingFromCents > 0 ? `; envío gratis desde ${cop(shipping.freeShippingFromCents)}` : ''}`,
+    `- Envíos: a toda Colombia; entrega en ${shipping.local.min} a ${shipping.local.max} días hábiles en Bucaramanga y su área metropolitana y de ${shipping.minDays} a ${shipping.maxDays} días hábiles en el resto del país${shipping.freeShippingFromCents > 0 ? `; envío gratis desde ${cop(shipping.freeShippingFromCents)}` : ''}`,
     `- Medios de pago: ${payments.join(', ')}`,
     `- Garantía: hasta ${WARRANTY_MONTHS} meses contra defectos de fábrica · cambios dentro de ${RETURNS_DAYS} días calendario`,
     `- Contacto: ${store.telephone} (WhatsApp) · ${store.email}`,

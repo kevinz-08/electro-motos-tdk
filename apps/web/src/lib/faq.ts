@@ -42,7 +42,7 @@ export function buildFaqItems(freeShippingThreshold: number): FaqItem[] {
   },
   {
     q: '¿Cómo puedo pagar?',
-    a: 'Aceptamos pagos con Wompi (tarjeta de crédito o débito, Nequi, PSE o Bancolombia) y Addi (crédito en cuotas sin tarjeta).',
+    a: 'Aceptamos pagos con Wompi (tarjeta de crédito o débito, Nequi, PSE o Bancolombia) y Addi (crédito en cuotas sin tarjeta, que se coordina con un asesor por WhatsApp).',
   },
   {
     q: '¿Tienen garantía los repuestos?',

@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const facts = await getCachedStoreFacts()
   return {
     title: TITLE,
-    description: `${facts.activeProducts} repuestos para moto, ${facts.verifiedFitments} compatibilidades verificadas con fuente, tienda física en Bucaramanga y envíos a toda Colombia en ${facts.shipping.minDays} a ${facts.shipping.maxDays} días hábiles.`,
+    description: `${facts.activeProducts} repuestos para moto, ${facts.verifiedFitments} compatibilidades verificadas con fuente, tienda física en Bucaramanga y envíos a toda Colombia (${facts.shipping.local.min} a ${facts.shipping.local.max} días hábiles en Bucaramanga, ${facts.shipping.minDays} a ${facts.shipping.maxDays} en el resto del país).`,
     alternates: canonical('/por-que-comprar-en-h2r'),
     robots: { index: true, follow: true },
   }
@@ -39,7 +39,7 @@ export default async function WhyBuyPage() {
     { value: facts.activeProducts, label: 'repuestos y accesorios en catálogo' },
     { value: facts.verifiedFitments, label: 'compatibilidades repuesto–moto verificadas con fuente' },
     { value: facts.modelsWithHub, label: 'modelos de moto con página de repuestos compatibles' },
-    { value: `${shipping.minDays}–${shipping.maxDays}`, label: 'días hábiles de entrega a toda Colombia' },
+    { value: `${shipping.minDays}–${shipping.maxDays}`, label: `días hábiles de entrega al resto de Colombia (${shipping.local.min}–${shipping.local.max} en Bucaramanga)` },
   ]
 
   return (
@@ -100,7 +100,8 @@ export default async function WhyBuyPage() {
         <section className="mt-10" aria-labelledby="envios">
           <h2 id="envios" className="text-2xl font-bold text-gray-900">¿Cuánto tarda y cuánto cuesta el envío?</h2>
           <p className="mt-3 leading-relaxed text-gray-700">
-            Enviamos a toda Colombia con entrega estimada de {shipping.minDays} a {shipping.maxDays} días hábiles; los pedidos
+            Enviamos a toda Colombia: en Bucaramanga y su área metropolitana la entrega tarda de {shipping.local.min} a{' '}
+            {shipping.local.max} días hábiles, y en el resto del país de {shipping.minDays} a {shipping.maxDays}. Los pedidos
             confirmados antes de las {shipping.cutoffHour}:00 (hora de Colombia) salen el mismo día hábil.
             {shipping.freeShippingFromCents > 0 && ` El envío es gratis desde ${formatCOP(shipping.freeShippingFromCents)}.`} El costo
             exacto para tu ciudad lo ves en la ficha del producto antes de comprar. Detalle en la{' '}
@@ -112,7 +113,8 @@ export default async function WhyBuyPage() {
           <h2 id="pagos" className="text-2xl font-bold text-gray-900">¿Cómo puedo pagar?</h2>
           <p className="mt-3 leading-relaxed text-gray-700">
             Con PSE, Nequi o tarjeta de crédito o débito a través de Wompi
-            {facts.cashOnDelivery ? ', o contra entrega' : ''}. El pago en línea está protegido por la pasarela; H2R no almacena los
+            {facts.cashOnDelivery ? ', o contra entrega' : ''}. También puedes pagar a cuotas con Addi, que se coordina con un
+            asesor por WhatsApp. El pago en línea está protegido por la pasarela; H2R no almacena los
             datos de tu tarjeta.
           </p>
         </section>

@@ -9,7 +9,7 @@
  * en docs/seo/HUMAN_TASKS.md (H-15, H-17).
  */
 import { prisma } from '@/infrastructure/database/prisma-client'
-import { parseCroSettings } from '@h2r/domain'
+import { LOCAL_DELIVERY_DAYS, parseCroSettings } from '@h2r/domain'
 import { ORGANIZATION } from '@/lib/structured-data'
 
 /** Confirmados por el negocio: H-17 (garantía) y H-15 (cambios). */
@@ -25,7 +25,8 @@ export interface StoreFacts {
   brandsWithHub: number
   verifiedFitments: number
   reviews: { count: number; average: number | null }
-  shipping: { minDays: number; maxDays: number; cutoffHour: number; freeShippingFromCents: number }
+  /** `minDays`/`maxDays`: resto de Colombia; `local`: Bucaramanga y área metropolitana (H-60). */
+  shipping: { minDays: number; maxDays: number; local: { min: number; max: number }; cutoffHour: number; freeShippingFromCents: number }
   cashOnDelivery: boolean
   publishedGuides: number
   store: typeof ORGANIZATION
@@ -66,6 +67,7 @@ export async function findStoreFacts(): Promise<StoreFacts> {
     shipping: {
       minDays: cro.shippingEtaMinDays,
       maxDays: cro.shippingEtaMaxDays,
+      local: { min: LOCAL_DELIVERY_DAYS.min, max: LOCAL_DELIVERY_DAYS.max },
       cutoffHour: cro.shippingCutoffHour,
       freeShippingFromCents: cro.freeShippingThreshold,
     },

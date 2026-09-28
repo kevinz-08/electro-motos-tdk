@@ -37,8 +37,8 @@ cambio de tarifa no obliga a tocar el código.
    ya tiene Search Console verificado (H-06).
 3. **Información del negocio:** nombre "H2R Online Store", dirección y teléfono **exactamente** como en
    `geo/perfiles-marca.md`.
-4. **Envíos** (configuración de la cuenta): Colombia; tiempo de manipulación 0–1 día; tiempo de tránsito de 2 a 5 días
-   hábiles; costo según la tabla real de Vendelo o una tarifa fija aproximada; **envío gratis desde $500.000**.
+4. **Envíos** (configuración de la cuenta): Colombia; tiempo de manipulación 0–1 día; tiempo de tránsito de **3 a 7 días
+   hábiles** (resto del país; confirmado en H-60 — si Merchant Center permite una región para Santander/Bucaramanga, 1 a 2 días); costo según la tabla real de Vendelo o una tarifa fija aproximada; **envío gratis desde $500.000**.
 5. **Devoluciones:** 5 días calendario, según `/legal/politica-de-cambios`; el costo del envío de devolución "se evalúa
    según el caso" (H-15), así que se declara sin costo fijo o se deja en blanco.
 6. **Impuestos:** los precios de H2R ya incluyen IVA. Colombia no pide configurar impuestos aparte [VERIFICAR en la

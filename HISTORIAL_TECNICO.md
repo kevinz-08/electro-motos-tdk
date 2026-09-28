@@ -33,6 +33,22 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 186. PDP y tarjeta de producto — badge azul y bloque de confianza a la izquierda
+
+**Requerimiento:** unificar el color del badge de descuento con el de la PDP, quitar el recuadro "PAGO SEGURO · Con Wompi…" y llevar "Medios de pago / Garantía / H2R Online Store" a la columna izquierda con iconos azules en lugar de emojis.
+
+**Hecho:**
+
+- `ProductCard`: el badge `-X%` sobre la imagen pasa de `bg-red-600` a `bg-sky-500`, el mismo azul de `PriceTag`.
+- `SecurePaymentBadge` eliminado de `ProductTrustSignals.tsx` y de la ficha: repetía los medios de pago que ya muestra `ProductTrustBlock`.
+- `ProductTrustBlock` se mueve de la columna derecha (bajo el cotizador de envío) a la izquierda, bajo los acordeones de envíos y cambios. En móvil queda tras la galería y los acordeones.
+- Emojis 💳 🛡️ 🏪 sustituidos por `CreditCard`, `ShieldCheck` y `Store` de `lucide-react` en `sky-500`.
+- README §22.1, §22.3 y la sección de la Fase 4 actualizados.
+
+**Verificación:** `type-check` de web limpio y `eslint` sin errores en los archivos tocados.
+
+---
+
 ## 185. Fase 6 — material fuera del sitio y cierre documental de las fases 6 y 7
 
 **Hecho:** `docs/seo/geo/` con `README.md`, `guiones-video.md` (10 guiones sobre productos y motos con compatibilidad verificada; el primero apunta a la búsqueda "cdi fz 2.0" que ya registra Search Console), `correos.md` (medios con el Índice de Precios, blogs de listas, talleres aliados, marcas proveedoras), `comunidades.md` (reglas, tono, respuestas modelo, identificarse siempre), `perfiles-marca.md` (datos canónicos iguales al JSON-LD, checklist GBP/Bing Places/Apple/Merchant/directorios; Wikidata descartado hasta tener prensa), `prompts.md` (30 prompts × 4 motores, registro y resumen mensual) y `medicion-trafico-ia.md` (dimensiones personalizadas y regex de GA4). Entregables `docs/seo/06-geo.md` y `docs/seo/07-feed.md` (con los pasos para configurar Merchant Center). ROADMAP y HUMAN_TASKS al día; nuevas H-57 (registrar el feed) y H-58 (dimensiones de GA4); H-18 y H-29–H-32 apuntan a las herramientas y archivos nuevos.

@@ -1443,7 +1443,7 @@ Se implementan por fases; cada fase es independiente salvo la 5 (depende de la 4
 - **Sync Optimun:** si el ERP sube el precio a un valor ≥ `compareAtPrice`, `SyncStock` limpia el
   ancla (`compareAtPrice = null`) en la misma actualización — el `CHECK` nunca rompe la sincronización.
 - **UI:** componente `PriceTag` (precio tachado sutil + precio real grande en negrita + badge `-X%` en el azul de la marca, `sky-500`)
-  en tarjeta de catálogo, PDP, carrito y checkout. El JSON-LD `Offer` publica solo `price`.
+  en tarjeta de catálogo, PDP, carrito y checkout. El badge superpuesto en la imagen de `ProductCard` usa el mismo `sky-500`. El JSON-LD `Offer` publica solo `price`.
 - **Cupones:** el descuento siempre se calcula sobre `price`, nunca sobre `compareAtPrice`.
 
 ### 22.2 Hero Banner visual (mobile-first)
@@ -1469,7 +1469,6 @@ elimina columnas usadas por la versión anterior — desplegar web y API junto c
 |---|---|---|
 | "🔥 +X personas han comprado o recomiendan este producto" | `Product.storeRecommendations` (clientes de la tienda física, lo ingresa el admin en el formulario de producto) + `Product.soldCount` (ventas online: se incrementa al confirmar el pago; COD al crear) | `total ≥ SOCIAL_PROOF_MIN_SOLD` (Settings, default 5) |
 | "¡Solo quedan X unidades en stock!" | `Product.stock` | `0 < stock < LOW_STOCK_URGENCY_THRESHOLD` (default 5) |
-| Badge "Pago seguro" | estático (Wompi / Mercado Pago) | siempre, bajo el botón de compra |
 | Línea de tiempo **Pedido → Enviado → Entregado** — bajo los botones de compra (carrito y Addi) | `estimateDeliveryWindow()` (dominio) — días hábiles, festivos colombianos (Ley Emiliani) y hora de corte | siempre que haya stock. Settings: `SHIPPING_ETA_MIN_DAYS` (2), `SHIPPING_ETA_MAX_DAYS` (5), `SHIPPING_CUTOFF_HOUR` (14) |
 | Estrellas + "X% de clientes recomiendan este producto" | `ProductReview` aprobadas | `reseñas ≥ REVIEWS_MIN_COUNT` (default 3) |
 
@@ -1924,7 +1923,9 @@ Detalle en `docs/seo/04-conversion.md`. **Sin migraciones de base de datos** en 
 - **Ficha de producto:** `StickyBuyBar` (barra fija móvil, aparece al pasar el bloque de compra),
   `ProductShippingEstimate` (cotizador real de Vendelo por ciudad, comparte la ciudad del carrito),
   `ConfirmCompatibilityButton` (WhatsApp con producto, SKU y moto seleccionada) y `ProductTrustBlock`
-  (medios de pago, garantía, razón social y NIT desde la misma constante del JSON-LD).
+  (medios de pago, garantía, razón social y NIT desde la misma constante del JSON-LD). `ProductTrustBlock`
+  vive en la columna izquierda, bajo los acordeones de envíos y cambios, con iconos `lucide-react` en `sky-500`
+  (sin emojis). El antiguo `SecurePaymentBadge` ("PAGO SEGURO · Con Wompi…") se eliminó: repetía los medios de pago.
 
 **Segunda entrega (2026-09-23):**
 

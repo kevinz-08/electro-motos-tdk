@@ -33,6 +33,47 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 189. Tiempos de envío y Addi unificados en todo el sitio (H-60) y plantilla de medición de prompts (H-32)
+
+**Requerimiento:** el negocio confirmó el 2026-09-28 que la entrega real es **1 a 2 días hábiles en Bucaramanga y área metropolitana y 3 a 7 en el resto de Colombia**, y que **Addi sigue activo**, coordinado con un asesor por WhatsApp. El FAQ ya lo decía, pero `Settings` (por defecto 2–5), la ficha de producto, su JSON-LD de envío, `/llms.txt` y "Por qué comprar en H2R" decían 2 a 5.
+
+**Hecho:**
+
+- Dominio `shared/croSettings.ts`: `SHIPPING_ETA_MIN/MAX_DAYS` por defecto pasan a 3 y 7. Es el peor caso nacional: una estimación única no debe prometer de más, y el valor sigue siendo editable en `/admin/configuracion`. Nuevo `LOCAL_DELIVERY_DAYS` (1–2, Bucaramanga).
+- `lib/store-facts.ts` expone `shipping.local`. `/llms.txt` y `/por-que-comprar-en-h2r` nombran los dos plazos y Addi. El FAQ explica que Addi se coordina por WhatsApp.
+- `docs/seo/07-feed.md`: tiempo de tránsito de 3 a 7 días en la configuración de Merchant Center.
+- `docs/seo/geo/registro-prompts.csv`: plantilla con las 120 filas (30 prompts × 4 motores) para H-32.
+
+**Verificación:** 411 tests de dominio y 242 de API en verde; `type-check` y `lint` limpios en los archivos tocados.
+
+**Archivos:** `packages/domain/src/shared/croSettings.ts`, `apps/web/src/lib/{store-facts,faq}.ts`, `apps/web/src/app/llms.txt/route.ts`, `apps/web/src/app/(store)/por-que-comprar-en-h2r/page.tsx`, `docs/seo/{07-feed,HUMAN_TASKS}.md`, `docs/seo/geo/{prompts.md,registro-prompts.csv}`.
+
+---
+
+## 188. La home para la búsqueda de marca "tienda h2r"
+
+**Requerimiento:** al buscar "tienda h2r", Google mostraba `/sobre-nosotros` en vez de la home. Plan aprobado el 2026-09-28 (textos de título, `<h1>` y `/sobre-nosotros` confirmados por el negocio).
+
+**Causa:** `/sobre-nosotros` era la mejor coincidencia. Su descripción empezaba con "H2R Online Store: tienda de repuestos…". La home ponía la marca al final del título, no la nombraba en la descripción y no tenía ningún `<h1>`, porque el hero es un carrusel de imágenes.
+
+**Hecho:**
+
+- `app/(store)/page.tsx`: título `{ absolute: 'Tienda H2R | Repuestos para moto con envío a toda Colombia' }`, descripción "Tienda H2R (H2R Online Store): …" y Open Graph con los mismos textos.
+- `components/store/HomeIntro.tsx` (nuevo) en `home.tsx`, debajo del carrusel: `<h1>` "H2R Online Store: tienda de repuestos para moto", subtítulo y enlace a `/repuestos`.
+- `lib/faq.ts`: primera pregunta "¿Qué es Tienda H2R?" (visible y en `FAQPage`), respondida con los datos de `ORGANIZATION`.
+- `sobre-nosotros/page.tsx`: título "Quiénes somos y cómo trabajamos | H2R Online Store" y descripción "Quiénes somos: …".
+- `scripts/seo-check.mjs`: comprueba que la home tenga exactamente un `<h1>` y que su título empiece por "Tienda H2R". Se corrigió también un choque de nombre de variable (`home` ya existía más abajo).
+
+**Verificación:** contra producción (sin el cambio), `seo:check` falla justo esas dos comprobaciones (42/44). Contra el build local: 44/44, `seo:schema` 47/47. Lighthouse móvil de la home local: el LCP sigue siendo el banner del hero (no el `<h1>`), SEO 100, CLS 0.
+
+**Hallazgo, sin cambiar (decisión del negocio):** el FAQ de la home dice "1 a 2 días hábiles en Bucaramanga y 3 a 7 para el resto de Colombia" y menciona Addi. En cambio, `Settings`, `/llms.txt` y "Por qué comprar en H2R" dicen 2 a 5 días hábiles. Esta contradicción resta confianza a buscadores y motores generativos.
+
+**Después de desplegar:** solicitar en Search Console la indexación de `/` y `/sobre-nosotros`, y medir en 2–4 semanas qué página recibe las impresiones de "tienda h2r".
+
+**Archivos:** `apps/web/src/app/(store)/{page,home}.tsx`, `apps/web/src/components/store/HomeIntro.tsx`, `apps/web/src/lib/faq.ts`, `apps/web/src/app/(store)/sobre-nosotros/page.tsx`, `scripts/seo-check.mjs`, `docs/seo/01-resultados.md`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
 ## 187. Iconos lucide en lugar de emojis en toda la tienda
 
 **Requerimiento:** sustituir los emojis de la página por iconos para mantener una línea de diseño. Decisiones del negocio: azul por defecto y color según significado solo en éxito y error; el panel admin no se toca; las estrellas también pasan a lucide.
@@ -67,49 +108,6 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 - README §22.1, §22.3 y la sección de la Fase 4 actualizados.
 
 **Verificación:** `type-check` de web limpio y `eslint` sin errores en los archivos tocados.
-
----
-
-## 187. Tiempos de envío y Addi unificados en todo el sitio (H-60) y plantilla de medición de prompts (H-32)
-
-**Requerimiento:** el negocio confirmó el 2026-09-28 que la entrega real es **1 a 2 días hábiles en Bucaramanga y área metropolitana y 3 a 7 en el resto de Colombia**, y que **Addi sigue activo**, coordinado con un asesor por WhatsApp. El FAQ ya lo decía, pero `Settings` (por defecto 2–5), la ficha de producto, su JSON-LD de envío, `/llms.txt` y "Por qué comprar en H2R" decían 2 a 5.
-
-**Hecho:**
-
-- Dominio `shared/croSettings.ts`: `SHIPPING_ETA_MIN/MAX_DAYS` por defecto pasan a 3 y 7. Es el peor caso nacional: una estimación única no debe prometer de más, y el valor sigue siendo editable en `/admin/configuracion`. Nuevo `LOCAL_DELIVERY_DAYS` (1–2, Bucaramanga).
-- `lib/store-facts.ts` expone `shipping.local`. `/llms.txt` y `/por-que-comprar-en-h2r` nombran los dos plazos y Addi. El FAQ explica que Addi se coordina por WhatsApp.
-- `docs/seo/07-feed.md`: tiempo de tránsito de 3 a 7 días en la configuración de Merchant Center.
-- `docs/seo/geo/registro-prompts.csv`: plantilla con las 120 filas (30 prompts × 4 motores) para H-32.
-
-**Nota:** en la rama había cambios de otra sesión sin commitear (iconos lucide, 16 archivos y el README). No se tocaron ni se incluyeron en este commit; la entrada del README de este cambio queda pendiente de agregarse cuando esos cambios se commiteen.
-
-**Verificación:** 411 tests de dominio y 242 de API en verde; `type-check` y `lint` limpios en los archivos tocados.
-
-**Archivos:** `packages/domain/src/shared/croSettings.ts`, `apps/web/src/lib/{store-facts,faq}.ts`, `apps/web/src/app/llms.txt/route.ts`, `apps/web/src/app/(store)/por-que-comprar-en-h2r/page.tsx`, `docs/seo/{07-feed,HUMAN_TASKS}.md`, `docs/seo/geo/{prompts.md,registro-prompts.csv}`.
-
----
-
-## 186. La home para la búsqueda de marca "tienda h2r"
-
-**Requerimiento:** al buscar "tienda h2r", Google mostraba `/sobre-nosotros` en vez de la home. Plan aprobado el 2026-09-28 (textos de título, `<h1>` y `/sobre-nosotros` confirmados por el negocio).
-
-**Causa:** `/sobre-nosotros` era la mejor coincidencia. Su descripción empezaba con "H2R Online Store: tienda de repuestos…". La home ponía la marca al final del título, no la nombraba en la descripción y no tenía ningún `<h1>`, porque el hero es un carrusel de imágenes.
-
-**Hecho:**
-
-- `app/(store)/page.tsx`: título `{ absolute: 'Tienda H2R | Repuestos para moto con envío a toda Colombia' }`, descripción "Tienda H2R (H2R Online Store): …" y Open Graph con los mismos textos.
-- `components/store/HomeIntro.tsx` (nuevo) en `home.tsx`, debajo del carrusel: `<h1>` "H2R Online Store: tienda de repuestos para moto", subtítulo y enlace a `/repuestos`.
-- `lib/faq.ts`: primera pregunta "¿Qué es Tienda H2R?" (visible y en `FAQPage`), respondida con los datos de `ORGANIZATION`.
-- `sobre-nosotros/page.tsx`: título "Quiénes somos y cómo trabajamos | H2R Online Store" y descripción "Quiénes somos: …".
-- `scripts/seo-check.mjs`: comprueba que la home tenga exactamente un `<h1>` y que su título empiece por "Tienda H2R". Se corrigió también un choque de nombre de variable (`home` ya existía más abajo).
-
-**Verificación:** contra producción (sin el cambio), `seo:check` falla justo esas dos comprobaciones (42/44). Contra el build local: 44/44, `seo:schema` 47/47. Lighthouse móvil de la home local: el LCP sigue siendo el banner del hero (no el `<h1>`), SEO 100, CLS 0.
-
-**Hallazgo, sin cambiar (decisión del negocio):** el FAQ de la home dice "1 a 2 días hábiles en Bucaramanga y 3 a 7 para el resto de Colombia" y menciona Addi. En cambio, `Settings`, `/llms.txt` y "Por qué comprar en H2R" dicen 2 a 5 días hábiles. Esta contradicción resta confianza a buscadores y motores generativos.
-
-**Después de desplegar:** solicitar en Search Console la indexación de `/` y `/sobre-nosotros`, y medir en 2–4 semanas qué página recibe las impresiones de "tienda h2r".
-
-**Archivos:** `apps/web/src/app/(store)/{page,home}.tsx`, `apps/web/src/components/store/HomeIntro.tsx`, `apps/web/src/lib/faq.ts`, `apps/web/src/app/(store)/sobre-nosotros/page.tsx`, `scripts/seo-check.mjs`, `docs/seo/01-resultados.md`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
 
 ---
 

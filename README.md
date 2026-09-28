@@ -2067,3 +2067,5 @@ Orden de trabajo: (1) datos de identificación de cada repuesto (desbloquea H-18
 - `seo:check` comprueba que la home tenga exactamente un `<h1>` y que su título empiece por la marca.
 
 Después de desplegar: pedir en Search Console la reindexación de `/` y `/sobre-nosotros`, y seguir en 2–4 semanas qué página recibe las impresiones de "tienda h2r". Google puede tardar en cambiarla y no se puede garantizar el resultado.
+
+**Tiempos de envío y Addi (H-60, confirmado por el negocio el 2026-09-28).** El dato real es **1 a 2 días hábiles en Bucaramanga y su área metropolitana y 3 a 7 en el resto de Colombia**. La estimación general del sitio (ficha de producto, JSON-LD de envío, `/llms.txt`, "Por qué comprar en H2R") usa 3–7, el peor caso: son los valores por defecto de `SHIPPING_ETA_MIN/MAX_DAYS`, editables en `/admin/configuracion`. Los textos nombran también el plazo de Bucaramanga (`LOCAL_DELIVERY_DAYS` en el dominio). **Addi sigue activo** y se coordina con un asesor por WhatsApp; así lo dicen el FAQ, `/llms.txt` y "Por qué comprar".

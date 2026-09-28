@@ -2,7 +2,7 @@
  * Bloque de confianza de la ficha (Fase 4, ítem 4). Server Component.
  *
  * Tres datos, todos ya sostenidos en otra parte del sitio:
- *   - Medios de pago: los mismos de `SecurePaymentBadge` y el checkout.
+ *   - Medios de pago: los mismos del checkout.
  *   - Garantía: si el producto tiene `warrantyMonths` cargado se muestra ese
  *     plazo; si no, el general confirmado por el negocio: "hasta 6 meses"
  *     (H-17), el mismo que dicen el FAQ, el footer y la home.
@@ -10,10 +10,13 @@
  *     alimenta el JSON-LD `Organization`, para que nunca diverjan.
  */
 import Link from 'next/link'
+import { CreditCard, ShieldCheck, Store } from 'lucide-react'
 import { ORGANIZATION } from '@/lib/structured-data'
 
 /** Garantía general confirmada por el negocio (H-17): "hasta 6 meses". */
 const DEFAULT_WARRANTY_MONTHS = 6
+
+const ICON_CLASS = 'w-5 h-5 text-sky-500 shrink-0'
 
 export function ProductTrustBlock({
   warrantyMonths,
@@ -28,14 +31,14 @@ export function ProductTrustBlock({
       className={`rounded-xl border border-gray-200 divide-y divide-gray-100 text-sm ${className}`}
     >
       <div className="flex items-start gap-3 px-4 py-3">
-        <span aria-hidden="true">💳</span>
+        <CreditCard className={ICON_CLASS} aria-hidden="true" />
         <p className="text-gray-600">
           <strong className="text-gray-800">Medios de pago:</strong> tarjeta de crédito y débito, PSE, Nequi,
           Addi y pago contra entrega.
         </p>
       </div>
       <div className="flex items-start gap-3 px-4 py-3">
-        <span aria-hidden="true">🛡️</span>
+        <ShieldCheck className={ICON_CLASS} aria-hidden="true" />
         <p className="text-gray-600">
           <strong className="text-gray-800">Garantía:</strong>{' '}
           {warrantyMonths && warrantyMonths > 0
@@ -47,7 +50,7 @@ export function ProductTrustBlock({
         </p>
       </div>
       <div className="flex items-start gap-3 px-4 py-3">
-        <span aria-hidden="true">🏪</span>
+        <Store className={ICON_CLASS} aria-hidden="true" />
         <p className="text-gray-600">
           <strong className="text-gray-800">{ORGANIZATION.legalName}</strong> · NIT {ORGANIZATION.taxId} ·{' '}
           {ORGANIZATION.address.locality}, {ORGANIZATION.address.region}

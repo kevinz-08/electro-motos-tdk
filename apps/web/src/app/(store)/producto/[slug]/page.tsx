@@ -77,7 +77,6 @@ import { DeliveryEstimate } from '@/components/store/DeliveryEstimate'
 import {
   SoldCountBadge,
   StockStatus,
-  SecurePaymentBadge,
   RatingSummaryRow,
   StarRating,
 } from '@/components/store/ProductTrustSignals'
@@ -348,6 +347,9 @@ export default async function ProductPage({ params }: PageProps) {
               </div>
             </details>
           </div>
+
+          {/* Medios de pago, garantía y datos de la empresa — bajo los acordeones */}
+          <ProductTrustBlock warrantyMonths={freshProduct?.warrantyMonths ?? null} className="mt-4" />
         </div>
 
         {/* Detalle */}
@@ -435,10 +437,6 @@ export default async function ProductPage({ params }: PageProps) {
               className="mt-4"
             />
           )}
-
-          <SecurePaymentBadge />
-
-          <ProductTrustBlock warrantyMonths={freshProduct?.warrantyMonths ?? null} className="mt-3" />
 
           {/* Venta cruzada: sugerencias cargadas por el admin (no se muestra si no hay ninguna visible) */}
           <CrossSellBlock productId={product.id} className="mt-5" />

@@ -117,6 +117,51 @@ export function comparePriceIndexes(current: PriceIndexData, previous: PriceInde
   return changes
 }
 
+// ── Subcategorías que son marcas (H-55, opción C) ────────────────────────────
+
+/**
+ * En el catálogo algunas subcategorías son marcas (Liquimoly bajo Aceites, SKY
+ * bajo Llantas…). El índice mide tipos de repuesto, no marcas: una subcategoría
+ * de marca se suma a su categoría padre. La lista vive en `Settings` para que el
+ * administrador la edite sin migraciones; sin ajuste guardado se usa esta.
+ */
+export const BRAND_CATEGORIES_SETTING_KEY = 'BRAND_CATEGORY_SLUGS'
+export const DEFAULT_BRAND_CATEGORY_SLUGS: readonly string[] = ['liquimoly', 'castrol', 'sky', 'kontrol', 'dunlop']
+
+/** Lee el valor guardado (JSON con un arreglo de slugs). Ausente o dañado → la lista por defecto. */
+export function parseBrandCategorySlugs(value: string | null | undefined): string[] {
+  if (value == null) return [...DEFAULT_BRAND_CATEGORY_SLUGS]
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (Array.isArray(parsed) && parsed.every((s) => typeof s === 'string')) return parsed
+  } catch {
+    /* valor dañado: se usa la lista por defecto */
+  }
+  return [...DEFAULT_BRAND_CATEGORY_SLUGS]
+}
+
+/** Categoría tal como se lee del catálogo, con su padre. */
+export interface CatalogCategoryRef {
+  slug: string
+  name: string
+  parent: { slug: string; name: string } | null
+}
+
+/**
+ * Grupo del índice al que pertenece un producto: su categoría, o la categoría
+ * padre si la suya es una marca. Una marca sin padre se queda como está (no hay
+ * a dónde sumarla).
+ */
+export function toPriceIndexGroup(
+  category: CatalogCategoryRef,
+  brandSlugs: ReadonlySet<string>,
+): Pick<PriceIndexProductInput, 'categorySlug' | 'categoryName' | 'parentName'> {
+  if (category.parent && brandSlugs.has(category.slug)) {
+    return { categorySlug: category.parent.slug, categoryName: category.parent.name, parentName: null }
+  }
+  return { categorySlug: category.slug, categoryName: category.name, parentName: category.parent?.name ?? null }
+}
+
 /** Fecha de corte (YYYY-MM-DD) en Colombia para un instante dado. */
 export function priceIndexCutoffDate(now: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)

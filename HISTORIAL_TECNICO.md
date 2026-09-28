@@ -33,6 +33,24 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 181. Índice de Precios: subcategorías de marca agrupadas en su categoría padre (H-55, opción C)
+
+**Requerimiento:** el negocio eligió la opción C de H-55 (2026-09-28): que el índice no publique marcas (Liquimoly, Castrol, SKY, Kontrol, Dunlop) como si fueran tipos de repuesto, sin reorganizar el catálogo.
+
+**Decisión técnica:** el dato "es una marca" se guarda en `Settings` (`BRAND_CATEGORY_SLUGS`, JSON con slugs) y no como columna nueva de `Category`. Una columna en una tabla existente habría roto todas las consultas de categorías (catálogo, menú, sitemap) en producción mientras la migración no estuviera aplicada, y también el build. Sin ajuste guardado se usan las cinco marcas actuales, así que funciona desde el primer despliegue. De paso se corrigió un error: SKY es marca de llantas (bajo Llantas), no de aceite; estaba mal en el borrador de aceite y en H-55.
+
+**Hecho:**
+
+- Dominio (`entities/PriceIndex.ts`): `BRAND_CATEGORIES_SETTING_KEY`, `DEFAULT_BRAND_CATEGORY_SLUGS`, `parseBrandCategorySlugs` (ausente o dañado → por defecto), `toPriceIndexGroup` (marca con padre → grupo del padre). 5 tests nuevos.
+- API: el corte del índice aplica la agrupación; `GET /admin/categories` devuelve `isBrand`; nuevo `PUT /admin/categories/:id/brand` (solo subcategorías; edita el ajuste sin duplicados). 4 tests nuevos.
+- Web: casilla "Es una marca" en el formulario de subcategorías y etiqueta "Marca" en la tabla de `/admin/categorias`; la metodología pública del índice explica la regla.
+
+**Simulación con el catálogo real (2026-09-28):** 134 productos, 10 categorías publicables; aparecen **Llantas (12, mediana $137.000)** y **Aceites (13, mediana $62.000)** y ya no aparecen SKY, Kontrol ni Liquimoly como filas.
+
+**Archivos:** `packages/domain/src/entities/PriceIndex.ts`, `packages/domain/src/__tests__/PriceIndex.test.ts`, `apps/api/src/admin/{admin-price-index.controller.ts,admin-categories.controller.ts,dto/set-category-brand.dto.ts}`, `apps/api/src/__tests__/{admin-price-index,admin-categories-brand}.test.ts`, `apps/web/src/app/admin/categorias/page.tsx`, `apps/web/src/components/admin/CategoryManager.tsx`, `apps/web/src/app/(store)/indice-precios-repuestos-moto/page.tsx`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
 ## 180. Cierre SEO — Bloque C: verificación y documentación del cierre de las fases 4 y 5
 
 **Verificación completa de la rama `feat/seo-geo-cro`:**

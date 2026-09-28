@@ -16,6 +16,7 @@ describe('AdminPriceIndexController', () => {
     client: {
       priceIndexSnapshot: { findUnique: vi.fn(), findMany: vi.fn(), upsert: vi.fn(), update: vi.fn() },
       product: { findMany: vi.fn() },
+      settings: { findUnique: vi.fn() },
     },
   }
   let controller: AdminPriceIndexController
@@ -35,6 +36,19 @@ describe('AdminPriceIndexController', () => {
     expect(args.create.productCount).toBe(5)
     expect(args.create.data.categories[0]!.median).toBe(3000)
     expect(prisma.client.product.findMany.mock.calls[0]![0]).toMatchObject({ where: { isActive: true, deletedAt: null } })
+  })
+
+  it('snapshot: suma las subcategorías de marca a su categoría padre (H-55)', async () => {
+    prisma.client.priceIndexSnapshot.findUnique.mockResolvedValue(null)
+    prisma.client.settings.findUnique.mockResolvedValue({ value: '["sky","kontrol"]' })
+    const llantas = { slug: 'llantas', name: 'Llantas' }
+    prisma.client.product.findMany.mockResolvedValue([
+      ...[1000, 2000, 3000].map((price) => ({ price, category: { slug: 'sky', name: 'SKY', parent: llantas } })),
+      ...[4000, 5000].map((price) => ({ price, category: { slug: 'kontrol', name: 'Kontrol', parent: llantas } })),
+    ])
+    prisma.client.priceIndexSnapshot.upsert.mockImplementation(async (args: unknown) => args)
+    const args = (await controller.snapshot()) as unknown as { create: { data: { categories: { slug: string; count: number }[] } } }
+    expect(args.create.data.categories).toEqual([expect.objectContaining({ slug: 'llantas', count: 5 })])
   })
 
   it('snapshot: no regenera un corte ya publicado', async () => {

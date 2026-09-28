@@ -2,7 +2,13 @@ import {
   Controller, Get, HttpCode, NotFoundException, Param, Post, UnprocessableEntityException,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { computePriceIndex, priceIndexCutoffDate } from '@h2r/domain'
+import {
+  BRAND_CATEGORIES_SETTING_KEY,
+  computePriceIndex,
+  parseBrandCategorySlugs,
+  priceIndexCutoffDate,
+  toPriceIndexGroup,
+} from '@h2r/domain'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Roles } from '../auth/decorators/roles.decorator'
 
@@ -13,6 +19,8 @@ import { Roles } from '../auth/decorators/roles.decorator'
  * revisa en el panel y lo publica. El cálculo es `computePriceIndex` del
  * dominio; aquí solo se leen los productos y se guarda el resultado.
  *
+ *   - Las subcategorías que son marcas (ajuste `BRAND_CATEGORY_SLUGS`) se suman
+ *     a su categoría padre: el índice mide tipos de repuesto, no marcas (H-55).
  *   - Un corte por día (zona Bogotá). Generar de nuevo el mismo día reemplaza
  *     el borrador; si ya está publicado se rechaza: primero hay que despublicarlo,
  *     para que nunca cambien en silencio unas cifras que alguien ya pudo citar.
@@ -40,17 +48,19 @@ export class AdminPriceIndexController {
       throw new UnprocessableEntityException('El corte de hoy ya está publicado. Despublícalo antes de regenerarlo.')
     }
 
-    const products = await this.prisma.client.product.findMany({
-      where: { isActive: true, deletedAt: null, price: { gt: 0 } },
-      select: { price: true, category: { select: { slug: true, name: true, parent: { select: { name: true } } } } },
-    })
+    const [products, brandSetting] = await Promise.all([
+      this.prisma.client.product.findMany({
+        where: { isActive: true, deletedAt: null, price: { gt: 0 } },
+        select: {
+          price: true,
+          category: { select: { slug: true, name: true, parent: { select: { slug: true, name: true } } } },
+        },
+      }),
+      this.prisma.client.settings.findUnique({ where: { key: BRAND_CATEGORIES_SETTING_KEY } }),
+    ])
+    const brandSlugs = new Set(parseBrandCategorySlugs(brandSetting?.value))
     const data = computePriceIndex(
-      products.map((p) => ({
-        price: p.price,
-        categorySlug: p.category.slug,
-        categoryName: p.category.name,
-        parentName: p.category.parent?.name ?? null,
-      })),
+      products.map((p) => ({ price: p.price, ...toPriceIndexGroup(p.category, brandSlugs) })),
     )
 
     const fields = { methodologyVersion: data.methodologyVersion, productCount: data.productCount, data: data as object }

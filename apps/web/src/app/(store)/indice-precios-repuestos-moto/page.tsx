@@ -149,7 +149,8 @@ export default async function PriceIndexPage() {
             </li>
             <li>
               <strong>Qué entra:</strong> todos los productos activos y con precio publicado ese día ({data.productCount}{' '}
-              referencias), agrupados por la categoría en la que están catalogados.
+              referencias), agrupados por la categoría en la que están catalogados. Las subcategorías que son marcas (por
+              ejemplo, una marca de aceite o de llantas) se suman a su categoría: el índice compara tipos de repuesto, no marcas.
             </li>
             <li>
               <strong>Qué se calcula:</strong> por categoría, la mediana (la mitad de los productos cuesta menos y la otra mitad

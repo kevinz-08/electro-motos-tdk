@@ -3,6 +3,9 @@ import {
   comparePriceIndexes,
   computePriceIndex,
   priceIndexCutoffDate,
+  parseBrandCategorySlugs,
+  toPriceIndexGroup,
+  DEFAULT_BRAND_CATEGORY_SLUGS,
   quantile,
   PRICE_INDEX_METHODOLOGY_VERSION,
   type PriceIndexProductInput,
@@ -78,5 +81,39 @@ describe('priceIndexCutoffDate', () => {
   it('usa el día de Colombia (UTC-5)', () => {
     expect(priceIndexCutoffDate(new Date('2026-09-27T03:00:00Z'))).toBe('2026-09-26')
     expect(priceIndexCutoffDate(new Date('2026-09-27T06:00:00Z'))).toBe('2026-09-27')
+  })
+})
+
+describe('subcategorías de marca (H-55, opción C)', () => {
+  const aceites = { slug: 'aceites', name: 'Aceites' }
+  const brands = new Set(['liquimoly', 'castrol'])
+
+  it('una marca con padre se suma a la categoría padre', () => {
+    expect(toPriceIndexGroup({ slug: 'liquimoly', name: 'Liquimoly', parent: aceites }, brands)).toEqual({
+      categorySlug: 'aceites', categoryName: 'Aceites', parentName: null,
+    })
+  })
+  it('una subcategoría normal conserva su grupo y su padre', () => {
+    expect(toPriceIndexGroup({ slug: 'cdi', name: 'CDI', parent: { slug: 'sistema-electrico', name: 'Sistema Eléctrico' } }, brands))
+      .toEqual({ categorySlug: 'cdi', categoryName: 'CDI', parentName: 'Sistema Eléctrico' })
+  })
+  it('una marca sin padre no tiene a dónde sumarse', () => {
+    expect(toPriceIndexGroup({ slug: 'castrol', name: 'Castrol', parent: null }, brands).categorySlug).toBe('castrol')
+  })
+  it('las marcas sumadas alcanzan la muestra mínima juntas', () => {
+    const rows = [
+      ...[1000, 2000, 3000].map((price) => ({ price, ...toPriceIndexGroup({ slug: 'liquimoly', name: 'Liquimoly', parent: aceites }, brands) })),
+      ...[4000, 5000].map((price) => ({ price, ...toPriceIndexGroup({ slug: 'castrol', name: 'Castrol', parent: aceites }, brands) })),
+    ]
+    const data = computePriceIndex(rows)
+    expect(data.categories).toHaveLength(1)
+    expect(data.categories[0]).toMatchObject({ slug: 'aceites', count: 5, median: 3000 })
+  })
+  it('parseBrandCategorySlugs: ajuste ausente o dañado → lista por defecto', () => {
+    expect(parseBrandCategorySlugs(null)).toEqual([...DEFAULT_BRAND_CATEGORY_SLUGS])
+    expect(parseBrandCategorySlugs('no es json')).toEqual([...DEFAULT_BRAND_CATEGORY_SLUGS])
+    expect(parseBrandCategorySlugs('{"a":1}')).toEqual([...DEFAULT_BRAND_CATEGORY_SLUGS])
+    expect(parseBrandCategorySlugs('["sky"]')).toEqual(['sky'])
+    expect(parseBrandCategorySlugs('[]')).toEqual([])
   })
 })

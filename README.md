@@ -2014,3 +2014,14 @@ Desde esta entrega el bloque SEO-GEO-CRO se trabaja en **una sola rama** (`feat/
 **B5 — Borradores de comparativas y guía técnico-mecánica (Fase 5, ítems 5 y 6).** Tres borradores en `docs/seo/borradores/` (revisión técnico-mecánica, original vs genérico, aceite para moto de trabajo) en el formato del editor, con respuesta directa de 40–60 palabras, tablas y enlaces a categorías reales. Todo dato normativo o técnico a confirmar va marcado `[VERIFICAR]`: se publican en `/admin/guias` solo tras la revisión del revisor técnico (H-56). La comparativa de marcas de pastillas por modelo espera a H-18.
 
 **B4.1 — Marcas agrupadas en el Índice de Precios (H-55, opción C elegida el 2026-09-28).** En el catálogo, algunas subcategorías son marcas (Liquimoly y Castrol bajo Aceites; SKY, Kontrol y Dunlop bajo Llantas). El índice ya no las publica como si fueran tipos de repuesto: **las suma a su categoría padre**, así aparecen "Aceites" y "Llantas" como filas propias. El catálogo, su navegación y sus URLs no cambian. La lista de subcategorías de marca se guarda en `Settings` (`BRAND_CATEGORY_SLUGS`, sin migración) y se edita con la casilla **"Es una marca"** en `/admin/categorias`. Si el ajuste no existe, se usan esas cinco marcas.
+
+### 26.11 Fases 6 (GEO) y 7 (Merchant Center) — desde 2026-09-28, misma rama `feat/seo-geo-cro`
+
+Orden de trabajo: (1) datos de identificación de cada repuesto (desbloquea H-18), (2) GEO técnico, (3) feed de Merchant Center, (4) material fuera del sitio en `docs/seo/geo/`.
+
+**P7.1 — Marca, MPN, tipo y garantía de cada repuesto (H-18).** Las columnas `mpn`, `partBrand`, `partType` y `warrantyMonths` existen en `Product` desde la Fase 2, pero no había forma de cargarlas desde el panel. Ahora:
+
+- **Formulario de producto → "Identificación del repuesto":** marca del repuesto, MPN (referencia del fabricante del repuesto), tipo (original, homologado o genérico) y garantía en meses. Se guardan con el botón del bloque (`PUT /admin/products/:id/identifiers`).
+- **Carga masiva:** CSV `sku,marca,mpn,tipo,garantia_meses` desde `/admin/merchant` (`POST /admin/products/identifiers/import`), con reporte por línea. Una celda vacía **no borra** el dato existente; para borrarlo se escribe `-`.
+- **Reglas (dominio, `validateProductIdentifiers`):** marca y MPN hasta 70 caracteres, sin "genérico" ni "sin marca" como marca (Google los rechaza), tipo de una lista cerrada, garantía entera entre 0 y 120 meses.
+- Alimentan el JSON-LD `Product` (ya lo hacían si existían) y el feed de Merchant Center (P7.2).

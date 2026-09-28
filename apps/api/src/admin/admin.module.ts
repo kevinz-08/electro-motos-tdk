@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { InfrastructureModule } from '../infrastructure/infrastructure.module'
 import { AdminProductsController } from './admin-products.controller'
+import { AdminProductIdentifiersController } from './admin-product-identifiers.controller'
 import { AdminSettingsController } from './admin-settings.controller'
 import { AdminDashboardController } from './admin-dashboard.controller'
 import { AdminCategoriesController } from './admin-categories.controller'
@@ -19,6 +20,7 @@ import { AdminPriceIndexController } from './admin-price-index.controller'
   imports: [InfrastructureModule],
   controllers: [
     AdminDashboardController,
+    AdminProductIdentifiersController,
     AdminProductsController,
     AdminCategoriesController,
     AdminSettingsController,

@@ -45,7 +45,7 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | H-15 | ~~Política de devoluciones exacta~~ — **confirmada el 2026-09-22**: siguen siendo 5 días calendario. El flete de devolución se evalúa caso por caso por WhatsApp según la gravedad (a veces cliente, a veces H2R) — no es un valor fijo, así que el JSON-LD sigue sin declarar `returnFees` a propósito (ver el comentario en `structured-data.ts`) | 3, 4 | ✅ |
 | H-16 | ~~¿Existe la política "si no le sirve a tu moto, te lo cambiamos"?~~ — **confirmado el 2026-09-22: NO existe.** No se publicó nunca y no hay que agregarla en ningún lado (FAQ, ficha, JSON-LD) | 4 | ✅ |
 | H-17 | ~~Garantía por tipo de producto~~ (reconfirmado 2026-09-23: **"hasta 6 meses"** en todo el sitio; se corrigieron el footer y `TrustBadges`, que decían "1 año") — **confirmado el 2026-09-22**: el "hasta 6 meses" genérico que ya dice la home es correcto, no hace falta desglosar por categoría | 3, 4, 5 | ✅ |
-| H-18 | **Marca y tipo de cada repuesto** (original / homologado / genérico) y su `mpn`. Necesario para el feed de Merchant Center y para el `Product` JSON-LD completo | 3, 7 | ⬜ |
+| H-18 | **Marca y tipo de cada repuesto** (original / homologado / genérico) y su `mpn`. Necesario para el feed de Merchant Center y para el `Product` JSON-LD completo. **Desde el 2026-09-28 se carga desde el panel:** `/admin/merchant` → "Plantilla" (sale con los 134 productos) → completar en Excel → "Subir CSV"; o uno a uno en el formulario del producto. Sin la marca, el producto no entra al feed (hoy: 0 de 134) | 3, 7 | ⬜ |
 | H-19 | **Reglas de venta cruzada con criterio mecánico** ("kit de arrastre + aceite de cadena", "pastillas + líquido de frenos"). Las define el negocio, no se deducen. **Código listo (2026-09-24/25)**: venta cruzada y kits implementados; las reglas se cargan desde el panel (H-48, H-50) | 4 | 🟡 |
 | H-20 | **Intervalos de mantenimiento** por modelo, tomados del manual del fabricante, con la fuente citada. **Cambia de enfoque (2026-09-26):** ya no se entregan en un documento; el administrador los carga en `/admin/mantenimiento` (la fuente es obligatoria para guardar). Falta cargarlos (H-52) | 5 | 🟡 |
 | H-21 | **Revisor técnico**: una persona con conocimiento mecánico que revise y firme las guías (nombre, foto, experiencia) para las páginas de autor y el E-E-A-T. **Cambia de enfoque (2026-09-26):** el administrador lo registra, con foto, en `/admin/revisores`. Falta registrarlo (H-52) | 5 | 🟡 |
@@ -70,10 +70,10 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 
 | ID | Tarea | Estado |
 | --- | --- | --- |
-| H-29 | Grabar y publicar los vídeos cortos a partir de los guiones de `docs/seo/geo/` | ⬜ |
-| H-30 | Enviar los correos a medios y blogs con el Índice de Precios | ⬜ |
-| H-31 | Participar en grupos y comunidades por modelo siguiendo la guía de tono | ⬜ |
-| H-32 | Registrar mensualmente la medición de prompts de `docs/seo/geo/prompts.md` | ⬜ |
+| H-29 | Grabar y publicar los vídeos cortos a partir de los guiones de [`geo/guiones-video.md`](./geo/guiones-video.md) (10 listos; el revisor confirma los `[VERIFICAR]` antes de grabar) | ⬜ |
+| H-30 | Enviar los correos a medios, blogs, talleres y marcas con las plantillas de [`geo/correos.md`](./geo/correos.md). El de medios espera al primer corte publicado del índice (H-55) | ⬜ |
+| H-31 | Participar en grupos y comunidades por modelo siguiendo [`geo/comunidades.md`](./geo/comunidades.md) | ⬜ |
+| H-32 | Registrar mensualmente la medición de prompts de [`geo/prompts.md`](./geo/prompts.md) (30 prompts × 4 motores). **La primera medición es la línea base y el criterio de salida de la Fase 6**: hacerla antes de desplegar `feat/seo-geo-cro` | ⬜ |
 
 ---
 
@@ -123,5 +123,7 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | **H-54** | **Aplicar la migración `20260926000000_phase5_content`** (tablas `Article` y `PriceIndexSnapshot`, enums `ArticleStatus`/`ArticleKind`) con `pnpm --filter @h2r/database migrate:deploy`. Aditiva y reversible (rollback en el propio SQL). Sin ella, `/admin/guias` avisa que falta y no deja crear artículos, `/guias/[slug]` responde 404 y el Índice de Precios no se puede generar; el resto del sitio funciona igual | 5 | ⬜ |
 | **H-55** | **Primer corte del Índice de Precios** (tras H-54): (1) corregir la errata "Motores de Arraque" en `/admin/categorias`; (2) `/admin/indice-precios` → "Generar corte de hoy"; (3) revisar la tabla buscando precios mal cargados (en la simulación: máximo de Reguladores $380.000 frente a mediana $95.000, máximo de CDI $350.000, mínimo de Accesorios Generales $7.000); (4) "Revisé las cifras: publicar". **Decidido el 2026-09-28: opción C** — las subcategorías que son marcas (Liquimoly y Castrol bajo Aceites; SKY, Kontrol y Dunlop bajo Llantas) se suman a su categoría padre, ya implementado; si crean otra categoría de marca, marcar "Es una marca" en `/admin/categorias`. Simulación del 2026-09-28: 134 productos, 10 categorías publicables, con Llantas y Aceites | 5 | ⬜ |
 | **H-56** | **Revisar y publicar los tres borradores** de [`borradores/`](./borradores/README.md) (revisión técnico-mecánica, original vs genérico, aceite para moto de trabajo). El revisor confirma o corrige todo lo marcado `[VERIFICAR]` (normas y plazos de la RTM, profundidad mínima de labrado, JASO/API…), borra las marcas y se cargan en `/admin/guias` con su nombre y la fecha de revisión. Requiere H-54 y el revisor registrado (H-52) | 5 | ⬜ |
+| **H-57** | **Registrar el feed en Merchant Center** (tras H-09): Productos → Fuentes → "Obtención programada" con `https://www.tiendah2r.com/feeds/google-merchant.xml`, diaria; configurar envíos (2–5 días hábiles, gratis desde $500.000) y devoluciones (5 días) a nivel de cuenta y activar "Fichas gratuitas". Pasos completos en [`07-feed.md`](./07-feed.md). Tiene sentido después de H-18 (hoy el feed está vacío) | 7 | ⬜ |
+| **H-58** | **GA4: crear las dimensiones personalizadas `ai_source` y `landing_page`** (ámbito Evento) y la exploración "Tráfico desde IA". Pasos en [`geo/medicion-trafico-ia.md`](./geo/medicion-trafico-ia.md) | 6 | ⬜ |
 
-*Última actualización de este bloque: 2026-09-26*
+*Última actualización de este bloque: 2026-09-28*

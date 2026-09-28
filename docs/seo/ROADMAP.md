@@ -13,8 +13,8 @@ terminada la 2. **Las fases 0 y 2 requieren aprobación explícita antes de cont
 | **3** | Datos estructurados | ✅ **Terminada** (2026-09-22) | [`03-datos-estructurados.md`](./03-datos-estructurados.md) | — |
 | **4** | Conversión | 🚧 **Código completo** (cierre 2026-09-26) | [`04-conversion.md`](./04-conversion.md) | Faltan datos (H-48, H-50, H-44) y 2 semanas de GA4 (H-45, ya activo) |
 | **5** | Contenido y E-E-A-T | 🚧 **Código completo** (2026-09-26) | [`05-contenido.md`](./05-contenido.md) | Migración (H-54), revisor y guías (H-52), primer corte del índice (H-55) |
-| 6 | GEO | 📋 Definida | `06-geo.md`, `geo/` | — |
-| 7 | Merchant Center y feed | 📋 Definida | `07-feed.md` | Necesita marca y MPN de los repuestos (H-18) |
+| **6** | GEO | 🚧 **Técnico completo** (2026-09-28) | [`06-geo.md`](./06-geo.md), [`geo/`](./geo/README.md) | Línea base de prompts (H-32) |
+| **7** | Merchant Center y feed | 🚧 **Código completo** (2026-09-28) | [`07-feed.md`](./07-feed.md) | Marca y MPN (H-18), cuenta y feed en Merchant Center (H-09, H-57) |
 
 ---
 
@@ -236,7 +236,9 @@ Precios **publicados tras revisión humana**.
 
 ---
 
-## Fase 6 — GEO 📋
+## Fase 6 — GEO 🚧
+
+**Técnico completo el 2026-09-28** (detalle en [`06-geo.md`](./06-geo.md)): crawlers de IA verificados en producción con `pnpm seo:ai` (54/54), `/llms.txt` y `/por-que-comprar-en-h2r` calculados desde la base, `alternateName` "Tienda H2R" y evento `ai_referral` en GA4. Material fuera del sitio listo en [`geo/`](./geo/README.md). Falta la línea base de prompts (H-32), que es el criterio de salida.
 
 **Objetivo:** que ChatGPT, Perplexity, Gemini y Copilot citen y recomienden H2R.
 
@@ -279,7 +281,9 @@ Sin línea base no hay forma de saber después si algo mejoró.
 
 ---
 
-## Fase 7 — Merchant Center y feed 📋
+## Fase 7 — Merchant Center y feed 🚧
+
+**Código completo el 2026-09-28** (detalle en [`07-feed.md`](./07-feed.md)): carga de marca y MPN desde el panel y por CSV (antes era imposible), feed `/feeds/google-merchant.xml` con categorías oficiales de Google, `/admin/merchant` con excluidos y motivos, y `pnpm seo:feed`. Hoy el feed sale vacío: falta la marca en los 134 productos (H-18). Con ella entrarían 124.
 
 **Objetivo:** aparecer en las fichas gratuitas de Google Shopping en Colombia.
 
@@ -315,4 +319,4 @@ Sin ellas el feed se rechaza o sale incompleto. Crear la cuenta y activar las fi
 
 ---
 
-*Última actualización: 2026-09-26*
+*Última actualización: 2026-09-28*

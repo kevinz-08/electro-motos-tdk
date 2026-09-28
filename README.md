@@ -2025,3 +2025,15 @@ Orden de trabajo: (1) datos de identificación de cada repuesto (desbloquea H-18
 - **Carga masiva:** CSV `sku,marca,mpn,tipo,garantia_meses` desde `/admin/merchant` (`POST /admin/products/identifiers/import`), con reporte por línea. Una celda vacía **no borra** el dato existente; para borrarlo se escribe `-`.
 - **Reglas (dominio, `validateProductIdentifiers`):** marca y MPN hasta 70 caracteres, sin "genérico" ni "sin marca" como marca (Google los rechaza), tipo de una lista cerrada, garantía entera entre 0 y 120 meses.
 - Alimentan el JSON-LD `Product` (ya lo hacían si existían) y el feed de Merchant Center (P7.2).
+
+**P7.2 — Feed de Merchant Center.** `https://www.tiendah2r.com/feeds/google-merchant.xml` (RSS 2.0 con `g:`, `noindex`, caché 1 h). La decisión de cada producto es `evaluateMerchantProduct` (dominio, probada): entra solo si está activo, con stock, precio, imagen y **marca**; sin MPN entra con `identifier_exists=no` y un aviso. Título "[Repuesto] [marca] para [Marca Modelo cc]" con las motos de las compatibilidades verificadas (máx. 150 caracteres) y **sin MAYÚSCULAS excesivas** (`normalizeTitleCase`, conserva siglas y códigos como XTZ, CDI, 6P). `google_product_category` con IDs de la taxonomía oficial de Google; `product_type` "Marca > Modelo > Categoría". Envíos y devoluciones se configuran en la cuenta de Merchant Center, no en el feed. **`/admin/merchant`** muestra cuántos entran, cuáles quedan fuera y por qué, y tiene la carga masiva de marca y MPN. **`pnpm seo:feed [url]`** valida el XML (campos, formatos, ids únicos, imágenes https) y una muestra de fichas e imágenes. Guía para configurar la cuenta: `docs/seo/07-feed.md`.
+
+**P6 — GEO técnico.**
+
+- **`pnpm seo:ai [url]`:** pide home, ficha, hub y catálogo con el user-agent de 10 crawlers (GPTBot, OAI-SearchBot, ChatGPT-User, PerplexityBot, ClaudeBot, Claude-User, CCBot, Applebot, Googlebot, Bingbot) y compara con un navegador: 200, sin página de desafío, título, JSON-LD y precio. **54/54 en producción** el 2026-09-28.
+- **`/llms.txt`** (formato llmstxt.org) y **`/por-que-comprar-en-h2r`**: leen de `findStoreFacts` (`lib/store-facts.ts`, caché 1 h), así las cifras (productos, compatibilidades verificadas, modelos, días de entrega) salen siempre de la base y las dos páginas no se contradicen.
+- **Coherencia de entidad:** `alternateName: ["Tienda H2R", "H2R"]` en `Organization` y `WebSite`.
+- **Tráfico desde IA:** `detectAiSource` (dominio) reconoce ChatGPT, Perplexity, Gemini, Copilot, Claude y otros por referrer o `utm_source`; `AiReferralTracker` envía `ai_referral` (`ai_source`, `landing_page`) una vez por sesión y solo con consentimiento (si acepta después, se envía entonces). Cubierto por el E2E de analítica.
+
+**P6 — material fuera del sitio:** `docs/seo/geo/` — 10 guiones de vídeo sobre productos y motos reales del catálogo, plantillas de correo (medios, blogs, talleres, marcas), guía de comunidades, checklist de perfiles con los datos canónicos, 30 prompts con registro mensual y la guía de GA4 para el tráfico desde IA. Entregables de fase: `docs/seo/06-geo.md` y `docs/seo/07-feed.md`.
+

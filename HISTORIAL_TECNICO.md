@@ -33,6 +33,56 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 185. Fase 6 — material fuera del sitio y cierre documental de las fases 6 y 7
+
+**Hecho:** `docs/seo/geo/` con `README.md`, `guiones-video.md` (10 guiones sobre productos y motos con compatibilidad verificada; el primero apunta a la búsqueda "cdi fz 2.0" que ya registra Search Console), `correos.md` (medios con el Índice de Precios, blogs de listas, talleres aliados, marcas proveedoras), `comunidades.md` (reglas, tono, respuestas modelo, identificarse siempre), `perfiles-marca.md` (datos canónicos iguales al JSON-LD, checklist GBP/Bing Places/Apple/Merchant/directorios; Wikidata descartado hasta tener prensa), `prompts.md` (30 prompts × 4 motores, registro y resumen mensual) y `medicion-trafico-ia.md` (dimensiones personalizadas y regex de GA4). Entregables `docs/seo/06-geo.md` y `docs/seo/07-feed.md` (con los pasos para configurar Merchant Center). ROADMAP y HUMAN_TASKS al día; nuevas H-57 (registrar el feed) y H-58 (dimensiones de GA4); H-18 y H-29–H-32 apuntan a las herramientas y archivos nuevos.
+
+**Verificación final de la rama:** tests de dominio y API en verde; `type-check` y `lint` sin errores; build de web correcto; contra el build local `seo:check` 42/42, `seo:schema` 47/47, `seo:ai` 54/54, `seo:feed` 5/5 (feed vacío por H-18), `seo:links` sin problemas y E2E de analítica 3/3.
+
+---
+
+## 184. Fase 6 — GEO técnico
+
+**Hecho:**
+
+- `scripts/seo-ai.mjs` + `pnpm seo:ai [url]`: 10 crawlers × 4 plantillas contra la referencia de un navegador (status, página de desafío, título, JSON-LD, precio en la ficha, tamaño) y robots.txt por token. **Producción 2026-09-28: 54/54** (ítem 1 del ROADMAP confirmado).
+- `lib/store-facts.ts` (`findStoreFacts`, `getCachedStoreFacts`): cifras de la tienda calculadas desde la base; garantía (6 meses, H-17) y cambios (5 días, H-15) como constantes confirmadas.
+- `/llms.txt` (formato llmstxt.org) y `/por-que-comprar-en-h2r` (en footer y `sitemap-paginas.xml`), ambos sobre `findStoreFacts`.
+- JSON-LD: `alternateName: ["Tienda H2R", "H2R"]` en `Organization` y `WebSite`.
+- Dominio `shared/aiReferral.ts` (`detectAiSource`, `GA4_AI_SOURCE_REGEX`, 4 tests) y `AiReferralTracker` en el layout: evento `ai_referral` una vez por sesión, con consentimiento, también si se acepta después de aterrizar. Caso nuevo en `e2e/analytics.spec.ts`.
+
+**Archivos:** `scripts/seo-ai.mjs`, `package.json`, `packages/domain/src/shared/aiReferral.ts`, `packages/domain/src/__tests__/AiReferral.test.ts`, `apps/web/src/lib/{store-facts,cache,structured-data,sitemap}.ts`, `apps/web/src/app/llms.txt/route.ts`, `apps/web/src/app/(store)/por-que-comprar-en-h2r/page.tsx`, `apps/web/src/components/analytics/AiReferralTracker.tsx`, `apps/web/src/app/layout.tsx`, `apps/web/src/components/store/Footer.tsx`, `apps/web/e2e/analytics.spec.ts`.
+
+---
+
+## 183. Fase 7 — feed de Merchant Center
+
+**Hecho:**
+
+- Dominio `entities/MerchantFeed.ts`: `evaluateMerchantProduct` / `buildMerchantFeed` (activo, stock, precio, imagen y marca obligatorios; sin MPN → `identifier_exists=no` con aviso; precio ancla → `price` + `sale_price`), `buildMerchantTitle`, `normalizeTitleCase` (Google rechaza MAYÚSCULAS excesivas; conserva siglas y códigos), `googleCategoryFor` con IDs de la taxonomía oficial de Google (descargada el 2026-09-28), `buildProductType`. 15 tests.
+- Web: `lib/merchant-feed.ts` (lectura Prisma + serialización RSS 2.0 `g:`; imágenes JPEG 900 px), ruta `/feeds/google-merchant.xml` (`X-Robots-Tag: noindex`), panel `/admin/merchant` (en feed / excluidos / motivos / avisos) y entrada en `AdminNav`.
+- `scripts/seo-feed.mjs` + `pnpm seo:feed [url]`.
+
+**Simulación con el catálogo real (solo lectura):** hoy 0 productos en el feed (134 sin marca); con marca entrarían 124 (10 agotados), en 10 categorías de Google.
+
+**Archivos:** `packages/domain/src/entities/MerchantFeed.ts`, `packages/domain/src/__tests__/MerchantFeed.test.ts`, `apps/web/src/lib/merchant-feed.ts`, `apps/web/src/app/feeds/google-merchant.xml/route.ts`, `apps/web/src/app/admin/merchant/page.tsx`, `apps/web/src/components/admin/AdminNav.tsx`, `scripts/seo-feed.mjs`, `package.json`.
+
+---
+
+## 182. Fase 7 — marca, MPN, tipo y garantía desde el panel (desbloquea H-18)
+
+**Requerimiento:** H-18 (marca y MPN de cada repuesto) era imposible sin tocar la base: las columnas existían desde la Fase 2 pero no había campos en el panel ni en ningún DTO.
+
+**Hecho:**
+
+- Dominio `entities/ProductIdentifiers.ts`: `validateProductIdentifiers` (rechaza "genérico", "sin marca", "N/A"… como marca; largos; tipo; garantía 0–120), `normalizeProductIdentifiers`, `parseIdentifiersCsv` (`sku,marca,mpn,tipo,garantia_meses`; celda vacía = no tocar, `-` = borrar; alias de tipo; errores por línea). 10 tests.
+- API `AdminProductIdentifiersController`: `GET/PUT /admin/products/:id/identifiers` y `POST /admin/products/identifiers/import`; avisa a IndexNow. 3 tests. Sin migración (las columnas ya existían).
+- Web: `ProductIdentifiersEditor` en el formulario de producto (guarda con su propio botón) e `IdentifiersImporter` en `/admin/merchant`, con plantilla precargada con todos los productos (SKU, nombre y datos actuales).
+
+**Archivos:** `packages/domain/src/entities/ProductIdentifiers.ts`, `packages/domain/src/__tests__/ProductIdentifiers.test.ts`, `packages/domain/src/index.ts`, `apps/api/src/admin/{admin-product-identifiers.controller.ts,dto/set-product-identifiers.dto.ts,admin.module.ts}`, `apps/api/src/__tests__/admin-product-identifiers.test.ts`, `apps/web/src/components/admin/{ProductIdentifiersEditor,IdentifiersImporter,ProductEditForm}.tsx`, `README.md`.
+
+---
+
 ## 181. Índice de Precios: subcategorías de marca agrupadas en su categoría padre (H-55, opción C)
 
 **Requerimiento:** el negocio eligió la opción C de H-55 (2026-09-28): que el índice no publique marcas (Liquimoly, Castrol, SKY, Kontrol, Dunlop) como si fueran tipos de repuesto, sin reorganizar el catálogo.

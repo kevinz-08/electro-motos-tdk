@@ -192,7 +192,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         {/* Badge descuento (precio ancla) */}
         {discountPercent > 0 && !isOutOfStock && (
           <div className="absolute top-2.5 right-2.5">
-            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full tracking-wide shadow-sm">
+            <span className="bg-sky-500 text-white text-[10px] font-black px-2 py-1 rounded-full tracking-wide shadow-sm">
               -{discountPercent}%
             </span>
           </div>

@@ -6,6 +6,7 @@ import {
   evaluateMerchantProduct,
   formatMerchantPrice,
   googleCategoryFor,
+  normalizeTitleCase,
   toPlainText,
   MERCHANT_TITLE_MAX_LENGTH,
   type MerchantProductInput,
@@ -119,5 +120,20 @@ describe('buildMerchantFeed', () => {
     expect(report.items.map((i) => i.id)).toEqual(['9-G3856'])
     expect(report.excluded.map((e) => e.sku)).toEqual(['B', 'C'])
     expect(report.reasonCounts).toEqual({ 'Falta la marca del repuesto (H-18)': 2, Agotado: 1 })
+  })
+})
+
+describe('normalizeTitleCase', () => {
+  it('pasa MAYÚSCULAS a formato título conservando siglas y códigos', () => {
+    expect(normalizeTitleCase('RAMAL ELECTRICO XTZ 125 ESTARTER M. 2007-2012')).toBe('Ramal Electrico XTZ 125 Estarter M. 2007-2012')
+    expect(normalizeTitleCase('MODULO LED 6P MORADO')).toBe('Modulo LED 6P Morado')
+    expect(normalizeTitleCase('CABLE DE ALTA NGK')).toBe('Cable de Alta NGK')
+    expect(normalizeTitleCase('BATERÍA MAGNA PARA NS')).toBe('Batería Magna para NS')
+  })
+  it('no toca un nombre que ya usa mayúsculas y minúsculas', () => {
+    expect(normalizeTitleCase('Bujía NGK CR7HSA')).toBe('Bujía NGK CR7HSA')
+  })
+  it('el título del feed sale normalizado', () => {
+    expect(buildMerchantTitle('FILTRO AIRE CB 190', 'K&N', [])).toBe('Filtro Aire CB 190 K&N')
   })
 })

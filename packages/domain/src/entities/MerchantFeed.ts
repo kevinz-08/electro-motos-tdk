@@ -115,6 +115,35 @@ export function toPlainText(html: string): string {
     .trim()
 }
 
+const SMALL_WORDS = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y', 'o', 'para', 'con', 'en', 'a', 'al', 'por', 'sin'])
+
+/**
+ * Google rechaza títulos con uso excesivo de mayúsculas, y el catálogo tiene
+ * los nombres en MAYÚSCULAS. Si más del 70 % de las letras son mayúsculas, se
+ * pasa a formato título conservando lo que parece sigla o código: palabras con
+ * dígitos (6P, 2007-2012, CB190) y palabras de hasta 3 letras que no sean
+ * artículos o preposiciones (XTZ, CDI, LED, NGK). Un nombre ya escrito con
+ * mayúsculas y minúsculas no se toca.
+ */
+export function normalizeTitleCase(name: string): string {
+  const letters = name.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, '')
+  if (!letters) return name
+  const upper = letters.replace(/[^A-ZÁÉÍÓÚÜÑ]/g, '').length
+  if (upper / letters.length <= 0.7) return name
+
+  return name
+    .split(/(\s+)/)
+    .map((word, i) => {
+      if (/^\s+$/.test(word) || /\d/.test(word)) return word
+      const lower = word.toLocaleLowerCase('es-CO')
+      const bare = lower.replace(/[^a-záéíóúüñ]/g, '')
+      if (i > 0 && SMALL_WORDS.has(bare)) return lower
+      if (bare.length > 0 && bare.length <= 3 && !SMALL_WORDS.has(bare)) return word
+      return lower.charAt(0).toLocaleUpperCase('es-CO') + lower.slice(1)
+    })
+    .join('')
+}
+
 const fitmentLabel = (f: MerchantFitmentRef) => `${f.brandName} ${f.modelName}${f.cc && !f.modelName.includes(String(f.cc)) ? ` ${f.cc}cc` : ''}`
 
 /**
@@ -122,7 +151,7 @@ const fitmentLabel = (f: MerchantFitmentRef) => `${f.brandName} ${f.modelName}${
  * nombre ya la dice; las motos se agregan mientras quepan en 150 caracteres.
  */
 export function buildMerchantTitle(name: string, brand: string, fitments: MerchantFitmentRef[]): string {
-  const base = name.trim()
+  const base = normalizeTitleCase(name.trim())
   const withBrand = base.toLowerCase().includes(brand.toLowerCase()) ? base : `${base} ${brand}`
   let title = withBrand
   const models = [...new Set(fitments.map(fitmentLabel))]

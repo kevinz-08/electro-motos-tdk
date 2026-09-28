@@ -18,7 +18,8 @@
     "seo:check": "node scripts/seo-check.mjs",
     "seo:lighthouse": "node scripts/seo-lighthouse.mjs",
     "seo:schema": "node scripts/seo-schema.mjs",
-    "seo:links": "node scripts/seo-links.mjs"
+    "seo:links": "node scripts/seo-links.mjs",
+    "seo:feed": "node scripts/seo-feed.mjs"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

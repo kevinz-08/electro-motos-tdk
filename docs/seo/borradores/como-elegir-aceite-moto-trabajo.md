@@ -35,7 +35,7 @@ Los intervalos exactos de cada modelo están en nuestras [guías de mantenimient
 
 ## ¿Qué aceites hay en H2R?
 
-Puedes ver los aceites disponibles por marca: [Liqui Moly](/catalogo?category=liquimoly), [SKY](/catalogo?category=sky) y [Castrol](/catalogo?category=castrol). Antes de comprar, compara la viscosidad y la norma JASO de la etiqueta con las de tu manual.
+Puedes ver los aceites disponibles en [Aceites](/catalogo?category=aceites), o por marca: [Liqui Moly](/catalogo?category=liquimoly) y [Castrol](/catalogo?category=castrol). Antes de comprar, compara la viscosidad y la norma JASO de la etiqueta con las de tu manual.
 
 ## Fuentes
 

@@ -33,6 +33,27 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 187. Iconos lucide en lugar de emojis en toda la tienda
+
+**Requerimiento:** sustituir los emojis de la página por iconos para mantener una línea de diseño. Decisiones del negocio: azul por defecto y color según significado solo en éxito y error; el panel admin no se toca; las estrellas también pasan a lucide.
+
+**Hecho:**
+
+- `EmptyState` recibe `icon: LucideIcon` y lo pinta en un círculo `sky-50`. Nuevo `ImagePlaceholder` (`Package` gris) para miniaturas sin foto en carrito, pedidos, kits y venta cruzada.
+- Ficha: acordeones con `Motorbike`, `Truck` y `RefreshCw`; viñetas de beneficios con `Check`; `Flame` en el contador de compras; `Package` en la mención de kits; `PartyPopper` (verde) en envío gratis; `Motorbike` en "Le sirvió a una…" (también en el carrusel de la home).
+- `StarRating` deja el SVG propio y usa `Star` de lucide con recorte para medias estrellas; `ReviewForm` usa `Star`, `ThumbsUp`/`ThumbsDown` y `HeartHandshake`.
+- Home: `CategoryGrid` con `Zap`, `Wrench`, `Droplet`, `CircleDot` y `Cog`. `/catalogo`: se elimina `catIcon` (los iconos ya estaban vacíos; solo quedaba el 📦 de relleno) y `SearchX` en "sin resultados".
+- Carrito y checkout: `PartyPopper`, `Lock` (Wompi), `Check` (ciudad). Confirmación: `CircleCheck` verde si está pagado, `Clock` si está pendiente, `Package` en contra entrega; `SearchX` si no se encuentra.
+- `/resena/[orderItemId]`: `Message` con icono y tono (`Lock` rojo, `SearchX`, `HeartHandshake` verde, `Package`). Guías y autores: `Wrench` como avatar por defecto. 404: `Motorbike`.
+- Autenticación (fondo oscuro): `CircleCheck` verde, `Mail` azul, `TriangleAlert` rojo; `Check` en el botón "Guardado" del perfil.
+- README §22.8 (iconografía).
+
+**Fuera del alcance:** panel admin (decisión del negocio), plantillas de `ResendEmailService.ts` de web (HTML de correo y sin referencias en el código) y el © del footer.
+
+**Verificación:** `type-check` limpio; `lint` sin errores y sin avisos nuevos (los 5 avisos en archivos tocados son previos); búsqueda de emojis fuera de comentarios, admin y correos: ninguno. Los E2E no dependen de los textos ni emojis cambiados.
+
+---
+
 ## 186. PDP y tarjeta de producto — badge azul y bloque de confianza a la izquierda
 
 **Requerimiento:** unificar el color del badge de descuento con el de la PDP, quitar el recuadro "PAGO SEGURO · Con Wompi…" y llevar "Medios de pago / Garantía / H2R Online Store" a la columna izquierda con iconos azules en lugar de emojis.

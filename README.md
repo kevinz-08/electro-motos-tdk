@@ -1467,7 +1467,7 @@ elimina columnas usadas por la versión anterior — desplegar web y API junto c
 
 | Elemento | Fuente | Se muestra cuando |
 |---|---|---|
-| "🔥 +X personas han comprado o recomiendan este producto" | `Product.storeRecommendations` (clientes de la tienda física, lo ingresa el admin en el formulario de producto) + `Product.soldCount` (ventas online: se incrementa al confirmar el pago; COD al crear) | `total ≥ SOCIAL_PROOF_MIN_SOLD` (Settings, default 5) |
+| "+X personas han comprado o recomiendan este producto" | `Product.storeRecommendations` (clientes de la tienda física, lo ingresa el admin en el formulario de producto) + `Product.soldCount` (ventas online: se incrementa al confirmar el pago; COD al crear) | `total ≥ SOCIAL_PROOF_MIN_SOLD` (Settings, default 5) |
 | "¡Solo quedan X unidades en stock!" | `Product.stock` | `0 < stock < LOW_STOCK_URGENCY_THRESHOLD` (default 5) |
 | Línea de tiempo **Pedido → Enviado → Entregado** — bajo los botones de compra (carrito y Addi) | `estimateDeliveryWindow()` (dominio) — días hábiles, festivos colombianos (Ley Emiliani) y hora de corte | siempre que haya stock. Settings: `SHIPPING_ETA_MIN_DAYS` (2), `SHIPPING_ETA_MAX_DAYS` (5), `SHIPPING_CUTOFF_HOUR` (14) |
 | Estrellas + "X% de clientes recomiendan este producto" | `ProductReview` aprobadas | `reseñas ≥ REVIEWS_MIN_COUNT` (default 3) |
@@ -1570,6 +1570,21 @@ Migraciones (en orden): `20260916000000_product_compare_at_price`, `…0100_hero
 - `INTERNAL_API_SECRET` ya era obligatoria; ahora además firma los enlaces de pedido y de reseña —
   rotarla invalida los enlaces enviados por correo.
 - Nueva variable opcional de la API: `REVIEW_REQUEST_MIN_DAYS` (default 7).
+
+### 22.8 Iconografía de la tienda
+
+La tienda (`app/(store)`, `app/auth`, `app/not-found.tsx` y `components/{store,checkout,nav,ui}`) no usa
+emojis: todos los iconos salen de `lucide-react`.
+
+- **Color:** `sky-500` por defecto. Solo los estados de éxito (`green-600`: pagado, verificado, envío
+  gratis alcanzado) y de error o advertencia (`red-600` / `amber-500`) usan color semántico.
+- **Estrellas:** `Star` de lucide con relleno `amber-400` (vacías en `gray-200`).
+- **Pantallas oscuras** (`/auth/*`): mismos criterios con los tonos claros (`sky-400`, `green-400`, `red-400`).
+- **Componentes compartidos:** `EmptyState` recibe `icon: LucideIcon` (círculo `sky-50` + icono `sky-500`);
+  `ImagePlaceholder` (`Package` gris) cubre las miniaturas sin foto. Los iconos de categoría viven en
+  `CategoryGrid`; `/catalogo` no muestra icono junto al nombre de la categoría.
+- **Moto:** `Motorbike` (no `Bike`, que es una bicicleta).
+- **Fuera del alcance:** el panel admin (tema oscuro propio) y las plantillas de correo HTML.
 
 ---
 

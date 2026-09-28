@@ -11,6 +11,7 @@ import { revalidateAdminCache } from '@/lib/revalidate'
 import { CACHE_TAGS } from '@/lib/cache-tags'
 import { CrossSellEditor, type CrossSellDraft } from '@/components/admin/CrossSellEditor'
 import { ProductFitmentsEditor } from '@/components/admin/ProductFitmentsEditor'
+import { ProductIdentifiersEditor } from '@/components/admin/ProductIdentifiersEditor'
 
 interface Category {
   id: string
@@ -670,6 +671,8 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
           setCrossSellsDirty(true)
         }}
       />
+
+      <ProductIdentifiersEditor productId={product?.id} />
 
       <ProductFitmentsEditor productId={product?.id} />
 

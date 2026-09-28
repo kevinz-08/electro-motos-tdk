@@ -21,6 +21,7 @@ const NAV_LINKS = [
 
 const LEGAL_LINKS = [
   { href: '/sobre-nosotros', label: 'Sobre nosotros' },
+  { href: '/por-que-comprar-en-h2r', label: 'Por qué comprar en H2R' },
   { href: '/garantias', label: 'Garantías' },
   { href: '/contacto', label: 'Contacto' },
   { href: '/legal/terminos-y-condiciones', label: 'Términos y condiciones' },

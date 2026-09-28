@@ -44,6 +44,7 @@ import { findKitsByModel, findKitBySlug, findAllVisibleKits, findKitsContainingP
 import { findMaintenanceGuide, findReviewerBySlug, findPublishedGuideEntries, hasPublishedGuide } from './guides'
 import { findPublishedArticle, findPublishedArticlesByModel } from './articles'
 import { findPublishedPriceIndex } from './price-index'
+import { findStoreFacts } from './store-facts'
 
 export { CACHE_TAGS }
 
@@ -462,6 +463,16 @@ export const getCachedPublishedPriceIndex = unstable_cache(
   async () => findPublishedPriceIndex(),
   ['published-price-index'],
   { revalidate: 3600, tags: [CACHE_TAGS.priceIndex] },
+)
+
+/**
+ * Hechos verificables de la tienda (Fase 6 — `/llms.txt` y "Por qué comprar en
+ * H2R"). Cambian con el catálogo, las compatibilidades, las guías y los ajustes.
+ */
+export const getCachedStoreFacts = unstable_cache(
+  async () => findStoreFacts(),
+  ['store-facts'],
+  { revalidate: 3600, tags: [CACHE_TAGS.products, CACHE_TAGS.fitments, CACHE_TAGS.settings, CACHE_TAGS.guides] },
 )
 
 /** Artículos publicados sobre un modelo (enlazado hub ↔ guías, Fase 5). */

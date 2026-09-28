@@ -48,6 +48,7 @@ export function getStaticEntries(): SitemapEntry[] {
     { url: absoluteUrl('/catalogo'), changeFrequency: 'daily', priority: 0.9 },
     { url: absoluteUrl('/contacto'), changeFrequency: 'monthly', priority: 0.5 },
     { url: absoluteUrl('/sobre-nosotros'), changeFrequency: 'monthly', priority: 0.5 },
+    { url: absoluteUrl('/por-que-comprar-en-h2r'), changeFrequency: 'monthly', priority: 0.5 },
     { url: absoluteUrl('/garantias'), changeFrequency: 'monthly', priority: 0.5 },
     { url: absoluteUrl('/legal/terminos-y-condiciones'), changeFrequency: 'yearly', priority: 0.3 },
     { url: absoluteUrl('/legal/politica-de-envios'), changeFrequency: 'yearly', priority: 0.4 },

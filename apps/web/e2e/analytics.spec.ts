@@ -15,7 +15,7 @@ import { test, expect, type Page } from '@playwright/test'
 
 const CONSENT_KEY = 'h2r-analytics-consent'
 /** Claves que puede llevar un evento. Cualquier otra podría ser un dato personal. */
-const ALLOWED_PARAM_KEYS = new Set(['currency', 'value', 'items', 'transaction_id', 'shipping', 'coupon', 'search_term', 'method', 'item_id', 'item_list_name', 'item_list_id'])
+const ALLOWED_PARAM_KEYS = new Set(['currency', 'value', 'items', 'transaction_id', 'shipping', 'coupon', 'search_term', 'method', 'item_id', 'item_list_name', 'item_list_id', 'ai_source', 'landing_page'])
 const ALLOWED_ITEM_KEYS = new Set(['item_id', 'item_name', 'price', 'quantity'])
 
 type GaEvent = { name: string; params: Record<string, unknown> }
@@ -87,6 +87,18 @@ test.describe('Embudo de GA4', () => {
     const beginCheckout = await waitForEvent(page, 'begin_checkout')
     expect(beginCheckout, 'begin_checkout').not.toBeNull()
     expectNoPersonalData(beginCheckout!)
+  })
+
+  test('ai_referral: una visita desde ChatGPT se marca una sola vez por sesión (Fase 6, ítem 10)', async ({ page }) => {
+    await page.goto('/?utm_source=chatgpt.com')
+    const event = await waitForEvent(page, 'ai_referral')
+    test.skip(!event, 'GA4 no está configurado en este entorno')
+    expect(event!.params).toMatchObject({ ai_source: 'chatgpt', landing_page: '/' })
+    expectNoPersonalData(event!)
+    // Navegar dentro de la misma sesión no lo repite.
+    await page.goto('/catalogo')
+    await page.waitForTimeout(1_000)
+    expect((await gaEvents(page)).filter((e) => e.name === 'ai_referral')).toHaveLength(0)
   })
 
   test('sin consentimiento no se encola ningún evento', async ({ page, request }) => {

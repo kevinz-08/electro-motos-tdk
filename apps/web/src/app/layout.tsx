@@ -36,6 +36,7 @@ import { preconnect } from 'react-dom'
 import { Analytics } from '@vercel/analytics/next'
 import { GoogleAnalyticsLoader } from '@/components/analytics/GoogleAnalyticsLoader'
 import { CookieConsentBanner } from '@/components/analytics/CookieConsentBanner'
+import { AiReferralTracker } from '@/components/analytics/AiReferralTracker'
 import { AuthSessionProvider } from '@/components/providers/SessionProvider'
 import { DEFAULT_OG_IMAGE } from '@/lib/opengraph'
 import { SITE_URL, canonical } from '@/lib/seo'
@@ -90,6 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Analytics />
         {/* GA4 (Fase 4, H-11): solo se carga con NEXT_PUBLIC_GA_ID y consentimiento */}
         <GoogleAnalyticsLoader />
+        <AiReferralTracker />
         <CookieConsentBanner />
       </body>
     </html>

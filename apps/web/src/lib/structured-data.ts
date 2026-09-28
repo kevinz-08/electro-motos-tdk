@@ -67,6 +67,8 @@ function compact<T extends JsonLdNode>(node: T): T {
 export const ORGANIZATION = {
   name: SITE_NAME,
   legalName: 'H2R Online Store',
+  /** Como la busca la gente: el dominio es tiendah2r.com (Fase 6, coherencia de entidad). */
+  alternateNames: ['Tienda H2R', 'H2R'],
   taxId: '1007784964-5',
   email: 'h2ronlinestore@gmail.com',
   telephone: '+57 315 292 6609',
@@ -104,6 +106,7 @@ export function organizationJsonLd(): JsonLdNode {
     '@type': ['Organization', 'LocalBusiness'],
     '@id': ORGANIZATION_ID,
     name: ORGANIZATION.name,
+    alternateName: [...ORGANIZATION.alternateNames],
     legalName: ORGANIZATION.legalName,
     taxID: ORGANIZATION.taxId,
     url: SITE_URL,
@@ -145,6 +148,7 @@ export function webSiteJsonLd(): JsonLdNode {
     '@id': WEBSITE_ID,
     url: SITE_URL,
     name: SITE_NAME,
+    alternateName: [...ORGANIZATION.alternateNames],
     inLanguage: 'es-CO',
     publisher: { '@id': ORGANIZATION_ID },
     potentialAction: {

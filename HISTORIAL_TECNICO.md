@@ -49,6 +49,30 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 186. La home para la búsqueda de marca "tienda h2r"
+
+**Requerimiento:** al buscar "tienda h2r", Google mostraba `/sobre-nosotros` en vez de la home. Plan aprobado el 2026-09-28 (textos de título, `<h1>` y `/sobre-nosotros` confirmados por el negocio).
+
+**Causa:** `/sobre-nosotros` era la mejor coincidencia. Su descripción empezaba con "H2R Online Store: tienda de repuestos…". La home ponía la marca al final del título, no la nombraba en la descripción y no tenía ningún `<h1>`, porque el hero es un carrusel de imágenes.
+
+**Hecho:**
+
+- `app/(store)/page.tsx`: título `{ absolute: 'Tienda H2R | Repuestos para moto con envío a toda Colombia' }`, descripción "Tienda H2R (H2R Online Store): …" y Open Graph con los mismos textos.
+- `components/store/HomeIntro.tsx` (nuevo) en `home.tsx`, debajo del carrusel: `<h1>` "H2R Online Store: tienda de repuestos para moto", subtítulo y enlace a `/repuestos`.
+- `lib/faq.ts`: primera pregunta "¿Qué es Tienda H2R?" (visible y en `FAQPage`), respondida con los datos de `ORGANIZATION`.
+- `sobre-nosotros/page.tsx`: título "Quiénes somos y cómo trabajamos | H2R Online Store" y descripción "Quiénes somos: …".
+- `scripts/seo-check.mjs`: comprueba que la home tenga exactamente un `<h1>` y que su título empiece por "Tienda H2R". Se corrigió también un choque de nombre de variable (`home` ya existía más abajo).
+
+**Verificación:** contra producción (sin el cambio), `seo:check` falla justo esas dos comprobaciones (42/44). Contra el build local: 44/44, `seo:schema` 47/47. Lighthouse móvil de la home local: el LCP sigue siendo el banner del hero (no el `<h1>`), SEO 100, CLS 0.
+
+**Hallazgo, sin cambiar (decisión del negocio):** el FAQ de la home dice "1 a 2 días hábiles en Bucaramanga y 3 a 7 para el resto de Colombia" y menciona Addi. En cambio, `Settings`, `/llms.txt` y "Por qué comprar en H2R" dicen 2 a 5 días hábiles. Esta contradicción resta confianza a buscadores y motores generativos.
+
+**Después de desplegar:** solicitar en Search Console la indexación de `/` y `/sobre-nosotros`, y medir en 2–4 semanas qué página recibe las impresiones de "tienda h2r".
+
+**Archivos:** `apps/web/src/app/(store)/{page,home}.tsx`, `apps/web/src/components/store/HomeIntro.tsx`, `apps/web/src/lib/faq.ts`, `apps/web/src/app/(store)/sobre-nosotros/page.tsx`, `scripts/seo-check.mjs`, `docs/seo/01-resultados.md`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
 ## 185. Fase 6 — material fuera del sitio y cierre documental de las fases 6 y 7
 
 **Hecho:** `docs/seo/geo/` con `README.md`, `guiones-video.md` (10 guiones sobre productos y motos con compatibilidad verificada; el primero apunta a la búsqueda "cdi fz 2.0" que ya registra Search Console), `correos.md` (medios con el Índice de Precios, blogs de listas, talleres aliados, marcas proveedoras), `comunidades.md` (reglas, tono, respuestas modelo, identificarse siempre), `perfiles-marca.md` (datos canónicos iguales al JSON-LD, checklist GBP/Bing Places/Apple/Merchant/directorios; Wikidata descartado hasta tener prensa), `prompts.md` (30 prompts × 4 motores, registro y resumen mensual) y `medicion-trafico-ia.md` (dimensiones personalizadas y regex de GA4). Entregables `docs/seo/06-geo.md` y `docs/seo/07-feed.md` (con los pasos para configurar Merchant Center). ROADMAP y HUMAN_TASKS al día; nuevas H-57 (registrar el feed) y H-58 (dimensiones de GA4); H-18 y H-29–H-32 apuntan a las herramientas y archivos nuevos.

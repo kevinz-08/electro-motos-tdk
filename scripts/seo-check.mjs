@@ -64,6 +64,13 @@ async function main() {
     check(`permite ${bot}`, robots.body.includes(bot))
   }
 
+  // ── Home y búsqueda de marca (README §26.12) ──────────────────────────────
+  console.log('\nHome')
+  const homePage = await get('/')
+  const homeTitle = homePage.body.match(/<title>([^<]*)<\/title>/)?.[1] ?? ''
+  check('la home tiene exactamente un <h1>', (homePage.body.match(/<h1[\s>]/g) ?? []).length === 1)
+  check('el título de la home empieza por la marca ("Tienda H2R")', homeTitle.startsWith('Tienda H2R'), homeTitle)
+
   // ── Sitemaps ───────────────────────────────────────────────────────────────
   console.log('\nSitemaps')
   const index = await get('/sitemap.xml')

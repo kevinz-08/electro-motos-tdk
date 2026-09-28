@@ -2038,3 +2038,17 @@ Orden de trabajo: (1) datos de identificación de cada repuesto (desbloquea H-18
 
 **P6 — material fuera del sitio:** `docs/seo/geo/` — 10 guiones de vídeo sobre productos y motos reales del catálogo, plantillas de correo (medios, blogs, talleres, marcas), guía de comunidades, checklist de perfiles con los datos canónicos, 30 prompts con registro mensual y la guía de GA4 para el tráfico desde IA. Entregables de fase: `docs/seo/06-geo.md` y `docs/seo/07-feed.md`.
 
+
+### 26.12 La home para la búsqueda de marca "tienda h2r" (2026-09-28, rama `feat/seo-geo-cro`)
+
+**Problema:** al buscar "tienda h2r", Google mostraba `/sobre-nosotros` y no la home. `/sobre-nosotros` coincidía mejor: su descripción empezaba con "H2R Online Store: tienda de repuestos…", mientras la home ponía la marca al final del título, no la mencionaba en la descripción y **no tenía ningún `<h1>`** (el hero es un carrusel de imágenes).
+
+**Cambios (plan aprobado el 2026-09-28):**
+
+- **Título de la home:** "Tienda H2R | Repuestos para moto con envío a toda Colombia" (la marca primero, como se busca). La descripción también la nombra: "Tienda H2R (H2R Online Store): …". Open Graph igual.
+- **`<h1>` visible** debajo del carrusel (`HomeIntro`): "H2R Online Store: tienda de repuestos para moto", con subtítulo y enlace a "Repuestos por moto". Va debajo del hero para no convertirse en el LCP.
+- **FAQ de la home:** nueva pregunta "¿Qué es Tienda H2R?", visible y en el JSON-LD `FAQPage`, respondida con datos reales (tienda física, NIT, envíos).
+- **`/sobre-nosotros`:** título "Quiénes somos y cómo trabajamos" y descripción que empieza por "Quiénes somos…": sigue nombrando la marca, pero ya no compite con la home por la búsqueda exacta.
+- `seo:check` comprueba que la home tenga exactamente un `<h1>` y que su título empiece por la marca.
+
+Después de desplegar: pedir en Search Console la reindexación de `/` y `/sobre-nosotros`, y seguir en 2–4 semanas qué página recibe las impresiones de "tienda h2r". Google puede tardar en cambiarla y no se puede garantizar el resultado.

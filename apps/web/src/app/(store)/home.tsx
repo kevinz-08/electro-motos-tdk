@@ -3,6 +3,7 @@
  *
  * Secciones (de arriba a abajo):
  *   1. HERO — Carrusel full-screen con CTA principal + explorar
+ *   1b. INTRO — el <h1> de la página (marca + qué vende), debajo del hero
  *   2. TRUST BAR — Sellos de confianza con iconos SVG
  *   3. CATEGORÍAS — Grid horizontal de categorías con imágenes
  *   4. PRODUCTOS DESTACADOS — 4 productos in-stock más recientes
@@ -13,6 +14,7 @@
 import Link from 'next/link'
 import { ProductCard } from '@/components/store/ProductCard'
 import { HeroBannerCarousel } from '@/components/store/HeroBannerCarousel'
+import { HomeIntro } from '@/components/store/HomeIntro'
 import { PromoModal } from '@/components/store/PromoModal'
 import { TrustBadges } from '@/components/store/TrustBadges'
 import { CategoryGrid } from '@/components/store/CategoryGrid'
@@ -49,6 +51,9 @@ export default async function HomePage() {
 
       {/* 1. Hero carrusel con CTA — banners administrables desde /admin/banners */}
       <HeroBannerCarousel banners={banners} />
+
+      {/* 1b. <h1> de la home — debajo del hero para no competir por el LCP (README §26.12) */}
+      <HomeIntro />
 
       {/* 2. Trust badges (iconos SVG) */}
       <TrustBadges />

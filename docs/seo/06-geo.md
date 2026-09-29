@@ -33,6 +33,19 @@ quedan con una cifra vieja.
 
 > Carpeta `geo/` completa y línea base de la medición de prompts registrada.
 
-La carpeta está completa. Falta **registrar la primera medición** (H-32): 30 prompts × 4 motores, siguiendo
-`geo/prompts.md`. Conviene hacerla **antes** de desplegar esta rama y de crear los perfiles, para que la comparación del
-mes siguiente mida el efecto de todo lo nuevo.
+La carpeta está completa y la **línea base aproximada quedó registrada el 2026-09-28** (H-32), antes de desplegar:
+
+| Motor | Menciones de H2R (aprox., de 30) |
+|---|---|
+| ChatGPT | El más alto (el promedio general es ~6–7 de 30) |
+| Gemini | ~2 |
+| Copilot | 0 |
+| Perplexity | Incluido en el promedio, sin cifra aparte |
+
+Es una medición parcial: sirve como punto de partida, no como cifra exacta. **Lectura:** Copilot se alimenta del índice y
+de los perfiles de Bing, y Gemini de la entidad de Google (Business Profile, Knowledge Graph). Por eso los perfiles H-41
+(Google Business Profile) y H-42 (Bing Places) son lo que más debería mover esos dos motores. ChatGPT ya recoge el sitio y
+se beneficia sobre todo de `/llms.txt`, "Por qué comprar" y las guías.
+
+**Criterio de salida cumplido en su forma aproximada.** Desde octubre se sigue con la medición abreviada de 10 prompts
+(`geo/prompts.md`).

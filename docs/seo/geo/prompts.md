@@ -72,8 +72,25 @@ menciona sin lista.
 | 2026-10 | Gemini | 1 | | | | | |
 | 2026-10 | Copilot | 1 | | | | | |
 
+## Medición mensual abreviada (recomendada)
+
+La medición completa (120 filas) toma más de una hora. Para el seguimiento mensual basta con **10 prompts × 4 motores
+(~20 minutos)**, siempre los mismos, para que los meses sean comparables:
+
+| Tipo | Prompts |
+|---|---|
+| Genéricos | 1, 3 |
+| Local | 6 |
+| Por modelo | 9, 10 |
+| Por pieza | 17, 18 |
+| Informativos | 25, 26 |
+| Marca | 30 |
+
+La medición completa de los 30 se repite cada 3 meses (enero, abril, julio, octubre).
+
 ## Resumen mensual
 
 | Mes | Menciones (de 120) | Prompts con H2R en el top 3 | Dominio más citado por los motores | Cambios hechos ese mes |
 |---|---|---|---|---|
-| 2026-10 (línea base) | | | | |
+| **2026-09 (línea base aproximada, 2026-09-28)** | ~6–7 de 30 prompts en promedio por motor. **ChatGPT** es donde más aparece; **Gemini** ~2 de 30; **Copilot** 0. Medición parcial (no se completaron las 120 filas) | — | — | Antes de desplegar `feat/seo-geo-cro` |
+| 2026-10 | | | | |

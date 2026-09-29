@@ -73,7 +73,7 @@ Estados: ⬜ pendiente · 🟡 en curso · ✅ hecho · ⛔ bloqueada
 | H-29 | Grabar y publicar los vídeos cortos a partir de los guiones de [`geo/guiones-video.md`](./geo/guiones-video.md) (10 listos; el revisor confirma los `[VERIFICAR]` antes de grabar) | ⬜ |
 | H-30 | Enviar los correos a medios, blogs, talleres y marcas con las plantillas de [`geo/correos.md`](./geo/correos.md). El de medios espera al primer corte publicado del índice (H-55) | ⬜ |
 | H-31 | Participar en grupos y comunidades por modelo siguiendo [`geo/comunidades.md`](./geo/comunidades.md) | ⬜ |
-| H-32 | Registrar mensualmente la medición de prompts de [`geo/prompts.md`](./geo/prompts.md) (30 prompts × 4 motores). **La primera medición es la línea base y el criterio de salida de la Fase 6**: hacerla antes de desplegar `feat/seo-geo-cro` | ⬜ |
+| H-32 | Registrar mensualmente la medición de prompts de [`geo/prompts.md`](./geo/prompts.md) (30 prompts × 4 motores). **La primera medición es la línea base y el criterio de salida de la Fase 6**: hacerla antes de desplegar `feat/seo-geo-cro`. **Línea base aproximada registrada el 2026-09-28:** H2R aparece en ~6–7 de 30 prompts en promedio; ChatGPT es donde más aparece, Gemini ~2 de 30 y Copilot 0 (medición parcial). Desde octubre, medición abreviada de 10 prompts (~20 min, ver `geo/prompts.md`) y completa cada 3 meses | 🟡 |
 
 ---
 

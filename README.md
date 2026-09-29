@@ -1217,6 +1217,10 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | `/admin/banners` | Banners del Hero: imagen desktop + imagen mobile, texto alternativo y botón CTA |
 | `/admin/configuracion` | Toggles de pasarelas y umbrales de prueba social / estimación de entrega |
 
+**Barra lateral:** la marca (arriba) y el bloque de la cuenta (email, "Ver tienda", "Salir") quedan fijos;
+solo la lista de secciones (`AdminNav`) hace scroll cuando no cabe en pantallas bajas. Al cambiar de ruta,
+la sección activa se desplaza a la vista (`scrollIntoView({ block: 'nearest' })`).
+
 ### Ayuda contextual (botón ⓘ)
 
 Las secciones del panel admin con flujos no obvios (`/admin/sync`, `/admin/pedidos`,

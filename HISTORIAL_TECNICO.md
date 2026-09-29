@@ -33,6 +33,20 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 190. Admin — barra lateral con scroll y bloque de cuenta fijo
+
+**Problema:** con 19 secciones, en pantallas bajas (portátil) la lista del sidebar no cabía: el `<nav>` tenía `flex-1` sin `min-h-0` ni `overflow`, crecía hasta su contenido y el `overflow-hidden` del layout recortaba las últimas secciones (Stock bajo, Sincronizar, Configuración) y el bloque de la cuenta, sin forma de hacer scroll.
+
+**Hecho:**
+
+- `admin/layout.tsx`: `<aside>` con `min-h-0`; marca y bloque de cuenta con `shrink-0` (siempre visibles).
+- `AdminNav.tsx`: `<nav>` con `flex-1 min-h-0 overflow-y-auto pb-3` y scrollbar fina oscura; la sección activa se desplaza a la vista al cambiar de ruta (`scrollIntoView({ block: 'nearest' })`).
+- README §16.
+
+**Verificación:** `type-check` limpio y `eslint` sin avisos en los dos archivos.
+
+---
+
 ## 189. Tiempos de envío y Addi unificados en todo el sitio (H-60) y plantilla de medición de prompts (H-32)
 
 **Requerimiento:** el negocio confirmó el 2026-09-28 que la entrega real es **1 a 2 días hábiles en Bucaramanga y área metropolitana y 3 a 7 en el resto de Colombia**, y que **Addi sigue activo**, coordinado con un asesor por WhatsApp. El FAQ ya lo decía, pero `Settings` (por defecto 2–5), la ficha de producto, su JSON-LD de envío, `/llms.txt` y "Por qué comprar en H2R" decían 2 a 5.

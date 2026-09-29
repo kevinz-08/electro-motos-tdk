@@ -28,10 +28,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="fixed inset-0 flex bg-[#080808] overflow-hidden">
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside className="w-[220px] shrink-0 flex flex-col border-r border-white/[0.06]">
+      <aside className="w-[220px] shrink-0 min-h-0 flex flex-col border-r border-white/[0.06]">
 
         {/* Brand */}
-        <div className="px-6 pt-7 pb-6">
+        <div className="shrink-0 px-6 pt-7 pb-6">
           <p className="text-[11px] font-semibold tracking-[0.18em] text-white/30 uppercase mb-1">
             Admin Panel
           </p>
@@ -40,11 +40,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </Link>
         </div>
 
-        {/* Nav */}
+        {/* Nav — única parte con scroll; marca y cuenta quedan fijas */}
         <AdminNav />
 
         {/* Footer */}
-        <div className="px-4 py-5 border-t border-white/[0.06] space-y-4">
+        <div className="shrink-0 px-4 py-5 border-t border-white/[0.06] space-y-4">
           {/* Avatar + email */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">

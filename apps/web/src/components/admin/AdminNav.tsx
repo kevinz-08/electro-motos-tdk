@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -31,9 +32,15 @@ const navItems = [
 
 export function AdminNav() {
   const pathname = usePathname()
+  const activeRef = useRef<HTMLAnchorElement>(null)
+
+  // En pantallas bajas la sección activa puede quedar fuera de la vista del nav
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [pathname])
 
   return (
-    <nav className="flex-1 px-3 space-y-0.5">
+    <nav className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-0.5 [scrollbar-width:thin] [scrollbar-color:rgb(255_255_255/0.1)_transparent]">
       {navItems.map(({ href, label, Icon }) => {
         const isActive =
           href === '/admin'
@@ -45,6 +52,7 @@ export function AdminNav() {
           <Link
             key={href}
             href={href}
+            ref={isActive ? activeRef : undefined}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
               isActive
                 ? 'bg-white/[0.07] text-white font-medium'

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import { TriangleAlert } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Error de inicio de sesión',
@@ -73,7 +74,7 @@ export default async function AuthErrorPage({ searchParams }: PageProps) {
 
         {/* Mensaje de error */}
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 mb-8 text-center">
-          <p className="text-2xl mb-3">⚠️</p>
+          <TriangleAlert className="mx-auto mb-3 w-8 h-8 text-red-400" aria-hidden="true" />
           <p className="text-red-400 text-sm font-medium leading-relaxed">{message}</p>
           {hint && (
             <p className="text-white/40 text-xs leading-relaxed mt-2">{hint}</p>

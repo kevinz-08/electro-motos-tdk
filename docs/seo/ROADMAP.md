@@ -11,10 +11,10 @@ terminada la 2. **Las fases 0 y 2 requieren aprobación explícita antes de cont
 | **1** | Base técnica de SEO | ✅ **Terminada** (2026-09-22) | [`01-resultados.md`](./01-resultados.md) | ⏳ Pendiente de desplegar y volver a medir (H-36) |
 | **2** | Sistema de compatibilidad | ✅ Terminada (2026-09-22) | [`02-compatibilidad.md`](./02-compatibilidad.md) | ✅ Aprobada · ⛔ bloqueada por **H-02** para publicar |
 | **3** | Datos estructurados | ✅ **Terminada** (2026-09-22) | [`03-datos-estructurados.md`](./03-datos-estructurados.md) | — |
-| **4** | Conversión | 🚧 **Casi cerrada** (2ª entrega 2026-09-23) | [`04-conversion.md`](./04-conversion.md) | — |
-| 5 | Contenido y E-E-A-T | 🚧 En curso | `05-contenido.md` | Necesita revisor técnico (H-21) |
-| 6 | GEO | 📋 Definida | `06-geo.md`, `geo/` | — |
-| 7 | Merchant Center y feed | 📋 Definida | `07-feed.md` | Necesita marca y MPN de los repuestos (H-18) |
+| **4** | Conversión | 🚧 **Código completo** (cierre 2026-09-26) | [`04-conversion.md`](./04-conversion.md) | Faltan datos (H-48, H-50, H-44) y 2 semanas de GA4 (H-45, ya activo) |
+| **5** | Contenido y E-E-A-T | 🚧 **Código completo** (2026-09-26) | [`05-contenido.md`](./05-contenido.md) | Migración (H-54), revisor y guías (H-52), primer corte del índice (H-55) |
+| **6** | GEO | 🚧 **Técnico completo** (2026-09-28) | [`06-geo.md`](./06-geo.md), [`geo/`](./geo/README.md) | Línea base de prompts (H-32) |
+| **7** | Merchant Center y feed | 🚧 **Código completo** (2026-09-28) | [`07-feed.md`](./07-feed.md) | Marca y MPN (H-18), cuenta y feed en Merchant Center (H-09, H-57) |
 
 ---
 
@@ -135,7 +135,7 @@ motos es compatible cada repuesto y en qué condiciones lo entrega.
 
 ## Fase 4 — Conversión 🚧
 
-**Primera entrega 2026-09-23** (detalle en [`04-conversion.md`](./04-conversion.md)): ítems 1, 2, 3, 4, 5 y 12 hechos — barra fija móvil, estimador de envío, botón de WhatsApp, bloque de confianza, umbral de envío gratis en `Settings` con barra de progreso y `SocialProof` alimentado solo desde `ProductReview` (sin reseñas reales no se muestra nada). **Segunda entrega 2026-09-23:** garantía unificada en 6 meses, umbral de $500.000 confirmado y leído de `Settings` en todo el sitio, campo "¿en qué moto lo instalaste?" en reseñas (migración pendiente de aplicar, H-43), GA4 con consentimiento (falta el ID, H-45) y páginas `/sobre-nosotros` y `/garantias`. **Tercera entrega 2026-09-24:** venta cruzada (ítem 7) implementada en `feat/cro-cross-selling-kits`, con sugerencias en ficha y carrito. Pendientes: aplicar su migración (H-47) y cargar los vínculos, e historia y equipo (H-44). **Cuarta entrega 2026-09-25:** kits de productos (ítem 8) implementados en `feat/product-kits`, con `/admin/kits` y páginas propias `/kits/[slug]`. Pendiente aplicar su migración (H-49) y armar los primeros kits (H-50). Con esto, todo el código de la Fase 4 está construido.
+**Primera entrega 2026-09-23** (detalle en [`04-conversion.md`](./04-conversion.md)): ítems 1, 2, 3, 4, 5 y 12 hechos — barra fija móvil, estimador de envío, botón de WhatsApp, bloque de confianza, umbral de envío gratis en `Settings` con barra de progreso y `SocialProof` alimentado solo desde `ProductReview` (sin reseñas reales no se muestra nada). **Segunda entrega 2026-09-23:** garantía unificada en 6 meses, umbral de $500.000 confirmado y leído de `Settings` en todo el sitio, campo "¿en qué moto lo instalaste?" en reseñas (migración pendiente de aplicar, H-43), GA4 con consentimiento (falta el ID, H-45) y páginas `/sobre-nosotros` y `/garantias`. **Tercera entrega 2026-09-24:** venta cruzada (ítem 7) implementada en `feat/cro-cross-selling-kits`, con sugerencias en ficha y carrito. Pendientes: cargar los vínculos (H-48; migración H-47 aplicada el 2026-09-25), e historia y equipo (H-44). **Cuarta entrega 2026-09-25:** kits de productos (ítem 8) implementados en `feat/product-kits`, con `/admin/kits` y páginas propias `/kits/[slug]`. Pendiente armar los primeros kits (H-50; migración H-49 aplicada el 2026-09-25). Con esto, todo el código de la Fase 4 está construido. **Cierre 2026-09-26:** pantalla de compatibilidades en el panel (H-37/H-40), causa del render delay de la ficha resuelta (era el aviso de cookies, ver `01-resultados.md`) y E2E del embudo de GA4. GA4 ya está activo en producción (H-45 🟡); el criterio de salida espera 2 semanas de datos.
 
 **Objetivo:** que cada visita tenga el camino más corto y confiable hacia la compra. Puede avanzar en
 paralelo con la Fase 3.
@@ -194,7 +194,11 @@ las métricas antes y después.
 
 ## Fase 5 — Contenido y E-E-A-T 🚧
 
-**Primera entrega 2026-09-26** (rama `feat/phase5-reviewers-maintenance`): revisores técnicos administrables desde `/admin/revisores` con página pública `/autores/[slug]` (H-21), y guías de mantenimiento por modelo administrables desde `/admin/mantenimiento` con página pública `/guias/mantenimiento/[marca]/[modelo]` (H-20). Es el arranque del ítem 1 (infraestructura) y del ítem 2 (guías por modelo) de abajo, sin el modelo genérico de MDX. Pendiente aplicar su migración (H-51) y cargar los datos reales (H-52).
+**Primera entrega 2026-09-26** (rama `feat/phase5-reviewers-maintenance`): revisores técnicos administrables desde `/admin/revisores` con página pública `/autores/[slug]` (H-21), y guías de mantenimiento por modelo administrables desde `/admin/mantenimiento` con página pública `/guias/mantenimiento/[marca]/[modelo]` (H-20). Es el arranque del ítem 1 (infraestructura) y del ítem 2 (guías por modelo) de abajo, sin el modelo genérico de MDX. Migración H-51 aplicada el 2026-09-25; pendiente cargar los datos reales (H-52).
+
+**Cierre del código, 2026-09-26 (rama `feat/seo-geo-cro`):** artículos con revisor y estados (`/admin/guias`, `/guias/[slug]`), guías de mantenimiento con respuesta directa real y enlazadas a hub, kits y artículos, calculadora de costo anual, Índice de Precios con cortes revisados (`/indice-precios-repuestos-moto`), tres borradores en `docs/seo/borradores/` y enlazado interno medido con `pnpm seo:links` (de 93 problemas a 0). Detalle en [`05-contenido.md`](./05-contenido.md). Para publicar faltan H-54, H-52, H-55 y H-56.
+
+**Cierre de las fases 4 y 5 (plan aprobado 2026-09-26, rama única `feat/seo-geo-cro`):** pantalla de compatibilidades en el panel (H-37/H-40), perfilado de la ficha (H-36 punto 4), verificación del embudo GA4, infraestructura genérica de artículos (`/guias/[slug]`), formato citable en guías, costo anual de mantenimiento, Índice de Precios, borradores de comparativas y revisión técnico-mecánica, y reporte de enlazado interno. **Las páginas de envío por ciudad (ítem 7) se posponen**: con 12 pedidos válidos no hay datos por ciudad, y la regla del ítem prohíbe crearlas sin ellos (H-53).
 
 **Objetivo:** ser la fuente que Google y las IAs citan sobre repuestos de moto en Colombia.
 
@@ -232,7 +236,9 @@ Precios **publicados tras revisión humana**.
 
 ---
 
-## Fase 6 — GEO 📋
+## Fase 6 — GEO 🚧
+
+**Técnico completo el 2026-09-28** (detalle en [`06-geo.md`](./06-geo.md)): crawlers de IA verificados en producción con `pnpm seo:ai` (54/54), `/llms.txt` y `/por-que-comprar-en-h2r` calculados desde la base, `alternateName` "Tienda H2R" y evento `ai_referral` en GA4. Material fuera del sitio listo en [`geo/`](./geo/README.md). Falta la línea base de prompts (H-32), que es el criterio de salida.
 
 **Objetivo:** que ChatGPT, Perplexity, Gemini y Copilot citen y recomienden H2R.
 
@@ -275,7 +281,9 @@ Sin línea base no hay forma de saber después si algo mejoró.
 
 ---
 
-## Fase 7 — Merchant Center y feed 📋
+## Fase 7 — Merchant Center y feed 🚧
+
+**Código completo el 2026-09-28** (detalle en [`07-feed.md`](./07-feed.md)): carga de marca y MPN desde el panel y por CSV (antes era imposible), feed `/feeds/google-merchant.xml` con categorías oficiales de Google, `/admin/merchant` con excluidos y motivos, y `pnpm seo:feed`. Hoy el feed sale vacío: falta la marca en los 134 productos (H-18). Con ella entrarían 124.
 
 **Objetivo:** aparecer en las fichas gratuitas de Google Shopping en Colombia.
 
@@ -302,13 +310,13 @@ Sin ellas el feed se rechaza o sale incompleto. Crear la cuenta y activar las fi
 | **H-02** compatibilidades verificadas | Publicar la Fase 2, kits de la 4, guías de la 5, `product_type` de la 7 | El sistema de compatibilidad no publica nada |
 | **H-13** tiempos de envío reales | `OfferShippingDetails` (3), estimador (4), páginas de ciudad (5), feed (7) | Se omiten esos bloques |
 | **H-18** marca, MPN y tipo de repuesto | `brand` y `mpn` (3), feed (7) | El feed de Merchant Center no es viable |
-| **H-21** revisor técnico | Fase 5 entera | Los borradores no se publican |
+| **H-21 / H-52** revisor técnico y guías cargadas | Fase 5 entera | Los borradores no se publican |
 | ~~**H-01** decisión sobre `SocialProof`~~ — resuelta 2026-09-23: se alimenta desde `ProductReview` | — | — |
-| **H-11** decisión sobre GA4 | Medición de las fases 4 y 6 | No hay embudo ni segmento de IA medible |
+| **H-45** propiedad GA4 (H-11 decidido) | Medición de las fases 4 y 6 | No hay embudo ni segmento de IA medible |
 | **H-12** perfiles oficiales | `sameAs` (3) | `Organization` sin perfiles |
 | **H-15** política de devoluciones | `MerchantReturnPolicy` (3) | Se omite |
 | **H-09** Merchant Center | Fase 7 | No se publica el feed |
 
 ---
 
-*Última actualización: 2026-09-23*
+*Última actualización: 2026-09-28*

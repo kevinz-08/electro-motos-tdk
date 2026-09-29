@@ -42,6 +42,9 @@ import { installedMotorcycleLabel, installedMotorcycleLine } from './review-moto
 import { findCrossSellSuggestions } from './cross-sell'
 import { findKitsByModel, findKitBySlug, findAllVisibleKits, findKitsContainingProduct } from './kits'
 import { findMaintenanceGuide, findReviewerBySlug, findPublishedGuideEntries, hasPublishedGuide } from './guides'
+import { findPublishedArticle, findPublishedArticlesByModel } from './articles'
+import { findPublishedPriceIndex } from './price-index'
+import { findStoreFacts } from './store-facts'
 
 export { CACHE_TAGS }
 
@@ -445,6 +448,37 @@ export const getCachedPublishedGuideEntries = unstable_cache(
 export const getCachedHasPublishedGuide = unstable_cache(
   async (modelId: string) => hasPublishedGuide(modelId),
   ['has-published-guide'],
+  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+)
+
+/** Artículo publicado por slug (Fase 5, ítem 1). Mismo tag que las guías. */
+export const getCachedPublishedArticle = unstable_cache(
+  async (slug: string) => findPublishedArticle(slug),
+  ['published-article'],
+  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+)
+
+/** Último corte publicado del Índice de Precios (Fase 5, ítem 4). Lo invalida el admin al publicar. */
+export const getCachedPublishedPriceIndex = unstable_cache(
+  async () => findPublishedPriceIndex(),
+  ['published-price-index'],
+  { revalidate: 3600, tags: [CACHE_TAGS.priceIndex] },
+)
+
+/**
+ * Hechos verificables de la tienda (Fase 6 — `/llms.txt` y "Por qué comprar en
+ * H2R"). Cambian con el catálogo, las compatibilidades, las guías y los ajustes.
+ */
+export const getCachedStoreFacts = unstable_cache(
+  async () => findStoreFacts(),
+  ['store-facts'],
+  { revalidate: 3600, tags: [CACHE_TAGS.products, CACHE_TAGS.fitments, CACHE_TAGS.settings, CACHE_TAGS.guides] },
+)
+
+/** Artículos publicados sobre un modelo (enlazado hub ↔ guías, Fase 5). */
+export const getCachedArticlesByModel = unstable_cache(
+  async (modelId: string) => findPublishedArticlesByModel(modelId),
+  ['articles-by-model'],
   { revalidate: 600, tags: GUIDE_CACHE_TAGS },
 )
 

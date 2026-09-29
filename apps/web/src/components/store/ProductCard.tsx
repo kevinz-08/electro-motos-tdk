@@ -128,7 +128,9 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
               fill
               className={`object-contain p-4 transition-all duration-500 ${hasSecond ? 'group-hover:opacity-0' : 'group-hover:scale-105'}`}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              priority={priority}
+              // Next 16 depreca `priority` en favor de loading/fetchPriority explícitos.
+              loading={priority ? 'eager' : 'lazy'}
+              fetchPriority={priority ? 'high' : 'auto'}
               placeholder="blur"
               blurDataURL={IMAGE_BLUR_PLACEHOLDER}
             />
@@ -190,7 +192,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
         {/* Badge descuento (precio ancla) */}
         {discountPercent > 0 && !isOutOfStock && (
           <div className="absolute top-2.5 right-2.5">
-            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full tracking-wide shadow-sm">
+            <span className="bg-sky-500 text-white text-[10px] font-black px-2 py-1 rounded-full tracking-wide shadow-sm">
               -{discountPercent}%
             </span>
           </div>

@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { CircleCheck, Mail } from 'lucide-react'
 
 const RESEND_COOLDOWN = 60
 const CODE_LENGTH = 6
@@ -123,7 +124,7 @@ export function VerifyEmailForm({ email }: Props) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8 w-full max-w-md text-center">
-          <p className="text-5xl mb-4">✅</p>
+          <CircleCheck className="mx-auto mb-4 w-12 h-12 text-green-400" aria-hidden="true" />
           <h1 className="text-xl font-bold text-white mb-2">¡Correo verificado!</h1>
           <p className="text-white/50 text-sm">Redirigiendo al inicio de sesión...</p>
         </div>
@@ -152,7 +153,7 @@ export function VerifyEmailForm({ email }: Props) {
         </div>
 
         <div className="text-center mb-6">
-          <p className="text-2xl mb-2">📧</p>
+          <Mail className="mx-auto mb-2 w-8 h-8 text-sky-400" aria-hidden="true" />
           <h1 className="text-lg font-bold text-white mb-1">Revisa tu correo</h1>
           <p className="text-sm text-white/50">
             Enviamos un código de 6 dígitos a{' '}

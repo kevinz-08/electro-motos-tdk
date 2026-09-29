@@ -31,6 +31,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
+import { Lock } from 'lucide-react'
 
 interface WompiWidgetProps {
   publicKey: string
@@ -137,8 +138,9 @@ export function WompiWidget({ publicKey, amountInCents, reference, integritySign
         {!scriptReady && !scriptFailed ? 'Cargando pasarela...' : 'Pagar con Wompi'}
       </button>
 
-      <p className="text-xs text-gray-400 text-center">
-        🔒 Pago procesado por Wompi · Certificado PCI DSS
+      <p className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
+        <Lock className="w-3.5 h-3.5 text-sky-500" aria-hidden="true" />
+        Pago procesado por Wompi · Certificado PCI DSS
       </p>
     </div>
   )

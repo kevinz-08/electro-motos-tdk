@@ -33,6 +33,7 @@ import {
   getCachedPublishableModels,
   getCachedKitsByModel,
   getCachedHasPublishedGuide,
+  getCachedArticlesByModel,
 } from '@/lib/cache'
 import { KitsSection } from '@/components/store/KitsSection'
 import { getProductsByIds } from '@/lib/queries/fitment'
@@ -104,13 +105,17 @@ export default async function ModelHubPage({ params }: PageProps) {
     console.error('[guias] no se pudo consultar la guía del modelo', e)
   }
 
+  // Artículos (comparativas, guías) sobre este modelo. Opcional como la guía:
+  // sin la migración de artículos, o sin artículos, no se muestra nada.
+  const articles = await getCachedArticlesByModel(model.id).catch(() => [])
+
   return (
     <div className="bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <Breadcrumbs
           items={[
             { label: 'Inicio', href: '/' },
-            { label: 'Repuestos', href: '/catalogo' },
+            { label: 'Repuestos', href: '/repuestos' },
             // La marca no enlaza: la ruta /repuestos/[marca] no existe todavía y
             // no se crea hasta que haya varios modelos publicables por marca.
             { label: model.brand.name },
@@ -170,6 +175,21 @@ export default async function ModelHubPage({ params }: PageProps) {
             </span>
             <span aria-hidden="true" className="text-sky-600">→</span>
           </Link>
+        )}
+
+        {articles.length > 0 && (
+          <section className="mt-8" aria-labelledby="guias-modelo">
+            <h2 id="guias-modelo" className="text-lg font-bold text-gray-900">Guías sobre la {model.name}</h2>
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {articles.map((a) => (
+                <li key={a.slug}>
+                  <Link href={`/guias/${a.slug}`} className="text-sky-600 underline hover:text-sky-700">
+                    {a.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {/* ── Kits para esta moto ──────────────────────────────────────── */}

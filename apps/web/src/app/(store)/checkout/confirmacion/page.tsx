@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { CircleCheck, Clock, Package, SearchX } from 'lucide-react'
 import { auth } from '@/lib/auth'
 import { getOrderConfirmation } from '@/lib/queries/getOrderConfirmation'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
@@ -49,7 +50,9 @@ function NotFound() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="text-center max-w-sm">
-        <div className="text-5xl mb-4">🔍</div>
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-sky-50">
+          <SearchX className="h-8 w-8 text-sky-500" aria-hidden="true" />
+        </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Pedido no encontrado</h1>
         <p className="text-gray-500 mb-6">
           No pudimos encontrar los detalles de tu pedido. Revisa tu historial.
@@ -109,7 +112,17 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
 
         {/* ── Hero de estado ─────────────────────────────────────────────── */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">{isCod ? '📦' : isPaid ? '✅' : isPending ? '⏳' : '📦'}</div>
+          {isPaid && !isCod ? (
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-50">
+              <CircleCheck className="h-10 w-10 text-green-600" aria-hidden="true" />
+            </div>
+          ) : (
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-sky-50">
+              {isPending && !isCod
+                ? <Clock className="h-10 w-10 text-sky-500" aria-hidden="true" />
+                : <Package className="h-10 w-10 text-sky-500" aria-hidden="true" />}
+            </div>
+          )}
           <h1 className="text-3xl font-black text-gray-900 mb-2">
             {isCod
               ? '¡Pedido confirmado!'

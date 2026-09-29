@@ -7,6 +7,8 @@ import { Roles } from '../auth/decorators/roles.decorator'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { CreateCategoryDto } from './dto/create-category.dto'
 import { UpdateCategoryDto } from './dto/update-category.dto'
+import { SetCategoryBrandDto } from './dto/set-category-brand.dto'
+import { BRAND_CATEGORIES_SETTING_KEY, parseBrandCategorySlugs } from '@h2r/domain'
 
 @ApiTags('admin / categories')
 @ApiBearerAuth('access-token')
@@ -18,13 +20,50 @@ export class AdminCategoriesController {
   @Get()
   @ApiOperation({ summary: 'Listar todas las categorías con conteo de productos' })
   async findAll() {
-    return this.prisma.client.category.findMany({
-      orderBy: [{ parentId: 'asc' }, { name: 'asc' }],
-      include: {
-        parent: { select: { id: true, name: true } },
-        _count: { select: { products: true } },
-      },
+    const [categories, brandSlugs] = await Promise.all([
+      this.prisma.client.category.findMany({
+        orderBy: [{ parentId: 'asc' }, { name: 'asc' }],
+        include: {
+          parent: { select: { id: true, name: true } },
+          _count: { select: { products: true } },
+        },
+      }),
+      this.brandSlugs(),
+    ])
+    return categories.map((c) => ({ ...c, isBrand: brandSlugs.includes(c.slug) }))
+  }
+
+  /**
+   * Marca o desmarca una subcategoría como marca (Índice de Precios, H-55). Se
+   * guarda en `Settings` (`BRAND_CATEGORY_SLUGS`), sin tocar la tabla de
+   * categorías: el catálogo y sus URLs no cambian; solo el índice suma esa
+   * subcategoría a su categoría padre.
+   */
+  @Put(':id/brand')
+  @ApiOperation({ summary: 'Marcar o desmarcar una subcategoría como marca (agrupación del Índice de Precios)' })
+  async setBrand(@Param('id') id: string, @Body() dto: SetCategoryBrandDto) {
+    const category = await this.prisma.client.category.findUnique({ where: { id } })
+    if (!category) throw new NotFoundException('Categoría no encontrada')
+    if (dto.isBrand && !category.parentId) {
+      throw new ConflictException('Solo una subcategoría puede ser una marca: el índice la suma a su categoría padre')
+    }
+
+    const current = await this.brandSlugs()
+    const next = dto.isBrand
+      ? [...new Set([...current, category.slug])]
+      : current.filter((slug) => slug !== category.slug)
+    const value = JSON.stringify(next.sort())
+    await this.prisma.client.settings.upsert({
+      where: { key: BRAND_CATEGORIES_SETTING_KEY },
+      update: { value },
+      create: { key: BRAND_CATEGORIES_SETTING_KEY, value },
     })
+    return { slug: category.slug, isBrand: dto.isBrand }
+  }
+
+  private async brandSlugs(): Promise<string[]> {
+    const setting = await this.prisma.client.settings.findUnique({ where: { key: BRAND_CATEGORIES_SETTING_KEY } })
+    return parseBrandCategorySlugs(setting?.value)
   }
 
   @Post()

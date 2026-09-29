@@ -13,6 +13,7 @@ import { CitySelector } from '@/components/checkout/CitySelector'
 import { useCart } from '@/lib/cart'
 import { useShippingQuote } from '@/lib/shipping-quote'
 import { formatCOP } from '@/components/store/PriceTag'
+import { PartyPopper } from 'lucide-react'
 
 export function ProductShippingEstimate({
   productId,
@@ -40,7 +41,10 @@ export function ProductShippingEstimate({
         {selectedCity && loading && <span className="text-gray-400">Calculando…</span>}
         {selectedCity && !loading && quote && (
           quote.freeShipping ? (
-            <span className="font-semibold text-green-600">🎉 Envío gratis a {selectedCity.name}</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-green-600">
+              <PartyPopper className="w-4 h-4" aria-hidden="true" />
+              Envío gratis a {selectedCity.name}
+            </span>
           ) : (
             <span className="text-gray-700">
               Envío a {selectedCity.name}: <strong>{formatCOP(quote.quotedShippingTotal)}</strong>

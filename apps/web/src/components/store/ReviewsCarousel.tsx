@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { Motorbike } from 'lucide-react'
 import { StarRating } from '@/components/store/ProductTrustSignals'
 
 export interface CarouselReview {
@@ -27,7 +28,10 @@ function ReviewCard({ review }: { review: CarouselReview }) {
         &ldquo;{review.comment}&rdquo;
       </blockquote>
       {review.installedLine && (
-        <p className="mt-3 text-xs font-medium text-green-700">🏍️ {review.installedLine}</p>
+        <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-green-700">
+          <Motorbike className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {review.installedLine}
+        </p>
       )}
       <div className="mt-auto pt-4">
         <div className="pt-3 border-t border-gray-100">

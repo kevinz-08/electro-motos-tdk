@@ -16,6 +16,7 @@
  */
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { isMaintenanceGuidePublishable, type MaintenanceItem } from '@h2r/domain'
+import { findPublishedArticles, findPublishedArticlesByReviewer, type PublicArticleSummary } from './articles'
 
 export interface PublicReviewer {
   id: string
@@ -42,7 +43,7 @@ export interface PublicGuideItem extends Pick<MaintenanceItem, 'label' | 'interv
 }
 
 export interface PublicMaintenanceGuide {
-  model: { name: string; slug: string; brandName: string; brandSlug: string; cc: number | null }
+  model: { id: string; name: string; slug: string; brandName: string; brandSlug: string; cc: number | null }
   source: string
   notes: string | null
   /** ISO — la fecha visible "revisado el…" y el `dateModified` del JSON-LD. */
@@ -81,7 +82,7 @@ export async function findMaintenanceGuide(brandSlug: string, modelSlug: string)
   const guide = await prisma.maintenanceGuide.findFirst({
     where: { model: { slug: modelSlug, isActive: true, brand: { slug: brandSlug, isActive: true } } },
     include: {
-      model: { select: { name: true, slug: true, cc: true, brand: { select: { name: true, slug: true } } } },
+      model: { select: { id: true, name: true, slug: true, cc: true, brand: { select: { name: true, slug: true } } } },
       reviewer: { select: REVIEWER_SELECT },
       items: {
         orderBy: { order: 'asc' },
@@ -92,7 +93,7 @@ export async function findMaintenanceGuide(brandSlug: string, modelSlug: string)
   if (!guide || !isMaintenanceGuidePublishable(guide, guide.reviewer)) return null
 
   return {
-    model: { name: guide.model.name, slug: guide.model.slug, cc: guide.model.cc, brandName: guide.model.brand.name, brandSlug: guide.model.brand.slug },
+    model: { id: guide.model.id, name: guide.model.name, slug: guide.model.slug, cc: guide.model.cc, brandName: guide.model.brand.name, brandSlug: guide.model.brand.slug },
     source: guide.source,
     notes: guide.notes,
     reviewedAt: guide.reviewedAt.toISOString(),
@@ -126,32 +127,48 @@ export async function findReviewerBySlug(slug: string): Promise<(PublicReviewer 
   if (!reviewer) return null
 
   const { guides, ...profile } = reviewer
+  // Sin la tabla de artículos (migración de la Fase 5 sin aplicar) la página de
+  // autor sigue mostrando sus guías de mantenimiento.
+  const articles = await findPublishedArticlesByReviewer(reviewer.id).catch(() => [])
   return {
     ...toPublicReviewer(profile),
-    guides: guides.map((g) => ({
-      label: `${g.model.brand.name} ${g.model.name}`,
-      href: `/guias/mantenimiento/${g.model.brand.slug}/${g.model.slug}`,
-    })),
+    guides: [
+      ...guides.map((g) => ({
+        label: `Mantenimiento de la ${g.model.brand.name} ${g.model.name}`,
+        href: `/guias/mantenimiento/${g.model.brand.slug}/${g.model.slug}`,
+      })),
+      ...articles,
+    ],
   }
 }
 
-/** Guías publicadas y revisores activos con guías, para el sitemap. */
+/** Guías y artículos publicados y revisores activos que firman alguno, para el sitemap. */
 export async function findPublishedGuideEntries(): Promise<{
-  guides: Array<{ brandSlug: string; modelSlug: string; reviewedAt: Date }>
+  guides: Array<{ brandSlug: string; modelSlug: string; reviewedAt: Date; label: string }>
+  articles: PublicArticleSummary[]
   reviewers: Array<{ slug: string }>
 }> {
   const guides = await prisma.maintenanceGuide.findMany({
     where: { items: { some: {} }, reviewer: { isActive: true }, model: { isActive: true, brand: { isActive: true } } },
-    select: { reviewedAt: true, model: { select: { slug: true, brand: { select: { slug: true } } } } },
+    select: { reviewedAt: true, model: { select: { slug: true, name: true, brand: { select: { slug: true, name: true } } } } },
     orderBy: { reviewedAt: 'desc' },
   })
-  const reviewers = await prisma.technicalReviewer.findMany({
+  const reviewersWithGuides = await prisma.technicalReviewer.findMany({
     where: { isActive: true, guides: { some: { items: { some: {} }, model: { isActive: true } } } },
     select: { slug: true },
   })
+  // Tolerante a la migración de artículos sin aplicar: entonces no hay artículos.
+  const articles = await findPublishedArticles().catch(() => [])
+  const reviewersWithArticles = articles.length
+    ? await prisma.technicalReviewer
+        .findMany({ where: { isActive: true, articles: { some: { status: 'PUBLISHED' } } }, select: { slug: true } })
+        .catch(() => [])
+    : []
+  const reviewerSlugs = new Set([...reviewersWithGuides, ...reviewersWithArticles].map((r) => r.slug))
   return {
-    guides: guides.map((g) => ({ brandSlug: g.model.brand.slug, modelSlug: g.model.slug, reviewedAt: g.reviewedAt })),
-    reviewers,
+    guides: guides.map((g) => ({ brandSlug: g.model.brand.slug, modelSlug: g.model.slug, reviewedAt: g.reviewedAt, label: `${g.model.brand.name} ${g.model.name}` })),
+    articles,
+    reviewers: [...reviewerSlugs].map((slug) => ({ slug })),
   }
 }
 

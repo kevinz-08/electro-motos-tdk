@@ -33,6 +33,348 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 189. Tiempos de envío y Addi unificados en todo el sitio (H-60) y plantilla de medición de prompts (H-32)
+
+**Requerimiento:** el negocio confirmó el 2026-09-28 que la entrega real es **1 a 2 días hábiles en Bucaramanga y área metropolitana y 3 a 7 en el resto de Colombia**, y que **Addi sigue activo**, coordinado con un asesor por WhatsApp. El FAQ ya lo decía, pero `Settings` (por defecto 2–5), la ficha de producto, su JSON-LD de envío, `/llms.txt` y "Por qué comprar en H2R" decían 2 a 5.
+
+**Hecho:**
+
+- Dominio `shared/croSettings.ts`: `SHIPPING_ETA_MIN/MAX_DAYS` por defecto pasan a 3 y 7. Es el peor caso nacional: una estimación única no debe prometer de más, y el valor sigue siendo editable en `/admin/configuracion`. Nuevo `LOCAL_DELIVERY_DAYS` (1–2, Bucaramanga).
+- `lib/store-facts.ts` expone `shipping.local`. `/llms.txt` y `/por-que-comprar-en-h2r` nombran los dos plazos y Addi. El FAQ explica que Addi se coordina por WhatsApp.
+- `docs/seo/07-feed.md`: tiempo de tránsito de 3 a 7 días en la configuración de Merchant Center.
+- `docs/seo/geo/registro-prompts.csv`: plantilla con las 120 filas (30 prompts × 4 motores) para H-32.
+
+**Verificación:** 411 tests de dominio y 242 de API en verde; `type-check` y `lint` limpios en los archivos tocados.
+
+**Archivos:** `packages/domain/src/shared/croSettings.ts`, `apps/web/src/lib/{store-facts,faq}.ts`, `apps/web/src/app/llms.txt/route.ts`, `apps/web/src/app/(store)/por-que-comprar-en-h2r/page.tsx`, `docs/seo/{07-feed,HUMAN_TASKS}.md`, `docs/seo/geo/{prompts.md,registro-prompts.csv}`.
+
+---
+
+## 188. La home para la búsqueda de marca "tienda h2r"
+
+**Requerimiento:** al buscar "tienda h2r", Google mostraba `/sobre-nosotros` en vez de la home. Plan aprobado el 2026-09-28 (textos de título, `<h1>` y `/sobre-nosotros` confirmados por el negocio).
+
+**Causa:** `/sobre-nosotros` era la mejor coincidencia. Su descripción empezaba con "H2R Online Store: tienda de repuestos…". La home ponía la marca al final del título, no la nombraba en la descripción y no tenía ningún `<h1>`, porque el hero es un carrusel de imágenes.
+
+**Hecho:**
+
+- `app/(store)/page.tsx`: título `{ absolute: 'Tienda H2R | Repuestos para moto con envío a toda Colombia' }`, descripción "Tienda H2R (H2R Online Store): …" y Open Graph con los mismos textos.
+- `components/store/HomeIntro.tsx` (nuevo) en `home.tsx`, debajo del carrusel: `<h1>` "H2R Online Store: tienda de repuestos para moto", subtítulo y enlace a `/repuestos`.
+- `lib/faq.ts`: primera pregunta "¿Qué es Tienda H2R?" (visible y en `FAQPage`), respondida con los datos de `ORGANIZATION`.
+- `sobre-nosotros/page.tsx`: título "Quiénes somos y cómo trabajamos | H2R Online Store" y descripción "Quiénes somos: …".
+- `scripts/seo-check.mjs`: comprueba que la home tenga exactamente un `<h1>` y que su título empiece por "Tienda H2R". Se corrigió también un choque de nombre de variable (`home` ya existía más abajo).
+
+**Verificación:** contra producción (sin el cambio), `seo:check` falla justo esas dos comprobaciones (42/44). Contra el build local: 44/44, `seo:schema` 47/47. Lighthouse móvil de la home local: el LCP sigue siendo el banner del hero (no el `<h1>`), SEO 100, CLS 0.
+
+**Hallazgo, sin cambiar (decisión del negocio):** el FAQ de la home dice "1 a 2 días hábiles en Bucaramanga y 3 a 7 para el resto de Colombia" y menciona Addi. En cambio, `Settings`, `/llms.txt` y "Por qué comprar en H2R" dicen 2 a 5 días hábiles. Esta contradicción resta confianza a buscadores y motores generativos.
+
+**Después de desplegar:** solicitar en Search Console la indexación de `/` y `/sobre-nosotros`, y medir en 2–4 semanas qué página recibe las impresiones de "tienda h2r".
+
+**Archivos:** `apps/web/src/app/(store)/{page,home}.tsx`, `apps/web/src/components/store/HomeIntro.tsx`, `apps/web/src/lib/faq.ts`, `apps/web/src/app/(store)/sobre-nosotros/page.tsx`, `scripts/seo-check.mjs`, `docs/seo/01-resultados.md`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
+## 187. Iconos lucide en lugar de emojis en toda la tienda
+
+**Requerimiento:** sustituir los emojis de la página por iconos para mantener una línea de diseño. Decisiones del negocio: azul por defecto y color según significado solo en éxito y error; el panel admin no se toca; las estrellas también pasan a lucide.
+
+**Hecho:**
+
+- `EmptyState` recibe `icon: LucideIcon` y lo pinta en un círculo `sky-50`. Nuevo `ImagePlaceholder` (`Package` gris) para miniaturas sin foto en carrito, pedidos, kits y venta cruzada.
+- Ficha: acordeones con `Motorbike`, `Truck` y `RefreshCw`; viñetas de beneficios con `Check`; `Flame` en el contador de compras; `Package` en la mención de kits; `PartyPopper` (verde) en envío gratis; `Motorbike` en "Le sirvió a una…" (también en el carrusel de la home).
+- `StarRating` deja el SVG propio y usa `Star` de lucide con recorte para medias estrellas; `ReviewForm` usa `Star`, `ThumbsUp`/`ThumbsDown` y `HeartHandshake`.
+- Home: `CategoryGrid` con `Zap`, `Wrench`, `Droplet`, `CircleDot` y `Cog`. `/catalogo`: se elimina `catIcon` (los iconos ya estaban vacíos; solo quedaba el 📦 de relleno) y `SearchX` en "sin resultados".
+- Carrito y checkout: `PartyPopper`, `Lock` (Wompi), `Check` (ciudad). Confirmación: `CircleCheck` verde si está pagado, `Clock` si está pendiente, `Package` en contra entrega; `SearchX` si no se encuentra.
+- `/resena/[orderItemId]`: `Message` con icono y tono (`Lock` rojo, `SearchX`, `HeartHandshake` verde, `Package`). Guías y autores: `Wrench` como avatar por defecto. 404: `Motorbike`.
+- Autenticación (fondo oscuro): `CircleCheck` verde, `Mail` azul, `TriangleAlert` rojo; `Check` en el botón "Guardado" del perfil.
+- README §22.8 (iconografía).
+
+**Fuera del alcance:** panel admin (decisión del negocio), plantillas de `ResendEmailService.ts` de web (HTML de correo y sin referencias en el código) y el © del footer.
+
+**Verificación:** `type-check` limpio; `lint` sin errores y sin avisos nuevos (los 5 avisos en archivos tocados son previos); búsqueda de emojis fuera de comentarios, admin y correos: ninguno. Los E2E no dependen de los textos ni emojis cambiados.
+
+---
+
+## 186. PDP y tarjeta de producto — badge azul y bloque de confianza a la izquierda
+
+**Requerimiento:** unificar el color del badge de descuento con el de la PDP, quitar el recuadro "PAGO SEGURO · Con Wompi…" y llevar "Medios de pago / Garantía / H2R Online Store" a la columna izquierda con iconos azules en lugar de emojis.
+
+**Hecho:**
+
+- `ProductCard`: el badge `-X%` sobre la imagen pasa de `bg-red-600` a `bg-sky-500`, el mismo azul de `PriceTag`.
+- `SecurePaymentBadge` eliminado de `ProductTrustSignals.tsx` y de la ficha: repetía los medios de pago que ya muestra `ProductTrustBlock`.
+- `ProductTrustBlock` se mueve de la columna derecha (bajo el cotizador de envío) a la izquierda, bajo los acordeones de envíos y cambios. En móvil queda tras la galería y los acordeones.
+- Emojis 💳 🛡️ 🏪 sustituidos por `CreditCard`, `ShieldCheck` y `Store` de `lucide-react` en `sky-500`.
+- README §22.1, §22.3 y la sección de la Fase 4 actualizados.
+
+**Verificación:** `type-check` de web limpio y `eslint` sin errores en los archivos tocados.
+
+---
+
+## 185. Fase 6 — material fuera del sitio y cierre documental de las fases 6 y 7
+
+**Hecho:** `docs/seo/geo/` con `README.md`, `guiones-video.md` (10 guiones sobre productos y motos con compatibilidad verificada; el primero apunta a la búsqueda "cdi fz 2.0" que ya registra Search Console), `correos.md` (medios con el Índice de Precios, blogs de listas, talleres aliados, marcas proveedoras), `comunidades.md` (reglas, tono, respuestas modelo, identificarse siempre), `perfiles-marca.md` (datos canónicos iguales al JSON-LD, checklist GBP/Bing Places/Apple/Merchant/directorios; Wikidata descartado hasta tener prensa), `prompts.md` (30 prompts × 4 motores, registro y resumen mensual) y `medicion-trafico-ia.md` (dimensiones personalizadas y regex de GA4). Entregables `docs/seo/06-geo.md` y `docs/seo/07-feed.md` (con los pasos para configurar Merchant Center). ROADMAP y HUMAN_TASKS al día; nuevas H-57 (registrar el feed) y H-58 (dimensiones de GA4); H-18 y H-29–H-32 apuntan a las herramientas y archivos nuevos.
+
+**Verificación final de la rama:** tests de dominio y API en verde; `type-check` y `lint` sin errores; build de web correcto; contra el build local `seo:check` 42/42, `seo:schema` 47/47, `seo:ai` 54/54, `seo:feed` 5/5 (feed vacío por H-18), `seo:links` sin problemas y E2E de analítica 3/3.
+
+---
+
+## 184. Fase 6 — GEO técnico
+
+**Hecho:**
+
+- `scripts/seo-ai.mjs` + `pnpm seo:ai [url]`: 10 crawlers × 4 plantillas contra la referencia de un navegador (status, página de desafío, título, JSON-LD, precio en la ficha, tamaño) y robots.txt por token. **Producción 2026-09-28: 54/54** (ítem 1 del ROADMAP confirmado).
+- `lib/store-facts.ts` (`findStoreFacts`, `getCachedStoreFacts`): cifras de la tienda calculadas desde la base; garantía (6 meses, H-17) y cambios (5 días, H-15) como constantes confirmadas.
+- `/llms.txt` (formato llmstxt.org) y `/por-que-comprar-en-h2r` (en footer y `sitemap-paginas.xml`), ambos sobre `findStoreFacts`.
+- JSON-LD: `alternateName: ["Tienda H2R", "H2R"]` en `Organization` y `WebSite`.
+- Dominio `shared/aiReferral.ts` (`detectAiSource`, `GA4_AI_SOURCE_REGEX`, 4 tests) y `AiReferralTracker` en el layout: evento `ai_referral` una vez por sesión, con consentimiento, también si se acepta después de aterrizar. Caso nuevo en `e2e/analytics.spec.ts`.
+
+**Archivos:** `scripts/seo-ai.mjs`, `package.json`, `packages/domain/src/shared/aiReferral.ts`, `packages/domain/src/__tests__/AiReferral.test.ts`, `apps/web/src/lib/{store-facts,cache,structured-data,sitemap}.ts`, `apps/web/src/app/llms.txt/route.ts`, `apps/web/src/app/(store)/por-que-comprar-en-h2r/page.tsx`, `apps/web/src/components/analytics/AiReferralTracker.tsx`, `apps/web/src/app/layout.tsx`, `apps/web/src/components/store/Footer.tsx`, `apps/web/e2e/analytics.spec.ts`.
+
+---
+
+## 183. Fase 7 — feed de Merchant Center
+
+**Hecho:**
+
+- Dominio `entities/MerchantFeed.ts`: `evaluateMerchantProduct` / `buildMerchantFeed` (activo, stock, precio, imagen y marca obligatorios; sin MPN → `identifier_exists=no` con aviso; precio ancla → `price` + `sale_price`), `buildMerchantTitle`, `normalizeTitleCase` (Google rechaza MAYÚSCULAS excesivas; conserva siglas y códigos), `googleCategoryFor` con IDs de la taxonomía oficial de Google (descargada el 2026-09-28), `buildProductType`. 15 tests.
+- Web: `lib/merchant-feed.ts` (lectura Prisma + serialización RSS 2.0 `g:`; imágenes JPEG 900 px), ruta `/feeds/google-merchant.xml` (`X-Robots-Tag: noindex`), panel `/admin/merchant` (en feed / excluidos / motivos / avisos) y entrada en `AdminNav`.
+- `scripts/seo-feed.mjs` + `pnpm seo:feed [url]`.
+
+**Simulación con el catálogo real (solo lectura):** hoy 0 productos en el feed (134 sin marca); con marca entrarían 124 (10 agotados), en 10 categorías de Google.
+
+**Archivos:** `packages/domain/src/entities/MerchantFeed.ts`, `packages/domain/src/__tests__/MerchantFeed.test.ts`, `apps/web/src/lib/merchant-feed.ts`, `apps/web/src/app/feeds/google-merchant.xml/route.ts`, `apps/web/src/app/admin/merchant/page.tsx`, `apps/web/src/components/admin/AdminNav.tsx`, `scripts/seo-feed.mjs`, `package.json`.
+
+---
+
+## 182. Fase 7 — marca, MPN, tipo y garantía desde el panel (desbloquea H-18)
+
+**Requerimiento:** H-18 (marca y MPN de cada repuesto) era imposible sin tocar la base: las columnas existían desde la Fase 2 pero no había campos en el panel ni en ningún DTO.
+
+**Hecho:**
+
+- Dominio `entities/ProductIdentifiers.ts`: `validateProductIdentifiers` (rechaza "genérico", "sin marca", "N/A"… como marca; largos; tipo; garantía 0–120), `normalizeProductIdentifiers`, `parseIdentifiersCsv` (`sku,marca,mpn,tipo,garantia_meses`; celda vacía = no tocar, `-` = borrar; alias de tipo; errores por línea). 10 tests.
+- API `AdminProductIdentifiersController`: `GET/PUT /admin/products/:id/identifiers` y `POST /admin/products/identifiers/import`; avisa a IndexNow. 3 tests. Sin migración (las columnas ya existían).
+- Web: `ProductIdentifiersEditor` en el formulario de producto (guarda con su propio botón) e `IdentifiersImporter` en `/admin/merchant`, con plantilla precargada con todos los productos (SKU, nombre y datos actuales).
+
+**Archivos:** `packages/domain/src/entities/ProductIdentifiers.ts`, `packages/domain/src/__tests__/ProductIdentifiers.test.ts`, `packages/domain/src/index.ts`, `apps/api/src/admin/{admin-product-identifiers.controller.ts,dto/set-product-identifiers.dto.ts,admin.module.ts}`, `apps/api/src/__tests__/admin-product-identifiers.test.ts`, `apps/web/src/components/admin/{ProductIdentifiersEditor,IdentifiersImporter,ProductEditForm}.tsx`, `README.md`.
+
+---
+
+## 181. Índice de Precios: subcategorías de marca agrupadas en su categoría padre (H-55, opción C)
+
+**Requerimiento:** el negocio eligió la opción C de H-55 (2026-09-28): que el índice no publique marcas (Liquimoly, Castrol, SKY, Kontrol, Dunlop) como si fueran tipos de repuesto, sin reorganizar el catálogo.
+
+**Decisión técnica:** el dato "es una marca" se guarda en `Settings` (`BRAND_CATEGORY_SLUGS`, JSON con slugs) y no como columna nueva de `Category`. Una columna en una tabla existente habría roto todas las consultas de categorías (catálogo, menú, sitemap) en producción mientras la migración no estuviera aplicada, y también el build. Sin ajuste guardado se usan las cinco marcas actuales, así que funciona desde el primer despliegue. De paso se corrigió un error: SKY es marca de llantas (bajo Llantas), no de aceite; estaba mal en el borrador de aceite y en H-55.
+
+**Hecho:**
+
+- Dominio (`entities/PriceIndex.ts`): `BRAND_CATEGORIES_SETTING_KEY`, `DEFAULT_BRAND_CATEGORY_SLUGS`, `parseBrandCategorySlugs` (ausente o dañado → por defecto), `toPriceIndexGroup` (marca con padre → grupo del padre). 5 tests nuevos.
+- API: el corte del índice aplica la agrupación; `GET /admin/categories` devuelve `isBrand`; nuevo `PUT /admin/categories/:id/brand` (solo subcategorías; edita el ajuste sin duplicados). 4 tests nuevos.
+- Web: casilla "Es una marca" en el formulario de subcategorías y etiqueta "Marca" en la tabla de `/admin/categorias`; la metodología pública del índice explica la regla.
+
+**Simulación con el catálogo real (2026-09-28):** 134 productos, 10 categorías publicables; aparecen **Llantas (12, mediana $137.000)** y **Aceites (13, mediana $62.000)** y ya no aparecen SKY, Kontrol ni Liquimoly como filas.
+
+**Archivos:** `packages/domain/src/entities/PriceIndex.ts`, `packages/domain/src/__tests__/PriceIndex.test.ts`, `apps/api/src/admin/{admin-price-index.controller.ts,admin-categories.controller.ts,dto/set-category-brand.dto.ts}`, `apps/api/src/__tests__/{admin-price-index,admin-categories-brand}.test.ts`, `apps/web/src/app/admin/categorias/page.tsx`, `apps/web/src/components/admin/CategoryManager.tsx`, `apps/web/src/app/(store)/indice-precios-repuestos-moto/page.tsx`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
+## 180. Cierre SEO — Bloque C: verificación y documentación del cierre de las fases 4 y 5
+
+**Verificación completa de la rama `feat/seo-geo-cro`:**
+
+- Dominio: **377/377 tests** (antes 254), cobertura 95,3 % líneas / 93,9 % ramas (umbral 80/70).
+- API: **235/235 tests** (antes 191). `nest build` correcto.
+- `pnpm type-check`: 6/6 paquetes limpios. `pnpm lint`: 0 errores; ningún aviso nuevo en archivos tocados.
+- `pnpm --filter @h2r/web build` correcto (la ausencia de la tabla `Article` se maneja sin romper el build).
+- Contra el build local: `seo:check` 42/42, `seo:schema` 47/47, `seo:links` 0 problemas, E2E del embudo GA4 2/2.
+
+**Documentación:** nuevo `docs/seo/05-contenido.md` (entregable de la Fase 5 con estado por ítem, reglas, medición y lo que falta para el criterio de salida); ROADMAP, `04-conversion.md` y HUMAN_TASKS al día (H-37 y H-40 resueltas, H-02 apunta al panel).
+
+**Pendiente humano para publicar:** H-54 (migración), H-52 (revisor y guías), H-55 (primer corte del índice), H-56 (revisar borradores), H-45 (conversión `purchase` + 2 semanas de datos), H-48/H-50 (venta cruzada y kits).
+
+---
+
+## 179. Cierre SEO — B5: borradores de comparativas y guía de revisión técnico-mecánica (Fase 5, ítems 5 y 6)
+
+**Requerimiento:** borradores de las comparativas y de la guía de revisión técnico-mecánica, con criterios concretos y tablas, que no se publican sin revisión de alguien con conocimiento mecánico.
+
+**Hecho:** `docs/seo/borradores/` (no se cargaron en la base porque la migración de H-54 no está aplicada; se pegan en `/admin/guias` después):
+
+- `guia-revision-tecnico-mecanica-moto.md` (Guía): cuándo toca la RTM de una moto, qué revisa el CDA, tabla "falla típica → qué cambiar antes de ir" enlazada a categorías reales, lista para preparar la moto en casa.
+- `repuesto-original-vs-generico-moto.md` (Comparativa): tabla original / homologado / genérico, en qué piezas no ahorrar, dónde un genérico de marca sirve, cómo saber si le sirve a tu moto.
+- `como-elegir-aceite-moto-trabajo.md` (Guía): viscosidad, JASO MA/MA2/MB, API, por qué no aceite de carro con embrague húmedo, intervalos en uso intenso; enlaza guías y las marcas de aceite del catálogo.
+- `README.md`: cómo cargarlos y qué no se escribió (la comparativa de marcas de pastillas por modelo requiere H-18: `partBrand` vacío en los 133 productos).
+
+**Reglas aplicadas:** cada cifra normativa o técnica que el revisor debe confirmar va marcada `[VERIFICAR]`; no hay datos de durabilidad ni rendimiento inventados. Validados con las funciones del dominio: respuesta directa de 51–58 palabras, cuerpo sin errores de formato, todos los enlaces internos existen en producción. Nueva tarea H-56.
+
+**Archivos:** `docs/seo/borradores/{README,guia-revision-tecnico-mecanica-moto,repuesto-original-vs-generico-moto,como-elegir-aceite-moto-trabajo}.md`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
+## 178. Cierre SEO — A3: prueba E2E del embudo de GA4
+
+**Requerimiento:** que el embudo de la Fase 4 (ítem 11) quede verificado antes de que GA4 acumule datos, sin depender de mirar DebugView a mano.
+
+**Hecho:** `apps/web/e2e/analytics.spec.ts` (Playwright, proyecto `chromium`):
+
+- Toma un producto real con stock del sitemap, acepta el consentimiento por `localStorage` y recorre ficha → "Agregar al carrito" → `/carrito` → `/checkout`, comprobando en `window.dataLayer` `view_item`, `add_to_cart` (con valor > 0), `view_cart` y `begin_checkout`.
+- Verifica que ningún evento lleve claves fuera de una lista blanca (moneda, valor, ítems con id/nombre/precio/cantidad, término de búsqueda…): nada de nombre, email, teléfono ni dirección.
+- Segundo caso: con el consentimiento rechazado no se encola ningún evento.
+- **Bloquea toda petición a Google** (`context.route`) para no ensuciar la propiedad real con visitas de prueba. Sin `NEXT_PUBLIC_GA_ID` el test se salta con aviso.
+- `purchase` no se simula (requiere un pago real); sale en `/checkout/confirmacion`.
+
+**Resultado:** 2/2 contra el build de producción local con el ID real de GA4.
+
+**Archivos:** `apps/web/e2e/analytics.spec.ts`, `README.md`.
+
+---
+
+## 177. Cierre SEO — A2: la causa del render delay de la ficha de producto (H-36, punto 4)
+
+**Requerimiento:** H-36 dejó sin explicar el `Render Delay` de la ficha (56 %, 1,7–2,4 s) y su TBT, atribuidos "probablemente" al JS de las fases 3 y 4.
+
+**Diagnóstico (informe de producción `.lighthouse/producto.json` + mediciones nuevas):** no era el JS. **El elemento LCP de la ficha era el párrafo del aviso de cookies de GA4**, no la foto del producto. Causa encadenada:
+
+1. La imagen principal (`ProductImageGallery`) llevaba `animate-fadeIn` desde la primera pintura: arranca en opacidad 0, y Chrome no toma como candidata a LCP una imagen pintada con opacidad 0.
+2. Sin la foto como candidata, el siguiente elemento grande era el aviso de cookies, que aparece al hidratar → 2,4 s de render delay.
+3. De paso se confirmó que **GA4 ya está activo en producción** (`G-27M2WKZ9WF` en el bundle): el aviso solo se pinta si hay `NEXT_PUBLIC_GA_ID` (H-45 pasa a 🟡).
+
+**Hecho:**
+
+- `ProductImageGallery`: la animación solo se aplica al cambiar de imagen (`fadeKey > 0`); la inicial va `loading="eager"` + `fetchPriority="high"` (Next 16 depreca `priority`, ver `node_modules/next/dist/docs/.../image.md`).
+- `ProductCard`: `priority` → `loading`/`fetchPriority` explícitos (misma deprecación).
+- `CookieConsentBanner`: se muestra tras la primera interacción real (scroll, toque, clic o tecla), vía `useSyncExternalStore`. El LCP deja de medirse con la primera interacción, así que el aviso ya no compite en ninguna plantilla; GA no carga sin consentimiento, así que no se pierden datos de quien acepta.
+- `layout.tsx`: `preconnect('https://res.cloudinary.com')` (todas las imágenes de producto vienen de ahí).
+
+**Medición (Lighthouse 12 móvil, misma máquina, misma ficha `cortavientos-shadow-negro`):**
+
+| | Producción (antes) | Build local (después) |
+|---|---|---|
+| Elemento LCP | Aviso de cookies (texto) | **Foto del producto** |
+| Render delay | 2.304 ms | **141 ms** |
+| TBT | 40 ms (210 ms en el informe del 25-09) | 50–90 ms |
+| LCP simulado | 3,5 s | 4,4 s |
+
+El LCP simulado "sube" porque ahora mide lo que el comprador de verdad espera ver (la foto, desde Cloudinary en 4G lenta simulada) en vez de un texto; el 3,5 s anterior medía el elemento equivocado. El dato que manda es el de campo (CrUX, H-08) tras desplegar.
+
+**Archivos:** `apps/web/src/components/store/{ProductImageGallery,ProductCard}.tsx`, `apps/web/src/components/analytics/CookieConsentBanner.tsx`, `apps/web/src/app/layout.tsx`, `docs/seo/01-resultados.md`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
+## 176. Cierre SEO — B4: Índice de Precios de Repuestos de Moto (Fase 5, ítem 4)
+
+**Requerimiento:** página de datos generada desde el catálogo, con metodología explícita, fecha de corte y gráficos, actualizable cada semestre, publicada tras revisión humana (criterio de salida de la Fase 5).
+
+**Decisiones:** los cortes se generan desde el panel (no por script de terminal) y nacen como borrador; una persona revisa las cifras y publica. Un corte publicado no se regenera sin retirarlo antes, para que una cifra citada no cambie en silencio. La página pinta el corte guardado, nunca recalcula.
+
+**Hecho:**
+
+- Dominio (`entities/PriceIndex.ts`): `computePriceIndex` (metodología v1: activos, sin borrar, precio > 0; por categoría n, mediana, P25/P75 por interpolación lineal, mín., máx.; muestra mínima 5), `comparePriceIndexes` (variación de la mediana solo con la misma metodología), `quantile`, `priceIndexCutoffDate` (día de Bogotá). 11 tests.
+- Migración pendiente `20260926000000_phase5_content`: `PriceIndexSnapshot` gana `isPublished` y `publishedAt` (+ índice). Sigue sin aplicar (H-54).
+- API: `AdminPriceIndexController` — `GET /admin/price-index`, `POST snapshot` (upsert del día; 422 si ya está publicado), `POST :id/publish` (422 sin categorías publicables; conserva la primera fecha de publicación), `POST :id/unpublish`. 4 tests.
+- Web: `/indice-precios-repuestos-moto` (respuesta directa con datos del corte, gráfico `PriceIndexChart` de mediana + rango intercuartílico en un solo tono con tooltip por hover y foco, tabla completa, variación contra el corte anterior, metodología y forma de citar, JSON-LD `Dataset`); 404 sin corte publicado. Entra en `sitemap-guias.xml` y en `/guias` solo si hay corte publicado. Tag de caché `price-index`.
+- Panel: `/admin/indice-precios` (`PriceIndexManager`): generar, revisar tabla, publicar o retirar. Entrada "Índice precios" en `AdminNav`.
+
+**Simulación con el catálogo real (solo lectura, 2026-09-26):** 133 productos, 11 categorías publicables (CDI y Ramales con la mediana más alta, $180.000), 14 con muestra insuficiente. Hallazgo para el negocio (H-55): varias categorías son marcas (SKY, Liquimoly, Kontrol) y "Motores de Arraque" tiene una errata.
+
+**Archivos:** `packages/domain/src/entities/PriceIndex.ts`, `packages/domain/src/__tests__/PriceIndex.test.ts`, `packages/domain/src/index.ts`, `packages/database/prisma/{schema.prisma,migrations/20260926000000_phase5_content/migration.sql}`, `apps/api/src/admin/{admin-price-index.controller.ts,admin.module.ts}`, `apps/api/src/__tests__/admin-price-index.test.ts`, `apps/web/src/lib/{price-index,cache,cache-tags,sitemap,structured-data}.ts`, `apps/web/src/components/content/PriceIndexChart.tsx`, `apps/web/src/components/admin/{PriceIndexManager,AdminNav}.tsx`, `apps/web/src/app/(store)/indice-precios-repuestos-moto/page.tsx`, `apps/web/src/app/(store)/guias/page.tsx`, `apps/web/src/app/admin/indice-precios/page.tsx`, `README.md`, `docs/seo/HUMAN_TASKS.md`.
+
+**Verificación:** tests de dominio y API en verde, `type-check` limpio, `lint` sin avisos en los archivos nuevos.
+
+---
+
+## 175. Cierre SEO — B7: enlazado interno (Fase 5, ítem 8)
+
+**Requerimiento:** "ninguna página comercial a más de 3 clics del home, con reporte de páginas huérfanas".
+
+**Diagnóstico (producción, 2026-09-26, con el script nuevo):** 216 URLs en los sitemaps; **93 problemas bloqueantes**: 24 subcategorías huérfanas (el filtro de subcategorías del catálogo navega con `router.push` y no genera enlaces rastreables), 69 páginas comerciales a 4–5 clics (16 productos, 5 hubs de modelo y 48 páginas modelo+categoría: los hubs solo se alcanzaban desde las fichas de producto porque el selector "¿Qué moto tienes?" es JavaScript). Además, las 4 categorías padre estaban enlazadas e indexables pero fuera del sitemap. 0 enlaces rotos.
+
+**Hecho:**
+
+- `scripts/seo-links.mjs` + `pnpm seo:links [url]`: rastreo en anchura desde el home (mismo host, sin rutas privadas, del catálogo solo `?category=`/`?page=`), cruce con todos los sitemaps, histograma de profundidad, huérfanas, enlaces rotos y URLs con menos enlaces entrantes; detalle en `.seo/links-report.json` (ignorado en git). Sale con 1 si hay comerciales a >3 clics, comerciales huérfanas o rotos. Añadido al workflow semanal `seo.yml` (y `.seo/` a los artefactos).
+- Catálogo (`/catalogo?category=…`): navegación de subcategorías con `<Link>` reales (hijas en la categoría padre; hermanas y madre en la hija).
+- `/repuestos`: índice de marcas y modelos con hub publicado (`noindex` si no hay ninguno), en el sitemap de modelos. Las migas de los hubs enlazan a `/repuestos` en vez de a `/catalogo`.
+- Footer: "Repuestos por moto", "Kits", "Guías de mantenimiento" y "Contacto".
+- `sitemap-categorias.xml`: las categorías padre entran si su árbol tiene productos (conteo y `lastmod` agregados desde las hijas).
+
+**Resultado (build de producción local contra la misma base):** 240 URLs en sitemaps, profundidad máxima 3 (1 / 18 / 100 / 121 por nivel), **0 comerciales a más de 3 clics, 0 huérfanas, 0 rotos**. `seo:check` 42/42 y `seo:schema` 47/47 sin cambios.
+
+**Archivos:** `scripts/seo-links.mjs`, `package.json`, `.gitignore`, `.github/workflows/seo.yml`, `apps/web/src/app/(store)/catalogo/page.tsx`, `apps/web/src/app/(store)/repuestos/page.tsx`, `apps/web/src/app/(store)/repuestos/[marca]/[modelo]/page.tsx`, `apps/web/src/app/(store)/repuestos/[marca]/[modelo]/[categoria]/page.tsx`, `apps/web/src/components/store/Footer.tsx`, `apps/web/src/lib/sitemap.ts`, `README.md`.
+
+**Nota:** el job semanal de CI mide producción, así que fallará hasta que se despliegue esta rama.
+
+---
+
+## 174. Cierre SEO — B3: costo anual de mantenimiento por modelo (Fase 5, ítem 3)
+
+**Requerimiento:** "costo anual de mantenimiento por modelo, calculado desde los precios reales del catálogo, de modo que se actualice solo" — sin inventar el uso de la moto.
+
+**Hecho:**
+
+- Dominio (`entities/MaintenanceGuide.ts`): `computeAnnualMaintenanceCost(items, kmPerYear)` — veces al año = `máx(km ÷ intervaloKm, 12 ÷ intervaloMeses)` ("lo que ocurra primero"), costo = veces × precio vivo del repuesto; separa los puntos sin precio (`withoutPrice`) y los de solo kilometraje cuando no hay km (`needsKm`); limita km a 200.000. 5 tests nuevos.
+- Web: `MaintenanceCostCalculator` (cliente) en la guía de mantenimiento, sección "¿Cuánto cuesta al año mantener la …?", solo si al menos un punto tiene repuesto enlazado. Sin kilometraje por defecto; aviso de que no incluye mano de obra.
+
+**Archivos:** `packages/domain/src/entities/MaintenanceGuide.ts`, `packages/domain/src/__tests__/Phase5Content.test.ts`, `apps/web/src/components/store/MaintenanceCostCalculator.tsx`, `apps/web/src/app/(store)/guias/mantenimiento/[marca]/[modelo]/page.tsx`, `README.md`.
+
+**Verificación:** 33/33 en `Phase5Content.test.ts`, `type-check` y `lint` limpios.
+
+---
+
+## 173. Cierre SEO — B2: guías de mantenimiento en formato citable y enlazadas
+
+**Requerimiento:** Fase 5, ítem 2 — que las guías por modelo abran con una respuesta directa verificable y se conecten con hub, kits y artículos (parte del enlazado interno del ítem 8).
+
+**Hecho:**
+
+- Dominio (`entities/MaintenanceGuide.ts`): `formatInterval` y `summarizeMaintenanceIntervals` (primeros 3 puntos con su intervalo real; lista vacía → cadena vacía). 2 tests nuevos en `Phase5Content.test.ts`.
+- `/guias/mantenimiento/[marca]/[modelo]`: apertura "Según {fuente}, la {moto} necesita …", "Última actualización" visible, nueva sección "¿Dónde consigo los repuestos para la …?" con hub (si publicado), kits del modelo y artículos del modelo, y enlace a `/guias`.
+- Hub `/repuestos/[marca]/[modelo]`: sección "Guías sobre la …" con los artículos publicados del modelo.
+- `lib/guides.ts` expone el `id` del modelo; `lib/articles.ts` + `getCachedArticlesByModel` (tag `guides`).
+
+**Archivos:** `packages/domain/src/entities/MaintenanceGuide.ts`, `packages/domain/src/__tests__/Phase5Content.test.ts`, `apps/web/src/lib/{guides,articles,cache}.ts`, `apps/web/src/app/(store)/guias/mantenimiento/[marca]/[modelo]/page.tsx`, `apps/web/src/app/(store)/repuestos/[marca]/[modelo]/page.tsx`, `README.md`.
+
+**Verificación:** tests de dominio en verde, `type-check` y `lint` limpios.
+
+---
+
+## 172. Cierre SEO — B1: infraestructura de artículos (Fase 5, ítem 1)
+
+**Requerimiento:** comparativas, guía de revisión técnico-mecánica y demás guías de texto libre necesitan autor, revisor técnico, estados de publicación y fuentes. Decisión (plan aprobado 2026-09-26): base de datos + editor en el panel, no MDX.
+
+**Hecho:**
+
+- Dominio: `entities/Article.ts` (estados `DRAFT → IN_REVIEW → PUBLISHED`, tipos `GUIA`/`COMPARATIVA`, `validateArticleDraft`, `articlePublishBlockers`, `isArticlePublishable`, `countWords`, slug `mantenimiento` reservado), `entities/ArticleBody.ts` (Markdown restringido → árbol de datos: `##`/`###`, párrafos, listas, tablas, negrita, cursiva, código y enlaces solo `http(s)` o `/…`; `extractArticleHeadings`, `extractInternalLinks`), `IArticleRepository` y `SaveArticle` (publicar exige respuesta directa de 40–60 palabras, cuerpo, fuente, revisor activo y fecha de revisión; `publishedAt` se fija la primera vez). 30 tests en `Articles.test.ts`.
+- Base de datos: migración aditiva `20260926000000_phase5_content` (`Article` con CHECK "publicado ⇒ revisor y fecha", FK RESTRICT al revisor y SET NULL al modelo; y `PriceIndexSnapshot` para B4). **Sin aplicar**: H-54. Verificada contra `prisma migrate diff` desde la base actual.
+- API: `AdminArticlesController` (`/admin/articles` CRUD), `SaveArticleDto`, `PrismaArticleRepository`, token `ARTICLE_REPOSITORY`. `countGuides` del revisor ahora suma artículos: un revisor que firma artículos tampoco se puede borrar. 6 tests.
+- Web público: `/guias/[slug]` (respuesta directa, índice de encabezados, fuentes, revisor, fechas visibles, JSON-LD `WebPage` + `Article` con `reviewedBy`, `lastReviewed` y `citation`), `/guias` (índice; `noindex` mientras esté vacío), artículos en la página de autor y en `sitemap-guias.xml`. Migas de la guía de mantenimiento enlazan a `/guias`. `ArticleBody` pinta el árbol como elementos React (nunca `dangerouslySetInnerHTML`).
+- Web panel: `/admin/guias` (avisa si falta la migración) y `ArticleEditForm` con contador de palabras, vista previa y lista de pendientes para publicar. Entrada "Guías" en `AdminNav`.
+- Todo lo público es tolerante a la migración sin aplicar (try/catch → 404 o lista vacía).
+
+**Archivos:** `packages/domain/src/entities/{Article,ArticleBody}.ts`, `packages/domain/src/repositories/IArticleRepository.ts`, `packages/domain/src/use-cases/content/SaveArticle.ts`, `packages/domain/src/__tests__/Articles.test.ts`, `packages/database/prisma/{schema.prisma,migrations/20260926000000_phase5_content/}`, `apps/api/src/admin/{admin-articles.controller.ts,dto/save-article.dto.ts,admin.module.ts}`, `apps/api/src/infrastructure/{injection-tokens.ts,infrastructure.module.ts,repositories/PrismaArticleRepository.ts,repositories/PrismaTechnicalReviewerRepository.ts}`, `apps/api/src/__tests__/admin-articles.test.ts`, `apps/web/src/lib/{articles,guides,cache,sitemap,structured-data}.ts`, `apps/web/src/components/content/ArticleBody.tsx`, `apps/web/src/components/admin/{ArticleEditForm,AdminNav}.tsx`, `apps/web/src/app/(store)/guias/{page.tsx,[slug]/page.tsx}`, `apps/web/src/app/(store)/guias/mantenimiento/[marca]/[modelo]/page.tsx`, `apps/web/src/app/(store)/autores/[slug]/page.tsx`, `apps/web/src/app/admin/guias/`, `README.md`, `docs/seo/HUMAN_TASKS.md` (H-54).
+
+**Verificación:** tests de dominio y API en verde, `type-check` limpio en web y API, `lint` sin avisos en los archivos nuevos.
+
+---
+
+## 171. Cierre SEO — A1: compatibilidades desde el panel (H-37, H-40)
+
+**Requerimiento:** plan de cierre de las fases 4 y 5 aprobado el 2026-09-26. Primer bloque: que el administrador cargue compatibilidades sin llamar a la API a mano y que se vean al momento. Desde aquí todo el bloque SEO-GEO-CRO va en la rama única `feat/seo-geo-cro` (ahorro de *Deployment Storage* en Vercel).
+
+**Hecho:**
+
+- Dominio: `SaveFitment` + `validateFitmentInput` (`use-cases/fitment/SaveFitment.ts`) — mismas reglas que el CSV para una sola fila: fuente obligatoria (máx. 300), notas (máx. 300), años enteros 1950–2100 y en orden, modelo existente y activo, `verifiedBy`/`verifiedAt` solo si se verifica. 10 tests nuevos en `Fitment.test.ts`.
+- API (`admin-fitments.controller.ts`): `POST /admin/fitments`, `GET /admin/fitments/models/summary` (verificadas y pendientes por modelo con un `groupBy`) y `DELETE /admin/fitments/oem/:id`. DTO `SaveFitmentDto`. 6 tests en `admin-fitments.test.ts`.
+- Web: `/admin/compatibilidades` (`CompatibilityManager`): importador de CSV con plantilla descargable y reporte por línea, alta/edición de modelos (al editar se conserva el slug para no romper la URL del hub) y tabla de modelos con enlace al hub publicado. Entrada "Compatibilidades" en `AdminNav`.
+- Web: `ProductFitmentsEditor` dentro del formulario de producto — guarda al momento (no espera a "Guardar cambios"), verifica/despublica, elimina, y gestiona referencias OEM. Botones `type="button"` y Enter bloqueado para no enviar el formulario del producto.
+- Toda escritura llama a `revalidateAdminCache(['fitments', 'products'])` (H-40).
+
+**Archivos:** `packages/domain/src/use-cases/fitment/SaveFitment.ts`, `packages/domain/src/index.ts`, `packages/domain/src/__tests__/Fitment.test.ts`, `apps/api/src/admin/admin-fitments.controller.ts`, `apps/api/src/admin/dto/save-fitment.dto.ts`, `apps/api/src/__tests__/admin-fitments.test.ts`, `apps/web/src/app/admin/compatibilidades/page.tsx`, `apps/web/src/components/admin/CompatibilityManager.tsx`, `apps/web/src/components/admin/ProductFitmentsEditor.tsx`, `apps/web/src/components/admin/ProductEditForm.tsx`, `apps/web/src/components/admin/AdminNav.tsx`, `README.md` (§26.10).
+
+**Verificación:** tests de dominio y API en verde, `type-check` limpio en web y API, `lint` sin avisos nuevos.
+
+---
+
 ## 170. Fase 5 (inicio): revisores técnicos (H-21) e intervalos de mantenimiento por modelo (H-20)
 
 **Requerimiento:** el administrador no tiene a mano los datos del revisor técnico ni los intervalos de mantenimiento, y necesita gestionarlos dinámicamente desde el panel: (1) formulario del revisor con nombre, foto, experiencia y trayectoria, reflejado en la vista pública; (2) formulario de intervalos por modelo que, al guardarse, hace que la sección genérica de mantenimiento deje de mostrarse.

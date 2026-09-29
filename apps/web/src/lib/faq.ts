@@ -13,6 +13,7 @@
  * (`FREE_SHIPPING_THRESHOLD`, H-14) para que exista una sola fuente de verdad.
  */
 import { formatCOP } from '@/components/store/PriceTag'
+import { ORGANIZATION } from '@/lib/structured-data'
 
 export interface FaqItem {
   q: string
@@ -21,6 +22,13 @@ export interface FaqItem {
 
 export function buildFaqItems(freeShippingThreshold: number): FaqItem[] {
   return [
+  {
+    // Búsqueda de marca (README §26.12): datos de ORGANIZATION, los mismos del JSON-LD.
+    q: '¿Qué es Tienda H2R?',
+    a: `Tienda H2R es ${ORGANIZATION.name} (NIT ${ORGANIZATION.taxId}), una tienda de repuestos y accesorios para moto ` +
+      `con punto físico en ${ORGANIZATION.address.street}, ${ORGANIZATION.address.locality}, y envíos a toda Colombia. ` +
+      'Vende en línea en tiendah2r.com y solo indica que un repuesto le sirve a tu moto cuando la compatibilidad está verificada.',
+  },
   {
     q: '¿Cuánto tiempo tarda el envío?',
     a: 'El tiempo de entrega depende de tu ubicación. Para Bucaramanga y área metropolitana, el envío es de 1 a 2 días hábiles. Para el resto de Colombia, el tiempo estimado es de 3 a 7 días hábiles.',
@@ -34,7 +42,7 @@ export function buildFaqItems(freeShippingThreshold: number): FaqItem[] {
   },
   {
     q: '¿Cómo puedo pagar?',
-    a: 'Aceptamos pagos con Wompi (tarjeta de crédito o débito, Nequi, PSE o Bancolombia) y Addi (crédito en cuotas sin tarjeta).',
+    a: 'Aceptamos pagos con Wompi (tarjeta de crédito o débito, Nequi, PSE o Bancolombia) y Addi (crédito en cuotas sin tarjeta, que se coordina con un asesor por WhatsApp).',
   },
   {
     q: '¿Tienen garantía los repuestos?',

@@ -6,6 +6,7 @@ import { getOrderHistory } from '@/lib/queries/getOrderHistory'
 import { OrderStatusBadge } from '@/components/store/OrderStatusBadge'
 import { InvoiceDownloadButton } from '@/components/store/InvoiceDownloadButton'
 import { OrderItemThumbnail } from '@/components/store/OrderItemThumbnail'
+import { Package } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getPaginationPages } from '@/lib/pagination'
 
@@ -61,7 +62,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
         {/* Empty state */}
         {orders.length === 0 && (
           <EmptyState
-            icon="📦"
+            icon={Package}
             title="Aún no tienes pedidos"
             description="Cuando realices una compra, podrás seguir el estado de tu pedido desde aquí."
             action={{ label: 'Ver catálogo', href: '/catalogo' }}

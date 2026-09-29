@@ -8,6 +8,9 @@ import {
   SUGGESTED_MAINTENANCE_LABELS,
   formatKm,
   formatMonths,
+  formatInterval,
+  summarizeMaintenanceIntervals,
+  computeAnnualMaintenanceCost,
   isMaintenanceGuidePublishable,
   validateMaintenanceItem,
 } from '@/domain/entities/MaintenanceGuide'
@@ -247,5 +250,64 @@ describe('SetMaintenanceGuide', () => {
     ;(repo.save as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('db'))
     const r = await new SetMaintenanceGuide(repo).execute(guideInput)
     expect(!r.ok && r.error.code).toBe('INTERNAL_ERROR')
+  })
+})
+
+// ── Respuesta directa de la guía (B2, formato citable) ───────────────────────
+
+describe('formatInterval / summarizeMaintenanceIntervals', () => {
+  it('km, meses o ambos', () => {
+    expect(formatInterval({ intervalKm: 3000, intervalMonths: 3 })).toBe('cada 3.000 km o 3 meses (lo que ocurra primero)')
+    expect(formatInterval({ intervalKm: 6000, intervalMonths: null })).toBe('cada 6.000 km')
+    expect(formatInterval({ intervalKm: null, intervalMonths: 1 })).toBe('cada 1 mes')
+  })
+  it('resume los primeros puntos, en minúscula inicial y sin inventar nada', () => {
+    const items = [
+      { label: 'Aceite de motor', intervalKm: 3000, intervalMonths: 3 },
+      { label: 'Bujía', intervalKm: 6000, intervalMonths: null },
+      { label: 'Filtro de aire', intervalKm: null, intervalMonths: 12 },
+      { label: 'Llantas', intervalKm: 20000, intervalMonths: null },
+    ]
+    expect(summarizeMaintenanceIntervals(items)).toBe(
+      'aceite de motor cada 3.000 km o 3 meses (lo que ocurra primero); bujía cada 6.000 km; filtro de aire cada 12 meses',
+    )
+    expect(summarizeMaintenanceIntervals([])).toBe('')
+  })
+})
+
+// ── Costo anual de mantenimiento (B3) ────────────────────────────────────────
+
+describe('computeAnnualMaintenanceCost', () => {
+  const oil = { label: 'Aceite', intervalKm: 3000, intervalMonths: 3, unitPrice: 30_000_00 }
+  const plug = { label: 'Bujía', intervalKm: 6000, intervalMonths: null, unitPrice: 15_000_00 }
+  const airFilter = { label: 'Filtro de aire', intervalKm: null, intervalMonths: 12, unitPrice: 20_000_00 }
+  const tires = { label: 'Llantas', intervalKm: 20000, intervalMonths: null, unitPrice: null }
+
+  it('"lo que ocurra primero": gana la frecuencia mayor', () => {
+    const r = computeAnnualMaintenanceCost([oil], 20_000)
+    expect(r.lines[0]!.timesPerYear).toBeCloseTo(20_000 / 3000)
+    const low = computeAnnualMaintenanceCost([oil], 6000)
+    expect(low.lines[0]!.timesPerYear).toBe(4) // por tiempo: 12 / 3
+  })
+  it('suma el total en centavos redondeados', () => {
+    const r = computeAnnualMaintenanceCost([oil, plug, airFilter], 12_000)
+    // aceite 4 × 30.000 + bujía 2 × 15.000 + filtro 1 × 20.000
+    expect(r.total).toBe(4 * 30_000_00 + 2 * 15_000_00 + 20_000_00)
+    expect(r.lines).toHaveLength(3)
+  })
+  it('sin km/año solo cuentan los puntos por tiempo; los de solo km quedan pendientes', () => {
+    const r = computeAnnualMaintenanceCost([oil, plug, airFilter], null)
+    expect(r.lines.map((l) => l.label)).toEqual(['Aceite', 'Filtro de aire'])
+    expect(r.needsKm).toEqual(['Bujía'])
+  })
+  it('los puntos sin precio en H2R se listan aparte y no suman', () => {
+    const r = computeAnnualMaintenanceCost([tires, oil], 10_000)
+    expect(r.withoutPrice).toEqual(['Llantas'])
+    expect(r.lines).toHaveLength(1)
+  })
+  it('ignora km inválidos y limita km absurdos', () => {
+    expect(computeAnnualMaintenanceCost([plug], 0).needsKm).toEqual(['Bujía'])
+    expect(computeAnnualMaintenanceCost([plug], Number.NaN).needsKm).toEqual(['Bujía'])
+    expect(computeAnnualMaintenanceCost([plug], 10_000_000).lines[0]!.timesPerYear).toBeCloseTo(200_000 / 6000)
   })
 })

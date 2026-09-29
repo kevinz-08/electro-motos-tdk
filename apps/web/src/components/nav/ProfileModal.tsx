@@ -16,6 +16,7 @@
  */
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { Check } from 'lucide-react'
 import { WHATSAPP_URL } from '@/lib/contact'
 
 interface UserInfo {
@@ -151,7 +152,7 @@ export function ProfileModal({ isOpen, onClose, user }: Props) {
                     : 'bg-white/10 hover:bg-white/15 text-white'
                 }`}
               >
-                {saved ? '✓' : 'Guardar'}
+                {saved ? <Check className="w-4 h-4" aria-label="Guardado" /> : 'Guardar'}
               </button>
             </div>
           </div>

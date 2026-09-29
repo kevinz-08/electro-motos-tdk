@@ -111,3 +111,96 @@ export function formatKm(km: number): string {
 export function formatMonths(months: number): string {
   return `${months} ${months === 1 ? 'mes' : 'meses'}`
 }
+
+/** "cada 3.000 km o 3 meses (lo que ocurra primero)" / "cada 6.000 km" / "cada 12 meses". */
+export function formatInterval(item: Pick<MaintenanceItem, 'intervalKm' | 'intervalMonths'>): string {
+  const km = item.intervalKm !== null ? formatKm(item.intervalKm) : null
+  const months = item.intervalMonths !== null ? formatMonths(item.intervalMonths) : null
+  if (km && months) return `cada ${km} o ${months} (lo que ocurra primero)`
+  return `cada ${km ?? months}`
+}
+
+export const MAX_KM_PER_YEAR = 200_000
+
+export interface MaintenanceCostItem {
+  label: string
+  intervalKm: number | null
+  intervalMonths: number | null
+  /** Precio actual del repuesto enlazado, en centavos. `null` = sin repuesto o no disponible. */
+  unitPrice: number | null
+}
+
+export interface MaintenanceCostLine {
+  label: string
+  /** Veces al año que toca (puede ser fraccionario: 0,5 = cada dos años). */
+  timesPerYear: number
+  unitPrice: number
+  /** Centavos, redondeado. */
+  annualCost: number
+}
+
+export interface MaintenanceCostResult {
+  lines: MaintenanceCostLine[]
+  /** Suma de `annualCost`, en centavos. */
+  total: number
+  /** Puntos que no suman: sin repuesto con precio en H2R. */
+  withoutPrice: string[]
+  /** Puntos solo por kilometraje que no se pueden calcular porque falta el km/año. */
+  needsKm: string[]
+}
+
+/**
+ * Costo anual de mantenimiento (Fase 5, ítem 3). Calcula, con los precios de
+ * hoy, cuánto cuesta al año mantener la moto según los intervalos guardados.
+ *
+ *   veces al año = máx(kmAlAño ÷ intervaloKm, 12 ÷ intervaloMeses)
+ *
+ * El máximo es "lo que ocurra primero": si toca cada 3.000 km o 3 meses y el
+ * dueño hace 20.000 km al año, toca por kilometraje (6,7 veces), no 4.
+ *
+ * `kmPerYear` es lo que escribe el visitante; `null` = no lo ha escrito, y
+ * entonces solo cuentan los puntos que tienen intervalo por tiempo. No hay un
+ * kilometraje por defecto: sería inventar el uso de la moto.
+ */
+export function computeAnnualMaintenanceCost(
+  items: readonly MaintenanceCostItem[],
+  kmPerYear: number | null,
+): MaintenanceCostResult {
+  const km = kmPerYear !== null && Number.isFinite(kmPerYear) && kmPerYear > 0 ? Math.min(kmPerYear, MAX_KM_PER_YEAR) : null
+  const result: MaintenanceCostResult = { lines: [], total: 0, withoutPrice: [], needsKm: [] }
+
+  for (const item of items) {
+    if (item.unitPrice === null) {
+      result.withoutPrice.push(item.label)
+      continue
+    }
+    const byKm = item.intervalKm !== null && km !== null ? km / item.intervalKm : 0
+    const byTime = item.intervalMonths !== null ? 12 / item.intervalMonths : 0
+    if (item.intervalMonths === null && km === null) {
+      result.needsKm.push(item.label)
+      continue
+    }
+    const timesPerYear = Math.max(byKm, byTime)
+    const annualCost = Math.round(timesPerYear * item.unitPrice)
+    result.lines.push({ label: item.label, timesPerYear, unitPrice: item.unitPrice, annualCost })
+    result.total += annualCost
+  }
+  return result
+}
+
+/**
+ * Respuesta directa de la guía (Fase 5, formato citable): los primeros puntos
+ * de control con su intervalo real, en una frase. Solo usa lo guardado: con 0
+ * puntos devuelve una cadena vacía, nunca un intervalo inventado.
+ *
+ *   "aceite de motor cada 3.000 km o 3 meses (lo que ocurra primero); bujía cada 6.000 km"
+ */
+export function summarizeMaintenanceIntervals(
+  items: ReadonlyArray<Pick<MaintenanceItem, 'label' | 'intervalKm' | 'intervalMonths'>>,
+  max = 3,
+): string {
+  return items
+    .slice(0, max)
+    .map((item) => `${item.label.charAt(0).toLowerCase()}${item.label.slice(1)} ${formatInterval(item)}`)
+    .join('; ')
+}

@@ -29,7 +29,8 @@
  */
 import { prisma } from '@h2r/database'
 import { absoluteUrl } from '@/lib/seo'
-import { getCachedModelHub, getCachedPublishableModels, getCachedAllVisibleKits, getCachedPublishedGuideEntries } from '@/lib/cache'
+import { getCachedModelHub, getCachedPublishableModels, getCachedAllVisibleKits, getCachedPublishedGuideEntries, getCachedPublishedPriceIndex } from '@/lib/cache'
+import { PRICE_INDEX_PATH } from '@/lib/price-index'
 
 export interface SitemapEntry {
   url: string
@@ -47,6 +48,7 @@ export function getStaticEntries(): SitemapEntry[] {
     { url: absoluteUrl('/catalogo'), changeFrequency: 'daily', priority: 0.9 },
     { url: absoluteUrl('/contacto'), changeFrequency: 'monthly', priority: 0.5 },
     { url: absoluteUrl('/sobre-nosotros'), changeFrequency: 'monthly', priority: 0.5 },
+    { url: absoluteUrl('/por-que-comprar-en-h2r'), changeFrequency: 'monthly', priority: 0.5 },
     { url: absoluteUrl('/garantias'), changeFrequency: 'monthly', priority: 0.5 },
     { url: absoluteUrl('/legal/terminos-y-condiciones'), changeFrequency: 'yearly', priority: 0.3 },
     { url: absoluteUrl('/legal/politica-de-envios'), changeFrequency: 'yearly', priority: 0.4 },
@@ -66,7 +68,7 @@ export function getStaticEntries(): SitemapEntry[] {
  */
 export async function getCategoryEntries(): Promise<SitemapEntry[]> {
   const categories = await prisma.category.findMany({
-    select: { slug: true, id: true },
+    select: { slug: true, id: true, parentId: true },
   })
 
   const grouped = await prisma.product.groupBy({
@@ -79,6 +81,20 @@ export async function getCategoryEntries(): Promise<SitemapEntry[]> {
   const statsByCategory = new Map(
     grouped.map((g) => [g.categoryId, { count: g._count._all, lastMod: g._max.updatedAt }]),
   )
+
+  // Una categoría padre no tiene productos propios: los suma de sus hijas. Sin
+  // esto las cinco categorías padre (enlazadas desde el home y el footer, e
+  // indexables) no entraban al sitemap.
+  for (const c of categories) {
+    if (!c.parentId) continue
+    const child = statsByCategory.get(c.id)
+    if (!child) continue
+    const parent = statsByCategory.get(c.parentId) ?? { count: 0, lastMod: null }
+    statsByCategory.set(c.parentId, {
+      count: parent.count + child.count,
+      lastMod: !parent.lastMod || (child.lastMod && child.lastMod > parent.lastMod) ? child.lastMod : parent.lastMod,
+    })
+  }
 
   return categories
     .map((c) => ({ slug: c.slug, stats: statsByCategory.get(c.id) }))
@@ -142,8 +158,21 @@ export async function getKitEntries(): Promise<SitemapEntry[]> {
  * la fecha de revisión que registró el administrador, un dato real.
  */
 export async function getGuideEntries(): Promise<SitemapEntry[]> {
-  const { guides, reviewers } = await getCachedPublishedGuideEntries()
+  const { guides, articles, reviewers } = await getCachedPublishedGuideEntries()
+  const priceIndex = await getCachedPublishedPriceIndex().catch(() => null)
+  const hasContent = guides.length + articles.length > 0 || priceIndex !== null
   return [
+    ...(priceIndex
+      ? [{ url: absoluteUrl(PRICE_INDEX_PATH), lastModified: new Date(priceIndex.publishedAt), changeFrequency: 'monthly' as const, priority: 0.8 }]
+      : []),
+    // El índice /guias solo existe en el sitemap si tiene algo que listar.
+    ...(hasContent ? [{ url: absoluteUrl('/guias'), changeFrequency: 'weekly' as const, priority: 0.6 }] : []),
+    ...articles.map((a) => ({
+      url: absoluteUrl(`/guias/${a.slug}`),
+      lastModified: new Date(a.updatedAt),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    })),
     ...guides.map((g) => ({
       url: absoluteUrl(`/guias/mantenimiento/${g.brandSlug}/${g.modelSlug}`),
       lastModified: g.reviewedAt,
@@ -204,6 +233,9 @@ export const SITEMAP_HEADERS = {
 export async function getModelEntries(): Promise<SitemapEntry[]> {
   const models = await getCachedPublishableModels()
   const entries: SitemapEntry[] = []
+
+  // Índice de modelos (enlazado interno, Fase 5 ítem 8). Solo si hay algo que listar.
+  if (models.length) entries.push({ url: absoluteUrl('/repuestos'), changeFrequency: 'weekly', priority: 0.7 })
 
   for (const model of models) {
     const path = `/repuestos/${model.brand.slug}/${model.slug}`

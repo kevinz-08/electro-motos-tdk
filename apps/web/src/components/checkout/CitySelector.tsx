@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { Check } from 'lucide-react'
 import { getDepartmentName, normalizeCityName } from '@/lib/colombia-divipola'
 
 export interface CityOption {
@@ -91,9 +92,7 @@ export function CitySelector({ value, onChange, required, disabled }: CitySelect
       />
 
       {value && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-sky-600 font-medium">
-          ✓
-        </span>
+        <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sky-500" aria-hidden="true" />
       )}
 
       {open && (loading || results.length > 0) && (

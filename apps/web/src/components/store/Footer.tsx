@@ -14,11 +14,16 @@ const NAV_LINKS = [
   { href: '/catalogo?category=aceites', label: 'Aceites' },
   { href: '/catalogo?category=llantas', label: 'Llantas' },
   { href: '/catalogo?category=accesorios', label: 'Accesorios' },
+  { href: '/repuestos', label: 'Repuestos por moto' },
+  { href: '/kits', label: 'Kits' },
+  { href: '/guias', label: 'Guías de mantenimiento' },
 ]
 
 const LEGAL_LINKS = [
   { href: '/sobre-nosotros', label: 'Sobre nosotros' },
+  { href: '/por-que-comprar-en-h2r', label: 'Por qué comprar en H2R' },
   { href: '/garantias', label: 'Garantías' },
+  { href: '/contacto', label: 'Contacto' },
   { href: '/legal/terminos-y-condiciones', label: 'Términos y condiciones' },
   { href: '/legal/politica-de-privacidad', label: 'Política de privacidad' },
   { href: '/legal/politica-de-envios', label: 'Política de envíos' },

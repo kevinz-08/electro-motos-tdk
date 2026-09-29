@@ -17,9 +17,11 @@ import { ORGANIZATION } from '@/lib/structured-data'
 import { STORE_ADDRESS, WHATSAPP_URL } from '@/lib/contact'
 
 export const metadata: Metadata = {
-  title: { absolute: 'Sobre nosotros | H2R Online Store' },
+  // La búsqueda de marca "tienda h2r" debe llevar a la home, no aquí (README §26.12):
+  // la descripción ya no empieza por "H2R Online Store: tienda…".
+  title: { absolute: 'Quiénes somos y cómo trabajamos | H2R Online Store' },
   description:
-    'H2R Online Store: tienda de repuestos y accesorios multimarca para motos en Bucaramanga, con envíos a toda Colombia. Datos de la empresa y cómo contactarnos.',
+    'Quiénes somos: el equipo detrás de H2R Online Store, cómo elegimos los repuestos, dónde está nuestro punto físico en Bucaramanga y cómo contactarnos.',
   alternates: canonical('/sobre-nosotros'),
   robots: { index: true, follow: true },
 }

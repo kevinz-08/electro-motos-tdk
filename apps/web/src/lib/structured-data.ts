@@ -67,6 +67,8 @@ function compact<T extends JsonLdNode>(node: T): T {
 export const ORGANIZATION = {
   name: SITE_NAME,
   legalName: 'H2R Online Store',
+  /** Como la busca la gente: el dominio es tiendah2r.com (Fase 6, coherencia de entidad). */
+  alternateNames: ['Tienda H2R', 'H2R'],
   taxId: '1007784964-5',
   email: 'h2ronlinestore@gmail.com',
   telephone: '+57 315 292 6609',
@@ -104,6 +106,7 @@ export function organizationJsonLd(): JsonLdNode {
     '@type': ['Organization', 'LocalBusiness'],
     '@id': ORGANIZATION_ID,
     name: ORGANIZATION.name,
+    alternateName: [...ORGANIZATION.alternateNames],
     legalName: ORGANIZATION.legalName,
     taxID: ORGANIZATION.taxId,
     url: SITE_URL,
@@ -145,6 +148,7 @@ export function webSiteJsonLd(): JsonLdNode {
     '@id': WEBSITE_ID,
     url: SITE_URL,
     name: SITE_NAME,
+    alternateName: [...ORGANIZATION.alternateNames],
     inLanguage: 'es-CO',
     publisher: { '@id': ORGANIZATION_ID },
     potentialAction: {
@@ -444,6 +448,94 @@ export function maintenanceGuideJsonLd(guide: MaintenanceGuideJsonLdInput): Json
       numberOfItems: guide.itemLabels.length,
       itemListElement: guide.itemLabels.map((name, index) => ({ '@type': 'ListItem', position: index + 1, name })),
     },
+  }
+}
+
+export interface ArticleJsonLdInput {
+  slug: string
+  title: string
+  description: string
+  authorName: string
+  /** ISO. */
+  publishedAt: string
+  /** ISO. */
+  updatedAt: string
+  /** ISO. */
+  reviewedAt: string
+  reviewer: { name: string; slug: string }
+  sources: string[]
+}
+
+/**
+ * `WebPage` de un artículo (Fase 5, ítem 1) con `reviewedBy`/`lastReviewed`
+ * (mismo patrón E-E-A-T que las guías de mantenimiento) y un `Article` como
+ * entidad principal. `citation` lista las fuentes que la página muestra.
+ */
+export function articleJsonLd(article: ArticleJsonLdInput): JsonLdNode {
+  const url = absoluteUrl(`/guias/${article.slug}`)
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': url,
+    url,
+    name: article.title,
+    description: article.description,
+    inLanguage: 'es-CO',
+    lastReviewed: article.reviewedAt.slice(0, 10),
+    reviewedBy: { '@id': `${absoluteUrl(`/autores/${article.reviewer.slug}`)}#person`, '@type': 'Person', name: article.reviewer.name },
+    publisher: { '@id': ORGANIZATION_ID },
+    mainEntity: {
+      '@type': 'Article',
+      headline: article.title,
+      description: article.description,
+      datePublished: article.publishedAt,
+      dateModified: article.updatedAt,
+      // "Equipo H2R" (o similar) es la organización; cualquier otro nombre es una persona.
+      author: /\bH2R\b/i.test(article.authorName)
+        ? { '@id': ORGANIZATION_ID }
+        : { '@type': 'Person', name: article.authorName },
+      publisher: { '@id': ORGANIZATION_ID },
+      inLanguage: 'es-CO',
+      ...(article.sources.length ? { citation: article.sources } : {}),
+    },
+  }
+}
+
+export interface PriceIndexJsonLdInput {
+  /** YYYY-MM-DD */
+  cutoffDate: string
+  /** ISO */
+  publishedAt: string
+  productCount: number
+  categoryNames: string[]
+}
+
+/**
+ * `Dataset` del Índice de Precios (Fase 5, ítem 4). Es el tipo que Google
+ * Dataset Search y los motores generativos entienden como "datos citables":
+ * fecha de corte (`temporalCoverage`), creador y qué mide.
+ */
+export function priceIndexJsonLd(index: PriceIndexJsonLdInput): JsonLdNode {
+  const url = absoluteUrl('/indice-precios-repuestos-moto')
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    '@id': `${url}#dataset`,
+    url,
+    name: 'Índice de Precios de Repuestos de Moto en Colombia',
+    description: `Precio mediano, percentiles 25 y 75, mínimo y máximo por categoría de ${index.productCount} referencias de repuestos de moto del catálogo de H2R Online Store, corte del ${index.cutoffDate}.`,
+    inLanguage: 'es-CO',
+    temporalCoverage: index.cutoffDate,
+    datePublished: index.publishedAt,
+    spatialCoverage: { '@type': 'Place', name: 'Colombia' },
+    creator: { '@id': ORGANIZATION_ID },
+    publisher: { '@id': ORGANIZATION_ID },
+    isAccessibleForFree: true,
+    variableMeasured: index.categoryNames.map((name) => ({
+      '@type': 'PropertyValue',
+      name: `Precio mediano — ${name}`,
+      unitText: 'COP',
+    })),
   }
 }
 

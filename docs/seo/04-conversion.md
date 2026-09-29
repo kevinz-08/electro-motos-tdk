@@ -1,6 +1,6 @@
 # Fase 4 — Conversión
 
-**Estado:** 🚧 casi cerrada — segunda entrega 2026-09-23. Una migración aditiva pendiente de aplicar (H-43).
+**Estado:** 🚧 código completo — cuarta entrega 2026-09-25. Las cuatro migraciones de la fase están aplicadas (H-43, H-47, H-49); faltan datos y GA4.
 
 Objetivo: que cada visita tenga el camino más corto y confiable hacia la compra.
 
@@ -52,20 +52,25 @@ Vendelo.
 
 ## Tercera entrega — venta cruzada (2026-09-24, rama `feat/cro-cross-selling-kits`)
 
-Ítem 7 del ROADMAP. El admin vincula productos desde el formulario de producto; la ficha y el carrito los muestran ("Normalmente se cambia junto con…" y otras 9 frases). Máx. 4 por producto, motivo opcional, sentido inverso por casilla, se oculta lo agotado, filtro por la moto del comprador. Detalle y decisiones en [`plan-venta-cruzada.md`](./plan-venta-cruzada.md). Migración `20260924000000_product_cross_sell` pendiente de aplicar (H-47).
+Ítem 7 del ROADMAP. El admin vincula productos desde el formulario de producto; la ficha y el carrito los muestran ("Normalmente se cambia junto con…" y otras 9 frases). Máx. 4 por producto, motivo opcional, sentido inverso por casilla, se oculta lo agotado, filtro por la moto del comprador. Detalle y decisiones en [`plan-venta-cruzada.md`](./plan-venta-cruzada.md). Migración `20260924000000_product_cross_sell` aplicada el 2026-09-25 (H-47).
 
 ## Cuarta entrega — kits de productos (2026-09-25, rama `feat/product-kits`)
 
-Ítem 8 del ROADMAP. Vista propia en el panel admin (`/admin/kits`, como pidió el negocio, no dentro del formulario de producto). Un kit es un conjunto de 2 a 8 productos con precio y disponibilidad calculados en vivo; agregarlo al carrito expande sus productos como líneas normales, sin tocar el checkout. Páginas propias indexables `/kits` y `/kits/[slug]`, con JSON-LD y sitemap. Detalle y decisiones en [`plan-kits.md`](./plan-kits.md). Migración `20260925000000_product_kits` pendiente de aplicar (H-49).
+Ítem 8 del ROADMAP. Vista propia en el panel admin (`/admin/kits`, como pidió el negocio, no dentro del formulario de producto). Un kit es un conjunto de 2 a 8 productos con precio y disponibilidad calculados en vivo; agregarlo al carrito expande sus productos como líneas normales, sin tocar el checkout. Páginas propias indexables `/kits` y `/kits/[slug]`, con JSON-LD y sitemap. Detalle y decisiones en [`plan-kits.md`](./plan-kits.md). Migración `20260925000000_product_kits` aplicada el 2026-09-25 (H-49).
+
+## Cierre del código (2026-09-26, rama `feat/seo-geo-cro`)
+
+- **Compatibilidades desde el panel (H-37, H-40):** `/admin/compatibilidades` (importador CSV, modelos, resumen) y editor dentro del formulario de producto; cada cambio invalida la caché al momento.
+- **Render delay de la ficha (H-36):** el elemento LCP era el aviso de cookies, no la foto. Corregido; detalle en `01-resultados.md`.
+- **Embudo GA4 verificado:** `apps/web/e2e/analytics.spec.ts` comprueba `view_item → add_to_cart → view_cart → begin_checkout` sin datos personales. GA4 ya está activo en producción (`G-27M2WKZ9WF`).
 
 ## Pendiente para cerrar la fase
 
 | Ítem | Qué falta |
 |---|---|
-| Migración de reseñas | Aplicar `migrate:deploy` (H-43) antes de compilar y desplegar |
-| GA4 | Crear propiedad y configurar `NEXT_PUBLIC_GA_ID` (H-45) |
-| 7. Venta cruzada | Código listo; falta aplicar la migración (H-47) y que el admin cargue los vínculos |
-| 8. Kits de mantenimiento | Código listo; falta aplicar la migración (H-49) y armar los primeros kits (H-50) |
+| GA4 | Activo en producción. Falta marcar `purchase` como conversión y acumular 2 semanas de datos (H-45) |
+| 7. Venta cruzada | Código listo y migración aplicada; falta que el admin cargue los vínculos (H-48) |
+| 8. Kits de mantenimiento | Código listo y migración aplicada; falta armar los primeros kits (H-50) |
 | /sobre-nosotros | Historia y equipo (H-44) |
 
 ## Medición antes / después

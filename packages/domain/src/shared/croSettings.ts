@@ -25,8 +25,14 @@ export const CRO_SETTING_DEFAULTS: CroSettings = {
   reviewsMinCount: 3,
   /** Se muestra "¡Solo quedan X unidades!" cuando 0 < stock < este valor. */
   lowStockThreshold: 5,
-  shippingEtaMinDays: 2,
-  shippingEtaMaxDays: 5,
+  /**
+   * Entrega al resto de Colombia: 3 a 7 días hábiles (confirmado por el negocio el
+   * 2026-09-28, H-60). Es el peor caso: Bucaramanga y su área metropolitana reciben
+   * en 1 a 2 días (`LOCAL_DELIVERY_DAYS`), pero una estimación única no debe prometer
+   * de más a quien está lejos.
+   */
+  shippingEtaMinDays: 3,
+  shippingEtaMaxDays: 7,
   shippingCutoffHour: 14,
   /**
    * Compra mínima (centavos COP) para envío gratis. 0 = sin umbral: la ficha y el
@@ -35,6 +41,9 @@ export const CRO_SETTING_DEFAULTS: CroSettings = {
    */
   freeShippingThreshold: 50_000_000,
 }
+
+/** Entrega en Bucaramanga y área metropolitana (confirmado el 2026-09-28, H-60). */
+export const LOCAL_DELIVERY_DAYS = { min: 1, max: 2, area: 'Bucaramanga y su área metropolitana' } as const
 
 /** Rangos válidos por setting — usados tanto al leer (fallback) como al validar en la API. */
 export const CRO_SETTING_RANGES: Record<CroSettingName, { min: number; max: number }> = {

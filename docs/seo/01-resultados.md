@@ -299,6 +299,17 @@ bajó (4,48 s), y eso llevó a un tercer hallazgo, más de fondo que los dos ant
 que hidrata la ficha creció en las fases 3 y 4 (venta cruzada, kits, GA4, barra fija móvil, etc.), pero no
 se confirmó la causa exacta. Requiere perfilar con el DevTools Performance panel, no solo Lighthouse CLI.
 
+**Resuelto el 2026-09-26 (cierre de fases 4 y 5, A2):** no era el JS. El elemento LCP de la ficha era el
+**párrafo del aviso de cookies de GA4**: la foto principal arrancaba con `animate-fadeIn` (opacidad 0) y Chrome
+no la contaba como candidata, así que el aviso — que aparece al hidratar — ganaba con 2,4 s de render delay.
+Arreglo: la foto se pinta sin animación la primera vez (`loading="eager"`, `fetchPriority="high"`), el aviso
+espera a la primera interacción y se añadió `preconnect` a Cloudinary. Medido en local: el LCP pasa a ser la
+foto y el render delay baja de 2.304 ms a 141 ms. Detalle en `HISTORIAL_TECNICO.md` §177.
+
+---
+
+**Búsqueda de marca "tienda h2r" (2026-09-28).** Google mostraba `/sobre-nosotros` en vez de la home, porque la home ponía la marca al final del título, no la nombraba en la descripción y no tenía `<h1>`. Corregido: título "Tienda H2R | Repuestos para moto con envío a toda Colombia", `<h1>` visible bajo el hero, pregunta "¿Qué es Tienda H2R?" en el FAQ, y `/sobre-nosotros` con título y descripción de "quiénes somos". `seo:check` lo vigila (44 comprobaciones). Tras desplegar hay que pedir la reindexación en Search Console (H-59). Detalle en `HISTORIAL_TECNICO.md` §188.
+
 ---
 
 ## 5. Riesgos y deuda

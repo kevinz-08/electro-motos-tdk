@@ -46,6 +46,7 @@
  */
 import { Suspense } from 'react'
 import Link from 'next/link'
+import { Check, Motorbike, RefreshCw, Truck } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
 import {
@@ -77,7 +78,6 @@ import { DeliveryEstimate } from '@/components/store/DeliveryEstimate'
 import {
   SoldCountBadge,
   StockStatus,
-  SecurePaymentBadge,
   RatingSummaryRow,
   StarRating,
 } from '@/components/store/ProductTrustSignals'
@@ -272,8 +272,9 @@ export default async function ProductPage({ params }: PageProps) {
             {structuredDescription && structuredDescription.compatibility.length > 0 && (
               <details className="group border border-gray-200 rounded-xl overflow-hidden">
                 <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <span className="text-sm font-medium text-gray-700">
-                    🏍️ Compatibilidad
+                  <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Motorbike className="w-4 h-4 text-sky-500" aria-hidden="true" />
+                    Compatibilidad
                   </span>
                   <svg
                     className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
@@ -292,8 +293,9 @@ export default async function ProductPage({ params }: PageProps) {
 
             <details className="group border border-gray-200 rounded-xl overflow-hidden">
               <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
-                <span className="text-sm font-medium text-gray-700">
-                  📦 Envíos
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <Truck className="w-4 h-4 text-sky-500" aria-hidden="true" />
+                  Envíos
                 </span>
                 <svg
                   className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
@@ -322,8 +324,9 @@ export default async function ProductPage({ params }: PageProps) {
 
             <details className="group border border-gray-200 rounded-xl overflow-hidden">
               <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
-                <span className="text-sm font-medium text-gray-700">
-                  🔄 Cambios y devoluciones
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <RefreshCw className="w-4 h-4 text-sky-500" aria-hidden="true" />
+                  Cambios y devoluciones
                 </span>
                 <svg
                   className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
@@ -348,6 +351,9 @@ export default async function ProductPage({ params }: PageProps) {
               </div>
             </details>
           </div>
+
+          {/* Medios de pago, garantía y datos de la empresa — bajo los acordeones */}
+          <ProductTrustBlock warrantyMonths={freshProduct?.warrantyMonths ?? null} className="mt-4" />
         </div>
 
         {/* Detalle */}
@@ -436,10 +442,6 @@ export default async function ProductPage({ params }: PageProps) {
             />
           )}
 
-          <SecurePaymentBadge />
-
-          <ProductTrustBlock warrantyMonths={freshProduct?.warrantyMonths ?? null} className="mt-3" />
-
           {/* Venta cruzada: sugerencias cargadas por el admin (no se muestra si no hay ninguna visible) */}
           <CrossSellBlock productId={product.id} className="mt-5" />
 
@@ -461,7 +463,9 @@ export default async function ProductPage({ params }: PageProps) {
               <ul className="space-y-2">
                 {structuredDescription.benefits.map((benefit) => (
                   <li key={benefit.id} className="flex items-start gap-2.5 text-sm text-gray-600">
-                    <span className="mt-0.5 w-4 h-4 rounded-full bg-sky-100 text-sky-500 flex items-center justify-center shrink-0 text-[10px] font-bold">✓</span>
+                    <span className="mt-0.5 w-4 h-4 rounded-full bg-sky-100 text-sky-500 flex items-center justify-center shrink-0">
+                      <Check className="w-3 h-3" strokeWidth={3} aria-hidden="true" />
+                    </span>
                     {benefit.body}
                   </li>
                 ))}
@@ -503,7 +507,10 @@ export default async function ProductPage({ params }: PageProps) {
                 </div>
                 {r.comment && <p className="text-sm text-gray-700 leading-relaxed">{r.comment}</p>}
                 {r.installedLine && (
-                  <p className="mt-2 text-xs font-medium text-green-700">🏍️ {r.installedLine}</p>
+                  <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-green-700">
+                    <Motorbike className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    {r.installedLine}
+                  </p>
                 )}
                 <p className="text-xs text-gray-500 mt-3">
                   <span className="font-semibold text-gray-700">{r.authorName}</span>

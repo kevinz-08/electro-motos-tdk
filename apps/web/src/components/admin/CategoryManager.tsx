@@ -21,6 +21,8 @@ export type CategoryRow = {
   parentId: string | null
   parent: { id: string; name: string } | null
   _count: { products: number }
+  /** Subcategoría que es una marca: el Índice de Precios la suma a su padre (H-55). */
+  isBrand: boolean
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -71,6 +73,7 @@ function CategoryForm({ initial, rootCategories, onSuccess, onCancel, token }: C
     imageUrl: initial?.imageUrl ?? '',
     parentId: initial?.parentId ?? '',
   })
+  const [isBrand, setIsBrand] = useState(initial?.isBrand ?? false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [serverError, setServerError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -114,12 +117,23 @@ function CategoryForm({ initial, rootCategories, onSuccess, onCancel, token }: C
 
       const client = apiClient(token)
       const res = isEdit
-        ? await client.put<void>(`/admin/categories/${initial.id}`, payload)
-        : await client.post<void>('/admin/categories', payload)
+        ? await client.put<{ id: string }>(`/admin/categories/${initial.id}`, payload)
+        : await client.post<{ id: string }>('/admin/categories', payload)
 
       if (!res.ok) {
         setServerError(res.error ?? 'Error inesperado')
         return
+      }
+
+      // "Es una marca" se guarda aparte (ajuste del Índice de Precios). Una
+      // categoría raíz nunca lo es: se desmarca si pierde el padre.
+      const wantsBrand = isBrand && Boolean(payload.parentId)
+      if (wantsBrand !== (initial?.isBrand ?? false)) {
+        const brandRes = await client.put(`/admin/categories/${res.data.id}/brand`, { isBrand: wantsBrand })
+        if (!brandRes.ok) {
+          setServerError(`La categoría se guardó, pero no se pudo actualizar "Es una marca": ${brandRes.error}`)
+          return
+        }
       }
 
       await revalidateAdminCache([CACHE_TAGS.categories, CACHE_TAGS.catalog])
@@ -194,6 +208,25 @@ function CategoryForm({ initial, rootCategories, onSuccess, onCancel, token }: C
             ))}
         </select>
       </div>
+
+      {/* Es una marca — solo para subcategorías */}
+      {form.parentId ? (
+        <label className="flex items-start gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={isBrand}
+            onChange={(e) => setIsBrand(e.target.checked)}
+            className="mt-0.5 accent-blue-500"
+          />
+          <span className="text-sm text-white/70">
+            Es una marca (ej: Liquimoly, SKY)
+            <span className="block text-xs text-white/35">
+              El Índice de Precios suma sus productos a la categoría padre, porque mide tipos de repuesto, no marcas. El
+              catálogo no cambia.
+            </span>
+          </span>
+        </label>
+      ) : null}
 
       {/* Descripción */}
       <div>
@@ -392,6 +425,11 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
                       </span>
                     )}
                     <span className="font-medium text-white">{cat.name}</span>
+                    {cat.isBrand && (
+                      <span className="text-[10px] font-bold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                        Marca
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-white/40">{cat.slug}</td>

@@ -32,9 +32,11 @@
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
 import { Toaster } from 'sonner'
+import { preconnect } from 'react-dom'
 import { Analytics } from '@vercel/analytics/next'
 import { GoogleAnalyticsLoader } from '@/components/analytics/GoogleAnalyticsLoader'
 import { CookieConsentBanner } from '@/components/analytics/CookieConsentBanner'
+import { AiReferralTracker } from '@/components/analytics/AiReferralTracker'
 import { AuthSessionProvider } from '@/components/providers/SessionProvider'
 import { DEFAULT_OG_IMAGE } from '@/lib/opengraph'
 import { SITE_URL, canonical } from '@/lib/seo'
@@ -70,6 +72,10 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Todas las imágenes de producto vienen de Cloudinary: abrir la conexión desde el
+  // <head> ahorra DNS + TLS en el camino crítico de la imagen LCP de la ficha (H-36).
+  preconnect('https://res.cloudinary.com')
+
   return (
     <html lang="es-CO" className={`${geist.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-white text-gray-900" suppressHydrationWarning>
@@ -85,6 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Analytics />
         {/* GA4 (Fase 4, H-11): solo se carga con NEXT_PUBLIC_GA_ID y consentimiento */}
         <GoogleAnalyticsLoader />
+        <AiReferralTracker />
         <CookieConsentBanner />
       </body>
     </html>

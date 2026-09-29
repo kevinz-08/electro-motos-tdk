@@ -4,9 +4,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
 import { useCart } from '@/lib/cart'
-import { Trash2 } from 'lucide-react'
+import { ShoppingCart, Trash2 } from 'lucide-react'
 import { cloudinaryUrl } from '@/lib/cloudinary'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ImagePlaceholder } from '@/components/ui/ImagePlaceholder'
 import { ShippingQuoteCalculator } from '@/components/store/ShippingQuoteCalculator'
 import type { ShippingQuoteResult } from '@/lib/shipping-quote'
 import { PriceTag } from '@/components/store/PriceTag'
@@ -39,7 +40,7 @@ export function CartView({ freeShippingThreshold }: { freeShippingThreshold: num
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <EmptyState
-          icon="🛒"
+          icon={ShoppingCart}
           title="Tu carrito está vacío"
           description="Agrega productos desde el catálogo para continuar con tu compra."
           action={{ label: 'Ver catálogo', href: '/catalogo?showAll=true' }}
@@ -117,7 +118,7 @@ export function CartView({ freeShippingThreshold }: { freeShippingThreshold: num
                       sizes="96px"
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-gray-300 text-2xl">📦</div>
+                    <ImagePlaceholder iconClassName="w-8 h-8" />
                   )}
                 </Link>
 

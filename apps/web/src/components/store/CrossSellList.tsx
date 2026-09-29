@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { MAX_CROSS_SELLS, isCrossSellCompatible, type Product } from '@h2r/domain'
 import { useCart } from '@/lib/cart'
 import { cloudinaryUrl } from '@/lib/cloudinary'
+import { ImagePlaceholder } from '@/components/ui/ImagePlaceholder'
 import { toGaItem, toPesos, track } from '@/lib/analytics'
 import { readMyMotorcycle, subscribeToMyMotorcycle, type MyMotorcycle } from '@/lib/my-motorcycle'
 import { formatCOP } from '@/components/store/PriceTag'
@@ -110,7 +111,7 @@ export function CrossSellList({ suggestions, heading, listName, className = '' }
                 {image ? (
                   <Image src={cloudinaryUrl(image, 'thumbnail')} alt={s.name} fill sizes="64px" className="object-contain p-1" />
                 ) : (
-                  <span className="flex h-full items-center justify-center text-xl text-gray-300">📦</span>
+                  <ImagePlaceholder />
                 )}
               </Link>
               <div className="flex min-w-0 flex-1 flex-col">

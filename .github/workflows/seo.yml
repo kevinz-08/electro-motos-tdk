@@ -1,7 +1,7 @@
 name: SEO
 
 # Verificación de la base técnica de SEO (Fase 1), de los datos estructurados
-# (Fase 3) y del presupuesto de rendimiento.
+# (Fase 3), del enlazado interno (Fase 5) y del presupuesto de rendimiento.
 #
 # No corre en cada push: mide contra el sitio ya desplegado, así que se ejecuta
 # semanalmente y a mano cuando hace falta. Los informes de Lighthouse quedan
@@ -35,6 +35,9 @@ jobs:
       - name: Validar los datos estructurados (JSON-LD)
         run: node scripts/seo-schema.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"
 
+      - name: Enlazado interno (profundidad, huérfanas, enlaces rotos)
+        run: node scripts/seo-links.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"
+
       - name: Presupuesto de rendimiento (Lighthouse móvil)
         run: node scripts/seo-lighthouse.mjs "${{ inputs.base_url || 'https://www.tiendah2r.com' }}"
 
@@ -43,5 +46,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-reports
-          path: .lighthouse/
+          path: |
+            .lighthouse/
+            .seo/
           if-no-files-found: ignore

@@ -19,4 +19,6 @@ export const CACHE_TAGS = {
   kits: 'kits',
   /** Revisores técnicos y guías de mantenimiento (docs/seo/, Fase 5). */
   guides: 'guides',
+  /** Cortes del Índice de Precios (docs/seo/, Fase 5 ítem 4). */
+  priceIndex: 'price-index',
 } as const

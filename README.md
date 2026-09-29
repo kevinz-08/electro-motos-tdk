@@ -1443,7 +1443,7 @@ Se implementan por fases; cada fase es independiente salvo la 5 (depende de la 4
 - **Sync Optimun:** si el ERP sube el precio a un valor ≥ `compareAtPrice`, `SyncStock` limpia el
   ancla (`compareAtPrice = null`) en la misma actualización — el `CHECK` nunca rompe la sincronización.
 - **UI:** componente `PriceTag` (precio tachado sutil + precio real grande en negrita + badge `-X%` en el azul de la marca, `sky-500`)
-  en tarjeta de catálogo, PDP, carrito y checkout. El JSON-LD `Offer` publica solo `price`.
+  en tarjeta de catálogo, PDP, carrito y checkout. El badge superpuesto en la imagen de `ProductCard` usa el mismo `sky-500`. El JSON-LD `Offer` publica solo `price`.
 - **Cupones:** el descuento siempre se calcula sobre `price`, nunca sobre `compareAtPrice`.
 
 ### 22.2 Hero Banner visual (mobile-first)
@@ -1467,9 +1467,8 @@ elimina columnas usadas por la versión anterior — desplegar web y API junto c
 
 | Elemento | Fuente | Se muestra cuando |
 |---|---|---|
-| "🔥 +X personas han comprado o recomiendan este producto" | `Product.storeRecommendations` (clientes de la tienda física, lo ingresa el admin en el formulario de producto) + `Product.soldCount` (ventas online: se incrementa al confirmar el pago; COD al crear) | `total ≥ SOCIAL_PROOF_MIN_SOLD` (Settings, default 5) |
+| "+X personas han comprado o recomiendan este producto" | `Product.storeRecommendations` (clientes de la tienda física, lo ingresa el admin en el formulario de producto) + `Product.soldCount` (ventas online: se incrementa al confirmar el pago; COD al crear) | `total ≥ SOCIAL_PROOF_MIN_SOLD` (Settings, default 5) |
 | "¡Solo quedan X unidades en stock!" | `Product.stock` | `0 < stock < LOW_STOCK_URGENCY_THRESHOLD` (default 5) |
-| Badge "Pago seguro" | estático (Wompi / Mercado Pago) | siempre, bajo el botón de compra |
 | Línea de tiempo **Pedido → Enviado → Entregado** — bajo los botones de compra (carrito y Addi) | `estimateDeliveryWindow()` (dominio) — días hábiles, festivos colombianos (Ley Emiliani) y hora de corte | siempre que haya stock. Settings: `SHIPPING_ETA_MIN_DAYS` (2), `SHIPPING_ETA_MAX_DAYS` (5), `SHIPPING_CUTOFF_HOUR` (14) |
 | Estrellas + "X% de clientes recomiendan este producto" | `ProductReview` aprobadas | `reseñas ≥ REVIEWS_MIN_COUNT` (default 3) |
 
@@ -1571,6 +1570,21 @@ Migraciones (en orden): `20260916000000_product_compare_at_price`, `…0100_hero
 - `INTERNAL_API_SECRET` ya era obligatoria; ahora además firma los enlaces de pedido y de reseña —
   rotarla invalida los enlaces enviados por correo.
 - Nueva variable opcional de la API: `REVIEW_REQUEST_MIN_DAYS` (default 7).
+
+### 22.8 Iconografía de la tienda
+
+La tienda (`app/(store)`, `app/auth`, `app/not-found.tsx` y `components/{store,checkout,nav,ui}`) no usa
+emojis: todos los iconos salen de `lucide-react`.
+
+- **Color:** `sky-500` por defecto. Solo los estados de éxito (`green-600`: pagado, verificado, envío
+  gratis alcanzado) y de error o advertencia (`red-600` / `amber-500`) usan color semántico.
+- **Estrellas:** `Star` de lucide con relleno `amber-400` (vacías en `gray-200`).
+- **Pantallas oscuras** (`/auth/*`): mismos criterios con los tonos claros (`sky-400`, `green-400`, `red-400`).
+- **Componentes compartidos:** `EmptyState` recibe `icon: LucideIcon` (círculo `sky-50` + icono `sky-500`);
+  `ImagePlaceholder` (`Package` gris) cubre las miniaturas sin foto. Los iconos de categoría viven en
+  `CategoryGrid`; `/catalogo` no muestra icono junto al nombre de la categoría.
+- **Moto:** `Motorbike` (no `Bike`, que es una bicicleta).
+- **Fuera del alcance:** el panel admin (tema oscuro propio) y las plantillas de correo HTML.
 
 ---
 
@@ -1924,7 +1938,9 @@ Detalle en `docs/seo/04-conversion.md`. **Sin migraciones de base de datos** en 
 - **Ficha de producto:** `StickyBuyBar` (barra fija móvil, aparece al pasar el bloque de compra),
   `ProductShippingEstimate` (cotizador real de Vendelo por ciudad, comparte la ciudad del carrito),
   `ConfirmCompatibilityButton` (WhatsApp con producto, SKU y moto seleccionada) y `ProductTrustBlock`
-  (medios de pago, garantía, razón social y NIT desde la misma constante del JSON-LD).
+  (medios de pago, garantía, razón social y NIT desde la misma constante del JSON-LD). `ProductTrustBlock`
+  vive en la columna izquierda, bajo los acordeones de envíos y cambios, con iconos `lucide-react` en `sky-500`
+  (sin emojis). El antiguo `SecurePaymentBadge` ("PAGO SEGURO · Con Wompi…") se eliminó: repetía los medios de pago.
 
 **Segunda entrega (2026-09-23):**
 
@@ -1960,3 +1976,96 @@ Migración aditiva `20260925120000_phase5_reviewers_maintenance` (tablas `Techni
 - **Regla de publicación:** guardar una guía la publica sola en `/guias/mantenimiento/[marca]/[modelo]`, pero solo si tiene al menos un punto de control **y** un revisor activo. La **fuente** y el **revisor** son obligatorios para guardar: es la forma en que el sistema hace cumplir "sin revisor técnico no se publica" y "los intervalos no se inventan".
 - **Sin página genérica:** no existía ninguna página de mantenimiento genérica que ocultar. El comportamiento equivalente es que, sin guía guardada, la ruta responde 404 y el hub `/repuestos/[marca]/[modelo]` no muestra ningún enlace; con guía, aparece el enlace.
 - **SEO:** `WebPage` con `reviewedBy` y `lastReviewed` (fecha de la revisión registrada, no la de hoy), apertura con respuesta directa armada solo con datos guardados, encabezados en forma de pregunta, tabla y `sitemap-guias.xml` (solo guías publicables y revisores activos con guías).
+
+### 26.10 Cierre de las fases 4 y 5 (desde 2026-09-26, rama única `feat/seo-geo-cro`)
+
+Desde esta entrega el bloque SEO-GEO-CRO se trabaja en **una sola rama** (`feat/seo-geo-cro`) en vez de una por sub-entrega, para no multiplicar despliegues de preview en Vercel. Plan aprobado el 2026-09-26: ver `docs/seo/ROADMAP.md`.
+
+**A1 — Compatibilidades desde el panel (H-37, H-40).** Hasta ahora la única forma de cargar compatibilidades era subir un CSV a la API a mano, y cada carga tardaba hasta 1 h en verse (TTL de la caché).
+
+- **`/admin/compatibilidades`:** tabla de los modelos de moto con cuántas compatibilidades verificadas y pendientes tiene cada uno (y enlace al hub si está publicado), formulario para dar de alta o editar un modelo (marca, nombre, cc, años, alias, introducción del hub) e **importador de CSV** con la plantilla descargable y el reporte de altas, actualizaciones y errores fila a fila.
+- **Formulario de producto → "Compatibilidades y referencias OEM":** lista las compatibilidades del producto (verificadas y pendientes), permite agregar una (modelo, posición, años, notas, **fuente obligatoria**, casilla *verificada*), verificar o desverificar las pendientes y eliminar; y lo mismo con las referencias OEM.
+- **Reglas:** las mismas que el CSV, en un solo sitio del dominio (`SaveFitment`): la fuente es obligatoria, los años deben ser coherentes y no se pueden crear modelos desde el formulario de producto. Verificar deja constancia de quién y cuándo.
+- **Caché:** cada alta, edición, borrado o importación llama a `revalidateAdminCache(['fitments', 'products'])`, así que los hubs, el selector de moto y la tabla "Compatible con" se actualizan al momento (H-40).
+- **API nueva:** `POST /admin/fitments` (alta o edición por producto + modelo + posición), `GET /admin/fitments/models/summary` y `DELETE /admin/fitments/oem/:id`.
+
+**B1 — Infraestructura de artículos (Fase 5, ítem 1).** Las guías de mantenimiento cubren un solo formato (tabla de intervalos por modelo). Las comparativas, la guía de revisión técnico-mecánica y cualquier guía futura necesitan texto libre con autor, revisor y estados de publicación. Se decidió **base de datos + editor en el panel** (no archivos MDX), igual que revisores y guías: el negocio edita sin desplegar.
+
+- **Modelo `Article`** (migración aditiva `20260926000000_phase5_content`, que también crea la tabla del Índice de Precios de B4): `slug`, `title`, `kind` (`GUIA` | `COMPARATIVA`), `directAnswer` (respuesta directa de apertura, **40 a 60 palabras**), `body` (Markdown restringido), `metaDescription?`, `sources[]`, `authorName`, `reviewerId?` → `TechnicalReviewer` (ON DELETE RESTRICT), `reviewedAt?`, `modelId?` → `MotorcycleModel` (para enlazar el hub), `status` (`DRAFT` → `IN_REVIEW` → `PUBLISHED`) y `publishedAt?`.
+- **Regla de publicación (dominio, `articlePublishBlockers`):** pasar a *En revisión* exige respuesta directa de 40–60 palabras, cuerpo y al menos una fuente; **publicar** exige además un revisor técnico activo y la fecha de revisión. Si el revisor se desactiva, el artículo deja de publicarse solo. El slug `mantenimiento` está reservado.
+- **Markdown restringido, sin HTML:** `##`/`###`, párrafos, listas, tablas, **negrita**, *cursiva*, `código` y enlaces (solo `https://` o rutas internas `/…`). Lo interpreta `parseArticleBody` (dominio, probado) y se pinta como elementos React: nunca `dangerouslySetInnerHTML`, así que un texto pegado no puede inyectar scripts.
+- **Público:** `/guias/[slug]` (respuesta directa arriba, índice de encabezados, fuentes, revisor con enlace a `/autores/[slug]`, fecha de revisión visible, JSON-LD `WebPage` + `Article` con `reviewedBy`) y `/guias` (índice de artículos y guías de mantenimiento publicadas). Ambos entran en `sitemap-guias.xml`.
+- **Panel:** `/admin/guias` (lista con estado) y editor con contador de palabras de la respuesta directa, vista previa del Markdown y la lista de lo que falta para publicar.
+
+**B2 — Guías por modelo en formato citable (Fase 5, ítem 2).** La infraestructura de guías de mantenimiento ya existía (§26.9); faltaba que la apertura respondiera con datos y que la guía conectara con el resto del sitio.
+
+- **Respuesta directa real:** la guía abre con "Según {fuente}, la {moto} necesita aceite de motor cada 3.000 km o 3 meses (lo que ocurra primero); bujía cada…", armada por `summarizeMaintenanceIntervals` (dominio) con los tres primeros puntos de control guardados. Sin puntos no hay frase: nunca un intervalo inventado.
+- **"Última actualización"** visible junto a la fecha de revisión.
+- **Enlazado guía ↔ hub ↔ kits ↔ artículos:** la guía enlaza el hub del modelo (si está publicado; si no, la búsqueda del catálogo), sus kits con precio y los artículos sobre ese modelo; el hub del modelo lista los artículos que tratan sobre él. Cada pieza es opcional y tolerante a fallos de lectura.
+
+
+**B3 — Costo anual de mantenimiento por modelo (Fase 5, ítem 3).** Calculadora en cada guía de mantenimiento: el visitante escribe **cuántos kilómetros recorre al año** y ve cuántas veces le toca cada punto de control y cuánto le cuesta al año con los **precios de hoy en H2R**.
+
+- La cuenta la hace `computeAnnualMaintenanceCost` (dominio, probada): veces al año = la mayor entre `km al año ÷ intervalo en km` y `12 ÷ intervalo en meses` ("lo que ocurra primero"), multiplicada por el precio actual del repuesto enlazado.
+- **Nada se inventa:** no hay kilometraje por defecto (sin él solo cuentan los puntos que van por tiempo), los puntos sin repuesto enlazado (o con el repuesto inactivo) se listan aparte como "sin precio en H2R" y el total dice explícitamente que no incluye mano de obra.
+- Se actualiza sola: lee el precio vivo del producto (caché de 10 min, invalidada al editar productos).
+
+**B7 — Enlazado interno (Fase 5, ítem 8).** `pnpm seo:links [url]` rastrea el sitio desde el home como un buscador y lo cruza con los sitemaps: profundidad en clics, páginas huérfanas, enlaces rotos y URLs con pocos enlaces entrantes (detalle en `.seo/links-report.json`). Falla si una página comercial (producto, hub, kit, categoría) queda a más de 3 clics o huérfana, o si hay enlaces rotos; corre en el workflow semanal `seo.yml`.
+
+- **Antes (producción, 2026-09-26):** 93 problemas — 24 subcategorías huérfanas (el filtro de subcategorías navega con JavaScript) y 69 páginas comerciales a 4–5 clics (los hubs de modelo solo se alcanzaban desde las fichas).
+- **Arreglos:** enlaces reales de subcategoría en la vista de categoría; índice `/repuestos` (marcas → modelos con hub publicado); footer con "Repuestos por moto", "Kits", "Guías de mantenimiento" y "Contacto"; categorías padre en `sitemap-categorias.xml`; las migas de los hubs apuntan a `/repuestos`.
+- **Después (build local):** 240 URLs, todas a 3 clics o menos, 0 huérfanas, 0 enlaces rotos.
+
+**B4 — Índice de Precios de Repuestos de Moto (Fase 5, ítem 4).** Página de datos para prensa y citas de IA, generada desde el catálogo real.
+
+- **Cortes inmutables:** cada corte es una fila de `PriceIndexSnapshot` (una por día, zona Bogotá) con el resultado completo en JSON y la versión de la metodología. Se genera desde **`/admin/indice-precios` → "Generar corte de hoy"** (sin terminal), queda como **borrador**, una persona revisa las cifras en el panel y lo **publica**. Un corte publicado no se puede regenerar (primero se despublica). La idea es un corte por semestre.
+- **Metodología v1 (`computePriceIndex`, dominio, probada):** productos activos, sin borrar y con precio; por subcategoría: número de referencias, **mediana**, percentiles 25 y 75, mínimo y máximo (percentiles por interpolación lineal). Solo se publican las subcategorías con **5 o más referencias**; las demás se listan como "muestra insuficiente". Contra el corte publicado anterior se muestra la variación de la mediana (solo si ambos cortes usan la misma metodología y la categoría tiene muestra suficiente en los dos).
+- **Pública:** `/indice-precios-repuestos-moto` con fecha de corte, tamaño de la muestra, metodología, gráfico de mediana y rango intercuartílico por categoría (SVG propio, un solo tono, con tooltip y tabla de datos) y JSON-LD `Dataset`. Responde 404 hasta que haya un corte publicado; entonces entra en `sitemap-guias.xml` y se enlaza desde `/guias`.
+- Lo que el índice **no** dice: no es el precio del mercado colombiano sino el de H2R. La página lo declara en la metodología.
+
+**A2 — Rendimiento de la ficha de producto (H-36, punto 4).** El render delay de 2,4 s no venía del JavaScript: el elemento LCP de la ficha era **el aviso de cookies**, porque la foto principal arrancaba con una animación de opacidad 0 y Chrome no la contaba. Ahora la foto se pinta sin animación la primera vez (`loading="eager"` + `fetchPriority="high"`, que reemplazan al `priority` deprecado en Next 16), el aviso de cookies aparece tras la primera interacción real y hay `preconnect` a Cloudinary. Resultado local: LCP = foto del producto, render delay de 2.304 ms a 141 ms.
+
+**A3 — Embudo de GA4 verificado.** `apps/web/e2e/analytics.spec.ts` recorre ficha → carrito → checkout con el consentimiento aceptado y comprueba en `dataLayer` `view_item`, `add_to_cart`, `view_cart` y `begin_checkout`, que ningún evento lleve datos personales y que sin consentimiento no salga nada. Bloquea las peticiones a Google para no ensuciar la propiedad real. Correr con `pnpm --filter @h2r/web exec playwright test e2e/analytics.spec.ts --project=chromium`.
+
+**B5 — Borradores de comparativas y guía técnico-mecánica (Fase 5, ítems 5 y 6).** Tres borradores en `docs/seo/borradores/` (revisión técnico-mecánica, original vs genérico, aceite para moto de trabajo) en el formato del editor, con respuesta directa de 40–60 palabras, tablas y enlaces a categorías reales. Todo dato normativo o técnico a confirmar va marcado `[VERIFICAR]`: se publican en `/admin/guias` solo tras la revisión del revisor técnico (H-56). La comparativa de marcas de pastillas por modelo espera a H-18.
+
+**B4.1 — Marcas agrupadas en el Índice de Precios (H-55, opción C elegida el 2026-09-28).** En el catálogo, algunas subcategorías son marcas (Liquimoly y Castrol bajo Aceites; SKY, Kontrol y Dunlop bajo Llantas). El índice ya no las publica como si fueran tipos de repuesto: **las suma a su categoría padre**, así aparecen "Aceites" y "Llantas" como filas propias. El catálogo, su navegación y sus URLs no cambian. La lista de subcategorías de marca se guarda en `Settings` (`BRAND_CATEGORY_SLUGS`, sin migración) y se edita con la casilla **"Es una marca"** en `/admin/categorias`. Si el ajuste no existe, se usan esas cinco marcas.
+
+### 26.11 Fases 6 (GEO) y 7 (Merchant Center) — desde 2026-09-28, misma rama `feat/seo-geo-cro`
+
+Orden de trabajo: (1) datos de identificación de cada repuesto (desbloquea H-18), (2) GEO técnico, (3) feed de Merchant Center, (4) material fuera del sitio en `docs/seo/geo/`.
+
+**P7.1 — Marca, MPN, tipo y garantía de cada repuesto (H-18).** Las columnas `mpn`, `partBrand`, `partType` y `warrantyMonths` existen en `Product` desde la Fase 2, pero no había forma de cargarlas desde el panel. Ahora:
+
+- **Formulario de producto → "Identificación del repuesto":** marca del repuesto, MPN (referencia del fabricante del repuesto), tipo (original, homologado o genérico) y garantía en meses. Se guardan con el botón del bloque (`PUT /admin/products/:id/identifiers`).
+- **Carga masiva:** CSV `sku,marca,mpn,tipo,garantia_meses` desde `/admin/merchant` (`POST /admin/products/identifiers/import`), con reporte por línea. Una celda vacía **no borra** el dato existente; para borrarlo se escribe `-`.
+- **Reglas (dominio, `validateProductIdentifiers`):** marca y MPN hasta 70 caracteres, sin "genérico" ni "sin marca" como marca (Google los rechaza), tipo de una lista cerrada, garantía entera entre 0 y 120 meses.
+- Alimentan el JSON-LD `Product` (ya lo hacían si existían) y el feed de Merchant Center (P7.2).
+
+**P7.2 — Feed de Merchant Center.** `https://www.tiendah2r.com/feeds/google-merchant.xml` (RSS 2.0 con `g:`, `noindex`, caché 1 h). La decisión de cada producto es `evaluateMerchantProduct` (dominio, probada): entra solo si está activo, con stock, precio, imagen y **marca**; sin MPN entra con `identifier_exists=no` y un aviso. Título "[Repuesto] [marca] para [Marca Modelo cc]" con las motos de las compatibilidades verificadas (máx. 150 caracteres) y **sin MAYÚSCULAS excesivas** (`normalizeTitleCase`, conserva siglas y códigos como XTZ, CDI, 6P). `google_product_category` con IDs de la taxonomía oficial de Google; `product_type` "Marca > Modelo > Categoría". Envíos y devoluciones se configuran en la cuenta de Merchant Center, no en el feed. **`/admin/merchant`** muestra cuántos entran, cuáles quedan fuera y por qué, y tiene la carga masiva de marca y MPN. **`pnpm seo:feed [url]`** valida el XML (campos, formatos, ids únicos, imágenes https) y una muestra de fichas e imágenes. Guía para configurar la cuenta: `docs/seo/07-feed.md`.
+
+**P6 — GEO técnico.**
+
+- **`pnpm seo:ai [url]`:** pide home, ficha, hub y catálogo con el user-agent de 10 crawlers (GPTBot, OAI-SearchBot, ChatGPT-User, PerplexityBot, ClaudeBot, Claude-User, CCBot, Applebot, Googlebot, Bingbot) y compara con un navegador: 200, sin página de desafío, título, JSON-LD y precio. **54/54 en producción** el 2026-09-28.
+- **`/llms.txt`** (formato llmstxt.org) y **`/por-que-comprar-en-h2r`**: leen de `findStoreFacts` (`lib/store-facts.ts`, caché 1 h), así las cifras (productos, compatibilidades verificadas, modelos, días de entrega) salen siempre de la base y las dos páginas no se contradicen.
+- **Coherencia de entidad:** `alternateName: ["Tienda H2R", "H2R"]` en `Organization` y `WebSite`.
+- **Tráfico desde IA:** `detectAiSource` (dominio) reconoce ChatGPT, Perplexity, Gemini, Copilot, Claude y otros por referrer o `utm_source`; `AiReferralTracker` envía `ai_referral` (`ai_source`, `landing_page`) una vez por sesión y solo con consentimiento (si acepta después, se envía entonces). Cubierto por el E2E de analítica.
+
+**P6 — material fuera del sitio:** `docs/seo/geo/` — 10 guiones de vídeo sobre productos y motos reales del catálogo, plantillas de correo (medios, blogs, talleres, marcas), guía de comunidades, checklist de perfiles con los datos canónicos, 30 prompts con registro mensual y la guía de GA4 para el tráfico desde IA. Entregables de fase: `docs/seo/06-geo.md` y `docs/seo/07-feed.md`.
+
+
+### 26.12 La home para la búsqueda de marca "tienda h2r" (2026-09-28, rama `feat/seo-geo-cro`)
+
+**Problema:** al buscar "tienda h2r", Google mostraba `/sobre-nosotros` y no la home. `/sobre-nosotros` coincidía mejor: su descripción empezaba con "H2R Online Store: tienda de repuestos…", mientras la home ponía la marca al final del título, no la mencionaba en la descripción y **no tenía ningún `<h1>`** (el hero es un carrusel de imágenes).
+
+**Cambios (plan aprobado el 2026-09-28):**
+
+- **Título de la home:** "Tienda H2R | Repuestos para moto con envío a toda Colombia" (la marca primero, como se busca). La descripción también la nombra: "Tienda H2R (H2R Online Store): …". Open Graph igual.
+- **`<h1>` visible** debajo del carrusel (`HomeIntro`): "H2R Online Store: tienda de repuestos para moto", con subtítulo y enlace a "Repuestos por moto". Va debajo del hero para no convertirse en el LCP.
+- **FAQ de la home:** nueva pregunta "¿Qué es Tienda H2R?", visible y en el JSON-LD `FAQPage`, respondida con datos reales (tienda física, NIT, envíos).
+- **`/sobre-nosotros`:** título "Quiénes somos y cómo trabajamos" y descripción que empieza por "Quiénes somos…": sigue nombrando la marca, pero ya no compite con la home por la búsqueda exacta.
+- `seo:check` comprueba que la home tenga exactamente un `<h1>` y que su título empiece por la marca.
+
+Después de desplegar: pedir en Search Console la reindexación de `/` y `/sobre-nosotros`, y seguir en 2–4 semanas qué página recibe las impresiones de "tienda h2r". Google puede tardar en cambiarla y no se puede garantizar el resultado.
+
+**Tiempos de envío y Addi (H-60, confirmado por el negocio el 2026-09-28).** El dato real es **1 a 2 días hábiles en Bucaramanga y su área metropolitana y 3 a 7 en el resto de Colombia**. La estimación general del sitio (ficha de producto, JSON-LD de envío, `/llms.txt`, "Por qué comprar en H2R") usa 3–7, el peor caso: son los valores por defecto de `SHIPPING_ETA_MIN/MAX_DAYS`, editables en `/admin/configuracion`. Los textos nombran también el plazo de Bucaramanga (`LOCAL_DELIVERY_DAYS` en el dominio). **Addi sigue activo** y se coordina con un asesor por WhatsApp; así lo dicen el FAQ, `/llms.txt` y "Por qué comprar".

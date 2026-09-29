@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { InfrastructureModule } from '../infrastructure/infrastructure.module'
 import { AdminProductsController } from './admin-products.controller'
+import { AdminProductIdentifiersController } from './admin-product-identifiers.controller'
 import { AdminSettingsController } from './admin-settings.controller'
 import { AdminDashboardController } from './admin-dashboard.controller'
 import { AdminCategoriesController } from './admin-categories.controller'
@@ -12,11 +13,14 @@ import { AdminFitmentsController } from './admin-fitments.controller'
 import { AdminKitsController } from './admin-kits.controller'
 import { AdminReviewersController } from './admin-reviewers.controller'
 import { AdminMaintenanceController } from './admin-maintenance.controller'
+import { AdminArticlesController } from './admin-articles.controller'
+import { AdminPriceIndexController } from './admin-price-index.controller'
 
 @Module({
   imports: [InfrastructureModule],
   controllers: [
     AdminDashboardController,
+    AdminProductIdentifiersController,
     AdminProductsController,
     AdminCategoriesController,
     AdminSettingsController,
@@ -28,6 +32,8 @@ import { AdminMaintenanceController } from './admin-maintenance.controller'
     AdminKitsController,
     AdminReviewersController,
     AdminMaintenanceController,
+    AdminArticlesController,
+    AdminPriceIndexController,
   ],
 })
 export class AdminModule {}

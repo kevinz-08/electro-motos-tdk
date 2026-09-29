@@ -33,6 +33,28 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 191. Favicon cuadrado: Google mostraba un globo genérico en vez del logo
+
+**Requerimiento:** en los resultados de Google, el resultado de H2R aparecía con un globo gris en vez del logo.
+
+**Causa:** `app/favicon.ico` medía **256×200** (no cuadrado) y pesaba 211 KB. Google solo muestra el favicon en los resultados si es cuadrado y de al menos 48×48, en múltiplos de 48; si no, pone el ícono genérico. Además, el sitio no declaraba ningún ícono PNG ni `apple-touch-icon`.
+
+**Hecho:** a partir de `public/assets/logo.png` (recortado el espacio transparente y centrado en un lienzo cuadrado con 3 % de margen):
+
+- `src/app/favicon.ico`: 16, 32 y 48 px (6 KB, antes 211 KB).
+- `src/app/icon.png`: 192×192, múltiplo de 48; es el que usa Google.
+- `src/app/apple-icon.png`: 180×180 con fondo blanco para iOS.
+- Next genera las tres etiquetas `<link>` a partir de estos archivos (convención de `app/`).
+- `scripts/seo-check.mjs`: comprueba que exista un favicon cuadrado y múltiplo de 48 px. Producción fallaba (256x200); el build local pasa 45/45.
+
+**Contexto:** la rama `feat/seo-geo-cro` ya estaba mergeada y desplegada. La carpeta de trabajo estaba en `main` (la cambió otra sesión): se volvió a `feat/seo-geo-cro`, se adelantó hasta `origin/main` y se commiteó ahí.
+
+**Después de desplegar:** Google actualiza el favicon cuando vuelve a rastrear la home, y puede tardar días o semanas. Se acelera con la solicitud de indexación de H-59.
+
+**Archivos:** `apps/web/src/app/{favicon.ico,icon.png,apple-icon.png}`, `scripts/seo-check.mjs`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
 ## 190. Admin — barra lateral con scroll y bloque de cuenta fijo
 
 **Problema:** con 19 secciones, en pantallas bajas (portátil) la lista del sidebar no cabía: el `<nav>` tenía `flex-1` sin `min-h-0` ni `overflow`, crecía hasta su contenido y el `overflow-hidden` del layout recortaba las últimas secciones (Stock bajo, Sincronizar, Configuración) y el bloque de la cuenta, sin forma de hacer scroll.

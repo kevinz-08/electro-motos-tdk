@@ -33,6 +33,35 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 192. Ficha de producto en móvil: políticas después de "Beneficios"
+
+**Requerimiento:** en móvil, la franja "Pago seguro con Wompi / Envío a todo Colombia", los acordeones (Compatibilidad, Envíos, Cambios y devoluciones) y el bloque Medios de pago / Garantía / Razón social aparecían antes del SKU, el nombre, el precio y los botones de compra. Se pidió llevarlos después de "Beneficios" solo en móvil, sin tocar escritorio ni los textos (plan aprobado el 2026-10-01).
+
+**Causa:** la ficha es una grilla de dos columnas. En móvil se apila primero la izquierda (galería + esos bloques) y después la derecha (compra).
+
+**Decisión:** una grilla CSS no puede apilar dos columnas de forma independiente en escritorio y además intercalarlas en móvil. Se eligió **un solo componente pintado en dos posiciones**, cada una visible en un ancho. La alternativa `display: contents` + `order` reordena solo lo visual: en móvil el foco del teclado pasaría por los acordeones antes que por "Agregar al carrito" (WCAG 2.4.3).
+
+**Hecho:**
+
+- `components/store/ProductPolicyInfo.tsx` (nuevo, Server Component): traslado exacto del marcado de la franja, los acordeones y `ProductTrustBlock`. Recibe `compatibility`, `freeShippingThreshold`, `warrantyMonths` y `className`.
+- `producto/[slug]/page.tsx`: `<ProductPolicyInfo className="mt-6 hidden md:block" />` bajo la galería (escritorio) y `<ProductPolicyInfo className="mt-8 md:hidden" />` después de "Beneficios", al final de la columna de compra (móvil). Se quitaron los imports que dejaron de usarse (`Link`, `RefreshCw`, `Truck`, `ProductTrustBlock`).
+
+**Verificación (build de producción local, ficha `bateria-bosch-btx7l-bs`, Playwright antes y después):**
+
+| Ancho | Antes | Después |
+|---|---|---|
+| 390 px (móvil) | Wompi → Envíos → Cambios → Medios de pago → **nombre** → Agregar al carrito → … | **nombre → Agregar al carrito** → descripción → beneficios → Wompi → Envíos → Cambios → Medios de pago |
+| 767 px | igual que móvil | igual que móvil (corte correcto) |
+| 768 y 1280 px | — | Posiciones idénticas a las de antes. La comparación de píxeles solo difiere en la línea punteada animada del flujo de entrega |
+
+En ningún ancho se ven las dos copias a la vez. Lighthouse móvil de la ficha: el LCP sigue siendo la foto, CLS 0, rendimiento 91, SEO 100. `seo:check` 45/45, `seo:schema` 47/47, E2E de analítica 3/3, `type-check` y `lint` limpios.
+
+**Hallazgo, sin cambiar (fuera de alcance):** `/producto/<slug-inexistente>` responde **HTTP 200** con la página 404 ("soft 404"), en local y en producción. Lleva `noindex, follow`, así que no se indexa, pero Search Console puede reportarlo. Una ruta que no existe sí da 404.
+
+**Archivos:** `apps/web/src/components/store/ProductPolicyInfo.tsx`, `apps/web/src/app/(store)/producto/[slug]/page.tsx`, `README.md`.
+
+---
+
 ## 191. Favicon cuadrado: Google mostraba un globo genérico en vez del logo
 
 **Requerimiento:** en los resultados de Google, el resultado de H2R aparecía con un globo gris en vez del logo.

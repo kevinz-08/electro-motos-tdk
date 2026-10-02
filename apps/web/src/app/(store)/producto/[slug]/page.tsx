@@ -45,8 +45,7 @@
  * Los umbrales se leen de Settings (getCachedCroSettings).
  */
 import { Suspense } from 'react'
-import Link from 'next/link'
-import { Check, Motorbike, RefreshCw, Truck } from 'lucide-react'
+import { Check, Motorbike } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
 import {
@@ -63,7 +62,7 @@ import { CompatibilityBadge } from '@/components/store/CompatibilityBadge'
 import { StickyBuyBar } from '@/components/store/StickyBuyBar'
 import { ProductShippingEstimate } from '@/components/store/ProductShippingEstimate'
 import { ConfirmCompatibilityButton } from '@/components/store/ConfirmCompatibilityButton'
-import { ProductTrustBlock } from '@/components/store/ProductTrustBlock'
+import { ProductPolicyInfo } from '@/components/store/ProductPolicyInfo'
 import { CrossSellBlock } from '@/components/store/CrossSellBlock'
 import { ProductKitMention } from '@/components/store/ProductKitMention'
 import { TrackEvent } from '@/components/analytics/TrackEvent'
@@ -246,114 +245,14 @@ export default async function ProductPage({ params }: PageProps) {
             productName={product.name}
           />
 
-          <div className="mt-6 flex items-center bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <svg
-                className="w-4 h-4 text-sky-500 shrink-0"
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-12V7a4 4 0 10-8 0v4h8z" />
-              </svg>
-              <span>Pago seguro con Wompi</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600 border-l border-gray-200 ml-4 pl-4">
-              <svg
-                className="w-4 h-4 text-sky-500 shrink-0"
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0zM5 17H3V7a1 1 0 011-1h9a1 1 0 011 1v10h-2m-8 0h8m0-10l4 4h-4v-4z" />
-              </svg>
-              <span>Envío a todo Colombia</span>
-            </div>
-          </div>
-
-          {/* Acordeón de compatibilidad, envíos y cambios */}
-          <div className="mt-4 space-y-2">
-            {structuredDescription && structuredDescription.compatibility.length > 0 && (
-              <details className="group border border-gray-200 rounded-xl overflow-hidden">
-                <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <Motorbike className="w-4 h-4 text-sky-500" aria-hidden="true" />
-                    Compatibilidad
-                  </span>
-                  <svg
-                    className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </summary>
-                <div className="px-4 py-3 text-xs text-gray-600 space-y-1.5 bg-white border-t border-gray-100">
-                  {structuredDescription.compatibility.map((c) => (
-                    <p key={c.id}>• {c.body}</p>
-                  ))}
-                </div>
-              </details>
-            )}
-
-            <details className="group border border-gray-200 rounded-xl overflow-hidden">
-              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <Truck className="w-4 h-4 text-sky-500" aria-hidden="true" />
-                  Envíos
-                </span>
-                <svg
-                  className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </summary>
-              <div className="px-4 py-3 text-xs text-gray-600 space-y-1.5 bg-white border-t border-gray-100">
-                <p>• Despacho en <strong>1 a 5 días hábiles</strong> desde la confirmación del pago.</p>
-                {croSettings.freeShippingThreshold > 0 && (
-                  <p>• Envío <strong>gratis</strong> en compras superiores a {formatCOP(croSettings.freeShippingThreshold)} COP.</p>
-                )}
-                <p>• Cobertura a <strong>todo Colombia</strong> con Coordinadora, Envía e Interrapidísimo.</p>
-                <p>• Una vez despachado, no se aceptan cambios de dirección.</p>
-                <Link
-                  href="/legal/politica-de-envios"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-1 text-sky-600 underline hover:text-sky-700"
-                >
-                  Ver política completa de envíos →
-                </Link>
-              </div>
-            </details>
-
-            <details className="group border border-gray-200 rounded-xl overflow-hidden">
-              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none bg-gray-50 hover:bg-gray-100 transition-colors">
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <RefreshCw className="w-4 h-4 text-sky-500" aria-hidden="true" />
-                  Cambios y devoluciones
-                </span>
-                <svg
-                  className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </summary>
-              <div className="px-4 py-3 text-xs text-gray-600 space-y-1.5 bg-white border-t border-gray-100">
-                <p>• Tienes <strong>5 días calendario</strong> desde la recepción para solicitar un cambio.</p>
-                <p>• El producto debe estar sin uso, en su <strong>embalaje original</strong> e intacto.</p>
-                <p>• El cambio se gestiona en un plazo máximo de <strong>30 días calendario</strong>.</p>
-                <p>• Los reembolsos aplican únicamente por garantía o derecho de retracto.</p>
-                <Link
-                  href="/legal/politica-de-cambios"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-1 text-sky-600 underline hover:text-sky-700"
-                >
-                  Ver política completa de cambios →
-                </Link>
-              </div>
-            </details>
-          </div>
-
-          {/* Medios de pago, garantía y datos de la empresa — bajo los acordeones */}
-          <ProductTrustBlock warrantyMonths={freshProduct?.warrantyMonths ?? null} className="mt-4" />
+          {/* Políticas (franja, acordeones y bloque de confianza): en escritorio bajo la
+              galería; en móvil van después de "Beneficios" (ProductPolicyInfo). */}
+          <ProductPolicyInfo
+            compatibility={structuredDescription?.compatibility ?? []}
+            freeShippingThreshold={croSettings.freeShippingThreshold}
+            warrantyMonths={freshProduct?.warrantyMonths ?? null}
+            className="mt-6 hidden md:block"
+          />
         </div>
 
         {/* Detalle */}
@@ -472,6 +371,14 @@ export default async function ProductPage({ params }: PageProps) {
               </ul>
             </div>
           )}
+
+          {/* Móvil: las políticas van al final, después de lo que decide la compra */}
+          <ProductPolicyInfo
+            compatibility={structuredDescription?.compatibility ?? []}
+            freeShippingThreshold={croSettings.freeShippingThreshold}
+            warrantyMonths={freshProduct?.warrantyMonths ?? null}
+            className="mt-8 md:hidden"
+          />
         </div>
       </div>
       {/* ── Compatibilidad verificada y referencias OEM (docs/seo/ Fase 2) ── */}

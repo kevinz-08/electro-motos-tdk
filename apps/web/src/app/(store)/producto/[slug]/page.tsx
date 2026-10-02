@@ -24,7 +24,7 @@
  *     1. SKU
  *     2. Nombre del producto
  *     3. Precio (con precio ancla tachado si aplica)
- *     4. Prueba social: estrellas/reseñas y "+X personas han comprado o recomiendan"
+ *     4. Prueba social: estrellas/reseñas y "+X personas han comprado y recomiendan"
  *     5. Alerta de stock
  *     6. Selector de cantidad + Agregar al carrito (AddToCartWithQuantity, Client Component
  *        porque usa el store de Zustand)
@@ -257,7 +257,8 @@ export default async function ProductPage({ params }: PageProps) {
 
         {/* Detalle */}
         <div>
-          <p className="text-sm text-gray-400 mb-1">SKU: {product.sku}</p>
+          {/* Todos los productos son nuevos (NewCondition en el JSON-LD y condition=new en el feed) */}
+          <p className="text-sm text-gray-400 mb-1">SKU: {product.sku} - Nuevo</p>
           <h1 className="text-3xl font-bold text-gray-900 mb-3">{product.name}</h1>
 
           <PriceTag

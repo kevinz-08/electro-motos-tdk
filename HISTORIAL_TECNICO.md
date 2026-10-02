@@ -33,6 +33,32 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 193. Ficha de producto: SKU con "Nuevo", prueba social sin ícono y stock bajo en rojo
+
+**Requerimiento (plan aprobado el 2026-10-01):**
+
+1. Mostrar "Nuevo" junto al SKU.
+2. Prueba social con el texto "…han comprado **y** recomiendan…" (antes "o") y sin el ícono de fuego.
+3. Etiqueta de stock bajo en rojo en vez de amarillo/naranja.
+
+**Decisión del negocio sobre el punto 2:** se advirtió que X suma ventas online (`soldCount`) y recomendaciones de la tienda física (`storeRecommendations`), así que "y" afirma algo que los datos no respaldan del todo (Ley 1480, publicidad engañosa). Se ofrecieron "o" y "han elegido" como alternativas. El negocio eligió "y" (opción A); queda anotado en el comentario del componente.
+
+**Hecho:**
+
+- `producto/[slug]/page.tsx`: "SKU: {sku} - Nuevo". Es veraz para todo el catálogo y coincide con `NewCondition` (JSON-LD) y `condition=new` (feed).
+- `ProductTrustSignals.tsx`:
+  - `SoldCountBadge`: nuevo texto en singular y plural, y se quitó el ícono `Flame` y su import.
+  - `StockStatus`: la urgencia pasa de ámbar a rojo (`red-50` / `red-200` / `red-700`, punto `red-500` parpadeante). Aparece con el mismo umbral que antes (`LOW_STOCK_URGENCY_THRESHOLD`, 5 por defecto).
+- `ProductEditForm.tsx`: la ayuda del campo de recomendaciones cita el texto nuevo.
+
+**Verificación:** build de producción local y capturas antes y después de la ficha `fender-para-ktm-duke-ngwo` (2 unidades, +25), en móvil y escritorio. Lighthouse: la etiqueta roja cumple el contraste; CLS 0. `seo:check` 45/45, `seo:schema` 47/47, E2E de analítica 3/3, `type-check` limpio.
+
+**Pendiente, sin tocar:** el gris de la línea del SKU (`text-gray-400`) y el naranja de la prueba social (`text-orange-600`) no cumplen el contraste mínimo en Lighthouse. Ya pasaba antes de este cambio; lo mismo ocurre con las migas y otros textos grises de la ficha.
+
+**Archivos:** `apps/web/src/app/(store)/producto/[slug]/page.tsx`, `apps/web/src/components/store/ProductTrustSignals.tsx`, `apps/web/src/components/admin/ProductEditForm.tsx`, `README.md`.
+
+---
+
 ## 192. Ficha de producto en móvil: políticas después de "Beneficios"
 
 **Requerimiento:** en móvil, la franja "Pago seguro con Wompi / Envío a todo Colombia", los acordeones (Compatibilidad, Envíos, Cambios y devoluciones) y el bloque Medios de pago / Garantía / Razón social aparecían antes del SKU, el nombre, el precio y los botones de compra. Se pidió llevarlos después de "Beneficios" solo en móvil, sin tocar escritorio ni los textos (plan aprobado el 2026-10-01).

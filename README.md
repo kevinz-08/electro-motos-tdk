@@ -2081,3 +2081,9 @@ Después de desplegar: pedir en Search Console la reindexación de `/` y `/sobre
 En móvil la ficha apila sus dos columnas: primero la izquierda (galería, franja Wompi/Envío, acordeones Compatibilidad / Envíos / Cambios y devoluciones y el bloque Medios de pago / Garantía / Razón social) y después la derecha. Por eso esos bloques quedaban **antes** del nombre, el precio y "Agregar al carrito".
 
 Ahora viven en un solo Server Component, `ProductPolicyInfo`, que la ficha pinta en dos posiciones según el ancho: **en escritorio** bajo la galería (`hidden md:block`, como siempre) y **en móvil** después de "Beneficios" (`md:hidden`), al final de la columna de compra. El orden del HTML coincide con el visual en cada tamaño, así el teclado y los lectores de pantalla recorren la página en el mismo orden en que se ve. Los textos no cambian. No añade JavaScript; el HTML crece unos pocos KB por la copia oculta.
+
+**Ficha de producto: SKU con "Nuevo", prueba social sin ícono y stock bajo en rojo (2026-10-01).**
+
+- Junto al SKU: `SKU: 9-3501 - Nuevo`. Todos los productos son nuevos; coincide con `itemCondition: NewCondition` del JSON-LD y `condition: new` del feed.
+- Prueba social: "+X personas han comprado y recomiendan este producto" (antes "…o recomiendan…"), sin el ícono de fuego. X sigue siendo ventas online (`soldCount`) + recomendaciones de la tienda física (`storeRecommendations`). El texto lo eligió el negocio el 2026-10-01, advertido de que X suma ambas fuentes.
+- Stock bajo ("¡Solo quedan X unidades en stock!"): rojo en vez de ámbar. Aparece igual que antes, cuando el stock es menor que `LOW_STOCK_URGENCY_THRESHOLD` (por defecto 5).

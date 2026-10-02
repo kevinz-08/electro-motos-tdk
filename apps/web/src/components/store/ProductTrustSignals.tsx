@@ -5,14 +5,15 @@
  * configurado en /admin/configuracion — nunca se muestran cifras inventadas
  * (Ley 1480 / SIC).
  */
-import { Flame, Star as StarIcon } from 'lucide-react'
+import { Star as StarIcon } from 'lucide-react'
 
 // ── Ventas ────────────────────────────────────────────────────────────────────
 
 /**
- * "+X personas han comprado o recomiendan este producto".
+ * "+X personas han comprado y recomiendan este producto".
  * X = recomendaciones de la tienda física (admin) + ventas online reales (soldCount),
- * así el número sube solo con cada compra confirmada.
+ * así el número sube solo con cada compra confirmada. La redacción con "y" la
+ * eligió el negocio el 2026-10-01, advertido de que X suma las dos fuentes.
  */
 export function SoldCountBadge({
   soldCount, storeRecommendations = 0, minSold,
@@ -20,9 +21,8 @@ export function SoldCountBadge({
   const total = soldCount + storeRecommendations
   if (total <= 0 || total < minSold) return null
   return (
-    <p className="inline-flex items-center gap-1.5 text-sm font-medium text-orange-600">
-      <Flame className="w-4 h-4 text-sky-500 shrink-0" aria-hidden="true" />
-      +{total.toLocaleString('es-CO')} {total === 1 ? 'persona ha comprado o recomienda' : 'personas han comprado o recomiendan'} este producto
+    <p className="text-sm font-medium text-orange-600">
+      +{total.toLocaleString('es-CO')} {total === 1 ? 'persona ha comprado y recomienda' : 'personas han comprado y recomiendan'} este producto
     </p>
   )
 }
@@ -92,8 +92,10 @@ export function StockStatus({ stock, urgencyThreshold }: { stock: number; urgenc
   }
   if (stock < urgencyThreshold) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+      // Rojo (antes ámbar) para generar más urgencia. Distinto de "Agotado", que es
+      // texto rojo sin fondo ni punto parpadeante.
+      <span className="inline-flex items-center gap-1.5 text-sm text-red-700 font-semibold bg-red-50 border border-red-200 rounded-full px-3 py-1">
+        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
         ¡Solo {stock === 1 ? 'queda 1 unidad' : `quedan ${stock} unidades`} en stock!
       </span>
     )

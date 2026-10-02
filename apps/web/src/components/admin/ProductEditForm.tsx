@@ -481,7 +481,7 @@ export function ProductEditForm({ product, categories, initialBenefits = [], ini
             />
             <p className="text-xs text-white/30 mt-1">
               Clientes de la tienda física que lo compraron o recomiendan. En la página se suma a las ventas online
-              (&quot;+X personas han comprado o recomiendan este producto&quot;).
+              (&quot;+X personas han comprado y recomiendan este producto&quot;).
             </p>
           </div>
         </div>

@@ -33,6 +33,83 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 193. Ficha de producto: SKU con "Nuevo", prueba social sin ícono y stock bajo en rojo
+
+**Requerimiento (plan aprobado el 2026-10-01):**
+
+1. Mostrar "Nuevo" junto al SKU.
+2. Prueba social con el texto "…han comprado **y** recomiendan…" (antes "o") y sin el ícono de fuego.
+3. Etiqueta de stock bajo en rojo en vez de amarillo/naranja.
+
+**Decisión del negocio sobre el punto 2:** se advirtió que X suma ventas online (`soldCount`) y recomendaciones de la tienda física (`storeRecommendations`), así que "y" afirma algo que los datos no respaldan del todo (Ley 1480, publicidad engañosa). Se ofrecieron "o" y "han elegido" como alternativas. El negocio eligió "y" (opción A); queda anotado en el comentario del componente.
+
+**Hecho:**
+
+- `producto/[slug]/page.tsx`: "SKU: {sku} - Nuevo". Es veraz para todo el catálogo y coincide con `NewCondition` (JSON-LD) y `condition=new` (feed).
+- `ProductTrustSignals.tsx`:
+  - `SoldCountBadge`: nuevo texto en singular y plural, y se quitó el ícono `Flame` y su import.
+  - `StockStatus`: la urgencia pasa de ámbar a rojo (`red-50` / `red-200` / `red-700`, punto `red-500` parpadeante). Aparece con el mismo umbral que antes (`LOW_STOCK_URGENCY_THRESHOLD`, 5 por defecto).
+- `ProductEditForm.tsx`: la ayuda del campo de recomendaciones cita el texto nuevo.
+
+**Verificación:** build de producción local y capturas antes y después de la ficha `fender-para-ktm-duke-ngwo` (2 unidades, +25), en móvil y escritorio. Lighthouse: la etiqueta roja cumple el contraste; CLS 0. `seo:check` 45/45, `seo:schema` 47/47, E2E de analítica 3/3, `type-check` limpio.
+
+**Pendiente, sin tocar:** el gris de la línea del SKU (`text-gray-400`) y el naranja de la prueba social (`text-orange-600`) no cumplen el contraste mínimo en Lighthouse. Ya pasaba antes de este cambio; lo mismo ocurre con las migas y otros textos grises de la ficha.
+
+**Archivos:** `apps/web/src/app/(store)/producto/[slug]/page.tsx`, `apps/web/src/components/store/ProductTrustSignals.tsx`, `apps/web/src/components/admin/ProductEditForm.tsx`, `README.md`.
+
+---
+
+## 192. Ficha de producto en móvil: políticas después de "Beneficios"
+
+**Requerimiento:** en móvil, la franja "Pago seguro con Wompi / Envío a todo Colombia", los acordeones (Compatibilidad, Envíos, Cambios y devoluciones) y el bloque Medios de pago / Garantía / Razón social aparecían antes del SKU, el nombre, el precio y los botones de compra. Se pidió llevarlos después de "Beneficios" solo en móvil, sin tocar escritorio ni los textos (plan aprobado el 2026-10-01).
+
+**Causa:** la ficha es una grilla de dos columnas. En móvil se apila primero la izquierda (galería + esos bloques) y después la derecha (compra).
+
+**Decisión:** una grilla CSS no puede apilar dos columnas de forma independiente en escritorio y además intercalarlas en móvil. Se eligió **un solo componente pintado en dos posiciones**, cada una visible en un ancho. La alternativa `display: contents` + `order` reordena solo lo visual: en móvil el foco del teclado pasaría por los acordeones antes que por "Agregar al carrito" (WCAG 2.4.3).
+
+**Hecho:**
+
+- `components/store/ProductPolicyInfo.tsx` (nuevo, Server Component): traslado exacto del marcado de la franja, los acordeones y `ProductTrustBlock`. Recibe `compatibility`, `freeShippingThreshold`, `warrantyMonths` y `className`.
+- `producto/[slug]/page.tsx`: `<ProductPolicyInfo className="mt-6 hidden md:block" />` bajo la galería (escritorio) y `<ProductPolicyInfo className="mt-8 md:hidden" />` después de "Beneficios", al final de la columna de compra (móvil). Se quitaron los imports que dejaron de usarse (`Link`, `RefreshCw`, `Truck`, `ProductTrustBlock`).
+
+**Verificación (build de producción local, ficha `bateria-bosch-btx7l-bs`, Playwright antes y después):**
+
+| Ancho | Antes | Después |
+|---|---|---|
+| 390 px (móvil) | Wompi → Envíos → Cambios → Medios de pago → **nombre** → Agregar al carrito → … | **nombre → Agregar al carrito** → descripción → beneficios → Wompi → Envíos → Cambios → Medios de pago |
+| 767 px | igual que móvil | igual que móvil (corte correcto) |
+| 768 y 1280 px | — | Posiciones idénticas a las de antes. La comparación de píxeles solo difiere en la línea punteada animada del flujo de entrega |
+
+En ningún ancho se ven las dos copias a la vez. Lighthouse móvil de la ficha: el LCP sigue siendo la foto, CLS 0, rendimiento 91, SEO 100. `seo:check` 45/45, `seo:schema` 47/47, E2E de analítica 3/3, `type-check` y `lint` limpios.
+
+**Hallazgo, sin cambiar (fuera de alcance):** `/producto/<slug-inexistente>` responde **HTTP 200** con la página 404 ("soft 404"), en local y en producción. Lleva `noindex, follow`, así que no se indexa, pero Search Console puede reportarlo. Una ruta que no existe sí da 404.
+
+**Archivos:** `apps/web/src/components/store/ProductPolicyInfo.tsx`, `apps/web/src/app/(store)/producto/[slug]/page.tsx`, `README.md`.
+
+---
+
+## 191. Favicon cuadrado: Google mostraba un globo genérico en vez del logo
+
+**Requerimiento:** en los resultados de Google, el resultado de H2R aparecía con un globo gris en vez del logo.
+
+**Causa:** `app/favicon.ico` medía **256×200** (no cuadrado) y pesaba 211 KB. Google solo muestra el favicon en los resultados si es cuadrado y de al menos 48×48, en múltiplos de 48; si no, pone el ícono genérico. Además, el sitio no declaraba ningún ícono PNG ni `apple-touch-icon`.
+
+**Hecho:** a partir de `public/assets/logo.png` (recortado el espacio transparente y centrado en un lienzo cuadrado con 3 % de margen):
+
+- `src/app/favicon.ico`: 16, 32 y 48 px (6 KB, antes 211 KB).
+- `src/app/icon.png`: 192×192, múltiplo de 48; es el que usa Google.
+- `src/app/apple-icon.png`: 180×180 con fondo blanco para iOS.
+- Next genera las tres etiquetas `<link>` a partir de estos archivos (convención de `app/`).
+- `scripts/seo-check.mjs`: comprueba que exista un favicon cuadrado y múltiplo de 48 px. Producción fallaba (256x200); el build local pasa 45/45.
+
+**Contexto:** la rama `feat/seo-geo-cro` ya estaba mergeada y desplegada. La carpeta de trabajo estaba en `main` (la cambió otra sesión): se volvió a `feat/seo-geo-cro`, se adelantó hasta `origin/main` y se commiteó ahí.
+
+**Después de desplegar:** Google actualiza el favicon cuando vuelve a rastrear la home, y puede tardar días o semanas. Se acelera con la solicitud de indexación de H-59.
+
+**Archivos:** `apps/web/src/app/{favicon.ico,icon.png,apple-icon.png}`, `scripts/seo-check.mjs`, `docs/seo/HUMAN_TASKS.md`, `README.md`.
+
+---
+
 ## 190. Admin — barra lateral con scroll y bloque de cuenta fijo
 
 **Problema:** con 19 secciones, en pantallas bajas (portátil) la lista del sidebar no cabía: el `<nav>` tenía `flex-1` sin `min-h-0` ni `overflow`, crecía hasta su contenido y el `overflow-hidden` del layout recortaba las últimas secciones (Stock bajo, Sincronizar, Configuración) y el bloque de la cuenta, sin forma de hacer scroll.

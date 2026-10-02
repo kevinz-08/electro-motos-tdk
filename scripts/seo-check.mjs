@@ -71,6 +71,15 @@ async function main() {
   check('la home tiene exactamente un <h1>', (homePage.body.match(/<h1[\s>]/g) ?? []).length === 1)
   check('el título de la home empieza por la marca ("Tienda H2R")', homeTitle.startsWith('Tienda H2R'), homeTitle)
 
+  // Favicon: Google solo lo muestra en los resultados si es cuadrado y múltiplo de
+  // 48 px; si no, pone un globo genérico (pasaba con el favicon.ico de 256×200).
+  const iconSizes = [...homePage.body.matchAll(/<link[^>]*rel="icon"[^>]*sizes="(\d+)x(\d+)"/g)].map(([, w, h]) => [Number(w), Number(h)])
+  check(
+    'hay un favicon cuadrado y múltiplo de 48 px',
+    iconSizes.some(([w, h]) => w === h && w >= 48 && w % 48 === 0),
+    iconSizes.map(([w, h]) => `${w}x${h}`).join(', ') || 'sin sizes',
+  )
+
   // ── Sitemaps ───────────────────────────────────────────────────────────────
   console.log('\nSitemaps')
   const index = await get('/sitemap.xml')

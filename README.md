@@ -2073,3 +2073,17 @@ Orden de trabajo: (1) datos de identificación de cada repuesto (desbloquea H-18
 Después de desplegar: pedir en Search Console la reindexación de `/` y `/sobre-nosotros`, y seguir en 2–4 semanas qué página recibe las impresiones de "tienda h2r". Google puede tardar en cambiarla y no se puede garantizar el resultado.
 
 **Tiempos de envío y Addi (H-60, confirmado por el negocio el 2026-09-28).** El dato real es **1 a 2 días hábiles en Bucaramanga y su área metropolitana y 3 a 7 en el resto de Colombia**. La estimación general del sitio (ficha de producto, JSON-LD de envío, `/llms.txt`, "Por qué comprar en H2R") usa 3–7, el peor caso: son los valores por defecto de `SHIPPING_ETA_MIN/MAX_DAYS`, editables en `/admin/configuracion`. Los textos nombran también el plazo de Bucaramanga (`LOCAL_DELIVERY_DAYS` en el dominio). **Addi sigue activo** y se coordina con un asesor por WhatsApp; así lo dicen el FAQ, `/llms.txt` y "Por qué comprar".
+
+**Favicon cuadrado (2026-09-28).** Google mostraba un globo genérico junto al resultado porque `favicon.ico` medía 256×200: Google solo usa favicons cuadrados de al menos 48×48, en múltiplos de 48. Ahora `src/app/` tiene `favicon.ico` (16/32/48 px, 6 KB en vez de 211 KB), `icon.png` (192×192) y `apple-icon.png` (180×180, fondo blanco), generados desde `public/assets/logo.png`; Next emite las etiquetas `<link>`. `seo:check` vigila que exista un ícono cuadrado múltiplo de 48.
+
+### Ficha de producto en móvil: lo importante primero (2026-10-01, rama `fix/mobile-PDP-design`)
+
+En móvil la ficha apila sus dos columnas: primero la izquierda (galería, franja Wompi/Envío, acordeones Compatibilidad / Envíos / Cambios y devoluciones y el bloque Medios de pago / Garantía / Razón social) y después la derecha. Por eso esos bloques quedaban **antes** del nombre, el precio y "Agregar al carrito".
+
+Ahora viven en un solo Server Component, `ProductPolicyInfo`, que la ficha pinta en dos posiciones según el ancho: **en escritorio** bajo la galería (`hidden md:block`, como siempre) y **en móvil** después de "Beneficios" (`md:hidden`), al final de la columna de compra. El orden del HTML coincide con el visual en cada tamaño, así el teclado y los lectores de pantalla recorren la página en el mismo orden en que se ve. Los textos no cambian. No añade JavaScript; el HTML crece unos pocos KB por la copia oculta.
+
+**Ficha de producto: SKU con "Nuevo", prueba social sin ícono y stock bajo en rojo (2026-10-01).**
+
+- Junto al SKU: `SKU: 9-3501 - Nuevo`. Todos los productos son nuevos; coincide con `itemCondition: NewCondition` del JSON-LD y `condition: new` del feed.
+- Prueba social: "+X personas han comprado y recomiendan este producto" (antes "…o recomiendan…"), sin el ícono de fuego. X sigue siendo ventas online (`soldCount`) + recomendaciones de la tienda física (`storeRecommendations`). El texto lo eligió el negocio el 2026-10-01, advertido de que X suma ambas fuentes.
+- Stock bajo ("¡Solo quedan X unidades en stock!"): rojo en vez de ámbar. Aparece igual que antes, cuando el stock es menor que `LOW_STOCK_URGENCY_THRESHOLD` (por defecto 5).

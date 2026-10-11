@@ -26,7 +26,7 @@ interface Identifiers {
 }
 
 const INPUT =
-  'w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500'
+  'w-full bg-[#0a0a0a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors'
 
 const blockEnter = (e: KeyboardEvent) => {
   if (e.key === 'Enter') e.preventDefault()

@@ -3,7 +3,12 @@ import { Order } from '@h2r/domain'
 import { PrismaService } from '../database/prisma.service'
 import { ResendEmailService } from './ResendEmailService'
 
-const PROCESS_INTERVAL_MS = 2 * 60 * 1000 // cada 2 minutos
+const PROCESS_INTERVAL_MS = 2 * 60 * 1000 // tick cada 2 minutos (solo CPU si no hay trabajo)
+/**
+ * Barrido de seguridad: consulta la BD aunque esta instancia no haya encolado nada,
+ * para recoger filas de una instancia de Cloud Run que murió antes de enviarlas.
+ */
+const SAFETY_SWEEP_MS = 60 * 60 * 1000
 const MAX_ATTEMPTS = 3
 const BACKOFF_SECONDS = [5, 30, 120] // por intento fallido
 
@@ -13,6 +18,16 @@ export type EmailKind = 'ORDER_CONFIRMATION' | 'REVIEW_REQUEST'
 export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EmailQueueService.name)
   private timer?: NodeJS.Timeout
+  /**
+   * Hay (o puede haber) filas PENDING que esta instancia conoce. Mientras sea false,
+   * el tick no consulta la BD: Neon cobra por tiempo encendido y una query cada
+   * 2 min lo mantenía despierto todo el día (README §27). Arranca en true para hacer
+   * un barrido inicial.
+   */
+  private hasPendingWork = true
+  /** Se incrementa en cada `enqueue` — detecta encolados ocurridos durante un tick. */
+  private enqueueGeneration = 0
+  private lastQueryAt = 0
 
   constructor(
     private readonly prisma: PrismaService,
@@ -21,8 +36,24 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     this.timer = setInterval(() => {
-      this.processNext().catch((e) => this.logger.error(`[EmailQueue] Error en procesamiento: ${e}`))
+      this.tick().catch((e) => this.logger.error(`[EmailQueue] Error en procesamiento: ${e}`))
     }, PROCESS_INTERVAL_MS)
+  }
+
+  /**
+   * Procesa la cola solo si hay trabajo conocido o toca el barrido de seguridad.
+   * Tras procesar, cuenta las filas PENDING que quedan (reintentos con backoff):
+   * si no queda ninguna, los siguientes ticks no tocan la BD.
+   */
+  private async tick(): Promise<void> {
+    const now = Date.now()
+    if (!this.hasPendingWork && now - this.lastQueryAt < SAFETY_SWEEP_MS) return
+    this.lastQueryAt = now
+
+    const generation = this.enqueueGeneration
+    await this.processNext()
+    const remaining = await this.prisma.client.emailQueue.count({ where: { status: 'PENDING' } })
+    this.hasPendingWork = remaining > 0 || generation !== this.enqueueGeneration
   }
 
   onModuleDestroy(): void {
@@ -38,6 +69,8 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
     await this.prisma.client.emailQueue.create({
       data: { to, orderId, kind, status: 'PENDING' },
     })
+    this.enqueueGeneration++
+    this.hasPendingWork = true
     this.logger.log(`[EmailQueue] Encolado email ${kind} orderId=${orderId}`)
   }
 

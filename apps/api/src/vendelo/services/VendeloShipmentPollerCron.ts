@@ -4,6 +4,7 @@ import {
   Inject,
   OnModuleInit,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common'
 import * as Sentry from '@sentry/nestjs'
 import {
@@ -20,6 +21,7 @@ import {
   VENDELO_SHIPPING_PORT,
 } from '../../infrastructure/injection-tokens'
 import { VendeloHttpClient } from '../../infrastructure/services/VendeloHttpClient'
+import { StorefrontCacheService } from '../../infrastructure/services/StorefrontCacheService'
 
 /**
  * Cron de polling que sincroniza el estado de envíos activos contra Vendelo.
@@ -55,7 +57,11 @@ export class VendeloShipmentPollerCron implements OnModuleInit, OnModuleDestroy 
   private readonly logger = new Logger(VendeloShipmentPollerCron.name)
   private timer?: NodeJS.Timeout
 
-  /** Intervalo entre ticks. Default 5 min. */
+  /**
+   * Intervalo entre ticks. Default 1 h: cada tick consulta la BD, y con 5 min
+   * Neon nunca llegaba a apagarse (README §27). El webhook de Vendelo es la vía
+   * principal; el poller solo recupera eventos perdidos.
+   */
   private readonly intervalMs: number
   /** Máximo de pedidos a procesar por tick. */
   private readonly batchSize: number
@@ -69,8 +75,9 @@ export class VendeloShipmentPollerCron implements OnModuleInit, OnModuleDestroy 
     @Inject(SHIPMENT_REPOSITORY) private readonly shipmentRepo: IShipmentRepository,
     @Inject(VENDELO_SHIPPING_PORT) private readonly vendeloPort: IVendeloShippingPort,
     private readonly httpClient: VendeloHttpClient,
+    @Optional() private readonly storefrontCache?: StorefrontCacheService,
   ) {
-    this.intervalMs     = Number(process.env['VENDELO_POLL_INTERVAL_MS'] ?? 5 * 60 * 1000)
+    this.intervalMs     = Number(process.env['VENDELO_POLL_INTERVAL_MS'] ?? 60 * 60 * 1000)
     this.batchSize      = Number(process.env['VENDELO_POLL_BATCH_SIZE'] ?? 50)
     this.requestDelayMs = Number(process.env['VENDELO_POLL_REQUEST_DELAY_MS'] ?? 100)
     this.enabled        = (process.env['VENDELO_POLL_ENABLED'] ?? 'true') === 'true'
@@ -146,6 +153,10 @@ export class VendeloShipmentPollerCron implements OnModuleInit, OnModuleDestroy 
           errors++
         } else if (result.value.updated) {
           applied++
+          // Devolución o cancelación: SyncShipmentStatus repuso el stock.
+          if (result.value.newStatus === 'RETURNED' || result.value.newStatus === 'CANCELLED') {
+            await this.storefrontCache?.revalidateOrderProducts(order.orderId, { broad: true })
+          }
         } else {
           skipped++
         }

@@ -3,9 +3,14 @@ import { ConfirmPayment, IOrderRepository } from '@h2r/domain'
 import { ORDER_REPOSITORY } from '../injection-tokens'
 import { WompiService } from './WompiService'
 import { PrismaService } from '../database/prisma.service'
+import { StorefrontCacheService } from './StorefrontCacheService'
 
-/** Intervalo entre cada ciclo de reconciliación: 15 minutos */
-const RECONCILE_INTERVAL_MS = 15 * 60 * 1000
+/**
+ * Intervalo entre cada ciclo de reconciliación: 1 hora. Antes eran 15 min, pero
+ * cada ciclo consulta la BD y mantenía Neon despierto (README §27). El webhook de
+ * Wompi sigue siendo la vía normal; esto solo cubre webhooks perdidos.
+ */
+const RECONCILE_INTERVAL_MS = 60 * 60 * 1000
 
 /**
  * Ventana mínima desde la creación del pedido antes de reconciliarlo.
@@ -19,7 +24,7 @@ const BATCH_SIZE = 20
 
 /**
  * Consulta activamente el estado de transacciones Wompi cuyo webhook
- * nunca llegó. Corre cada 15 minutos y solo actúa sobre pedidos
+ * nunca llegó. Corre cada hora y solo actúa sobre pedidos
  * con al menos 15 minutos de antigüedad que tengan un externalId.
  *
  * Escenario que cubre: el usuario completó el pago en Wompi, Wompi intentó
@@ -35,6 +40,7 @@ export class WompiReconciliationService implements OnModuleInit, OnModuleDestroy
     @Inject(ORDER_REPOSITORY) private readonly orderRepo: IOrderRepository,
     private readonly wompiService: WompiService,
     private readonly prisma: PrismaService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   onModuleInit(): void {
@@ -90,6 +96,9 @@ export class WompiReconciliationService implements OnModuleInit, OnModuleDestroy
         })
 
         if (result.ok) {
+          if (paymentStatus === 'APPROVED' && result.value.stateChanged) {
+            await this.storefrontCache.revalidateOrderProducts(order.id)
+          }
           this.logger.log(
             `[Reconciliación] pedido=${order.id} reconciliado status=${paymentStatus} stateChanged=${result.value.stateChanged}`,
           )

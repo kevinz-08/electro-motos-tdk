@@ -2,7 +2,12 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import { PrismaService } from '../database/prisma.service'
 import { VendeloService } from './VendeloService'
 
-const PROCESS_INTERVAL_MS = 2 * 60 * 1000 // cada 2 minutos
+const PROCESS_INTERVAL_MS = 2 * 60 * 1000 // tick cada 2 minutos (solo CPU si no hay trabajo)
+/**
+ * Barrido de seguridad: consulta la BD aunque esta instancia no haya encolado nada,
+ * para recoger filas (o huérfanas en PROCESSING) de una instancia que murió.
+ */
+const SAFETY_SWEEP_MS = 60 * 60 * 1000
 /** Intentos automáticos antes de marcar la fila como FAILED. */
 export const MAX_ATTEMPTS = 3
 const BACKOFF_SECONDS = [5, 30, 120] // por intento fallido
@@ -28,6 +33,15 @@ export type RequeueResult =
 export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(VendeloOrderQueueService.name)
   private timer?: NodeJS.Timeout
+  /**
+   * Hay (o puede haber) filas PENDING/PROCESSING que esta instancia conoce. Mientras
+   * sea false, el tick no consulta la BD (Neon cobra por tiempo encendido, README §27).
+   * Arranca en true para hacer un barrido inicial.
+   */
+  private hasPendingWork = true
+  /** Se incrementa en cada encolado — detecta encolados ocurridos durante un tick. */
+  private enqueueGeneration = 0
+  private lastQueryAt = 0
 
   constructor(
     private readonly prisma: PrismaService,
@@ -36,8 +50,33 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     this.timer = setInterval(() => {
-      this.processNext().catch((e) => this.logger.error(`[VendeloOrderQueue] Error en procesamiento: ${e}`))
+      this.tick().catch((e) => this.logger.error(`[VendeloOrderQueue] Error en procesamiento: ${e}`))
     }, PROCESS_INTERVAL_MS)
+  }
+
+  /**
+   * Procesa la cola solo si hay trabajo conocido o toca el barrido de seguridad.
+   * Tras procesar, cuenta las filas que siguen vivas (reintentos con backoff o en
+   * PROCESSING, que pueden volverse huérfanas): si no queda ninguna, los siguientes
+   * ticks no tocan la BD.
+   */
+  private async tick(): Promise<void> {
+    const now = Date.now()
+    if (!this.hasPendingWork && now - this.lastQueryAt < SAFETY_SWEEP_MS) return
+    this.lastQueryAt = now
+
+    const generation = this.enqueueGeneration
+    await this.processNext()
+    const remaining = await this.prisma.client.vendeloOrderQueue.count({
+      where: { status: { in: ['PENDING', 'PROCESSING'] } },
+    })
+    this.hasPendingWork = remaining > 0 || generation !== this.enqueueGeneration
+  }
+
+  /** Marca que hay trabajo: el próximo tick consultará la BD. */
+  private markPendingWork(): void {
+    this.enqueueGeneration++
+    this.hasPendingWork = true
   }
 
   onModuleDestroy(): void {
@@ -48,6 +87,7 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
     await this.prisma.client.vendeloOrderQueue.create({
       data: { orderId, status: 'PENDING' },
     })
+    this.markPendingWork()
     this.logger.log(`[VendeloOrderQueue] Encolado orderId=${orderId}`)
   }
 
@@ -275,6 +315,7 @@ export class VendeloOrderQueueService implements OnModuleInit, OnModuleDestroy {
         data: { status: 'PENDING', attempts: 0, lastError: null, nextRetry: new Date(), processingStartedAt: null },
       })
       this.logger.log(`[VendeloOrderQueue] Reencolado manualmente orderId=${orderId} queueId=${existing.id}`)
+      this.markPendingWork()
     } else {
       await this.enqueue(orderId)
     }

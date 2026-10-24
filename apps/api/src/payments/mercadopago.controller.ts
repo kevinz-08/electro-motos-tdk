@@ -11,6 +11,7 @@ import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Public } from '../auth/decorators/public.decorator'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
 import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
+import { StorefrontCacheService } from '../infrastructure/services/StorefrontCacheService'
 import { MpPreferenceDto } from './dto/mp-preference.dto'
 
 @ApiTags('payments')
@@ -26,6 +27,7 @@ export class MercadoPagoController {
     private readonly emailQueue: EmailQueueService,
     private readonly vendeloOrderQueue: VendeloOrderQueueService,
     private readonly prisma: PrismaService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   /** Crea una preferencia de pago en Mercado Pago y retorna el init_point */
@@ -91,6 +93,8 @@ export class MercadoPagoController {
     }
 
     if (paymentStatus === 'APPROVED' && result.value.stateChanged) {
+      // El pago descontó stock: la tienda cachea sin TTL y hay que avisarle (README §27).
+      await this.storefrontCache.revalidateOrderProducts(orderId)
       const order = await this.orderRepo.findById(orderId)
       if (order) {
         // contactEmail cubre usuarios registrados e invitados (guest checkout).

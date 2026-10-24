@@ -10,6 +10,10 @@ export const WHATSAPP_URL = (message?: string) =>
 export const STORE_ADDRESS = 'Cra 21 #21-58, Comuna 4 Occidental, Bucaramanga, Santander'
 export const STORE_CITY = 'Bucaramanga'
 
+/** Enlace a la tienda en Google Maps (para abrir en la app o en otra pestaña). */
+export const STORE_MAPS_URL =
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(STORE_ADDRESS)}`
+
 /** Embed de Google Maps sin necesidad de API key (modo `output=embed`). */
 export const STORE_MAP_EMBED_URL =
   `https://www.google.com/maps?q=${encodeURIComponent(STORE_ADDRESS)}&output=embed`

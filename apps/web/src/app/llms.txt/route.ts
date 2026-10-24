@@ -28,7 +28,7 @@ export async function GET() {
   ])
   const { store, shipping } = facts
   const payments = [
-    'PSE', 'Nequi', 'tarjetas de crédito y débito (Wompi)',
+    'PSE', 'Nequi', 'Daviplata', 'tarjetas de crédito y débito (Wompi)',
     'Addi (crédito en cuotas, se coordina con un asesor por WhatsApp)',
     ...(facts.cashOnDelivery ? ['pago contra entrega'] : []),
   ]

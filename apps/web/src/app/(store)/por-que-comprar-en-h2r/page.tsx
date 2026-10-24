@@ -14,7 +14,8 @@ import { JsonLd } from '@/components/seo/JsonLd'
 import { formatCOP } from '@/components/store/PriceTag'
 import { absoluteUrl, canonical } from '@/lib/seo'
 import { getCachedCroSettings, getCachedStoreFacts } from '@/lib/cache'
-import { RETURNS_DAYS, WARRANTY_MONTHS } from '@/lib/store-facts'
+import { RETURNS_DAYS, STORE_HOURS, WARRANTY_MONTHS, WOMPI_METHODS, formatHour } from '@/lib/store-facts'
+import { STORE_MAPS_URL, WHATSAPP_URL } from '@/lib/contact'
 
 // Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
 export const revalidate = 86400
@@ -43,6 +44,35 @@ export default async function WhyBuyPage() {
     { value: `${shipping.minDays}–${shipping.maxDays}`, label: `días hábiles de entrega al resto de Colombia (${shipping.local.min}–${shipping.local.max} en Bucaramanga)` },
   ]
 
+  // Textos aprobados por el negocio el 2026-10-24 (README, "Desbordes horizontales y textos…").
+  const benefits = [
+    {
+      title: 'Repuestos que sí le sirven a tu moto',
+      text: 'Te ayudamos a confirmar la compatibilidad con tu referencia (marca, modelo y año) antes de que pagues, para que no pierdas plata ni tiempo con piezas que no encajan.',
+    },
+    {
+      // Se aclara en la asesoría: la ficha no lleva una etiqueta original/homologado/genérico.
+      title: 'Originales y alternativos de calidad, con garantía',
+      text: 'En la asesoría te decimos claramente qué es original, qué es homologado y qué es genérico. Todo con garantía y factura.',
+    },
+    {
+      title: 'Envíos a toda Colombia',
+      text: 'Despachamos rápido y con número de guía para que sepas dónde va tu pedido. Mientras más rápido llegue, menos tiempo tienes la moto parada.',
+    },
+    {
+      title: 'Asesoría real',
+      text: 'Hablas con gente que sabe de motos, por WhatsApp.',
+    },
+    {
+      title: 'Cambios y devoluciones sin enredos',
+      text: 'Si llegó mal o no era lo que pediste, lo resolvemos.',
+    },
+    {
+      title: 'Pagos seguros y flexibles',
+      text: `Tarjeta, PSE, Nequi, Daviplata${facts.cashOnDelivery ? ', contra entrega' : ''}, con tu compra protegida.`,
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-white">
       <JsonLd
@@ -60,7 +90,7 @@ export default async function WhyBuyPage() {
         <Breadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: 'Por qué comprar en H2R' }]} />
 
         <header className="mt-6">
-          <h1 className="text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">¿Por qué comprar repuestos de moto en H2R?</h1>
+          <h1 className="text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">¿Por qué comprar los repuestos de tu moto en H2R?</h1>
           <p className="mt-6 rounded-2xl bg-sky-50 p-5 text-lg leading-relaxed text-gray-800">
             {store.name} es una tienda de repuestos para moto con sede física en {store.address.locality} y envíos a toda
             Colombia. Solo afirma que un repuesto le sirve a tu moto cuando la compatibilidad está verificada con una fuente, hoy{' '}
@@ -68,6 +98,15 @@ export default async function WhyBuyPage() {
             {WARRANTY_MONTHS} meses contra defectos de fábrica.
           </p>
         </header>
+
+        <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+          {benefits.map((b) => (
+            <li key={b.title} className="rounded-2xl border border-gray-200 p-5">
+              <h2 className="font-bold text-gray-900">{b.title}</h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-gray-700">{b.text}</p>
+            </li>
+          ))}
+        </ul>
 
         <dl className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((s) => (
@@ -82,18 +121,60 @@ export default async function WhyBuyPage() {
         <section className="mt-10" aria-labelledby="compatibilidad">
           <h2 id="compatibilidad" className="text-2xl font-bold text-gray-900">¿Cómo sé que el repuesto le sirve a mi moto?</h2>
           <p className="mt-3 leading-relaxed text-gray-700">
-            Cada compatibilidad que publicamos tiene una fuente registrada: el manual del fabricante, el catálogo del proveedor o
-            una verificación en taller. Si no está verificada, no la mostramos, aunque el repuesto probablemente sirva. Busca tu
-            moto en <Link href="/repuestos" className="text-sky-600 underline">Repuestos por moto</Link> y verás solo lo
-            confirmado. Si tu modelo no aparece, pregúntanos por WhatsApp antes de comprar.
+            Solo te mostramos compatibilidades confirmadas. Cada una está respaldada por:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-6 text-gray-700">
+            <li>El manual del fabricante</li>
+            <li>El catálogo oficial del proveedor</li>
+            <li>Una verificación en taller</li>
+          </ul>
+          <p className="mt-3 leading-relaxed text-gray-700">
+            Si una compatibilidad no está comprobada, no la publicamos, aunque probablemente funcione. Preferimos no arriesgar
+            tu compra.
+          </p>
+          <p className="mt-3 leading-relaxed text-gray-700">
+            <strong className="text-gray-900">Cómo usarlo:</strong> busca tu moto por marca, modelo y año en{' '}
+            <Link href="/repuestos" className="text-sky-600 underline">Repuestos por moto</Link> y verás únicamente lo que sí
+            le sirve.
+          </p>
+          <p className="mt-3 leading-relaxed text-gray-700">
+            <strong className="text-gray-900">¿No encuentras tu modelo?</strong>{' '}
+            <a
+              href={WHATSAPP_URL('Hola H2R, no encuentro mi moto en Repuestos por moto. Mi moto es: ')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sky-600 underline"
+            >
+              Escríbenos por WhatsApp
+            </a>{' '}
+            antes de comprar y lo revisamos contigo.
           </p>
         </section>
 
         <section className="mt-10" aria-labelledby="tienda">
           <h2 id="tienda" className="text-2xl font-bold text-gray-900">¿Tienen tienda física?</h2>
           <p className="mt-3 leading-relaxed text-gray-700">
-            Sí: {store.address.street}, {store.address.locality} ({store.address.region}). Puedes recoger ahí tu pedido. La empresa
-            está registrada como {store.legalName}, NIT {store.taxId}. Más en{' '}
+            Sí. Estamos en {store.address.locality}, {store.address.street} (
+            <a href={STORE_MAPS_URL} target="_blank" rel="noopener noreferrer" className="text-sky-600 underline">
+              ver en Google Maps
+            </a>
+            ).
+          </p>
+          <p className="mt-3 leading-relaxed text-gray-700">
+            <strong className="text-gray-900">Horario:</strong> {STORE_HOURS}.
+          </p>
+          <p className="mt-3 leading-relaxed text-gray-700">Qué puedes hacer en la tienda:</p>
+          <ul className="mt-2 list-disc space-y-1 pl-6 text-gray-700">
+            <li>Recoger tu pedido sin pagar envío</li>
+            <li>Ver el repuesto antes de llevártelo</li>
+            <li>Consultar tu caso con alguien que sabe de motos</li>
+          </ul>
+          <p className="mt-3 leading-relaxed text-gray-700">
+            <strong className="text-gray-900">Para recoger tu pedido:</strong> espera nuestro mensaje de confirmación y
+            presenta tu número de pedido con tu cédula.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-gray-500">
+            La empresa está registrada como {store.legalName}, NIT {store.taxId}. Más en{' '}
             <Link href="/sobre-nosotros" className="text-sky-600 underline">Sobre nosotros</Link>.
           </p>
         </section>
@@ -113,10 +194,30 @@ export default async function WhyBuyPage() {
         <section className="mt-10" aria-labelledby="pagos">
           <h2 id="pagos" className="text-2xl font-bold text-gray-900">¿Cómo puedo pagar?</h2>
           <p className="mt-3 leading-relaxed text-gray-700">
-            Con PSE, Nequi o tarjeta de crédito o débito a través de Wompi
-            {facts.cashOnDelivery ? ', o contra entrega' : ''}. También puedes pagar a cuotas con Addi, que se coordina con un
-            asesor por WhatsApp. El pago en línea está protegido por la pasarela; H2R no almacena los
-            datos de tu tarjeta.
+            <strong className="text-gray-900">Pago en línea a través de Wompi:</strong>
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-6 text-gray-700">
+            {WOMPI_METHODS.map((m) => (
+              <li key={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</li>
+            ))}
+          </ul>
+          {facts.cashOnDelivery && (
+            <p className="mt-3 leading-relaxed text-gray-700">
+              <strong className="text-gray-900">Contra entrega:</strong> pagas cuando recibes tu pedido. Solo aplica para
+              ciudades principales.
+            </p>
+          )}
+          <p className="mt-3 leading-relaxed text-gray-700">
+            <strong className="text-gray-900">A cuotas con Addi:</strong> un asesor te acompaña por WhatsApp para coordinar el
+            pago.
+          </p>
+          <p className="mt-3 leading-relaxed text-gray-700">
+            <strong className="text-gray-900">Pago seguro:</strong> tus datos de tarjeta se procesan directamente en la pasarela
+            de pagos de Wompi. H2R no los almacena.
+          </p>
+          <p className="mt-3 leading-relaxed text-gray-700">
+            <strong className="text-gray-900">Nota:</strong> si tu pago en línea se confirma antes de las{' '}
+            {formatHour(shipping.cutoffHour)} en un día hábil, tu pedido sale ese mismo día.
           </p>
         </section>
 

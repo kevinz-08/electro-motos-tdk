@@ -21,5 +21,13 @@
 import { SessionProvider } from 'next-auth/react'
 
 export function AuthSessionProvider({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>
+  // Sin refresco automático: por defecto pide /api/auth/session cada vez que la
+  // pestaña recupera el foco. El admin pasa el día con la pestaña abierta y no
+  // debe generar peticiones solo (README §27). La sesión es un JWT de 30 días:
+  // no necesita refrescarse para seguir siendo válida.
+  return (
+    <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
+      {children}
+    </SessionProvider>
+  )
 }

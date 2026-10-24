@@ -305,7 +305,9 @@ function LandingView({
   totalProducts: number
 }) {
   return (
-    <div className="c-bg">
+    // overflow-x-clip: red de seguridad contra desbordes horizontales en móvil (`clip`, no
+    // `hidden`, para no crear un contenedor de scroll que rompa `sticky`).
+    <div className="c-bg overflow-x-clip">
 
       {/* ── 1. HERO con parallax ──────────────────────────────────── */}
       <CatalogHero>

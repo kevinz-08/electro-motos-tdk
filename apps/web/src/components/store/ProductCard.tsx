@@ -112,7 +112,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const discountPercent = getDiscountPercent(product.price, product.compareAtPrice)
 
   return (
-    <div className="group flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all duration-300">
+    <div className="group relative flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all duration-300">
 
       {/* ── Imagen ────────────────────────────────────────────────── */}
       <Link

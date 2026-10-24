@@ -16,6 +16,18 @@ import { ORGANIZATION } from '@/lib/structured-data'
 export const WARRANTY_MONTHS = 6
 export const RETURNS_DAYS = 5
 
+/** Horario de la tienda física, confirmado por el negocio el 2026-10-24. */
+export const STORE_HOURS = 'lunes a viernes, 8:00 a. m. – 6:00 p. m. · sábados, 8:00 a. m. – 12:00 p. m.'
+
+/** Formas de pago en línea por Wompi (Daviplata activado en Wompi, confirmado el 2026-10-24). */
+export const WOMPI_METHODS = ['PSE', 'Nequi', 'Daviplata', 'tarjeta de crédito o débito'] as const
+
+/** Hora de corte en formato colombiano: 14 → "2:00 p. m.". */
+export function formatHour(hour: number): string {
+  const h12 = hour % 12 === 0 ? 12 : hour % 12
+  return `${h12}:00 ${hour < 12 ? 'a. m.' : 'p. m.'}`
+}
+
 export interface StoreFacts {
   activeProducts: number
   inStockProducts: number

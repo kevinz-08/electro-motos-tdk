@@ -16,8 +16,9 @@ interface Props {
   products: Product[]
 }
 
-// Clase única por botón — sin saltos de línea para evitar normalización de whitespace
-const BTN_BASE = 'absolute top-1/2 -translate-y-[calc(50%+1rem)] z-10 w-10 h-10 rounded-full bg-[var(--c-surface)] border border-[var(--c-border)] shadow-xl flex items-center justify-center c-text-2 hover:c-text hover:border-sky-400 transition-all opacity-0 group-hover/carousel:opacity-100'
+// Clase única por botón — sin saltos de línea para evitar normalización de whitespace.
+// `hidden md:flex`: en móvil se desliza con el dedo, y con `-right-5` el botón sobresalía de la pantalla.
+const BTN_BASE = 'absolute top-1/2 -translate-y-[calc(50%+1rem)] z-10 w-10 h-10 rounded-full bg-[var(--c-surface)] border border-[var(--c-border)] shadow-xl hidden md:flex items-center justify-center c-text-2 hover:c-text hover:border-sky-400 transition-all opacity-0 group-hover/carousel:opacity-100'
 
 export function ProductCarousel({ products }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
@@ -50,13 +51,15 @@ export function ProductCarousel({ products }: Props) {
 
   return (
     <div className="relative group/carousel">
-      {/* Track */}
+      {/* Track. Cada ítem es `relative`: un hijo absoluto sin ancestro posicionado (p. ej. el
+          `sr-only` de PriceTag) tomaría como referencia este envoltorio, quedaría fuera del recorte
+          del scroll y ensancharía toda la página en móvil. */}
       <div
         ref={trackRef}
         className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory pb-2"
       >
         {products.map((product) => (
-          <div key={product.id} className="shrink-0 snap-start w-[240px]">
+          <div key={product.id} className="relative shrink-0 snap-start w-[240px]">
             <ProductCard product={product} />
           </div>
         ))}

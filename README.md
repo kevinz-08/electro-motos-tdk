@@ -2100,6 +2100,14 @@ Ahora viven en un solo Server Component, `ProductPolicyInfo`, que la ficha pinta
 - Prueba social: "+X personas han comprado y recomiendan este producto" (antes "…o recomiendan…"), sin el ícono de fuego. X sigue siendo ventas online (`soldCount`) + recomendaciones de la tienda física (`storeRecommendations`). El texto lo eligió el negocio el 2026-10-01, advertido de que X suma ambas fuentes.
 - Stock bajo ("¡Solo quedan X unidades en stock!"): rojo en vez de ámbar. Aparece igual que antes, cuando el stock es menor que `LOW_STOCK_URGENCY_THRESHOLD` (por defecto 5).
 
+### Desbordes horizontales y textos de "Por qué comprar" (2026-10-24, rama `fix/mobile-catalogo-overflow`)
+
+**`/catalogo` en móvil.** La página medía 879 px de ancho en un iPhone de 390 px, y Safari la alejaba hasta verse encogida a la izquierda. La causa era el `<span className="sr-only">Antes </span>` de `PriceTag`: `sr-only` es `position: absolute` y, como ni la tarjeta ni el track del carrusel estaban posicionados, su bloque contenedor era el envoltorio de `ProductCarousel`, **fuera** del recorte del `overflow-x-auto`. El de la 4.ª tarjeta quedaba en x = 879. Regla: **todo contenedor con scroll horizontal o tarjeta que pueda contener elementos absolutos lleva `relative`** (hoy: `ProductCard` y cada ítem de `ProductCarousel`). Además, los botones ‹ › del carrusel se ocultan en móvil (sobresalían 4 px y solo aparecen con hover) y la portada del catálogo lleva `overflow-x-clip` como red de seguridad (`clip`, no `hidden`, para no romper `sticky`). `e2e/mobile-overflow.spec.ts` vigila que ninguna ruta principal sea más ancha que la pantalla.
+
+**Venta cruzada en escritorio.** En la columna derecha de la ficha, `CrossSellList` pasaba a 2 columnas por el ancho de la *pantalla* (`sm:`) y cada tarjeta quedaba en ~190 px: el precio (con espacio no separable) y "Agregar" no cabían y el botón se salía. Ahora la lista es un `@container` y usa `@xl:grid-cols-2` (2 columnas solo si el *bloque* mide ≥ 576 px, unos 280 px por tarjeta); la fila precio + botón hace `flex-wrap` y el botón es `shrink-0`. `e2e/cross-sell-layout.spec.ts` lo vigila.
+
+**Textos de `/por-que-comprar-en-h2r` (aprobados por el negocio el 2026-10-24).** Nueva sección con 6 beneficios y nuevas redacciones de compatibilidad, tienda física (horario: lunes a viernes 8:00 a. m. – 6:00 p. m., sábados 8:00 a. m. – 12:00 p. m.; enlace a Google Maps) y pagos (Wompi: PSE, Nequi, Daviplata, tarjeta; contra entrega en ciudades principales; Addi por WhatsApp). Siguen saliendo de datos y no del texto: la dirección (`ORGANIZATION`), la hora de corte (`shippingCutoffHour`) y si se muestra contra entrega (`CodToggle`). "Original / homologado / genérico" se presenta como algo que se aclara en la asesoría, no como etiqueta de la ficha. La respuesta "¿Cómo puedo pagar?" del FAQ de la home (`lib/faq.ts`, también en el JSON-LD `FAQPage`) dice lo mismo.
+
 ---
 
 ## 27. Consumo de Neon (CU-hours)

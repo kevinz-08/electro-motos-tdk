@@ -24,17 +24,22 @@ import { FAQ } from '@/components/store/FAQ'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { faqPageJsonLd } from '@/lib/structured-data'
 import { buildFaqItems } from '@/lib/faq'
-import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal, getCachedCroSettings } from '@/lib/cache'
+import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal, getCachedCroSettings, getCachedStoreFacts } from '@/lib/cache'
 
 export default async function HomePage() {
-  const [featuredProducts, categories, heroBanners, promo, cro] = await Promise.all([
+  const [featuredProducts, categories, heroBanners, promo, cro, facts] = await Promise.all([
     getCachedFeaturedProducts(),
     getCachedHomeCategories(),
     getCachedHeroBanners(),
     getCachedPromoModal(),
     getCachedCroSettings(),
+    getCachedStoreFacts(),
   ])
-  const faqItems = buildFaqItems(cro.freeShippingThreshold)
+  const faqItems = buildFaqItems({
+    freeShippingThreshold: cro.freeShippingThreshold,
+    cutoffHour: cro.shippingCutoffHour,
+    cashOnDelivery: facts.cashOnDelivery,
+  })
 
   const banners = heroBanners.map((b) => ({
     id: b.id,

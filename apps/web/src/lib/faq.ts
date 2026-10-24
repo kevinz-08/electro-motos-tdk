@@ -11,16 +11,27 @@
  * confirmada) y cambios en 5 días (H-15) son datos del negocio, no del código.
  * El umbral de envío gratis NO está escrito aquí: llega de `Settings`
  * (`FREE_SHIPPING_THRESHOLD`, H-14) para que exista una sola fuente de verdad.
+ * Lo mismo la hora de corte y si hay contra entrega: la respuesta de pagos dice
+ * lo mismo que "Por qué comprar en H2R" (texto aprobado el 2026-10-24).
  */
 import { formatCOP } from '@/components/store/PriceTag'
 import { ORGANIZATION } from '@/lib/structured-data'
+import { WOMPI_METHODS, formatHour } from '@/lib/store-facts'
 
 export interface FaqItem {
   q: string
   a: string
 }
 
-export function buildFaqItems(freeShippingThreshold: number): FaqItem[] {
+interface FaqFacts {
+  /** Centavos COP; 0 = sin envío gratis. */
+  freeShippingThreshold: number
+  /** Hora (0–23) antes de la cual un pago confirmado sale el mismo día hábil. */
+  cutoffHour: number
+  cashOnDelivery: boolean
+}
+
+export function buildFaqItems({ freeShippingThreshold, cutoffHour, cashOnDelivery }: FaqFacts): FaqItem[] {
   return [
   {
     // Búsqueda de marca (README §26.12): datos de ORGANIZATION, los mismos del JSON-LD.
@@ -42,7 +53,11 @@ export function buildFaqItems(freeShippingThreshold: number): FaqItem[] {
   },
   {
     q: '¿Cómo puedo pagar?',
-    a: 'Aceptamos pagos con Wompi (tarjeta de crédito o débito, Nequi, PSE o Bancolombia) y Addi (crédito en cuotas sin tarjeta, que se coordina con un asesor por WhatsApp).',
+    a: `Pago en línea a través de Wompi: ${WOMPI_METHODS.join(', ')}. ` +
+      (cashOnDelivery ? 'Contra entrega: pagas cuando recibes tu pedido; solo aplica para ciudades principales. ' : '') +
+      'A cuotas con Addi: un asesor te acompaña por WhatsApp para coordinar el pago. ' +
+      'Pago seguro: tus datos de tarjeta se procesan directamente en la pasarela de pagos de Wompi; H2R no los almacena. ' +
+      `Si tu pago en línea se confirma antes de las ${formatHour(cutoffHour)} en un día hábil, tu pedido sale ese mismo día.`,
   },
   {
     q: '¿Tienen garantía los repuestos?',

@@ -91,9 +91,11 @@ export function CrossSellList({ suggestions, heading, listName, className = '' }
   if (visible.length === 0) return null
 
   return (
-    <section aria-label={heading} className={className}>
+    // @container: las columnas dependen del ancho del bloque, no de la pantalla. En la columna
+    // derecha de la ficha (escritorio) dos tarjetas no caben y el botón "Agregar" se salía.
+    <section aria-label={heading} className={`@container ${className}`}>
       <h2 className="text-base font-bold text-gray-900 mb-3">{heading}</h2>
-      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <ul className="grid grid-cols-1 @xl:grid-cols-2 gap-3">
         {visible.map((s) => {
           const image = s.images[0]
           return (
@@ -119,7 +121,7 @@ export function CrossSellList({ suggestions, heading, listName, className = '' }
                   {s.name}
                 </Link>
                 {s.reason && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{s.reason}</p>}
-                <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
                   <span className="text-sm font-black text-gray-900">{formatCOP(s.price)}</span>
                   <button
                     type="button"
@@ -132,7 +134,7 @@ export function CrossSellList({ suggestions, heading, listName, className = '' }
                       })
                       toast.success('Agregado al carrito', { description: s.name })
                     }}
-                    className="rounded-lg bg-sky-400 px-3 py-1.5 text-xs font-bold text-black hover:bg-sky-500 hover:text-white active:scale-95 transition-all"
+                    className="shrink-0 whitespace-nowrap rounded-lg bg-sky-400 px-3 py-1.5 text-xs font-bold text-black hover:bg-sky-500 hover:text-white active:scale-95 transition-all"
                   >
                     Agregar
                   </button>

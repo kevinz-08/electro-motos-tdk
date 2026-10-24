@@ -33,6 +33,28 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 195. Desbordes horizontales (/catalogo en móvil, venta cruzada en escritorio) y textos de "Por qué comprar en H2R"
+
+**Requerimiento (2026-10-24, rama `fix/mobile-catalogo-overflow`):** (1) en celular `/catalogo` se veía encogida a la izquierda con el resto en blanco; (2) en escritorio el botón "Agregar" de la venta cruzada de la ficha se salía de su tarjeta; (3) nuevos textos para `/por-que-comprar-en-h2r`, aprobados por el negocio (Daviplata activo en Wompi, horario definitivo, "original/homologado/genérico" como algo de la asesoría, y el FAQ de pagos igual al nuevo texto).
+
+**Causas:**
+
+- `/catalogo` medía 879 px de ancho en un iPhone de 390 (medido en producción con Playwright; el resto de rutas, bien). El `<span className="sr-only">Antes </span>` de `PriceTag` es `position: absolute`; sin ancestro posicionado dentro de la tarjeta ni del track, su bloque contenedor era el envoltorio `relative` de `ProductCarousel`, fuera del recorte del `overflow-x-auto`. El de la 4.ª tarjeta quedaba en x = 879. Solo ocurría con productos con precio ancla (commit `69cb946`). Los botones ‹ › (`-right-5`) sobresalían además 4 px.
+- `CrossSellList` usaba `sm:grid-cols-2` (ancho de pantalla). En la columna derecha de la ficha cada tarjeta medía ~190 px; el precio (con espacio no separable) y el botón (sin `shrink-0`) no cabían en una fila sin `flex-wrap`.
+
+**Hecho:**
+
+- `ProductCard` raíz e ítems de `ProductCarousel` con `relative`. Botones del carrusel `hidden md:flex`. Portada del catálogo con `overflow-x-clip` (red de seguridad; `clip` para no romper `sticky`).
+- `CrossSellList`: `@container` + `@xl:grid-cols-2` (2 columnas solo si el bloque mide ≥ 576 px); fila precio + botón con `flex-wrap`, botón `shrink-0 whitespace-nowrap`. En la ficha a 1024–1440 px queda 1 tarjeta por fila con precio y botón en la misma línea.
+- `/por-que-comprar-en-h2r`: H1 "¿Por qué comprar los repuestos de tu moto en H2R?", 6 beneficios en tarjetas tras la introducción, y nuevas secciones de compatibilidad (fuentes en lista, enlace a Repuestos por moto y a WhatsApp), tienda física (enlace a Google Maps, horario, qué hacer en la tienda, cómo recoger; se conserva razón social y NIT en letra pequeña) y pagos (Wompi: PSE, Nequi, Daviplata, tarjeta; contra entrega en ciudades principales; Addi; pago seguro; nota de la hora de corte).
+- Datos compartidos en `lib/store-facts.ts`: `STORE_HOURS`, `WOMPI_METHODS`, `formatHour`; `STORE_MAPS_URL` en `lib/contact.ts`. La dirección sigue saliendo de `ORGANIZATION`, la hora de corte de `shippingCutoffHour` y contra entrega del ajuste de `CodToggle` (en la página, en el FAQ y en los beneficios).
+- FAQ de la home (`lib/faq.ts`, también JSON-LD `FAQPage`): "¿Cómo puedo pagar?" con el mismo texto; quita "Bancolombia". `buildFaqItems` recibe `{ freeShippingThreshold, cutoffHour, cashOnDelivery }` y la home lee además `getCachedStoreFacts()` (caché por tag, sin TTL). `/llms.txt` añade Daviplata.
+- Tests E2E: `e2e/mobile-overflow.spec.ts` (viewport iPhone 13: `/`, `/catalogo`, `/catalogo?showAll=true`, `/por-que-comprar-en-h2r` y una ficha) y `e2e/cross-sell-layout.spec.ts` ("Agregar" dentro de su tarjeta a 1024, 1280 y 1440 px).
+
+**Verificación:** `tsc` limpio, `lint` sin errores ni avisos nuevos, 8/8 tests nuevos en local. Sin los arreglos, los mismos tests fallan ("la página mide 879 px en una pantalla de 390" y "el botón se sale por la derecha de la tarjeta"). Revisión visual de la venta cruzada a 1280 px y de `/por-que-comprar-en-h2r` en móvil.
+
+---
+
 ## 194. Consumo de Neon: la navegación pública deja de despertar la base de datos
 
 **Requerimiento (auditoría aprobada el 2026-10-24):** en octubre se agotaron los 100 CU-hours del plan Free de Neon antes de fin de mes y la tienda cayó (`DriverAdapterError: ... exceeded the quota`). Neon cobra por tiempo de compute encendido y lo apaga tras ~5 min sin queries. Meta: ≤ 1,5–2 CU-hours por día. Restricciones: sin cambios de schema ni de lógica de negocio, frescura inmediata tras editar en el admin, sin servicios pagos nuevos.

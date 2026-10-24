@@ -2116,6 +2116,7 @@ Ahora viven en un solo Server Component, `ProductPolicyInfo`, que la ficha pinta
 - Las queries que antes iban sin caché (detalle de la ficha, metadata de `/catalogo?category=`, sitemaps, `llms.txt`, feed de Merchant, sugerencias del buscador, ciudades de Vendelo) ahora pasan por la caché.
 - "Productos destacados" de la home ya no usa `ORDER BY RANDOM()`, que quedaría congelado con la caché sin TTL. El servidor cachea los 12 productos con stock más recientes y el navegador baraja 4 (`FeaturedProducts`).
 - `revalidateTag(tag, { expire: 0 })` en `/api/admin/revalidate` y `/api/internal/revalidate`: la siguiente visita ya ve el dato nuevo (antes `'max'` servía una vez el dato viejo).
+- **Cambios hechos fuera del panel** (scripts `pnpm db:catalog` / `db:seed`, Prisma Studio, llamadas directas al API): ya no los tapa ningún TTL. Después de hacerlos, usa **`/admin/configuracion` → "Refrescar tienda"**, que invalida todos los tags.
 
 ### 27.2 Mapa de caché
 

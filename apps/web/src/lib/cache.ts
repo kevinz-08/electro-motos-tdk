@@ -15,11 +15,19 @@
  *   settings   → umbrales de prueba social y estimación de entrega
  *   fitments   → catálogo de motos y compatibilidades verificadas
  *
- * TTLs:
- *   300 s (5 min)  — productos y featured (cambian con ventas/stock)
- *   3600 s (1 h)   — categorías (cambian raramente)
- *   180 s (3 min)  — grid filtrado (búsquedas con filtros activos)
+ *   product:<slug> → la ficha de un producto (stock tras una venta; ver productTag)
+ *
+ * SIN TTL (README §27): todo se cachea con `revalidate: false` y solo se
+ * invalida con `revalidateTag`. Neon cobra por tiempo de compute encendido, y
+ * los TTL de 3–60 min hacían que los bots lo mantuvieran despierto todo el día.
+ * Quien cambie un dato público debe invalidar su tag: el panel admin vía
+ * `/api/admin/revalidate` y el API (ventas, devoluciones, sync de stock) vía
+ * `/api/internal/revalidate`.
+ *
+ * `cached()` además envuelve cada función en `React.cache`, así varias llamadas
+ * en el mismo render (generateMetadata + página + layout) comparten resultado.
  */
+import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { PrismaProductRepository } from '@/infrastructure/repositories/PrismaProductRepository'
@@ -37,7 +45,7 @@ import {
   parseCroSettings,
   summarizeReviews,
 } from '@h2r/domain'
-import { CACHE_TAGS } from './cache-tags'
+import { CACHE_TAGS, productTag } from './cache-tags'
 import { installedMotorcycleLabel, installedMotorcycleLine } from './review-motorcycle'
 import { findCrossSellSuggestions } from './cross-sell'
 import { findKitsByModel, findKitBySlug, findAllVisibleKits, findKitsContainingProduct } from './kits'
@@ -48,56 +56,67 @@ import { findStoreFacts } from './store-facts'
 
 export { CACHE_TAGS }
 
+/**
+ * `unstable_cache` sin expiración por tiempo + `React.cache` para deduplicar
+ * dentro de un render. Los argumentos de la función forman parte de la clave.
+ */
+function cached<A extends unknown[], R>(fn: (...args: A) => Promise<R>, key: string, tags: string[]) {
+  return cache(unstable_cache(fn, [key], { revalidate: false, tags }))
+}
+
 // ── Home ──────────────────────────────────────────────────────────────────────
 
 /** Categorías raíz para la sección de navegación de la home */
-export const getCachedHomeCategories = unstable_cache(
+export const getCachedHomeCategories = cached(
   async () => {
     return prisma.category.findMany({
       where: { parentId: null },
       orderBy: { name: 'asc' },
     })
   },
-  ['home-categories'],
-  { revalidate: 3600, tags: [CACHE_TAGS.categories] },
+  'home-categories',
+  [CACHE_TAGS.categories],
 )
 
+/** Cuántos candidatos cachea el servidor para "Productos destacados". */
+export const FEATURED_POOL_SIZE = 12
+
 /**
- * 4 productos aleatorios con stock para la sección "Productos destacados".
- * ORDER BY RANDOM() → los productos rotan cada 5 min (revalidate: 300).
+ * Candidatos para "Productos destacados": los 12 productos con stock más
+ * recientes. Antes era `ORDER BY RANDOM() LIMIT 4` con TTL de 5 min; sin TTL
+ * quedaría congelado, así que el orden aleatorio se hace en el navegador
+ * (`FeaturedProducts` baraja y muestra 4).
  */
-export const getCachedFeaturedProducts = unstable_cache(
+export const getCachedFeaturedProducts = cached(
   async () => {
     const repo = new PrismaProductRepository()
-    // `deletedAt IS NULL` es obligatorio: `repo.findById()` sí filtra los
-    // productos borrados, así que un id de la papelera con stock > 0 volvía como
-    // null y reventaba la home con "Cannot read properties of null (reading
-    // 'id')" — de forma intermitente, porque el ORDER BY RANDOM() solo lo elegía
-    // a veces. Detectado al verificar la Fase 1 del proyecto SEO (docs/seo/).
-    const rows = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "Product"
-      WHERE stock > 0 AND "isActive" = true AND "deletedAt" IS NULL
-      ORDER BY RANDOM() LIMIT 4
-    `
+    // `deletedAt: null` es obligatorio: `repo.findById()` filtra los borrados y
+    // devolvería null para un id de la papelera con stock > 0.
+    const rows = await prisma.product.findMany({
+      where: { stock: { gt: 0 }, isActive: true, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: FEATURED_POOL_SIZE,
+      select: { id: true },
+    })
     if (rows.length === 0) return []
     const products = await Promise.all(rows.map((r) => repo.findById(r.id)))
     // Cinturón y tirantes: si un producto se borra entre el SELECT y el findById.
     return products.filter((p): p is NonNullable<typeof p> => p !== null)
   },
-  ['home-featured-products'],
-  { revalidate: 300, tags: [CACHE_TAGS.products, CACHE_TAGS.home] },
+  'home-featured-pool',
+  [CACHE_TAGS.products, CACHE_TAGS.home],
 )
 
 /** Banners activos del carrusel hero, en el orden definido desde /admin/banners. */
-export const getCachedHeroBanners = unstable_cache(
+export const getCachedHeroBanners = cached(
   async () => {
     return prisma.heroBanner.findMany({
       where: { isActive: true },
       orderBy: { order: 'asc' },
     })
   },
-  ['home-hero-banners'],
-  { revalidate: 3600, tags: [CACHE_TAGS.hero] },
+  'home-hero-banners',
+  [CACHE_TAGS.hero],
 )
 
 // ── Catalog landing ───────────────────────────────────────────────────────────
@@ -132,7 +151,7 @@ export type CachedLandingData = {
  * (una query por padre, en paralelo) en vez de traer todo el catálogo activo con stock
  * de una sola vez — esa query sin límite no escalaba con el crecimiento del catálogo.
  */
-export const getCachedCatalogLanding = unstable_cache(
+export const getCachedCatalogLanding = cached(
   async (): Promise<CachedLandingData> => {
     const parentsRaw = await prisma.category.findMany({
       where: { parentId: null },
@@ -184,8 +203,8 @@ export const getCachedCatalogLanding = unstable_cache(
       })),
     }
   },
-  ['catalog-landing'],
-  { revalidate: 300, tags: [CACHE_TAGS.products, CACHE_TAGS.catalog, CACHE_TAGS.categories] },
+  'catalog-landing',
+  [CACHE_TAGS.products, CACHE_TAGS.catalog, CACHE_TAGS.categories],
 )
 
 // ── Catalog grid (parameterized) ──────────────────────────────────────────────
@@ -209,7 +228,7 @@ type ParentCategorySlim = {
  * El parámetro `params` forma parte de la clave de caché — cada combinación
  * única de filtros tiene su propia entrada.
  */
-export const getCachedCatalogGrid = unstable_cache(
+export const getCachedCatalogGrid = cached(
   async (params: CatalogGridParams) => {
     const repo = new PrismaProductRepository()
     const [result, parentCategories] = await Promise.all([
@@ -222,28 +241,62 @@ export const getCachedCatalogGrid = unstable_cache(
     ])
     return { result, parentCategories }
   },
-  ['catalog-grid'],
-  { revalidate: 180, tags: [CACHE_TAGS.products, CACHE_TAGS.catalog, CACHE_TAGS.categories] },
+  'catalog-grid',
+  [CACHE_TAGS.products, CACHE_TAGS.catalog, CACHE_TAGS.categories],
 )
 
 // ── Product detail ────────────────────────────────────────────────────────────
 
 /**
- * Detalle de producto por slug.
- * Se invalida con `revalidateTag('products')` cuando cualquier producto es
- * modificado desde el panel admin.
+ * Detalle de producto por slug. Además de `products` lleva `product:<slug>`:
+ * una venta (stock que cambia) invalida solo esta ficha — el API la avisa vía
+ * `/api/internal/revalidate` (README §27).
  */
-export const getCachedProductBySlug = unstable_cache(
-  async (slug: string) => {
-    const repo = new PrismaProductRepository()
-    return new GetProductBySlug(repo).execute(slug)
+export const getCachedProductBySlug = cache((slug: string) =>
+  unstable_cache(
+    async () => {
+      const repo = new PrismaProductRepository()
+      return new GetProductBySlug(repo).execute(slug)
+    },
+    ['product-by-slug', slug],
+    { revalidate: false, tags: [CACHE_TAGS.products, productTag(slug)] },
+  )(),
+)
+
+/**
+ * Campos de la ficha que la entidad de dominio no lleva (descripción completa,
+ * mpn, marca, garantía, categoría para las migas) y la descripción
+ * estructurada. Antes se leían sin caché en cada regeneración de la ficha.
+ */
+export const getCachedProductDetail = cached(
+  async (productId: string) => {
+    const [product, structuredDescription] = await Promise.all([
+      prisma.product.findUnique({
+        where: { id: productId },
+        select: {
+          description: true,
+          mpn: true,
+          partBrand: true,
+          warrantyMonths: true,
+          category: { select: { name: true, slug: true, parent: { select: { name: true, slug: true } } } },
+        },
+      }),
+      prisma.productDescription.findUnique({
+        where: { productId },
+        include: {
+          benefits: { orderBy: { order: 'asc' } },
+          compatibility: { orderBy: { order: 'asc' } },
+        },
+      }),
+    ])
+    return { product, structuredDescription }
   },
-  ['product-by-slug'],
-  { revalidate: 300, tags: [CACHE_TAGS.products] },
+  'product-detail',
+  [CACHE_TAGS.products],
 )
 
 /** Pop-up promocional activo de la home, o null si está desactivado o sin configurar. */
-export const getCachedPromoModal = unstable_cache(
+export const getCachedPromoModal = cached(
   async () => {
     const promo = await prisma.promoModal.findUnique({ where: { id: 'default' } })
     if (!promo || !promo.isActive) return null
@@ -255,22 +308,22 @@ export const getCachedPromoModal = unstable_cache(
       version: promo.updatedAt.toISOString(),
     }
   },
-  ['promo-modal'],
-  { revalidate: 3600, tags: [CACHE_TAGS.promo] },
+  'promo-modal',
+  [CACHE_TAGS.promo],
 )
 
 // ── Settings de conversión ────────────────────────────────────────────────────
 
 /** Umbrales de prueba social y estimación de entrega, con defaults si no hay filas. */
-export const getCachedCroSettings = unstable_cache(
+export const getCachedCroSettings = cached(
   async () => {
     const rows = await prisma.settings.findMany({
       where: { key: { in: Object.values(CRO_SETTING_KEYS) } },
     })
     return parseCroSettings(rows)
   },
-  ['cro-settings'],
-  { revalidate: 3600, tags: [CACHE_TAGS.settings] },
+  'cro-settings',
+  [CACHE_TAGS.settings],
 )
 
 // ── Reseñas ───────────────────────────────────────────────────────────────────
@@ -279,7 +332,7 @@ export const getCachedCroSettings = unstable_cache(
  * Resumen de reseñas APROBADAS de un producto + las 6 más recientes (README §22.6).
  * Tag `products`: la moderación en /admin/resenas invalida este tag.
  */
-export const getCachedProductReviews = unstable_cache(
+export const getCachedProductReviews = cached(
   async (productId: string) => {
     const [ratings, latest] = await Promise.all([
       prisma.productReview.findMany({
@@ -306,8 +359,8 @@ export const getCachedProductReviews = unstable_cache(
       })),
     }
   },
-  ['product-reviews'],
-  { revalidate: 600, tags: [CACHE_TAGS.products] },
+  'product-reviews',
+  [CACHE_TAGS.products],
 )
 
 /**
@@ -319,7 +372,7 @@ export const getCachedProductReviews = unstable_cache(
  * reseñas devuelve `summary: null` y `latest: []`, y la sección no se pinta.
  * Tag `products`: la moderación en /admin/resenas invalida este tag.
  */
-export const getCachedStoreReviews = unstable_cache(
+export const getCachedStoreReviews = cached(
   async () => {
     const [ratings, latest] = await Promise.all([
       prisma.productReview.findMany({
@@ -358,8 +411,8 @@ export const getCachedStoreReviews = unstable_cache(
         })),
     }
   },
-  ['store-reviews'],
-  { revalidate: 600, tags: [CACHE_TAGS.products, CACHE_TAGS.home] },
+  'store-reviews',
+  [CACHE_TAGS.products, CACHE_TAGS.home],
 )
 
 // ── Related products ──────────────────────────────────────────────────────────
@@ -369,13 +422,13 @@ export const getCachedStoreReviews = unstable_cache(
  * Usado en la sección "Productos relacionados" al pie de la página de detalle.
  * Los argumentos (categoryId + excludeSlug) forman parte de la clave de caché.
  */
-export const getCachedRelatedProducts = unstable_cache(
+export const getCachedRelatedProducts = cached(
   async (categoryId: string, excludeSlug: string) => {
     const repo = new PrismaProductRepository()
     return repo.findRelatedByCategory(categoryId, excludeSlug)
   },
-  ['related-products'],
-  { revalidate: 300, tags: [CACHE_TAGS.products] },
+  'related-products',
+  [CACHE_TAGS.products],
 )
 
 /**
@@ -383,10 +436,10 @@ export const getCachedRelatedProducts = unstable_cache(
  * Tags `products` y `fitments`: guardar el producto en el admin invalida
  * `products`, y una carga de compatibilidades invalida `fitments`.
  */
-export const getCachedCrossSells = unstable_cache(
+export const getCachedCrossSells = cached(
   async (productId: string) => findCrossSellSuggestions(productId),
-  ['cross-sells'],
-  { revalidate: 600, tags: [CACHE_TAGS.products, CACHE_TAGS.fitments] },
+  'cross-sells',
+  [CACHE_TAGS.products, CACHE_TAGS.fitments],
 )
 
 /**
@@ -396,28 +449,28 @@ export const getCachedCrossSells = unstable_cache(
  */
 const KIT_CACHE_TAGS = [CACHE_TAGS.kits, CACHE_TAGS.products, CACHE_TAGS.fitments]
 
-export const getCachedKitsByModel = unstable_cache(
+export const getCachedKitsByModel = cached(
   async (modelId: string) => findKitsByModel(modelId),
-  ['kits-by-model'],
-  { revalidate: 300, tags: KIT_CACHE_TAGS },
+  'kits-by-model',
+  KIT_CACHE_TAGS,
 )
 
-export const getCachedKitBySlug = unstable_cache(
+export const getCachedKitBySlug = cached(
   async (slug: string) => findKitBySlug(slug),
-  ['kit-by-slug'],
-  { revalidate: 300, tags: KIT_CACHE_TAGS },
+  'kit-by-slug',
+  KIT_CACHE_TAGS,
 )
 
-export const getCachedAllVisibleKits = unstable_cache(
+export const getCachedAllVisibleKits = cached(
   async () => findAllVisibleKits(),
-  ['kits-all-visible'],
-  { revalidate: 300, tags: KIT_CACHE_TAGS },
+  'kits-all-visible',
+  KIT_CACHE_TAGS,
 )
 
-export const getCachedKitsContainingProduct = unstable_cache(
+export const getCachedKitsContainingProduct = cached(
   async (productId: string) => findKitsContainingProduct(productId),
-  ['kits-containing-product'],
-  { revalidate: 300, tags: KIT_CACHE_TAGS },
+  'kits-containing-product',
+  KIT_CACHE_TAGS,
 )
 
 /**
@@ -427,59 +480,59 @@ export const getCachedKitsContainingProduct = unstable_cache(
  */
 const GUIDE_CACHE_TAGS = [CACHE_TAGS.guides, CACHE_TAGS.products]
 
-export const getCachedMaintenanceGuide = unstable_cache(
+export const getCachedMaintenanceGuide = cached(
   async (brandSlug: string, modelSlug: string) => findMaintenanceGuide(brandSlug, modelSlug),
-  ['maintenance-guide'],
-  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+  'maintenance-guide',
+  GUIDE_CACHE_TAGS,
 )
 
-export const getCachedReviewerBySlug = unstable_cache(
+export const getCachedReviewerBySlug = cached(
   async (slug: string) => findReviewerBySlug(slug),
-  ['reviewer-by-slug'],
-  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+  'reviewer-by-slug',
+  GUIDE_CACHE_TAGS,
 )
 
-export const getCachedPublishedGuideEntries = unstable_cache(
+export const getCachedPublishedGuideEntries = cached(
   async () => findPublishedGuideEntries(),
-  ['published-guide-entries'],
-  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+  'published-guide-entries',
+  GUIDE_CACHE_TAGS,
 )
 
-export const getCachedHasPublishedGuide = unstable_cache(
+export const getCachedHasPublishedGuide = cached(
   async (modelId: string) => hasPublishedGuide(modelId),
-  ['has-published-guide'],
-  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+  'has-published-guide',
+  GUIDE_CACHE_TAGS,
 )
 
 /** Artículo publicado por slug (Fase 5, ítem 1). Mismo tag que las guías. */
-export const getCachedPublishedArticle = unstable_cache(
+export const getCachedPublishedArticle = cached(
   async (slug: string) => findPublishedArticle(slug),
-  ['published-article'],
-  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+  'published-article',
+  GUIDE_CACHE_TAGS,
 )
 
 /** Último corte publicado del Índice de Precios (Fase 5, ítem 4). Lo invalida el admin al publicar. */
-export const getCachedPublishedPriceIndex = unstable_cache(
+export const getCachedPublishedPriceIndex = cached(
   async () => findPublishedPriceIndex(),
-  ['published-price-index'],
-  { revalidate: 3600, tags: [CACHE_TAGS.priceIndex] },
+  'published-price-index',
+  [CACHE_TAGS.priceIndex],
 )
 
 /**
  * Hechos verificables de la tienda (Fase 6 — `/llms.txt` y "Por qué comprar en
  * H2R"). Cambian con el catálogo, las compatibilidades, las guías y los ajustes.
  */
-export const getCachedStoreFacts = unstable_cache(
+export const getCachedStoreFacts = cached(
   async () => findStoreFacts(),
-  ['store-facts'],
-  { revalidate: 3600, tags: [CACHE_TAGS.products, CACHE_TAGS.fitments, CACHE_TAGS.settings, CACHE_TAGS.guides] },
+  'store-facts',
+  [CACHE_TAGS.products, CACHE_TAGS.fitments, CACHE_TAGS.settings, CACHE_TAGS.guides],
 )
 
 /** Artículos publicados sobre un modelo (enlazado hub ↔ guías, Fase 5). */
-export const getCachedArticlesByModel = unstable_cache(
+export const getCachedArticlesByModel = cached(
   async (modelId: string) => findPublishedArticlesByModel(modelId),
-  ['articles-by-model'],
-  { revalidate: 600, tags: GUIDE_CACHE_TAGS },
+  'articles-by-model',
+  GUIDE_CACHE_TAGS,
 )
 
 // ── Compatibilidad por modelo de moto (docs/seo/, Fase 2) ─────────────────────
@@ -492,27 +545,27 @@ export const getCachedArticlesByModel = unstable_cache(
  * Devuelve un Result — `NOT_FOUND` si el modelo no existe o no tiene ningún
  * repuesto compatible verificado (no se publican hubs vacíos).
  */
-export const getCachedModelHub = unstable_cache(
+export const getCachedModelHub = cached(
   async (brandSlug: string, modelSlug: string, categorySlug?: string) => {
     const repo = new PrismaMotorcycleRepository()
     return new GetModelHub(repo).execute({ brandSlug, modelSlug, categorySlug })
   },
-  ['model-hub'],
-  { revalidate: 600, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+  'model-hub',
+  [CACHE_TAGS.fitments, CACHE_TAGS.products],
 )
 
 /**
  * Modelos publicables: los que tienen al menos un producto vendible con fitment
  * verificado. Alimenta `generateStaticParams` y el sitemap de modelos.
  */
-export const getCachedPublishableModels = unstable_cache(
+export const getCachedPublishableModels = cached(
   async () => new PrismaMotorcycleRepository().findModelsWithVerifiedFitments(),
-  ['publishable-models'],
-  { revalidate: 3600, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+  'publishable-models',
+  [CACHE_TAGS.fitments, CACHE_TAGS.products],
 )
 
 /** Marcas y modelos activos para el selector "¿Qué moto tienes?". */
-export const getCachedMotorcycleCatalog = unstable_cache(
+export const getCachedMotorcycleCatalog = cached(
   async () => {
     const repo = new PrismaMotorcycleRepository()
     const [brands, models] = await Promise.all([repo.findBrands(), repo.findAllModels()])
@@ -527,12 +580,12 @@ export const getCachedMotorcycleCatalog = unstable_cache(
       })),
     }
   },
-  ['motorcycle-catalog'],
-  { revalidate: 3600, tags: [CACHE_TAGS.fitments] },
+  'motorcycle-catalog',
+  [CACHE_TAGS.fitments],
 )
 
 /** Compatibilidades verificadas de un producto — tabla "Compatible con" de la ficha. */
-export const getCachedProductFitments = unstable_cache(
+export const getCachedProductFitments = cached(
   async (productId: string) => {
     const [fitments, oemReferences] = await Promise.all([
       new PrismaFitmentRepository().findVerifiedByProduct(productId),
@@ -540,31 +593,86 @@ export const getCachedProductFitments = unstable_cache(
     ])
     return { fitments, oemReferences }
   },
-  ['product-fitments'],
-  { revalidate: 600, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+  'product-fitments',
+  [CACHE_TAGS.fitments, CACHE_TAGS.products],
 )
 
 /** IDs de productos compatibles con un modelo, opcionalmente de una categoría. */
-export const getCachedProductIdsByModel = unstable_cache(
+export const getCachedProductIdsByModel = cached(
   async (modelId: string, categoryId?: string) =>
     new PrismaFitmentRepository().findProductIdsByModel(modelId, categoryId),
-  ['products-by-model'],
-  { revalidate: 300, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+  'products-by-model',
+  [CACHE_TAGS.fitments, CACHE_TAGS.products],
 )
 
 /** Búsqueda por referencia OEM — resuelve /referencia/[oem]. */
-export const getCachedOemSearch = unstable_cache(
+export const getCachedOemSearch = cached(
   async (reference: string) => {
     const repo = new PrismaOemReferenceRepository()
     return new FindByOemReference(repo).execute({ reference })
   },
-  ['oem-search'],
-  { revalidate: 600, tags: [CACHE_TAGS.fitments, CACHE_TAGS.products] },
+  'oem-search',
+  [CACHE_TAGS.fitments, CACHE_TAGS.products],
 )
 
 /** Cuántas compatibilidades verificadas tiene el catálogo — dato real, calculado. */
-export const getCachedVerifiedFitmentCount = unstable_cache(
+export const getCachedVerifiedFitmentCount = cached(
   async () => new PrismaFitmentRepository().countVerified(),
-  ['verified-fitment-count'],
-  { revalidate: 3600, tags: [CACHE_TAGS.fitments] },
+  'verified-fitment-count',
+  [CACHE_TAGS.fitments],
+)
+
+// ── Lecturas que antes iban sin caché (README §27) ────────────────────────────
+
+/**
+ * Categoría + número de productos activos para la metadata de
+ * `/catalogo?category=<slug>`. `/catalogo` es dinámico (searchParams), así que
+ * sin caché cada visita de un bot a una categoría hacía dos queries.
+ * Un slug inexistente devuelve null y también queda en caché.
+ */
+export const getCachedCategoryMeta = cached(
+  async (slug: string) => {
+    const category = await prisma.category.findUnique({
+      where: { slug },
+      select: { id: true, name: true, slug: true, description: true },
+    })
+    if (!category) return null
+    const productCount = await prisma.product.count({
+      where: { categoryId: category.id, isActive: true, deletedAt: null },
+    })
+    return { ...category, productCount }
+  },
+  'category-meta',
+  [CACHE_TAGS.categories, CACHE_TAGS.products],
+)
+
+/** Categorías raíz con sus hijas y conteo de productos — índice de `/llms.txt`. */
+export const getCachedCategoryTree = cached(
+  async () =>
+    prisma.category.findMany({
+      where: { parentId: null },
+      orderBy: { name: 'asc' },
+      select: {
+        name: true,
+        slug: true,
+        children: { orderBy: { name: 'asc' }, select: { name: true, _count: { select: { products: true } } } },
+      },
+    }),
+  'category-tree',
+  [CACHE_TAGS.categories, CACHE_TAGS.products],
+)
+
+/**
+ * Ciudades de Vendelo para el selector del checkout. Se cachea la tabla entera
+ * (unos pocos miles de filas, la carga un script y no cambia desde la tienda) y
+ * se filtra en memoria: cachear por texto buscado crearía una entrada por tecla.
+ */
+export const getCachedVendeloCities = cached(
+  async () =>
+    prisma.vendeloCity.findMany({
+      select: { code: true, name: true, subdivisionCode: true },
+      orderBy: { name: 'asc' },
+    }),
+  'vendelo-cities',
+  [CACHE_TAGS.vendeloCities],
 )

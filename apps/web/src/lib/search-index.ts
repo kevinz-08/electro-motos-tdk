@@ -7,8 +7,8 @@
  *
  * `buildSearchIndex` lee de Prisma los campos buscables de TODOS los productos no borrados
  * (activos e inactivos, para que el admin también pueda buscar) y los convierte en documentos
- * del motor puro de `@h2r/domain`. `getCachedSearchIndex` lo cachea 5 min con los mismos tags
- * que el resto del catálogo, así que `revalidateTag('products' | 'categories')` lo invalida.
+ * del motor puro de `@h2r/domain`. `getCachedSearchIndex` lo cachea sin TTL con los mismos tags
+ * que el resto del catálogo, así que `revalidateTag('products' | 'categories')` lo invalida (README §27).
  *
  * Los documentos son JSON puro: `unstable_cache` los serializa sin problema. Con un catálogo de
  * cientos de productos el índice pesa unos pocos cientos de KB; si algún día supera ~2 MB
@@ -71,6 +71,55 @@ export async function buildSearchIndex(): Promise<SearchDoc[]> {
 
 /** Índice cacheado para la tienda pública. */
 export const getCachedSearchIndex = unstable_cache(buildSearchIndex, ['search-index'], {
-  revalidate: 300,
+  revalidate: false,
   tags: [CACHE_TAGS.products, CACHE_TAGS.categories],
 })
+
+/** Lo que pinta una sugerencia del buscador del navbar. */
+export interface SearchSuggestionData {
+  name: string
+  slug: string
+  price: number
+  image: string | undefined
+  stock: number
+  categoryName: string | null
+  categorySlug: string | null
+}
+
+/**
+ * Datos de presentación de los productos vendibles, por id. Con esto
+ * `/api/search/suggestions` responde sin tocar la BD: antes hacía un
+ * `findMany` por cada tecla (con debounce). Mismos tags que el índice.
+ */
+export const getCachedSearchSuggestionData = unstable_cache(
+  async (): Promise<Record<string, SearchSuggestionData>> => {
+    const rows = await prisma.product.findMany({
+      where: { isActive: true, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        images: true,
+        stock: true,
+        category: { select: { name: true, slug: true } },
+      },
+    })
+    return Object.fromEntries(
+      rows.map((p) => [
+        p.id,
+        {
+          name: p.name,
+          slug: p.slug,
+          price: p.price,
+          image: p.images[0],
+          stock: p.stock,
+          categoryName: p.category?.name ?? null,
+          categorySlug: p.category?.slug ?? null,
+        },
+      ]),
+    )
+  },
+  ['search-suggestion-data'],
+  { revalidate: false, tags: [CACHE_TAGS.products, CACHE_TAGS.categories] },
+)

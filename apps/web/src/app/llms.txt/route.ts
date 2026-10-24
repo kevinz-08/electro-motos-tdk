@@ -7,13 +7,13 @@
  * hay cifras escritas a mano que puedan quedar viejas. Su adopción real por los
  * motores no está confirmada (ROADMAP), así que es deliberadamente simple.
  */
-import { getCachedPublishableModels, getCachedPublishedGuideEntries, getCachedPublishedPriceIndex, getCachedStoreFacts } from '@/lib/cache'
-import { prisma } from '@/infrastructure/database/prisma-client'
+import { getCachedCategoryTree, getCachedPublishableModels, getCachedPublishedGuideEntries, getCachedPublishedPriceIndex, getCachedStoreFacts } from '@/lib/cache'
 import { absoluteUrl } from '@/lib/seo'
 import { PRICE_INDEX_PATH } from '@/lib/price-index'
 import { RETURNS_DAYS, WARRANTY_MONTHS } from '@/lib/store-facts'
 
-export const revalidate = 3600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 const cop = (cents: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(cents / 100)
@@ -24,11 +24,7 @@ export async function GET() {
     getCachedPublishableModels().catch(() => []),
     getCachedPublishedGuideEntries().catch(() => ({ guides: [], articles: [], reviewers: [] })),
     getCachedPublishedPriceIndex().catch(() => null),
-    prisma.category.findMany({
-      where: { parentId: null },
-      orderBy: { name: 'asc' },
-      select: { name: true, slug: true, children: { orderBy: { name: 'asc' }, select: { name: true, _count: { select: { products: true } } } } },
-    }),
+    getCachedCategoryTree(),
   ])
   const { store, shipping } = facts
   const payments = [

@@ -3,10 +3,12 @@
  * Prisma y delega en `buildMerchantFeed` (dominio) la decisión de qué entra.
  * Lo usan la ruta `/feeds/google-merchant.xml` y el panel `/admin/merchant`.
  */
+import { unstable_cache } from 'next/cache'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { buildMerchantFeed, type MerchantFeedItem, type MerchantFeedReport } from '@h2r/domain'
 import { cloudinaryUrl } from '@/lib/cloudinary'
 import { SITE_URL } from '@/lib/seo'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 export const MERCHANT_FEED_PATH = '/feeds/google-merchant.xml'
 
@@ -53,6 +55,16 @@ export async function loadMerchantFeed(): Promise<MerchantFeedReport> {
     SITE_URL,
   )
 }
+
+/**
+ * Feed cacheado sin TTL para `/feeds/google-merchant.xml` (README §27): Merchant
+ * Center lo pide periódicamente y cada regeneración leía todo el catálogo.
+ * `/admin/merchant` sigue usando `loadMerchantFeed()` directo, siempre fresco.
+ */
+export const getCachedMerchantFeed = unstable_cache(loadMerchantFeed, ['merchant-feed'], {
+  revalidate: false,
+  tags: [CACHE_TAGS.products, CACHE_TAGS.categories, CACHE_TAGS.fitments],
+})
 
 const escapeXml = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')

@@ -50,6 +50,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@h2r/database'
 import {
   getCachedProductBySlug,
+  getCachedProductDetail,
   getCachedCroSettings,
   getCachedProductReviews,
   getCachedProductFitments,
@@ -87,7 +88,8 @@ import {
 } from '@/components/store/RecommendedProducts'
 import type { Metadata } from 'next'
 
-export const revalidate = 300
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 export async function generateStaticParams() {
   const products = await prisma.product.findMany({
@@ -145,27 +147,9 @@ export default async function ProductPage({ params }: PageProps) {
 
   const product = result.value
 
-  const [freshProduct, structuredDescription, croSettings, reviews, compatibility] = await Promise.all([
-    prisma.product.findUnique({
-      where: { id: product.id },
-      select: {
-        description: true,
-        // Campos de la Fase 2 que alimentan el JSON-LD: la entidad de dominio
-        // `Product` no los lleva, así que se leen aquí.
-        mpn: true,
-        partBrand: true,
-        warrantyMonths: true,
-        // Para las migas: la categoría del producto, con su padre si lo tiene.
-        category: { select: { name: true, slug: true, parent: { select: { name: true, slug: true } } } },
-      },
-    }),
-    prisma.productDescription.findUnique({
-      where: { productId: product.id },
-      include: {
-        benefits: { orderBy: { order: 'asc' } },
-        compatibility: { orderBy: { order: 'asc' } },
-      },
-    }),
+  const [{ product: freshProduct, structuredDescription }, croSettings, reviews, compatibility] = await Promise.all([
+    // Campos que la entidad de dominio no lleva (JSON-LD, migas, descripción estructurada).
+    getCachedProductDetail(product.id),
     getCachedCroSettings(),
     getCachedProductReviews(product.id),
     getCachedProductFitments(product.id),

@@ -27,10 +27,9 @@ import { JsonLd } from '@/components/seo/JsonLd'
 import { breadcrumbJsonLd, itemListJsonLd } from '@/lib/structured-data'
 import { ProductCarousel } from '@/components/store/ProductCarousel'
 import { FilterDrawer } from '@/components/store/FilterDrawer'
-import { prisma } from '@/infrastructure/database/prisma-client'
 import { WHATSAPP_URL } from '@/lib/contact'
 import type { Product } from '@h2r/domain'
-import { getCachedCatalogLanding, getCachedCatalogGrid } from '@/lib/cache'
+import { getCachedCatalogLanding, getCachedCatalogGrid, getCachedCategoryMeta } from '@/lib/cache'
 import { SearchX } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getPaginationPages } from '@/lib/pagination'
@@ -171,11 +170,10 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   }
 
   if (category) {
-    const cat = await prisma.category.findUnique({ where: { slug: category } })
+    // Cacheado por slug: /catalogo es dinámico y sin caché cada visita hacía dos queries (README §27).
+    const cat = await getCachedCategoryMeta(category)
     if (cat) {
-      const productCount = await prisma.product.count({
-        where: { categoryId: cat.id, isActive: true, deletedAt: null },
-      })
+      const { productCount } = cat
       const title = `${cat.name} para moto | Precios en Colombia`
       const description = cat.description ?? catDesc(cat.slug)
       return {

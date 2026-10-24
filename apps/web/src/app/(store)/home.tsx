@@ -12,7 +12,7 @@
  *   7. CTA FINAL — Sección combinada de contacto directo
  */
 import Link from 'next/link'
-import { ProductCard } from '@/components/store/ProductCard'
+import { FeaturedProducts } from '@/components/store/FeaturedProducts'
 import { HeroBannerCarousel } from '@/components/store/HeroBannerCarousel'
 import { HomeIntro } from '@/components/store/HomeIntro'
 import { PromoModal } from '@/components/store/PromoModal'
@@ -85,15 +85,8 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/*
-                Sin `priority`: los destacados van bajo el hero, que es el
-                elemento LCP de la home. Precargarlos generaba dos
-                <link rel="preload"> que le competían el ancho de banda
-                (docs/seo/01-resultados.md).
-              */}
-              {featuredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+              {/* El servidor cachea 12 candidatos y el navegador baraja 4 (README §27). */}
+              <FeaturedProducts products={featuredProducts} />
             </div>
             <div className="mt-8 text-center sm:hidden">
               <Link

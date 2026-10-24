@@ -21,7 +21,8 @@ import { TrackEvent } from '@/components/analytics/TrackEvent'
 import { toPesos } from '@/lib/analytics'
 import { getCachedAllVisibleKits, getCachedKitBySlug } from '@/lib/cache'
 
-export const revalidate = 300
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 export async function generateStaticParams() {
   // Sin la tabla (migración aún no aplicada) el build no debe caerse: se

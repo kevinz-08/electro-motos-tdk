@@ -16,7 +16,8 @@ import { Breadcrumbs } from '@/components/store/Breadcrumbs'
 import { canonical, NOINDEX_FOLLOW } from '@/lib/seo'
 import { getCachedPublishableModels } from '@/lib/cache'
 
-export const revalidate = 3600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 async function loadModels() {
   try {

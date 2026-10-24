@@ -6,8 +6,10 @@
  * Se separa así para que el repositorio no dependa de la forma de presentación y
  * para no traer el producto entero cuando solo hace falta contar.
  */
+import { unstable_cache } from 'next/cache'
 import { prisma } from '@/infrastructure/database/prisma-client'
 import type { Product } from '@h2r/domain'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 /**
  * Productos completos a partir de una lista de IDs, **respetando el orden
@@ -16,7 +18,7 @@ import type { Product } from '@h2r/domain'
  *
  * Con la lista vacía no consulta la base de datos.
  */
-export async function getProductsByIds(ids: string[]): Promise<Product[]> {
+async function loadProductsByIds(ids: string[]): Promise<Product[]> {
   if (ids.length === 0) return []
 
   const rows = await prisma.product.findMany({
@@ -50,3 +52,12 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
       updatedAt: p.updatedAt,
     }))
 }
+
+/**
+ * Cacheado sin TTL (README §27): los hubs de modelo y `/referencia/[oem]` lo
+ * llamaban sin caché en cada regeneración. La lista de IDs forma parte de la clave.
+ */
+export const getProductsByIds = unstable_cache(loadProductsByIds, ['products-by-ids'], {
+  revalidate: false,
+  tags: [CACHE_TAGS.products],
+})

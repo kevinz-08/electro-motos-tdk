@@ -16,7 +16,7 @@
  *      introducción, no se pone texto de relleno.
  *   3. Los productos que lista tienen fitment `verified = true` con este modelo.
  *
- * Render: Server Component con ISR de 10 min. `generateStaticParams` prerenderiza
+ * Render: Server Component con ISR (datos invalidados por tag, README §27). `generateStaticParams` prerenderiza
  * los modelos que ya tienen compatibilidades verificadas.
  */
 import Link from 'next/link'
@@ -39,7 +39,8 @@ import { KitsSection } from '@/components/store/KitsSection'
 import { getProductsByIds } from '@/lib/queries/fitment'
 import { canonical } from '@/lib/seo'
 
-export const revalidate = 600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 /** Cuántos productos se muestran en el hub antes de mandar al listado por categoría. */
 const FEATURED_LIMIT = 8

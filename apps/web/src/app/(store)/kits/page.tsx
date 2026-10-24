@@ -13,7 +13,8 @@ import { kitItemListJsonLd } from '@/lib/structured-data'
 import { canonical } from '@/lib/seo'
 import { getCachedAllVisibleKits } from '@/lib/cache'
 
-export const revalidate = 300
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 export const metadata: Metadata = {
   title: 'Kits de mantenimiento para moto',

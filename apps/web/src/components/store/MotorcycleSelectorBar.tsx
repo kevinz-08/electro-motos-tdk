@@ -1,7 +1,7 @@
 /**
  * Barra del selector "¿Qué moto tienes?" bajo el navbar (docs/seo/, Fase 2).
  *
- * Server Component: carga el catálogo de motos (cacheado 1 h con el tag
+ * Server Component: carga el catálogo de motos (cacheado sin TTL con el tag
  * `fitments`) y se lo pasa al selector, que es cliente. Así el desplegable se
  * abre instantáneamente, sin fetch, y la barra no obliga a ninguna página a
  * volverse dinámica — no lee cookies en el servidor.
@@ -15,8 +15,8 @@
  * que no ofrecer el selector.
  *
  * Así que la barra aparece sola, sin tocar código, en cuanto se cargue la
- * primera compatibilidad verificada (tarea H-02). El contador está cacheado una
- * hora con el tag `fitments`, así que la importación del CSV lo refresca.
+ * primera compatibilidad verificada (tarea H-02). El contador está cacheado sin
+ * TTL con el tag `fitments`, así que la importación del CSV lo refresca.
  */
 import { getCachedMotorcycleCatalog, getCachedVerifiedFitmentCount } from '@/lib/cache'
 import { MotorcycleSelector } from './MotorcycleSelector'

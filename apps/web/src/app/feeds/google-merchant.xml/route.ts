@@ -6,12 +6,13 @@
  * Solo lleva lo que `buildMerchantFeed` aprueba (activos, con stock, imagen y
  * marca). Los excluidos y su motivo están en /admin/merchant.
  */
-import { loadMerchantFeed, merchantFeedXml } from '@/lib/merchant-feed'
+import { getCachedMerchantFeed, merchantFeedXml } from '@/lib/merchant-feed'
 
-export const revalidate = 3600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 export async function GET() {
-  const { items } = await loadMerchantFeed()
+  const { items } = await getCachedMerchantFeed()
   return new Response(merchantFeedXml(items), {
     headers: {
       'Content-Type': 'application/xml; charset=utf-8',

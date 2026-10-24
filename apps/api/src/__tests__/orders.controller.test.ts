@@ -43,6 +43,7 @@ import { ResendEmailService } from '../infrastructure/services/ResendEmailServic
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
 import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
+import { StorefrontCacheService } from '../infrastructure/services/StorefrontCacheService'
 import {
   ORDER_REPOSITORY,
   PRODUCT_REPOSITORY,
@@ -100,6 +101,7 @@ const mockPrismaClient = {
 const mockMercadoPagoService = { initiate: vi.fn() }
 const mockEmailQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
 const mockVendeloOrderQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
+const mockStorefrontCache = { revalidateOrderProducts: vi.fn().mockResolvedValue(undefined) }
 const mockShippingPort = { quoteOrder: vi.fn(), createShipments: vi.fn() }
 const mockCouponRepo = { findByCode: vi.fn(), findAll: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() }
 
@@ -122,6 +124,7 @@ async function buildController() {
       { provide: PrismaService, useValue: { client: mockPrismaClient } },
       { provide: EmailQueueService, useValue: mockEmailQueue },
       { provide: VendeloOrderQueueService, useValue: mockVendeloOrderQueue },
+      { provide: StorefrontCacheService, useValue: mockStorefrontCache },
     ],
   }).compile()
 
@@ -198,6 +201,8 @@ describe('OrdersController', () => {
 
       expect(mockEmailQueue.enqueue).toHaveBeenCalledWith(mockUser.email, mockOrder.id)
       expect(mockVendeloOrderQueue.enqueue).toHaveBeenCalledWith(mockOrder.id)
+      // CreateOrder descontó stock: invalidar la ficha cacheada (README §27)
+      expect(mockStorefrontCache.revalidateOrderProducts).toHaveBeenCalledWith(mockOrder.id)
       expect(mockEmailService.sendOrderReceived).not.toHaveBeenCalled()
     })
 

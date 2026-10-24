@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@h2r/database'
+import { getCachedVendeloCities } from '@/lib/cache'
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? ''
@@ -8,12 +8,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json([])
   }
 
-  const cities = await prisma.vendeloCity.findMany({
-    where: { name: { contains: q, mode: 'insensitive' } },
-    select: { code: true, name: true, subdivisionCode: true },
-    orderBy: { name: 'asc' },
-    take: 10,
-  })
+  // Tabla entera en caché y filtro en memoria, equivalente al `contains` +
+  // `mode: 'insensitive'` que se hacía en Postgres en cada tecla (README §27).
+  const needle = q.toLocaleLowerCase('es-CO')
+  const cities = (await getCachedVendeloCities())
+    .filter((c) => c.name.toLocaleLowerCase('es-CO').includes(needle))
+    .slice(0, 10)
 
   return NextResponse.json(cities)
 }

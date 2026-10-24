@@ -20,7 +20,8 @@ import { canonical, NOINDEX_FOLLOW } from '@/lib/seo'
 import { PRICE_INDEX_PATH } from '@/lib/price-index'
 import { getCachedPublishedPriceIndex } from '@/lib/cache'
 
-export const revalidate = 3600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 async function loadIndex() {
   try {

@@ -4,7 +4,8 @@
  */
 import { buildUrlSet, getGuideEntries, SITEMAP_HEADERS } from '@/lib/sitemap'
 
-export const revalidate = 3600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 export async function GET() {
   // Sin las tablas de la Fase 5 (migración sin aplicar), un sitemap vacío en vez de un 500.

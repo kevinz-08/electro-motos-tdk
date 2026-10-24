@@ -48,6 +48,7 @@ import { LogAlertNotificationService } from './services/LogAlertNotificationServ
 import { WompiReconciliationService } from './services/WompiReconciliationService'
 import { ExpiredOrdersCleanupService } from './services/ExpiredOrdersCleanupService'
 import { IndexNowService } from './services/IndexNowService'
+import { StorefrontCacheService } from './services/StorefrontCacheService'
 import {
   PrismaFitmentRepository,
   PrismaMotorcycleRepository,
@@ -92,6 +93,7 @@ import {
     ExpiredOrdersCleanupService,
     ReviewRequestService,
     IndexNowService,
+    StorefrontCacheService,
   ],
   exports: [
     COUPON_REPOSITORY,
@@ -124,6 +126,7 @@ import {
     VendeloService,
     VendeloOrderQueueService,
     IndexNowService,
+    StorefrontCacheService,
   ],
 })
 export class InfrastructureModule {}

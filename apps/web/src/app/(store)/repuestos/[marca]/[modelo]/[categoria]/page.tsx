@@ -11,7 +11,7 @@
  *   - Los productos salen de fitments con `verified = true`.
  *   - El `ItemList` de JSON-LD refleja exactamente los productos que se ven.
  *
- * Render: Server Component con ISR de 10 min.
+ * Render: Server Component con ISR (datos invalidados por tag, README §27).
  */
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -26,7 +26,8 @@ import { canonical } from '@/lib/seo'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { itemListJsonLd } from '@/lib/structured-data'
 
-export const revalidate = 600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 interface PageProps {
   params: Promise<{ marca: string; modelo: string; categoria: string }>

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { Plus, Trash2, ChevronUp, ChevronDown, Loader2, CheckCircle2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { CACHE_TAGS } from '@/lib/cache-tags'
+import { revalidateAdminCache } from '@/lib/revalidate'
 
 interface Benefit {
   id?: string
@@ -89,6 +91,8 @@ export function ProductDescriptionEditor({
         payload,
       )
       if (!res.ok) throw new Error(res.error ?? 'Error al guardar la descripción')
+      // La ficha se cachea sin TTL (README §27): sin esto la descripción nueva no se vería.
+      await revalidateAdminCache([CACHE_TAGS.products])
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {

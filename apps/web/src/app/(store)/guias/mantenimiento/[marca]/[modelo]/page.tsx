@@ -36,7 +36,8 @@ import {
   getCachedPublishedGuideEntries,
 } from '@/lib/cache'
 
-export const revalidate = 600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 async function loadGuide(marca: string, modelo: string) {
   try {

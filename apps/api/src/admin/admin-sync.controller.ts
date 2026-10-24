@@ -125,7 +125,10 @@ export class AdminSyncController {
       return
     }
 
-    fetch(`${frontendUrl}/api/admin/revalidate`, {
+    // Endpoint interno (x-internal-secret). `/api/admin/revalidate` exige sesión
+    // ADMIN de NextAuth y respondía 403 a esta llamada, así que el sync nunca
+    // invalidaba la caché (README §27).
+    fetch(`${frontendUrl}/api/internal/revalidate`, {
       method:  'POST',
       headers: {
         'Content-Type':      'application/json',

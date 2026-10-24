@@ -12,6 +12,7 @@ import {
 import { Public } from '../auth/decorators/public.decorator'
 import { ORDER_REPOSITORY, SHIPMENT_REPOSITORY } from '../infrastructure/injection-tokens'
 import { VendeloWebhookGuard } from './guards/vendelo-webhook.guard'
+import { StorefrontCacheService } from '../infrastructure/services/StorefrontCacheService'
 
 /** Eventos del Chatbot Connection de Vendelo que impactan el estado del envío. */
 type VendeloWebhookEvent =
@@ -57,6 +58,7 @@ export class VendeloWebhookController {
   constructor(
     @Inject(ORDER_REPOSITORY)    private readonly orderRepo: IOrderRepository,
     @Inject(SHIPMENT_REPOSITORY) private readonly shipmentRepo: IShipmentRepository,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   /**
@@ -104,6 +106,11 @@ export class VendeloWebhookController {
         `[VendeloWebhook] SyncShipmentStatus error orderId=${orderId} event=${event}: ${result.error.code}`,
       )
       return { received: true, processed: false, error: result.error.code }
+    }
+
+    // Devolución o cancelación del envío: SyncShipmentStatus repuso el stock.
+    if (result.value.updated && (result.value.newStatus === 'RETURNED' || result.value.newStatus === 'CANCELLED')) {
+      await this.storefrontCache.revalidateOrderProducts(orderId, { broad: true })
     }
 
     if (result.value.updated && result.value.userId) {

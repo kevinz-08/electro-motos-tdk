@@ -34,6 +34,7 @@ import { WompiService } from '../infrastructure/services/WompiService'
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
 import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
+import { StorefrontCacheService } from '../infrastructure/services/StorefrontCacheService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { ORDER_REPOSITORY } from '../infrastructure/injection-tokens'
 
@@ -92,6 +93,7 @@ function buildTransactionEvent(
 }
 
 const mockVendeloQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
+const mockStorefrontCache = { revalidateOrderProducts: vi.fn().mockResolvedValue(undefined) }
 
 async function buildController() {
   const module = await Test.createTestingModule({
@@ -103,6 +105,7 @@ async function buildController() {
       { provide: EmailQueueService,        useValue: mockEmailQueue },
       { provide: VendeloOrderQueueService, useValue: mockVendeloQueue },
       { provide: PrismaService,            useValue: mockPrisma },
+      { provide: StorefrontCacheService,   useValue: mockStorefrontCache },
     ],
   }).compile()
 
@@ -145,6 +148,8 @@ describe('WompiController', () => {
 
       expect(mockEmailQueue.enqueue).toHaveBeenCalledWith('user@test.com', 'order-1')
       expect(mockVendeloQueue.enqueue).toHaveBeenCalledWith('order-1')
+      // El pago descontó stock: la ficha cacheada sin TTL debe invalidarse (README §27)
+      expect(mockStorefrontCache.revalidateOrderProducts).toHaveBeenCalledWith('order-1')
       expect(result).toMatchObject({ received: true, stateChanged: true })
     })
 
@@ -179,6 +184,7 @@ describe('WompiController', () => {
       await controller.webhook(buildTransactionEvent('DECLINED'), {})
 
       expect(mockEmailQueue.enqueue).not.toHaveBeenCalled()
+      expect(mockStorefrontCache.revalidateOrderProducts).not.toHaveBeenCalled()
     })
 
     it('retorna error del dominio sin lanzar excepción si ConfirmPayment falla', async () => {

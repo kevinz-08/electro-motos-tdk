@@ -16,7 +16,8 @@ import { absoluteUrl, canonical } from '@/lib/seo'
 import { getCachedCroSettings, getCachedStoreFacts } from '@/lib/cache'
 import { RETURNS_DAYS, WARRANTY_MONTHS } from '@/lib/store-facts'
 
-export const revalidate = 3600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 const TITLE = 'Por qué comprar en H2R: repuestos de moto con compatibilidad verificada'
 

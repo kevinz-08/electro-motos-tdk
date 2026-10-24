@@ -4,7 +4,8 @@
  */
 import { buildUrlSet, getCategoryEntries, SITEMAP_HEADERS } from '@/lib/sitemap'
 
-export const revalidate = 3600
+// Red de seguridad: los datos se invalidan por tag (lib/cache.ts, README §27).
+export const revalidate = 86400
 
 export async function GET() {
   return new Response(buildUrlSet(await getCategoryEntries()), { headers: SITEMAP_HEADERS })

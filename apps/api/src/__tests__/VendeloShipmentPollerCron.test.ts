@@ -1,4 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// PrismaService importa @h2r/database: mockearlo evita cargar el cliente generado.
+vi.mock('@h2r/database', () => ({
+  prisma: { $connect: vi.fn(), $disconnect: vi.fn() },
+  PrismaClient: vi.fn(),
+}))
+
 import {
   ActiveVendeloOrder,
   IOrderRepository,

@@ -38,6 +38,8 @@ electrónico. Los administradores gestionan productos, pedidos y stock desde un 
 23. [Imágenes de OpenGraph por categoría](#23-imágenes-de-opengraph-por-categoría)
 24. [Buscador del catálogo](#24-buscador-del-catálogo)
 25. [Pop-up promocional y swipe del Hero](#25-pop-up-promocional-y-swipe-del-hero)
+26. [Proyecto SEO / GEO / CRO](#26-proyecto-seo--geo--cro)
+27. [Consumo de Neon (CU-hours)](#27-consumo-de-neon-cu-hours)
 
 ---
 
@@ -155,7 +157,7 @@ electro-motos-tdk/
 │   │   │   ├── lib/
 │   │   │   │   ├── auth.ts         ← Config NextAuth (Credentials + Google OAuth)
 │   │   │   │   ├── api-client.ts   ← Factory apiClient(token) para llamadas al API
-│   │   │   │   ├── cache.ts        ← unstable_cache con TTLs y tags de invalidación
+│   │   │   │   ├── cache.ts        ← unstable_cache sin TTL (revalidate: false) + tags de invalidación
 │   │   │   │   ├── cache-tags.ts   ← Constantes CACHE_TAGS
 │   │   │   │   └── cart.ts         ← Store Zustand del carrito (localStorage)
 │   │   │   ├── infrastructure/
@@ -188,12 +190,12 @@ electro-motos-tdk/
 │       │   └── infrastructure/
 │       │       ├── services/
 │       │       │   ├── WompiService.ts              ← Firma SHA256, validación webhook
-│       │       │   ├── WompiReconciliationService.ts← Job cada 15 min (pedidos PENDING)
+│       │       │   ├── WompiReconciliationService.ts← Job cada 1 h (pedidos PENDING)
 │       │       │   ├── MercadoPagoService.ts        ← Preference, HMAC, estado
 │       │       │   ├── VendeloService.ts            ← Creación y seguimiento de envíos
 │       │       │   ├── VendeloHttpClient.ts         ← HTTP client con retry + circuit breaker
-│       │       │   ├── VendeloOrderQueueService.ts  ← Cola de despacho (Prisma, cada 2 min)
-│       │       │   ├── EmailQueueService.ts         ← Cola de emails (Prisma, cada 2 min)
+│       │       │   ├── VendeloOrderQueueService.ts  ← Cola de despacho (tick 2 min, BD solo si hay trabajo)
+│       │       │   ├── EmailQueueService.ts         ← Cola de emails (tick 2 min, BD solo si hay trabajo)
 │       │       │   ├── ResendEmailService.ts        ← Envío real vía Resend API
 │       │       │   └── CloudinaryService.ts         ← Upload de imágenes
 │       │       └── injection-tokens.ts              ← Symbols para inyección de dependencias
@@ -245,7 +247,7 @@ apps/web — Server Component
 packages/database — Prisma + Neon
     │  rows[]  →  toDomain()  →  Product[]
     ▼
-Next.js renderiza HTML con unstable_cache (TTL 180–3600 s)
+Next.js renderiza HTML con unstable_cache (sin TTL; se invalida por tag, §27)
     ▼
 Respuesta HTML al navegador
 ```
@@ -766,6 +768,13 @@ Component con dos queries agregadas — sin N+1 sobre la tabla.
 NestJS levanta tres servicios de fondo al iniciar (`OnModuleInit`). Todos usan
 **PostgreSQL como broker** (sin Redis ni BullMQ) y se limpian correctamente en `OnModuleDestroy`.
 
+> **Consumo de Neon (2026-10-24, ver [sección 27](#27-consumo-de-neon-cu-hours)).** Neon cobra por
+> tiempo de compute encendido y lo apaga tras ~5 min sin queries. Por eso las dos colas
+> **ya no consultan la BD en cada tick**: el tick de 2 min solo consulta si esta instancia encoló o
+> reencoló algo (o si hay reintentos pendientes) y, por seguridad, una vez al arrancar y cada hora.
+> Los tiempos de envío y el backoff 5 s → 30 s → 120 s no cambian. La reconciliación de Wompi y el
+> poller de envíos de Vendelo corren cada **1 h** (antes 15 y 5 min).
+
 ### `EmailQueueService` — Cola de correos de confirmación
 
 Los emails de confirmación **nunca se envían inline** en el webhook. Esto evita que un
@@ -779,6 +788,8 @@ EmailQueue { status: PENDING } — escrito en BD
 
 ┌─────────────────────────────────────────┐
 │  setInterval cada 2 min                 │
+│  (solo consulta si hay trabajo local    │
+│   o toca el barrido de 1 h)             │
 │                                         │
 │  findMany { status: PENDING,            │
 │             nextRetry <= now }          │
@@ -814,7 +825,7 @@ Cubre el escenario donde Wompi procesó el pago pero su webhook **nunca llegó**
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  setInterval cada 15 min                                 │
+│  setInterval cada 1 h                                    │
 │                                                          │
 │  Busca: status=PENDING + provider=WOMPI                  │
 │         + createdAt < (now - 15 min)                     │
@@ -912,7 +923,8 @@ GET /products?search=yamaha&minPrice=5000000&maxPrice=20000000
 
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
-| `GET` | `/health` | Público | Estado del servidor (`{ status: 'ok', uptime }`) |
+| `GET` | `/health` | Público | Estado del proceso, **sin tocar la BD** (`{ status: 'ok', uptime }`) |
+| `GET` | `/health/db` | Público | Igual + `SELECT 1` a la BD. Despierta Neon: no usarlo en monitores de uptime |
 
 ### Admin (requieren JWT + rol ADMIN)
 
@@ -1342,7 +1354,7 @@ si `count === 0` indica que otro proceso ya lo procesó.
 ### Reconciliación activa
 
 Si el webhook nunca llega, `WompiReconciliationService` consulta activamente el estado
-de la transacción cada 15 minutos. Ver [sección 10](#10-servicios-de-background-colas-y-reconciliación).
+de la transacción cada hora. Ver [sección 10](#10-servicios-de-background-colas-y-reconciliación).
 
 ---
 
@@ -1415,7 +1427,7 @@ ngrok http 3001
 > el registro queda en `status=FAILED` para revisión manual en Prisma Studio.
 
 **¿Cómo forzar la reconciliación de un pago Wompi pendiente?**
-> La reconciliación automática corre cada 15 minutos. Para forzarla manualmente:
+> La reconciliación automática corre cada hora. Para forzarla manualmente:
 >
 > ```bash
 > # Llamar al endpoint interno (requiere JWT admin)
@@ -2087,3 +2099,68 @@ Ahora viven en un solo Server Component, `ProductPolicyInfo`, que la ficha pinta
 - Junto al SKU: `SKU: 9-3501 - Nuevo`. Todos los productos son nuevos; coincide con `itemCondition: NewCondition` del JSON-LD y `condition: new` del feed.
 - Prueba social: "+X personas han comprado y recomiendan este producto" (antes "…o recomiendan…"), sin el ícono de fuego. X sigue siendo ventas online (`soldCount`) + recomendaciones de la tienda física (`storeRecommendations`). El texto lo eligió el negocio el 2026-10-01, advertido de que X suma ambas fuentes.
 - Stock bajo ("¡Solo quedan X unidades en stock!"): rojo en vez de ámbar. Aparece igual que antes, cuando el stock es menor que `LOW_STOCK_URGENCY_THRESHOLD` (por defecto 5).
+
+---
+
+## 27. Consumo de Neon (CU-hours)
+
+**Contexto (2026-10-24).** Neon (plan Free, 100 CU-hours/mes) cobra por **tiempo de compute encendido × tamaño**, no por número de queries, y suspende el compute tras ~5 min sin ninguna query. En octubre la cuota se agotó antes de fin de mes y la tienda cayó con `DriverAdapterError: Your account or project has exceeded the quota`. La causa no era una query cara, sino que **siempre había alguna query en menos de 5 min**: unas 35 entradas de `unstable_cache` con TTL de 3–60 min (muchas por producto) más ISR de 5–10 min, recorridas sin parar por Googlebot y los crawlers de IA, y seis `setInterval` del API consultando la BD cada 2–15 min.
+
+**Principio:** la navegación pública no toca la BD. Solo la despiertan acciones reales: checkout y pedidos, login, escrituras del admin, webhooks y la regeneración que sigue a una edición. Meta: ≤ 1,5–2 CU-hours por día.
+
+### 27.1 Caché pública: sin TTL, invalidación por tag
+
+- Todas las funciones de `apps/web/src/lib/cache.ts` y `lib/search-index.ts` usan `unstable_cache` con **`revalidate: false`**: el dato vive hasta que un `revalidateTag` lo invalida. Ninguna lectura pública expira por tiempo.
+- Las páginas públicas declaran `export const revalidate = 86400` como red de seguridad. Regenerar una página después de 24 h **no** consulta la BD si sus datos siguen en caché.
+- Las funciones que se usan varias veces en el mismo render (`generateMetadata` + página + layout) van envueltas en `React.cache()`.
+- Las queries que antes iban sin caché (detalle de la ficha, metadata de `/catalogo?category=`, sitemaps, `llms.txt`, feed de Merchant, sugerencias del buscador, ciudades de Vendelo) ahora pasan por la caché.
+- "Productos destacados" de la home ya no usa `ORDER BY RANDOM()`, que quedaría congelado con la caché sin TTL. El servidor cachea los 12 productos con stock más recientes y el navegador baraja 4 (`FeaturedProducts`).
+- `revalidateTag(tag, { expire: 0 })` en `/api/admin/revalidate` y `/api/internal/revalidate`: la siguiente visita ya ve el dato nuevo (antes `'max'` servía una vez el dato viejo).
+- **Cambios hechos fuera del panel** (scripts `pnpm db:catalog` / `db:seed`, Prisma Studio, llamadas directas al API): ya no los tapa ningún TTL. Después de hacerlos, usa **`/admin/configuracion` → "Refrescar tienda"**, que invalida todos los tags.
+
+### 27.2 Mapa de caché
+
+| Tag | Qué datos | Quién lo invalida |
+|-----|-----------|-------------------|
+| `products` | Cualquier listado o tarjeta de producto (home, catálogo, relacionados, kits, guías, buscador, sitemaps, feed) | Admin: crear, editar, borrar o restaurar producto, identificadores, reseñas. API: sync de stock, venta que deja stock ≤ 1, devolución con reposición |
+| `product:<slug>` | La ficha de un producto (entidad, detalle, descripción estructurada) | API: cada venta (Wompi, Mercado Pago, reconciliación, contra entrega). Admin: ajuste de stock de ese producto |
+| `categories` / `catalog` | Categorías y landing del catálogo | Admin de categorías |
+| `home` | Destacados y reseñas de la home | Junto con `products` |
+| `hero` / `promo` | Banners y pop-up | Admin de banners y promoción |
+| `settings` | Umbrales CRO, envío gratis, plazos | `/admin/configuracion` |
+| `fitments` | Marcas, modelos, compatibilidades, contador de verificadas, hubs | Admin de compatibilidades |
+| `kits` | Kits | Admin de kits |
+| `guides` | Guías, artículos, revisores | Admin de guías, artículos y revisores |
+| `price-index` | Índice de precios | Admin del índice |
+| `orders:<userId>` | Historial de pedidos del cliente | Webhook de Vendelo |
+
+Las tarjetas de producto solo cambian con stock 0 ("Agotado") o 1 ("Última unidad"). Por eso una venta normal invalida solo `product:<slug>`, y la API añade `products` cuando el stock resultante es ≤ 1. Así una venta no regenera todo el catálogo.
+
+**El API avisa a la web** (`StorefrontCacheService`, `apps/api/src/infrastructure/services/`): tras cada transición de stock llama `POST {FRONTEND_URL}/api/internal/revalidate` con `x-internal-secret`. La llamada es best-effort, no bloquea el webhook y su fallo solo se registra en el log. El sync de stock (`admin-sync.controller.ts`) usaba `/api/admin/revalidate`, que exige sesión ADMIN y respondía 403 en silencio; ahora usa el endpoint interno.
+
+### 27.3 Servicios de fondo del API
+
+| Servicio | Antes | Ahora |
+|----------|-------|-------|
+| `EmailQueueService` | Query cada 2 min | Tick de 2 min que **solo consulta si esta instancia encoló algo o tiene reintentos**, más un barrido al arrancar y cada hora |
+| `VendeloOrderQueueService` | Query cada 2 min | Igual que la cola de emails (`requeue` también la activa) |
+| `VendeloShipmentPollerCron` | Cada 5 min | Cada 1 h (`VENDELO_POLL_INTERVAL_MS=3600000`). El webhook de Vendelo sigue siendo la vía principal |
+| `WompiReconciliationService` | Cada 15 min | Cada 1 h |
+| `ExpiredOrdersCleanup`, `ReviewRequest` | 1 h | Sin cambios |
+| `GET /health` | `SELECT 1` | Sin BD. `GET /health/db` mantiene la comprobación para diagnóstico manual |
+
+Cloud Run (`--min-instances 0`, CPU solo durante requests) congela los timers cuando no hay tráfico. Si alguna vez se activa "CPU siempre asignada" o min-instances ≥ 1, los timers corren todo el día; con estos cambios eso ya no mantiene Neon despierto.
+
+### 27.4 Qué sigue despertando la BD
+
+- Checkout, creación de pedidos, confirmación de pago (con su sondeo de 3 min en la página de confirmación), `/pedidos`, login y registro.
+- Navegar por `/admin`: es dinámico y consulta en cada navegación. Una pestaña abierta e inactiva no hace peticiones.
+- La primera visita a cada página tras invalidar un tag, y las rutas sin caché por naturaleza: búsquedas con filtros nuevos en `/catalogo` y slugs inexistentes (una query por combinación nueva; después queda en caché).
+- Webhooks de Wompi, Mercado Pago y Vendelo.
+- Workers del API: barrido horario de colas, poller de Vendelo, reconciliación de Wompi, pedidos expirados y solicitudes de reseña, como máximo una vez por hora, y solo mientras haya una instancia de Cloud Run viva.
+
+### 27.5 Ajustes recomendados en la consola de Neon (manuales)
+
+- Autoscaling: mínimo y máximo **0,25 CU**. A ese tamaño, 2 CU-h/día equivalen a 8 h encendido.
+- Scale to zero activado (5 min, el valor fijo del plan Free).
+- Vigilar **Monitoring → Compute** durante 3 días: el compute debe estar en 0 la mayor parte del día, con picos cortos ligados a pedidos o al uso del admin.

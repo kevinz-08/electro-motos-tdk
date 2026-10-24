@@ -15,7 +15,9 @@ export async function POST(req: NextRequest) {
 
   const tags = body.tags as string[]
   for (const tag of tags) {
-    revalidateTag(tag, 'max')
+    // Expiración inmediata: la siguiente visita ya ve el dato nuevo. Con 'max'
+    // la primera visita tras editar recibía el dato viejo (stale-while-revalidate).
+    revalidateTag(tag, { expire: 0 })
   }
 
   return NextResponse.json({ revalidated: tags })

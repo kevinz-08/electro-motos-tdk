@@ -3,6 +3,7 @@ import { MercadoPagoToggle } from '@/components/admin/MercadoPagoToggle'
 import { CodToggle } from '@/components/admin/CodToggle'
 import { ShippingOnlineToggle } from '@/components/admin/ShippingOnlineToggle'
 import { CroSettingsForm } from '@/components/admin/CroSettingsForm'
+import { RefreshStoreCacheButton } from '@/components/admin/RefreshStoreCacheButton'
 import { CRO_SETTING_KEYS, parseCroSettings } from '@h2r/domain'
 
 export default async function AdminConfigPage() {
@@ -110,6 +111,17 @@ export default async function AdminConfigPage() {
             </div>
             <ShippingOnlineToggle enabled={shippingOnlineEnabled} />
           </div>
+        </div>
+
+        {/* Caché de la tienda (README §27) */}
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <h2 className="font-bold text-white mb-1">Caché de la tienda</h2>
+          <p className="text-sm text-white/40 mb-6">
+            Los cambios hechos desde este panel se ven en la tienda de inmediato. Usa este botón
+            solo si cambiaste datos por fuera del panel (carga de catálogo, scripts o la base de
+            datos directamente) y la tienda no los muestra.
+          </p>
+          <RefreshStoreCacheButton />
         </div>
 
         {/* Sincronización */}

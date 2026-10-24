@@ -33,6 +33,50 @@ eventos (H-11), campo "¿en qué moto lo instalaste?" en reseñas (requiere migr
 
 ---
 
+## 194. Consumo de Neon: la navegación pública deja de despertar la base de datos
+
+**Requerimiento (auditoría aprobada el 2026-10-24):** en octubre se agotaron los 100 CU-hours del plan Free de Neon antes de fin de mes y la tienda cayó (`DriverAdapterError: ... exceeded the quota`). Neon cobra por tiempo de compute encendido y lo apaga tras ~5 min sin queries. Meta: ≤ 1,5–2 CU-hours por día. Restricciones: sin cambios de schema ni de lógica de negocio, frescura inmediata tras editar en el admin, sin servicios pagos nuevos.
+
+**Causa (auditoría):**
+
+- Unas 35 entradas de `unstable_cache` con TTL de 3–60 min (muchas por producto) más ISR de 5–10 min. Los bots y crawlers de IA siempre encontraban alguna vencida: siempre había una query en menos de 5 min.
+- Seis `setInterval` en el API (Cloud Run): colas de emails y de Vendelo cada 2 min, poller de envíos cada 5 min, reconciliación de Wompi cada 15 min. Todos consultaban la BD aunque no hubiera trabajo.
+- Queries sin caché: detalle de la ficha, metadata de `/catalogo?category=` (ruta dinámica), sitemaps, `llms.txt`, feed de Merchant, hubs de modelo y `/referencia/[oem]` (`getProductsByIds`), sugerencias del buscador (una por tecla) y ciudades de Vendelo.
+- `GET /health` hacía `SELECT 1`.
+- Lo que no hizo falta tocar: Auth.js ya usa JWT y sus callbacks no consultan la BD; `proxy.ts` solo cubre `/admin`; el admin no hace polling; no hay escrituras por visita.
+
+**Hecho — API (`5d3e374`):**
+
+- `EmailQueueService` y `VendeloOrderQueueService`: el tick de 2 min solo consulta si esta instancia encoló o reencoló algo, o si quedan reintentos `PENDING`/`PROCESSING`. Además barre al arrancar y cada hora. Tiempos de envío y backoff sin cambios.
+- `WompiReconciliationService` y `VendeloShipmentPollerCron` pasan a 1 h (`VENDELO_POLL_INTERVAL_MS=3600000` en `ci.yml` y `.env.example`).
+- `GET /health` ya no toca la BD. `GET /health/db` mantiene el `SELECT 1` para diagnóstico manual.
+- Nuevo `StorefrontCacheService`: tras un pago aprobado (Wompi, Mercado Pago, reconciliación), un pedido contra entrega o una devolución con reposición, llama `POST /api/internal/revalidate` con `product:<slug>` de cada producto del pedido. Añade `products` si el stock quedó ≤ 1 (cambia la tarjeta) o si hubo reposición. Es best-effort y nunca lanza.
+- **Bug corregido:** `admin-sync.controller.ts` invalidaba la caché llamando a `/api/admin/revalidate`, que exige sesión ADMIN: respondía 403 en silencio y el sync de stock nunca invalidaba nada. Ahora usa `/api/internal/revalidate`.
+
+**Hecho — web (`ecefb5a`, `80a80b3`):**
+
+- `lib/cache.ts`: helper `cached()` = `unstable_cache` con `revalidate: false` + `React.cache`. Ninguna lectura pública expira por tiempo. `getCachedProductBySlug` lleva además el tag `product:<slug>` (`productTag()` en `cache-tags.ts`).
+- Funciones nuevas cacheadas: `getCachedProductDetail`, `getCachedCategoryMeta`, `getCachedCategoryTree`, `getCachedVendeloCities`, `getCachedSearchSuggestionData`, `getCachedMerchantFeed`. También se cachean `getCategoryEntries`, `getProductEntries` y `getProductsByIds`.
+- Home: "Productos destacados" ya no usa `ORDER BY RANDOM()`. El servidor cachea los 12 más recientes con stock y `FeaturedProducts` (cliente, con `useSyncExternalStore`) baraja 4 después de hidratar.
+- Páginas y rutas públicas: `export const revalidate = 86400` como red de seguridad (antes 300–3600).
+- `/api/admin/revalidate` y `/api/internal/revalidate`: `revalidateTag(tag, { expire: 0 })`. Con `'max'`, la primera visita después de editar todavía veía el dato viejo.
+- Ajuste de stock del admin: invalida solo `product:<slug>`, salvo que el stock antes o después sea ≤ 1.
+- `CodToggle` y `ProductDescriptionEditor` invalidan su tag. Antes no lo hacían y lo tapaba el TTL.
+- `/admin/configuracion`: botón "Refrescar tienda" que invalida todos los tags, para cambios hechos fuera del panel (scripts de catálogo, Prisma Studio).
+- `SessionProvider`: `refetchInterval={0}` y `refetchOnWindowFocus={false}`.
+
+**Verificación:** `pnpm --filter @h2r/api test` 249/249, con 7 tests nuevos en `neon-idle.test.ts` (umbral de tags y colas que no consultan sin trabajo). `type-check` de API y web limpios. `lint` web sin errores y con los mismos 24 warnings previos. **No se corrió `next build`:** `generateStaticParams` consulta la BD de Neon, que está sin cuota.
+
+**Pendiente / fuera de alcance:**
+
+- `WompiReconciliationService` confirma el pago pero, a diferencia de los webhooks, no encola el email de confirmación ni el despacho a Vendelo. Es un hueco de lógica de negocio previo a este cambio; no se tocó.
+- Filtros del catálogo (`?minPrice=`, `?page=`…) siguen rastreables por SEO: cada combinación nueva hace una query y luego queda cacheada.
+- Ajustes manuales en la consola de Neon y verificación de 3 días: README §27.5.
+
+**Archivos:** `README.md` (§10, §11, §27), `.github/workflows/ci.yml`, `apps/api/.env.example`, `apps/api/src/{app.controller.ts, admin/admin-sync.controller.ts, orders/orders.controller.ts, payments/wompi.controller.ts, payments/mercadopago.controller.ts, vendelo/vendelo-webhook.controller.ts, vendelo/services/VendeloShipmentPollerCron.ts}`, `apps/api/src/infrastructure/{infrastructure.module.ts, services/EmailQueueService.ts, services/VendeloOrderQueueService.ts, services/WompiReconciliationService.ts, services/StorefrontCacheService.ts}`, tests del API (`neon-idle`, `wompi.controller`, `orders.controller`, `VendeloShipmentPollerCron`), `apps/web/src/lib/{cache.ts, cache-tags.ts, search-index.ts, sitemap.ts, merchant-feed.ts, queries/fitment.ts}`, páginas públicas de `app/(store)/`, `app/{llms.txt, feeds, sitemap*.xml}`, `app/api/{search/suggestions, vendelo/cities, admin/revalidate, internal/revalidate, admin/products/[id]/stock}`, `components/store/{FeaturedProducts.tsx, MotorcycleSelectorBar.tsx}`, `components/admin/{RefreshStoreCacheButton.tsx, CodToggle.tsx, ProductDescriptionEditor.tsx}`, `components/providers/SessionProvider.tsx`, `app/admin/configuracion/page.tsx`.
+
+---
+
 ## 193. Ficha de producto: SKU con "Nuevo", prueba social sin ícono y stock bajo en rojo
 
 **Requerimiento (plan aprobado el 2026-10-01):**

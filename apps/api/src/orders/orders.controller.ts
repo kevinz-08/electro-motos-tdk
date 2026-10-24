@@ -17,6 +17,7 @@ import { WompiService } from '../infrastructure/services/WompiService'
 import { ResendEmailService } from '../infrastructure/services/ResendEmailService'
 import { EmailQueueService } from '../infrastructure/services/EmailQueueService'
 import { VendeloOrderQueueService } from '../infrastructure/services/VendeloOrderQueueService'
+import { StorefrontCacheService } from '../infrastructure/services/StorefrontCacheService'
 import { PrismaService } from '../infrastructure/database/prisma.service'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CurrentUser, JwtUser } from '../auth/decorators/current-user.decorator'
@@ -47,6 +48,7 @@ export class OrdersController {
     private readonly emailQueue: EmailQueueService,
     private readonly vendeloOrderQueue: VendeloOrderQueueService,
     private readonly prisma: PrismaService,
+    private readonly storefrontCache: StorefrontCacheService,
   ) {}
 
   @Post()
@@ -138,6 +140,8 @@ export class OrdersController {
       // COD no tiene webhook de pasarela que confirme el pago — el pedido ya nació
       // PAID (CreateOrder lo confirmó al crearlo), así que disparamos aquí mismo
       // los efectos secundarios que para pagos online dispara ConfirmPayment.
+      // CreateOrder ya descontó el stock: avisar a la tienda, que cachea sin TTL (README §27).
+      await this.storefrontCache.revalidateOrderProducts(result.value.order.id)
       await this.emailQueue.enqueue(result.value.order.contactEmail, result.value.order.id)
       // Retiro en tienda: el cliente lo recoge en persona, nunca se despacha
       // por Vendelo — no encolar o un mensajero saldría a entregar en falso.

@@ -21,6 +21,8 @@
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { apiClient } from '@/lib/api-client'
+import { CACHE_TAGS } from '@/lib/cache-tags'
+import { revalidateAdminCache } from '@/lib/revalidate'
 
 interface CodToggleProps {
   /** Estado inicial del toggle, leído desde la BD al cargar la página */
@@ -39,7 +41,12 @@ export function CodToggle({ enabled: initial }: CodToggleProps) {
         '/admin/settings/cod',
         { enabled: !enabled },
       )
-      if (res.ok) setEnabled(!enabled)
+      if (res.ok) {
+        setEnabled(!enabled)
+        // "Por qué comprar en H2R" y /llms.txt mencionan el pago contra entrega
+        // y se cachean sin TTL con el tag `settings` (README §27).
+        await revalidateAdminCache([CACHE_TAGS.settings])
+      }
     } finally {
       setLoading(false)
     }

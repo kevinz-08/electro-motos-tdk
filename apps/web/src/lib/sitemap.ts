@@ -27,14 +27,17 @@
  *   - Los productos borrados (`deletedAt`) e inactivos NO entran.
  *   - Las categorías sin productos NO entran.
  */
+import { unstable_cache } from 'next/cache'
 import { prisma } from '@h2r/database'
 import { absoluteUrl } from '@/lib/seo'
 import { getCachedModelHub, getCachedPublishableModels, getCachedAllVisibleKits, getCachedPublishedGuideEntries, getCachedPublishedPriceIndex } from '@/lib/cache'
 import { PRICE_INDEX_PATH } from '@/lib/price-index'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 export interface SitemapEntry {
   url: string
-  lastModified?: Date
+  /** Date, o string ISO cuando la entrada viene de la caché (JSON). */
+  lastModified?: Date | string
   changeFrequency?: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never'
   priority?: number
 }
@@ -66,7 +69,7 @@ export function getStaticEntries(): SitemapEntry[] {
  *
  * `lastModified` = el producto modificado más recientemente en esa categoría.
  */
-export async function getCategoryEntries(): Promise<SitemapEntry[]> {
+async function buildCategoryEntries(): Promise<SitemapEntry[]> {
   const categories = await prisma.category.findMany({
     select: { slug: true, id: true, parentId: true },
   })
@@ -109,8 +112,17 @@ export async function getCategoryEntries(): Promise<SitemapEntry[]> {
     }))
 }
 
+/**
+ * Cacheado sin TTL (README §27): los bots piden el sitemap a menudo y cada
+ * regeneración de la ruta consultaba la BD.
+ */
+export const getCategoryEntries = unstable_cache(buildCategoryEntries, ['sitemap-category-entries'], {
+  revalidate: false,
+  tags: [CACHE_TAGS.products, CACHE_TAGS.categories],
+})
+
 /** Una entrada por producto activo, con o sin stock. */
-export async function getProductEntries(): Promise<SitemapEntry[]> {
+async function buildProductEntries(): Promise<SitemapEntry[]> {
   const products = await prisma.product.findMany({
     where: { isActive: true, deletedAt: null },
     select: { slug: true, updatedAt: true },
@@ -125,6 +137,12 @@ export async function getProductEntries(): Promise<SitemapEntry[]> {
   }))
 }
 
+/** Cacheado sin TTL, igual que las categorías (README §27). */
+export const getProductEntries = unstable_cache(buildProductEntries, ['sitemap-product-entries'], {
+  revalidate: false,
+  tags: [CACHE_TAGS.products],
+})
+
 // ── Serialización ────────────────────────────────────────────────────────────
 
 /** `&`, `<` y `"` rompen el XML: las URLs de categoría llevan query string. */
@@ -137,7 +155,7 @@ function escapeXml(value: string): string {
     .replace(/'/g, '&apos;')
 }
 
-const toW3C = (date: Date) => date.toISOString()
+const toW3C = (date: Date | string) => new Date(date).toISOString()
 
 /**
  * Kits visibles (docs/seo/plan-kits.md). Un kit sin disponibilidad no entra —
@@ -201,7 +219,7 @@ export function buildUrlSet(entries: SitemapEntry[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
 }
 
-export function buildSitemapIndex(sitemaps: { url: string; lastModified?: Date }[]): string {
+export function buildSitemapIndex(sitemaps: { url: string; lastModified?: Date | string }[]): string {
   const body = sitemaps
     .map((s) => {
       const parts = [`    <loc>${escapeXml(s.url)}</loc>`]

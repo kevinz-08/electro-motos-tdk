@@ -54,7 +54,7 @@ export function buildFaqItems({ freeShippingThreshold, cutoffHour, cashOnDeliver
   {
     q: '¿Cómo puedo pagar?',
     a: `Pago en línea a través de Wompi: ${WOMPI_METHODS.join(', ')}. ` +
-      (cashOnDelivery ? 'Contra entrega: pagas cuando recibes tu pedido; solo aplica para ciudades principales. ' : '') +
+      (cashOnDelivery ? 'Contra entrega: pagas el saldo cuando recibes tu pedido; puede requerir un anticipo en línea que se descuenta del total (ver Política de Envíos) y solo aplica para ciudades principales. ' : '') +
       'A cuotas con Addi: un asesor te acompaña por WhatsApp para coordinar el pago. ' +
       'Pago seguro: tus datos de tarjeta se procesan directamente en la pasarela de pagos de Wompi; H2R no los almacena. ' +
       `Si tu pago en línea se confirma antes de las ${formatHour(cutoffHour)} en un día hábil, tu pedido sale ese mismo día.`,

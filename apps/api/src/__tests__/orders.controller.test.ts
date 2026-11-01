@@ -192,7 +192,7 @@ describe('OrdersController', () => {
         return {
           execute: vi.fn().mockResolvedValue({
             ok: true,
-            value: { order: { ...mockOrder, status: 'PAID' }, payment: null, shippingQuoteFallback: false },
+            value: { order: { ...mockOrder, status: 'COD_CONFIRMED' }, payment: null, shippingQuoteFallback: false },
           }),
         }
       })
@@ -214,7 +214,7 @@ describe('OrdersController', () => {
           execute: vi.fn().mockResolvedValue({
             ok: true,
             value: {
-              order: { ...mockOrder, status: 'PAID', deliveryMethod: 'STORE_PICKUP' },
+              order: { ...mockOrder, status: 'COD_CONFIRMED', deliveryMethod: 'STORE_PICKUP' },
               payment: null,
               shippingQuoteFallback: false,
             },
@@ -302,7 +302,7 @@ describe('OrdersController', () => {
     it('COD nunca lee SHIPPING_ONLINE_ENABLED — solo COD_ENABLED', async () => {
       mockPrismaClient.settings.findUnique.mockResolvedValueOnce({ value: 'true' }) // COD_ENABLED
       const { CreateOrder } = await import('@h2r/domain')
-      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: { ...mockOrder, status: 'PAID' }, payment: null, shippingQuoteFallback: false } })
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: { ...mockOrder, status: 'COD_CONFIRMED' }, payment: null, shippingQuoteFallback: false } })
       vi.mocked(CreateOrder).mockImplementationOnce(function () {
         return { execute }
       })

@@ -186,7 +186,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           userId: input.userId,
           contactEmail: input.contactEmail,
           buyerIdKey: input.buyerIdKey,
-          status: 'PAID',
+          status: 'COD_CONFIRMED',
           total: input.total,
           shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
           deliveryMethod: input.deliveryMethod,
@@ -303,7 +303,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const result = await this.prisma.client.order.aggregate({
-      where: { status: { notIn: ['PENDING', 'CANCELLED'] }, createdAt: { gte: today } },
+      where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] }, createdAt: { gte: today } },
       _sum: { total: true },
     })
     return result._sum.total ?? 0
@@ -327,7 +327,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     const or = customerFilter(customer)
     if (!or) return false
     const order = await this.prisma.client.order.findFirst({
-      where: { OR: or, status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      where: { OR: or, status: { in: ['PAID', 'COD_CONFIRMED', 'SHIPPED', 'DELIVERED'] } },
       select: { id: true },
     })
     return order !== null

@@ -3,11 +3,15 @@
 import { useState } from 'react'
 import { OrderStatus } from '@h2r/domain'
 
-const statusOptions: OrderStatus[] = ['PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+/** Estados válidos según el método de pago: contraentrega (COD) usa los suyos. */
+const ONLINE_STATUSES: OrderStatus[] = ['PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+const COD_STATUSES: OrderStatus[] = ['AWAITING_DEPOSIT', 'COD_CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']
 
 const statusLabels: Record<OrderStatus, string> = {
   PENDING:   'Pendiente',
   PAID:      'Pagado',
+  AWAITING_DEPOSIT: 'Esperando anticipo',
+  COD_CONFIRMED:    'Confirmado COD',
   SHIPPED:   'Enviado',
   DELIVERED: 'Entregado',
   CANCELLED: 'Cancelado',
@@ -16,12 +20,14 @@ const statusLabels: Record<OrderStatus, string> = {
 interface OrderStatusSelectProps {
   orderId: string
   currentStatus: OrderStatus
+  paymentProvider: string
 }
 
-export function OrderStatusSelect({ orderId, currentStatus }: OrderStatusSelectProps) {
+export function OrderStatusSelect({ orderId, currentStatus, paymentProvider }: OrderStatusSelectProps) {
   const [status, setStatus] = useState<OrderStatus>(currentStatus)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
+  const statusOptions = paymentProvider === 'COD' ? COD_STATUSES : ONLINE_STATUSES
 
   const handleChange = async (newStatus: OrderStatus) => {
     if (newStatus === status || loading) return

@@ -81,7 +81,7 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
   if (!order) return <NotFound />
   const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : ''
 
-  const isPaid = order.status === 'PAID'
+  const isPaid = order.status === 'PAID' || order.status === 'COD_CONFIRMED'
   const isPending = order.status === 'PENDING'
   const isCod = order.paymentProvider === 'COD'
 

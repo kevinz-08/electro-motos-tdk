@@ -688,10 +688,16 @@ entre las líneas en `unit_price` (`prorateDepositIntoUnitPrices`), para que el 
 anticipo cubre todo el subtotal, el pedido va como `EXTERNAL_PAYMENT`. **Pendiente de validar en un pedido real:**
 que Vendelo acepte precios unitarios con decimales y que el valor a recaudar de la guía sea el saldo.
 
+**Políticas:** la sección 7 de `/legal/politica-de-envios` (id `seccion-contraentrega`) explica el anticipo y
+muestra el monto vigente (`getCachedCodDepositCents`, tag `settings`; `CodDepositForm` lo invalida al guardar). Se
+devuelve completo si el cliente cancela antes del despacho o la tienda no puede despachar; se retiene si rechaza el
+pedido en la puerta sin causa justificada (cubre el flete de ida y regreso, ver `politica-de-cambios`); sin pago en 24 h
+el pedido se cancela sin cobro.
+
 **Limitaciones conocidas:** la reconciliación de Wompi (`WompiReconciliationService`) solo revisa pedidos
 `paymentProvider = WOMPI`, por lo que un webhook perdido de un anticipo COD no se reconcilia solo; el admin puede
 confirmar el estado a mano. Los cupones siguen siendo solo para pagos Wompi. Pendiente: correo recordatorio del
-anticipo y revisar las políticas (cuándo se devuelve el anticipo).
+anticipo y la revisión legal del texto de retención.
 
 ### 9.2 Peso y dimensiones reales de envío
 

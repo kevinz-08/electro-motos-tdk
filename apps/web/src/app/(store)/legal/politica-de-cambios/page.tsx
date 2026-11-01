@@ -21,7 +21,7 @@ export default function PoliticaDeCambiosPage() {
           Política de Cambios, Devoluciones y Reembolsos
         </h1>
         <p className="text-sm text-gray-400 mt-2">
-          Última actualización: <time dateTime="2026-06-01">01 de junio de 2026</time>
+          Última actualización: <time dateTime="2026-10-31">31 de octubre de 2026</time>
         </p>
       </header>
 
@@ -70,6 +70,19 @@ export default function PoliticaDeCambiosPage() {
               En casos donde el cliente rechace el pedido o solicite su devolución
               sin causa justificada, se le cobrará el valor total del flete de
               ida y regreso.
+            </li>
+            <li>
+              En los pedidos contra entrega con anticipo, ese anticipo se retiene
+              cuando el pedido es rechazado o no se recibe sin causa justificada, y se
+              descuenta del flete de ida y regreso. Las condiciones completas están en
+              la{' '}
+              <a
+                href="/legal/politica-de-envios#seccion-contraentrega"
+                className="text-sky-600 underline hover:text-sky-700"
+              >
+                Política de Envíos
+              </a>
+              .
             </li>
             <li>
               Si el cliente decide devolver los productos a través de medios no

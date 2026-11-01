@@ -203,8 +203,9 @@ export default async function WhyBuyPage() {
           </ul>
           {facts.cashOnDelivery && (
             <p className="mt-3 leading-relaxed text-gray-700">
-              <strong className="text-gray-900">Contra entrega:</strong> pagas cuando recibes tu pedido. Solo aplica para
-              ciudades principales.
+              <strong className="text-gray-900">Contra entrega:</strong> pagas el saldo cuando recibes tu pedido; puede requerir un
+              anticipo en línea que se descuenta del total (consulta la Política de Envíos). Solo aplica para ciudades
+              principales.
             </p>
           )}
           <p className="mt-3 leading-relaxed text-gray-700">

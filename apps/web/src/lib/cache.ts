@@ -326,6 +326,19 @@ export const getCachedCroSettings = cached(
   [CACHE_TAGS.settings],
 )
 
+/**
+ * Anticipo pre-envío de contraentrega en centavos COP (Settings.COD_DEPOSIT_AMOUNT).
+ * 0 = desactivado. Lo lee la política de envíos para que el texto coincida con el checkout.
+ */
+export const getCachedCodDepositCents = cached(
+  async () => {
+    const row = await prisma.settings.findUnique({ where: { key: 'COD_DEPOSIT_AMOUNT' } })
+    return Math.max(0, parseInt(row?.value ?? '0', 10) || 0)
+  },
+  'cod-deposit-cents',
+  [CACHE_TAGS.settings],
+)
+
 // ── Reseñas ───────────────────────────────────────────────────────────────────
 
 /**

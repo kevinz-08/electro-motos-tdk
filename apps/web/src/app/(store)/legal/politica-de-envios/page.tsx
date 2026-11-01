@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { canonical } from '@/lib/seo'
-import { getCachedCroSettings } from '@/lib/cache'
+import { getCachedCroSettings, getCachedCodDepositCents } from '@/lib/cache'
 import { formatCOP } from '@/components/store/PriceTag'
 
 export const metadata: Metadata = {
@@ -12,7 +12,10 @@ export const metadata: Metadata = {
 }
 
 export default async function PoliticaDeEnviosPage() {
-  const { freeShippingThreshold } = await getCachedCroSettings()
+  const [{ freeShippingThreshold }, codDepositCents] = await Promise.all([
+    getCachedCroSettings(),
+    getCachedCodDepositCents(),
+  ])
   return (
     <>
       {/* Encabezado */}
@@ -24,7 +27,7 @@ export default async function PoliticaDeEnviosPage() {
           Política de Envíos
         </h1>
         <p className="text-sm text-gray-400 mt-2">
-          Última actualización: <time dateTime="2026-06-01">01 de junio de 2026</time>
+          Última actualización: <time dateTime="2026-10-31">31 de octubre de 2026</time>
         </p>
       </header>
 
@@ -222,6 +225,77 @@ export default async function PoliticaDeEnviosPage() {
             <li>Alteración o modificación del producto.</li>
             <li>Desgaste natural por uso normal.</li>
           </ul>
+        </section>
+
+        {/* Contraentrega y anticipo */}
+        <section aria-labelledby="seccion-contraentrega">
+          <h2 id="seccion-contraentrega" className="text-lg font-bold text-gray-900 mb-3">
+            7. Pago Contra Entrega y Anticipo
+          </h2>
+          <p className="text-gray-700 mb-3">
+            En los pedidos con <strong>envío a domicilio</strong> puedes elegir pagar en
+            efectivo al repartidor cuando recibas el producto (pago contra entrega).
+          </p>
+          {codDepositCents > 0 ? (
+            <>
+              <p className="text-gray-700 mb-3">
+                Para confirmar y despachar un pedido contra entrega, H2R ONLINE STORE
+                solicita un <strong>anticipo de {formatCOP(codDepositCents)} COP</strong>,
+                que se paga en línea con Wompi al finalizar la compra. Ese valor{' '}
+                <strong>se descuenta del total</strong>: al recibir el pedido solo pagas
+                al repartidor el saldo restante, que se muestra en el checkout y en la
+                confirmación del pedido.
+              </p>
+              <h3 className="font-semibold text-gray-800 mb-2 mt-4">
+                Cuándo se devuelve el anticipo
+              </h3>
+              <ul className="list-disc list-outside pl-5 space-y-1.5 text-gray-700">
+                <li>
+                  <strong>Se devuelve completo</strong> si cancelas el pedido antes de que
+                  sea despachado.
+                </li>
+                <li>
+                  <strong>Se devuelve completo</strong> si H2R ONLINE STORE no puede
+                  despachar el pedido, o si el producto presenta una falla cubierta por la
+                  garantía legal.
+                </li>
+                <li>
+                  <strong>Se retiene</strong> si rechazas el pedido en la puerta o no lo
+                  recibes sin causa justificada, para cubrir el costo del flete de ida y
+                  regreso (ver la{' '}
+                  <a
+                    href="/legal/politica-de-cambios"
+                    className="text-sky-600 underline hover:text-sky-700"
+                  >
+                    Política de Cambios y Devoluciones
+                  </a>
+                  ).
+                </li>
+                <li>
+                  Si no pagas el anticipo dentro de las <strong>24 horas</strong> siguientes
+                  a crear el pedido, este se cancela automáticamente y no se te cobra nada.
+                </li>
+              </ul>
+              <p className="text-gray-700 mt-3">
+                Los pedidos con <strong>retiro en tienda</strong> no pagan anticipo. Esta
+                política no limita tu derecho de retracto ni la garantía legal previstos en
+                la Ley 1480 de 2011.
+              </p>
+            </>
+          ) : (
+            <p className="text-gray-700">
+              Pagas el valor total en efectivo al repartidor al recibir tu pedido. Si
+              rechazas el pedido o no lo recibes sin causa justificada, aplica el cobro del
+              flete de ida y regreso descrito en la{' '}
+              <a
+                href="/legal/politica-de-cambios"
+                className="text-sky-600 underline hover:text-sky-700"
+              >
+                Política de Cambios y Devoluciones
+              </a>
+              .
+            </p>
+          )}
         </section>
 
         {/* Contacto */}

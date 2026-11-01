@@ -4,6 +4,30 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 198. Políticas de envío y devoluciones: contraentrega y anticipo
+
+**Requerimiento:** que las políticas legales expliquen el anticipo de contraentrega y cuándo se devuelve.
+
+**Reglas aprobadas por el negocio:** el anticipo se devuelve completo si el cliente cancela antes del despacho o si
+la tienda no puede despachar / hay falla de garantía; se retiene si el cliente rechaza el pedido en la puerta o no lo
+recibe sin causa justificada (cubre el flete de ida y regreso); sin pago en 24 h el pedido se cancela sin cobro;
+retiro en tienda exento.
+
+**Hecho:**
+
+- `politica-de-envios`: nueva sección 7 "Pago contra entrega y anticipo" (id `seccion-contraentrega`). El monto sale
+  de `Settings.COD_DEPOSIT_AMOUNT` vía `getCachedCodDepositCents` (tag `settings`); con el anticipo apagado solo se
+  describe el pago contra entrega. Fecha de actualización: 31 de octubre de 2026.
+- `politica-de-cambios`: viñeta en "Condiciones importantes" sobre la retención del anticipo, enlazada a la sección 7.
+- `CodDepositForm` invalida el tag `settings` al guardar, para que la política muestre el monto nuevo.
+- FAQ de pagos (`faq.ts`) y "Por qué comprar" ya no dicen que se paga todo al recibir: mencionan el anticipo.
+
+**Pendiente:** revisión legal del texto de retención antes de activar el anticipo (derecho de retracto, Ley 1480).
+
+*Última actualización: 2026-10-31*
+
+---
+
 ## 197. Contraentrega: anticipo pre-envío por Wompi — fase 2
 
 **Requerimiento:** bajar la tasa de devoluciones de contraentrega pidiendo un anticipo (15.000 COP de partida)

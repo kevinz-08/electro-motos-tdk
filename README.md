@@ -21,6 +21,7 @@ electrónico. Los administradores gestionan productos, pedidos y stock desde un 
 8. [Flujo de pago con Mercado Pago](#8-flujo-de-pago-con-mercado-pago)
 9. [Integración de despacho con Vendelo](#9-integración-de-despacho-con-vendelo)
    - [9.1 Pago contra entrega (COD)](#91-pago-contra-entrega-cod)
+   - [9.3 Anticipo pre-envío de contraentrega](#93-anticipo-pre-envío-de-contraentrega)
    - [9.4 Apartado "Guía Vendelo" en el panel admin](#94-apartado-guía-vendelo-en-el-panel-admin)
 10. [Servicios de background (colas y reconciliación)](#10-servicios-de-background-colas-y-reconciliación)
 11. [API NestJS — Referencia completa](#11-api-nestjs--referencia-completa)
@@ -650,6 +651,47 @@ Estado persistido en la tabla `Settings` (clave `COD_ENABLED`, mismo patrón que
 No borra ninguna funcionalidad: el código de creación de pedidos COD, Vendelo y el webhook de
 envío siguen intactos — el toggle solo controla si se *ofrece* la opción. `PATCH /admin/settings/cod`
 (`AdminSettingsController`, `@Roles('ADMIN')`) escribe el setting; `CodToggle.tsx` es el switch en la UI.
+
+### 9.3 Anticipo pre-envío de contraentrega
+
+Los pedidos contraentrega tienen más devoluciones y entregas fallidas, y el flete de ida y vuelta lo asume
+el negocio. Para comprometer al cliente con el pedido, el admin puede exigir un **anticipo** que se paga por
+Wompi **antes** de despachar y se **descuenta** de lo que se cobra en la puerta.
+
+**Configuración (`/admin/configuracion` → Pago contra entrega → "Anticipo pre-envío"):** el admin escribe pesos;
+se guarda en centavos en `Settings.COD_DEPOSIT_AMOUNT` (`PUT /admin/settings/cod-deposit`). **0 o sin fila =
+desactivado** (default). Se puede cambiar sin desplegar.
+
+| Situación | Resultado |
+| --- | --- |
+| Anticipo activo + envío a domicilio | `AWAITING_DEPOSIT`, sin descontar stock; el checkout abre el widget Wompi por el anticipo |
+| Retiro en tienda | **Exento**: nace `COD_CONFIRMED` sin anticipo |
+| Anticipo mayor al total | Se limita al total |
+| Anticipo desactivado | Flujo anterior (`COD_CONFIRMED` inmediato) |
+
+**Ciclo de vida:** `AWAITING_DEPOSIT` → (webhook Wompi `APPROVED`) → `COD_CONFIRMED` → `SHIPPED` → `DELIVERED`.
+Al aprobarse el anticipo ocurre lo que antes ocurría al crear el pedido: se descuenta el stock, se invalida la
+caché de la tienda, se encola el correo y se encola en Vendelo. Un anticipo **rechazado no cancela** el pedido:
+queda esperando para reintentar. Si pasan **24 h** sin pagar, `ExpiredOrdersCleanupService` lo cancela (no hay
+stock que restaurar).
+
+**Diseño:** el anticipo reutiliza el único `Payment` del pedido (provider `WOMPI`, `amount` = anticipo) y la misma
+referencia `ORDER-{id}-{ts}`, de modo que el webhook de Wompi no cambia. `Order.codDepositAmount` guarda el monto
+y `codBalanceDue(order)` calcula el saldo. `ConfirmPayment` valida el monto del webhook contra el anticipo (no
+contra el total) y transiciona desde `AWAITING_DEPOSIT`. Un pedido COD con anticipo conserva `paymentProvider = COD`.
+
+**Reintento de pago:** `POST /orders/:id/deposit-transaction?token=` genera una transacción Wompi nueva (dueño con
+sesión o enlace firmado de invitado). La página `/checkout/confirmacion` lo ofrece con `PayDepositSection`.
+
+**Vendelo:** el esquema de `discounts` no está confirmado por Vendelo, así que el anticipo se reparte en proporción
+entre las líneas en `unit_price` (`prorateDepositIntoUnitPrices`), para que el repartidor cobre el saldo. Si el
+anticipo cubre todo el subtotal, el pedido va como `EXTERNAL_PAYMENT`. **Pendiente de validar en un pedido real:**
+que Vendelo acepte precios unitarios con decimales y que el valor a recaudar de la guía sea el saldo.
+
+**Limitaciones conocidas:** la reconciliación de Wompi (`WompiReconciliationService`) solo revisa pedidos
+`paymentProvider = WOMPI`, por lo que un webhook perdido de un anticipo COD no se reconcilia solo; el admin puede
+confirmar el estado a mano. Los cupones siguen siendo solo para pagos Wompi. Pendiente: correo recordatorio del
+anticipo y revisar las políticas (cuándo se devuelve el anticipo).
 
 ### 9.2 Peso y dimensiones reales de envío
 

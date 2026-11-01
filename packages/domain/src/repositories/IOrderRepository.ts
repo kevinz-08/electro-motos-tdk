@@ -49,6 +49,12 @@ export interface CreateOrderInput {
   shippingTotal: number
   /** Total del pedido en centavos COP (calculado por CreateOrder use case) */
   total: number
+  /**
+   * Anticipo pre-envío de un pedido COD (centavos COP). Si es > 0, `create()` deja el pedido
+   * en AWAITING_DEPOSIT con un Payment WOMPI por ese monto (sin descontar stock); lo confirma
+   * ConfirmPayment cuando el webhook aprueba el anticipo.
+   */
+  codDepositAmount?: number
   /** Código del cupón aplicado. null si no se usó cupón. */
   couponCode?: string
   /** Centavos COP descontados por el cupón. 0 si no se usó cupón. */
@@ -111,6 +117,8 @@ export interface IOrderRepository {
       orderStatus: OrderStatus
       paymentStatus: PaymentStatus
       externalId: string
+      /** Estado de origen exigido para aplicar la transición. Default PENDING; AWAITING_DEPOSIT para el anticipo COD. */
+      from?: OrderStatus
       /** Items a descontar de stock dentro de la misma transacción (solo para APPROVED). */
       stockDecrements?: Array<{ productId: string; quantity: number }>
     },

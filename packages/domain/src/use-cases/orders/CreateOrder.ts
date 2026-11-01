@@ -43,6 +43,12 @@ export interface CreateOrderUseCaseInput {
   maxShippingChargeCents?: number
   /** Código del cupón a aplicar. Si no se valida correctamente, la orden no se crea. */
   couponCode?: string
+  /**
+   * Anticipo pre-envío (centavos COP) que el caller resolvió desde Settings. Solo aplica a COD con
+   * entrega a domicilio (el retiro en tienda está exento). Se limita al total del pedido.
+   * 0/undefined = sin anticipo (el pedido COD nace COD_CONFIRMED).
+   */
+  codDepositCents?: number
 }
 
 export interface CreateOrderOutput {
@@ -77,6 +83,10 @@ export interface CreateOrderOutput {
  * ConfirmPayment cuando el webhook de la pasarela confirma que el pago fue APPROVED.
  * Razón: si se descontase aquí y el cliente abandona el pago, el stock quedaría
  * reducido incorrectamente.
+ *
+ * Flujo para COD con anticipo (codDepositCents > 0, entrega a domicilio): el pedido nace
+ * AWAITING_DEPOSIT, sin stock descontado, y `payment` trae los datos del widget Wompi por el
+ * anticipo. Sin anticipo se aplica el flujo siguiente.
  *
  * Flujo para COD (pago contra entrega):
  *   No hay pasarela ni webhook que confirme el pago — el pedido se confirma al
@@ -246,8 +256,34 @@ export class CreateOrder {
       couponRedemption,
     }
 
-    // COD: no hay pasarela que esperar — el pedido se crea ya PAID y con el
-    // stock descontado en la misma transacción.
+    // COD con anticipo: el pedido queda AWAITING_DEPOSIT y se cobra el anticipo por Wompi.
+    // El stock se descuenta cuando el webhook aprueba el anticipo (ConfirmPayment).
+    const codDepositAmount = input.paymentProvider === 'COD'
+      && (input.deliveryMethod ?? 'HOME_DELIVERY') === 'HOME_DELIVERY'
+      && (input.codDepositCents ?? 0) > 0
+      ? Math.min(input.codDepositCents as number, total)
+      : 0
+
+    if (codDepositAmount > 0) {
+      let order: Order
+      try {
+        order = await this.orderRepo.create({ ...createInput, codDepositAmount })
+      } catch (e) {
+        if (e instanceof AppError) return err(e)
+        return err(new AppError('INTERNAL_ERROR', 'Error al crear el pedido', e))
+      }
+      let paymentResult: PaymentResult
+      try {
+        // WompiService lee order.codDepositAmount: el cobro es el anticipo, no el total.
+        paymentResult = await this.paymentService.createTransaction(order)
+      } catch (e) {
+        return err(new AppError('PAYMENT_ERROR', 'Error al iniciar el pago del anticipo', e))
+      }
+      return ok({ order, payment: paymentResult, shippingQuoteFallback: false })
+    }
+
+    // COD sin anticipo: no hay pasarela que esperar — el pedido se crea ya
+    // COD_CONFIRMED y con el stock descontado en la misma transacción.
     if (input.paymentProvider === 'COD') {
       let order: Order
       try {

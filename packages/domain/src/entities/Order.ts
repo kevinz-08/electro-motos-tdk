@@ -22,6 +22,11 @@ export type OrderStatus = 'PENDING' | 'PAID' | 'AWAITING_DEPOSIT' | 'COD_CONFIRM
  * COD ("Cash On Delivery") no es una pasarela — el pedido se confirma sin paso de
  * autorización online y el cliente paga en efectivo al repartidor de Vendelo.
  */
+/** Saldo que el repartidor cobra en la puerta de un pedido contraentrega (total menos el anticipo ya pagado). */
+export function codBalanceDue(order: { total: number; codDepositAmount?: number }): number {
+  return Math.max(0, order.total - (order.codDepositAmount ?? 0))
+}
+
 export type PaymentProvider = 'WOMPI' | 'MERCADO_PAGO' | 'COD'
 
 /**
@@ -229,6 +234,12 @@ export interface Order {
   buyer: BuyerInfo
   /** Pasarela de pago seleccionada en el checkout */
   paymentProvider: PaymentProvider
+  /**
+   * Anticipo pre-envío de un pedido contraentrega, en centavos COP (0 o ausente = sin anticipo).
+   * Se paga por Wompi antes del despacho y se descuenta del cobro en la puerta:
+   * saldo = total - codDepositAmount (ver codBalanceDue).
+   */
+  codDepositAmount?: number
   /** Fecha de creación del pedido */
   createdAt: Date
   /** Ítems del pedido. Opcional — depende de si el query los incluye (include: { items: true }) */

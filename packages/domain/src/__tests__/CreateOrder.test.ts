@@ -203,7 +203,7 @@ describe('CreateOrder', () => {
 
   it('COD: crea el pedido vía createPaidOrder y no llama a paymentService', async () => {
     const product = makeProduct()
-    const order = makeOrder({ total: product.price * 2, paymentProvider: 'COD', status: 'PAID' })
+    const order = makeOrder({ total: product.price * 2, paymentProvider: 'COD', status: 'COD_CONFIRMED' })
 
     const productRepo = {
       findById: vi.fn().mockResolvedValue(product),
@@ -226,7 +226,7 @@ describe('CreateOrder', () => {
 
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.value.order.status).toBe('PAID')
+      expect(result.value.order.status).toBe('COD_CONFIRMED')
       expect(result.value.payment).toBeNull()
     }
     expect(createPaidOrder).toHaveBeenCalledWith(expect.objectContaining({
@@ -437,7 +437,7 @@ describe('CreateOrder', () => {
 
   it('paymentProvider COD con chargeShippingOnline:true igual deja shippingTotal en 0 (guard explícito)', async () => {
     const product = makeProduct()
-    const order = makeOrder({ total: product.price, paymentProvider: 'COD', status: 'PAID' })
+    const order = makeOrder({ total: product.price, paymentProvider: 'COD', status: 'COD_CONFIRMED' })
     const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
     const createPaidOrder = vi.fn().mockResolvedValue(order)
     const orderRepo = { createPaidOrder } as unknown as IOrderRepository

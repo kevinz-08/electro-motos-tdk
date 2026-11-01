@@ -6,9 +6,14 @@
  *   PAID     →  SHIPPED   (admin marca como despachado)
  *   SHIPPED  →  DELIVERED (admin marca como entregado)
  *
+ *   Contraentrega (COD) usa estados propios, para no confundir "pagado" con "por cobrar":
+ *   AWAITING_DEPOSIT →  COD_CONFIRMED (anticipo pre-envío aprobado)
+ *   COD_CONFIRMED    →  SHIPPED → DELIVERED (el saldo se cobra en la puerta)
+ *   Sin anticipo activo el pedido COD nace directamente en COD_CONFIRMED.
+ *
  *   Un pedido PENDING puede quedar huérfano si el cliente no completa el pago.
  */
-export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
+export type OrderStatus = 'PENDING' | 'PAID' | 'AWAITING_DEPOSIT' | 'COD_CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
 
 /**
  * Pasarela de pago seleccionada en el checkout.

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Resend } from 'resend'
-import { Order } from '@h2r/domain'
+import { Order, codBalanceDue } from '@h2r/domain'
 import { signOrderAccessToken, signReviewToken } from '../../shared/order-access-token'
 
 function escapeHtml(value: string): string {
@@ -114,6 +114,12 @@ export class ResendEmailService {
   async sendOrderConfirmation(order: Order, customerEmail: string): Promise<void> {
     if (!this.resend) return
     const isCod = order.paymentProvider === 'COD'
+    const deposit = isCod ? (order.codDepositAmount ?? 0) : 0
+    const cop = (cents: number) => (cents / 100).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+    const codIntro = deposit > 0
+      ? `Recibimos tu anticipo de <strong>${cop(deposit)}</strong> y tu pedido está siendo preparado para envío. `
+        + `Al recibirlo pagas en efectivo al repartidor el saldo de <strong>${cop(codBalanceDue(order))}</strong>.`
+      : 'Tu pedido fue confirmado y está siendo preparado para envío. Pagas en efectivo al repartidor cuando lo recibas.'
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: customerEmail,
@@ -125,7 +131,7 @@ export class ResendEmailService {
         icon: '✅',
         heading: isCod ? '¡Pedido confirmado!' : '¡Pago confirmado!',
         intro: isCod
-          ? 'Tu pedido fue confirmado y está siendo preparado para envío. Pagas en efectivo al repartidor cuando lo recibas.'
+          ? codIntro
           : 'Tu pedido fue aprobado y está siendo preparado para envío.',
         orderId: order.id,
         total: order.total,

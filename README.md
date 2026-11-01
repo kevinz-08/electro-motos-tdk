@@ -621,10 +621,15 @@ existe un webhook de pasarela que confirme el pago, el ciclo de vida del pedido 
 
 | Paso | Online (Wompi/MP) | COD |
 | --- | --- | --- |
-| Estado inicial del pedido | `PENDING` (espera webhook) | `PAID` (inmediato, sin paso de autorización) |
+| Estado inicial del pedido | `PENDING` (espera webhook) | `COD_CONFIRMED` (inmediato, sin paso de autorización) |
 | Descuento de stock | Al recibir webhook `APPROVED` | En la misma transacción de creación del pedido |
 | Encolado en Vendelo / email confirmación | Disparado por el webhook | Disparado directo desde `OrdersController` tras crear el pedido |
 | `payment_method_code` enviado a Vendelo | `EXTERNAL_PAYMENT` | `COD` |
+
+**Estados propios de COD:** `PAID` significa "dinero recibido" y solo existe en pagos en línea. Un pedido
+contraentrega usa `AWAITING_DEPOSIT` (falta el anticipo pre-envío, ver §9.3) y `COD_CONFIRMED` (confirmado; el
+saldo se cobra en la puerta). El selector del admin solo ofrece los estados del método de pago del pedido y
+`PATCH /api/orders/:id/status` rechaza mezclarlos. `AWAITING_DEPOSIT` no cuenta como ingreso.
 
 **Restock automático:** si Vendelo reporta el envío como `RETURNED` o `CANCELLED` (paquete
 rechazado en la puerta), `SyncShipmentStatus` restaura el stock de los `OrderItem` del pedido,

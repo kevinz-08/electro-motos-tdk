@@ -4,6 +4,27 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 196. Contraentrega: estados propios (`AWAITING_DEPOSIT`, `COD_CONFIRMED`) — fase 1
+
+**Requerimiento:** el admin confundía los pedidos contraentrega con pagos en línea porque ambos mostraban "Pagado".
+
+**Hecho:**
+
+- Enum `OrderStatus` con dos valores nuevos, solo para COD. Dos migraciones: `20261031000000` agrega los valores
+  y `20261031000100` pasa los COD existentes de `PAID` a `COD_CONFIRMED` (Postgres no deja usar un valor del enum
+  en la misma transacción que lo crea).
+- `createPaidOrder` (API y web) crea el pedido COD en `COD_CONFIRMED`.
+- `hasApprovedOrders` cuenta `COD_CONFIRMED`; los ingresos excluyen `AWAITING_DEPOSIT`.
+- Admin: etiquetas, colores y filtros nuevos; `OrderStatusSelect` ofrece solo los estados del método de pago;
+  `PATCH /api/orders/:id/status` rechaza mezclar estados de COD y de pago en línea. Cliente: badge nuevo.
+- `confirmacion/page.tsx` trata `COD_CONFIRMED` como `PAID` para limpiar el carrito.
+
+**Verificación:** `type-check` limpio; 411 tests de dominio y 249 de API.
+
+*Última actualización: 2026-10-31*
+
+---
+
 ## 164. Fase 4 del proyecto SEO — conversión (primera entrega)
 
 **Requerimiento:** desarrollar la Fase 4 del `ROADMAP.md`. Decisión del negocio sobre H-01:

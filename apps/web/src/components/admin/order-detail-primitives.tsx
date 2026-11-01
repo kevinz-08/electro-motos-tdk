@@ -17,6 +17,8 @@ export function formatDateTime(d: string): string {
 export const STATUS_COLOR: Record<string, string> = {
   PENDING: 'bg-amber-500/20 text-amber-400',
   PAID: 'bg-green-500/20 text-green-400',
+  AWAITING_DEPOSIT: 'bg-orange-500/20 text-orange-400',
+  COD_CONFIRMED: 'bg-teal-500/20 text-teal-400',
   SHIPPED: 'bg-blue-500/20 text-blue-400',
   DELIVERED: 'bg-purple-500/20 text-purple-400',
   CANCELLED: 'bg-red-500/20 text-red-400',

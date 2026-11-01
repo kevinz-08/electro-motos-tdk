@@ -7,7 +7,7 @@ export const pedidosHelpContent: AdminHelpContent = {
     'estado, cambiar el estado manualmente, y revisar el detalle completo de cada pedido sin ' +
     'descargar el comprobante.',
   steps: [
-    'Usa los botones de arriba (Todos, Pendiente, Pagado, Enviado, Entregado, Cancelado) para filtrar la lista.',
+    'Usa los botones de arriba (Todos, Pendiente, Pagado, Esperando anticipo, Confirmado COD, Enviado, Entregado, Cancelado) para filtrar la lista. "Pagado" es solo de pagos en línea (Wompi / Mercado Pago); "Esperando anticipo" y "Confirmado COD" son exclusivos de pedidos contraentrega: en esos el cliente paga el saldo en efectivo al repartidor.',
     'El selector "Cambiar estado" actualiza el pedido al instante — no pide confirmación, así que revisa bien antes de cambiarlo. El sistema no valida que el cambio siga un orden lógico (por ejemplo, puedes marcar "Entregado" un pedido que nunca pasó por "Pagado"), así que es tu responsabilidad mantener el estado correcto.',
     'El botón ⓘ abre el detalle completo del pedido (comprador, dirección, productos, pago) sin tener que descargar el PDF.',
     'La columna "Guía" resume el despacho de cada pedido con un punto de color (ver la leyenda debajo de la tabla). Un punto rojo significa que el envío a Vendelo falló y el pedido está pagado pero sin despachar: ábrelo y reintenta.',

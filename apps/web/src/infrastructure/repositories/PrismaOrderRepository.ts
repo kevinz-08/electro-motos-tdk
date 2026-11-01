@@ -82,6 +82,7 @@ function toDomain(
       businessName: o.buyerBusinessName ?? undefined,
     },
     paymentProvider: o.paymentProvider as PaymentProvider,
+    codDepositAmount: o.codDepositAmount,
     shippingTotal: o.shippingTotal,
     createdAt: o.createdAt,
     items: o.items?.map(toDomainItem),
@@ -172,6 +173,10 @@ export class PrismaOrderRepository implements IOrderRepository {
         contactEmail: input.contactEmail,
         buyerIdKey: input.buyerIdKey,
         total: input.total,
+        // Anticipo COD: el pedido espera el anticipo y su único Payment es ese cobro Wompi.
+        ...(input.codDepositAmount
+          ? { status: 'AWAITING_DEPOSIT' as const, codDepositAmount: input.codDepositAmount }
+          : {}),
         // Cast necesario: ShippingAddress → Prisma.InputJsonValue (tipo opaco de Prisma para JSON)
         shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
         deliveryMethod: input.deliveryMethod,
@@ -185,8 +190,8 @@ export class PrismaOrderRepository implements IOrderRepository {
         },
         payment: {
           create: {
-            provider: input.paymentProvider,
-            amount: input.total,
+            provider: input.codDepositAmount ? 'WOMPI' : input.paymentProvider,
+            amount: input.codDepositAmount || input.total,
             // externalId queda null hasta que la pasarela confirme via webhook
           },
         },
@@ -210,7 +215,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           userId: input.userId,
           contactEmail: input.contactEmail,
           buyerIdKey: input.buyerIdKey,
-          status: 'PAID',
+          status: 'COD_CONFIRMED',
           total: input.total,
           shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
           deliveryMethod: input.deliveryMethod,
@@ -297,12 +302,13 @@ export class PrismaOrderRepository implements IOrderRepository {
       orderStatus: OrderStatus
       paymentStatus: PaymentStatus
       externalId: string
+      from?: OrderStatus
       stockDecrements?: Array<{ productId: string; quantity: number }>
     },
   ): Promise<PaymentTransitionResult> {
     return prisma.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({
-        where: { id: orderId, status: 'PENDING' },
+        where: { id: orderId, status: to.from ?? 'PENDING' },
         data: { status: to.orderStatus },
       })
       if (updated.count === 0) {
@@ -312,7 +318,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         where: { orderId },
         data: { status: to.paymentStatus, externalId: to.externalId },
       })
-      if (to.orderStatus === 'PAID') {
+      if (to.orderStatus === 'PAID' || to.orderStatus === 'COD_CONFIRMED') {
         await tx.couponRedemption.updateMany({
           where: { orderId, status: 'RESERVED' },
           data: { status: 'CONFIRMED' },
@@ -338,7 +344,7 @@ export class PrismaOrderRepository implements IOrderRepository {
 
     const result = await prisma.order.aggregate({
       where: {
-        status: { notIn: ['PENDING', 'CANCELLED'] },
+        status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] },
         createdAt: { gte: today },
       },
       _sum: { total: true },
@@ -358,7 +364,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     firstDay.setHours(0, 0, 0, 0)
 
     const result = await prisma.order.aggregate({
-      where: { status: { notIn: ['PENDING', 'CANCELLED'] }, createdAt: { gte: firstDay } },
+      where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] }, createdAt: { gte: firstDay } },
       _sum: { total: true },
     })
     return result._sum.total ?? 0
@@ -381,14 +387,14 @@ export class PrismaOrderRepository implements IOrderRepository {
 
     if (range === 'all') {
       const earliest = await prisma.order.aggregate({
-        where: { status: { notIn: ['PENDING', 'CANCELLED'] } },
+        where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] } },
         _min: { createdAt: true },
       })
       const firstOrderDate = earliest._min.createdAt
       if (!firstOrderDate) return []
 
       const orders = await prisma.order.findMany({
-        where: { status: { notIn: ['PENDING', 'CANCELLED'] } },
+        where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] } },
         select: { total: true, createdAt: true },
       })
 
@@ -415,7 +421,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     since.setDate(since.getDate() - (days - 1))
 
     const orders = await prisma.order.findMany({
-      where: { status: { notIn: ['PENDING', 'CANCELLED'] }, createdAt: { gte: since } },
+      where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] }, createdAt: { gte: since } },
       select: { total: true, createdAt: true },
     })
 
@@ -477,7 +483,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     if (customer.buyerIdKey) or.push({ buyerIdKey: customer.buyerIdKey })
     if (or.length === 0) return false
     const row = await prisma.order.findFirst({
-      where: { OR: or, status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      where: { OR: or, status: { in: ['PAID', 'COD_CONFIRMED', 'SHIPPED', 'DELIVERED'] } },
       select: { id: true },
     })
     return row !== null

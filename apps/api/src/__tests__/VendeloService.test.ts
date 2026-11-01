@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { VendeloService } from '../infrastructure/services/VendeloService'
+import { VendeloService, prorateDepositIntoUnitPrices } from '../infrastructure/services/VendeloService'
 import type { VendeloHttpClient } from '../infrastructure/services/VendeloHttpClient'
 import type { VendeloQuoteInput, Order } from '@h2r/domain'
 
@@ -224,5 +224,83 @@ describe('VendeloService — createOrder', () => {
     for (const call of (http.post as ReturnType<typeof vi.fn>).mock.calls) {
       expect((call[1] as { discounts: unknown[] }).discounts).toEqual([])
     }
+  })
+
+  // ── Anticipo pre-envío COD: el repartidor solo cobra el saldo ────────────────
+
+  it('COD con anticipo: prorratea el anticipo en unit_price y sigue como COD', async () => {
+    const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
+    const service = new VendeloService(http)
+
+    // 2 x $25.000 = $50.000; anticipo $15.000 -> saldo $35.000 -> $17.500 por unidad
+    await service.createOrder(
+      makeOrder({ paymentProvider: 'COD', total: 5000000, codDepositAmount: 1500000 }),
+      'cliente@test.com',
+    )
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/v1/admin/orders',
+      expect.objectContaining({
+        payment_method_code: 'COD',
+        line_items: [expect.objectContaining({ unit_price: 17500 })],
+        discounts: [],
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('COD con anticipo que cubre todo el subtotal: EXTERNAL_PAYMENT a precio completo', async () => {
+    const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
+    const service = new VendeloService(http)
+
+    await service.createOrder(
+      makeOrder({ paymentProvider: 'COD', total: 5000000, codDepositAmount: 5000000 }),
+      'cliente@test.com',
+    )
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/v1/admin/orders',
+      expect.objectContaining({
+        payment_method_code: 'EXTERNAL_PAYMENT',
+        line_items: [expect.objectContaining({ unit_price: 25000 })],
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('un pedido online ignora codDepositAmount', async () => {
+    const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
+    const service = new VendeloService(http)
+
+    await service.createOrder(makeOrder({ paymentProvider: 'WOMPI', codDepositAmount: 1500000 }), 'cliente@test.com')
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/v1/admin/orders',
+      expect.objectContaining({ line_items: [expect.objectContaining({ unit_price: 25000 })] }),
+      expect.anything(),
+    )
+  })
+})
+
+describe('prorateDepositIntoUnitPrices', () => {
+  it('sin anticipo devuelve los precios originales', () => {
+    expect(prorateDepositIntoUnitPrices([{ priceAtPurchase: 1000, quantity: 3 }], 0)).toEqual([1000])
+  })
+
+  it('reparte el anticipo en proporción al valor de cada línea y conserva la suma', () => {
+    const items = [
+      { priceAtPurchase: 3000000, quantity: 1 },
+      { priceAtPurchase: 1000000, quantity: 2 },
+    ]
+    const prices = prorateDepositIntoUnitPrices(items, 1000000)!
+    const total = prices.reduce((sum, p, i) => sum + p * items[i]!.quantity, 0)
+    expect(Math.round(total)).toBe(5000000 - 1000000)
+    // la línea más cara absorbe una porción mayor del anticipo
+    expect(3000000 - prices[0]!).toBeGreaterThan(1000000 - prices[1]!)
+  })
+
+  it('devuelve null si el anticipo cubre todo el subtotal', () => {
+    expect(prorateDepositIntoUnitPrices([{ priceAtPurchase: 1000, quantity: 1 }], 1000)).toBeNull()
+    expect(prorateDepositIntoUnitPrices([{ priceAtPurchase: 1000, quantity: 1 }], 5000)).toBeNull()
   })
 })

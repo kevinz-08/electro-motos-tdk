@@ -79,6 +79,28 @@ interface VendeloCreateOrderBody {
   discounts: []
 }
 
+/**
+ * Reparte el anticipo COD ya pagado por Wompi entre las líneas del pedido, en proporción a
+ * su valor, para que el repartidor cobre `subtotal - anticipo` en la puerta.
+ *
+ * Vendelo no confirmó el esquema de `discounts` (ver comentario en createOrder), así que el
+ * anticipo se refleja en `unit_price`. Devuelve el precio unitario por línea en centavos
+ * (puede quedar fraccionario: se divide por 100 y se redondea a 2 decimales al enviarlo).
+ * Si el anticipo cubre todo el subtotal, devuelve null: no hay nada que cobrar en la puerta.
+ */
+export function prorateDepositIntoUnitPrices(
+  items: Array<{ priceAtPurchase: number; quantity: number }>,
+  depositCents: number,
+): number[] | null {
+  const subtotal = items.reduce((sum, i) => sum + i.priceAtPurchase * i.quantity, 0)
+  if (depositCents <= 0) return items.map((i) => i.priceAtPurchase)
+  if (depositCents >= subtotal) return null
+  return items.map((i) => {
+    const lineTotal = i.priceAtPurchase * i.quantity
+    return (lineTotal - (depositCents * lineTotal) / subtotal) / i.quantity
+  })
+}
+
 export interface VendeloCreateOrderResponse {
   items: Array<{ id: string; [key: string]: unknown }>
 }
@@ -177,6 +199,14 @@ export class VendeloService implements IVendeloShippingPort {
     const defaultWidth = parseInt(process.env['VENDELO_DEFAULT_WIDTH_CM'] ?? '25', 10)
     const defaultLength = parseInt(process.env['VENDELO_DEFAULT_LENGTH_CM'] ?? '10', 10)
 
+    // COD con anticipo: el repartidor solo cobra el saldo. Si el anticipo cubre todo el
+    // subtotal, el pedido ya está pagado: va como EXTERNAL_PAYMENT a precio completo.
+    const depositCents = order.paymentProvider === 'COD' ? (order.codDepositAmount ?? 0) : 0
+    const items = order.items ?? []
+    const unitPricesCents = prorateDepositIntoUnitPrices(items, depositCents)
+    const fullyPrepaid = unitPricesCents === null
+    const prices = unitPricesCents ?? items.map((i) => i.priceAtPurchase)
+
     const body: VendeloCreateOrderBody = {
       pickup_info: {
         contact_name: pickupName,
@@ -210,7 +240,7 @@ export class VendeloService implements IVendeloShippingPort {
         postal_code: addr.postalCode ?? '',
         phone: addr.phone,
       },
-      line_items: (order.items ?? []).map((item) => ({
+      line_items: items.map((item, idx) => ({
         type: 'STANDARD' as const,
         name: item.productSnapshot?.name ?? `Producto ${item.productId}`,
         sku: item.productSnapshot?.sku ?? item.productId,
@@ -218,7 +248,7 @@ export class VendeloService implements IVendeloShippingPort {
         // Siempre el precio real — probado en producción que Vendelo rechaza
         // (500 "invalid values") un pedido payment_method_code:'COD' con
         // unit_price:0.
-        unit_price: item.priceAtPurchase / 100,
+        unit_price: Math.round(prices[idx]!) / 100,
         // Peso/dimensiones reales del producto si el admin los cargó — si no,
         // caemos al default genérico (ver comentario en class doc: causa de
         // discrepancia entre el flete cotizado y el flete real cobrado por Vendelo).
@@ -233,7 +263,7 @@ export class VendeloService implements IVendeloShippingPort {
       // ante Vendelo (EXTERNAL_PAYMENT) — ese costo se recupera del cliente sumándolo
       // al cobro de Wompi/MercadoPago en CreateOrder.execute() (ver Order.shippingTotal),
       // no acá. Este servicio no necesita saber si el flete se cobró en línea o no.
-      payment_method_code: order.paymentProvider === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT',
+      payment_method_code: order.paymentProvider === 'COD' && !fullyPrepaid ? 'COD' : 'EXTERNAL_PAYMENT',
       external_order_id: order.id,
       confirmation_status: 'CONFIRMED',
       discounts: [],

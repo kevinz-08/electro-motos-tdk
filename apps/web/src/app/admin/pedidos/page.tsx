@@ -22,6 +22,8 @@ interface PageProps {
 const statusConfig: Record<string, { label: string; color: string }> = {
   PENDING:   { label: 'Pendiente', color: 'bg-amber-500/20 text-amber-400' },
   PAID:      { label: 'Pagado',    color: 'bg-green-500/20 text-green-400' },
+  AWAITING_DEPOSIT: { label: 'Esperando anticipo', color: 'bg-orange-500/20 text-orange-400' },
+  COD_CONFIRMED:    { label: 'Confirmado COD',     color: 'bg-teal-500/20 text-teal-400' },
   SHIPPED:   { label: 'Enviado',   color: 'bg-blue-500/20 text-blue-400' },
   DELIVERED: { label: 'Entregado', color: 'bg-purple-500/20 text-purple-400' },
   CANCELLED: { label: 'Cancelado', color: 'bg-red-500/20 text-red-400' },
@@ -30,6 +32,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 const providerLabels: Record<string, string> = {
   WOMPI: 'Wompi',
   MERCADO_PAGO: 'Mercado Pago',
+  COD: 'Contraentrega',
 }
 
 /**
@@ -113,7 +116,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
 
       {/* Filtros de estado */}
       <div className="flex gap-2 mb-6 flex-wrap">
-        {[undefined, 'PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((s) => (
+        {[undefined, 'PENDING', 'PAID', 'AWAITING_DEPOSIT', 'COD_CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((s) => (
           <a
             key={s ?? 'all'}
             href={s ? `/admin/pedidos?status=${s}` : '/admin/pedidos'}
@@ -185,7 +188,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <OrderStatusSelect orderId={order.id} currentStatus={order.status} />
+                    <OrderStatusSelect orderId={order.id} currentStatus={order.status} paymentProvider={order.paymentProvider} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">

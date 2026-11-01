@@ -4,6 +4,56 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 197. Contraentrega: anticipo pre-envío por Wompi — fase 2
+
+**Requerimiento:** bajar la tasa de devoluciones de contraentrega pidiendo un anticipo (15.000 COP de partida)
+que se paga por Wompi antes del envío y se descuenta del cobro en la puerta. Retiro en tienda exento.
+
+**Hecho:**
+
+- Migración `20261031000200`: `Order.codDepositAmount` (centavos, default 0).
+- Dominio: `CreateOrder` (`codDepositCents`) deja el pedido en `AWAITING_DEPOSIT` y abre la transacción Wompi por el
+  anticipo; `ConfirmPayment` valida contra el anticipo y confirma `AWAITING_DEPOSIT → COD_CONFIRMED` (con stock).
+  Anticipo rechazado = el pedido sigue esperando. `codBalanceDue`, `transitionFromPending({ from })`.
+- API: `COD_DEPOSIT_AMOUNT` en Settings (`PUT /admin/settings/cod-deposit`), `POST /orders/:id/deposit-transaction`,
+  `PATCH /orders/:id/status` rechaza mezclar estados COD y online. `WompiService` cobra el anticipo. El webhook no cambia.
+- Vendelo: el anticipo se prorratea en `unit_price` (esquema de `discounts` sin confirmar). Limpieza de vencidos
+  a 24 h para `AWAITING_DEPOSIT`. Correo de confirmación con anticipo y saldo.
+- Web: desglose en el checkout, widget del anticipo, `/checkout/confirmacion` con `PayDepositSection`, formulario
+  `CodDepositForm` en configuración y bloque de anticipo en el detalle del pedido.
+- Decisión de diseño: se reutilizó el único `Payment` en vez de crear la tabla `CodDeposit` del plan inicial
+  (evita romper la relación 1:1 de `Payment` y deja el webhook igual).
+
+**Verificación:** `type-check` limpio; 424 tests de dominio y 264 de API; lint sin errores.
+
+**Pendiente:** validar con un pedido real en Vendelo (decimales en `unit_price` y valor a recaudar), correo recordatorio,
+política de devolución del anticipo, E2E con el sandbox de Wompi, reconciliación de anticipos con webhook perdido.
+
+*Última actualización: 2026-10-31*
+
+---
+
+## 196. Contraentrega: estados propios (`AWAITING_DEPOSIT`, `COD_CONFIRMED`) — fase 1
+
+**Requerimiento:** el admin confundía los pedidos contraentrega con pagos en línea porque ambos mostraban "Pagado".
+
+**Hecho:**
+
+- Enum `OrderStatus` con dos valores nuevos, solo para COD. Dos migraciones: `20261031000000` agrega los valores
+  y `20261031000100` pasa los COD existentes de `PAID` a `COD_CONFIRMED` (Postgres no deja usar un valor del enum
+  en la misma transacción que lo crea).
+- `createPaidOrder` (API y web) crea el pedido COD en `COD_CONFIRMED`.
+- `hasApprovedOrders` cuenta `COD_CONFIRMED`; los ingresos excluyen `AWAITING_DEPOSIT`.
+- Admin: etiquetas, colores y filtros nuevos; `OrderStatusSelect` ofrece solo los estados del método de pago;
+  `PATCH /api/orders/:id/status` rechaza mezclar estados de COD y de pago en línea. Cliente: badge nuevo.
+- `confirmacion/page.tsx` trata `COD_CONFIRMED` como `PAID` para limpiar el carrito.
+
+**Verificación:** `type-check` limpio; 411 tests de dominio y 249 de API.
+
+*Última actualización: 2026-10-31*
+
+---
+
 ## 164. Fase 4 del proyecto SEO — conversión (primera entrega)
 
 **Requerimiento:** desarrollar la Fase 4 del `ROADMAP.md`. Decisión del negocio sobre H-01:

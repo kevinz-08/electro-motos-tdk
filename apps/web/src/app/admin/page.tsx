@@ -22,6 +22,8 @@ function formatCOP(cents: number): string {
 const statusConfig: Record<string, { label: string; dot: string }> = {
   PENDING:   { label: 'Pendiente', dot: 'bg-amber-400' },
   PAID:      { label: 'Pagado',    dot: 'bg-emerald-400' },
+  AWAITING_DEPOSIT: { label: 'Esperando anticipo', dot: 'bg-orange-400' },
+  COD_CONFIRMED:    { label: 'Confirmado COD',     dot: 'bg-teal-400' },
   SHIPPED:   { label: 'Enviado',   dot: 'bg-blue-400' },
   DELIVERED: { label: 'Entregado', dot: 'bg-white/40' },
   CANCELLED: { label: 'Cancelado', dot: 'bg-red-400' },

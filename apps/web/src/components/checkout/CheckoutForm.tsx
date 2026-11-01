@@ -40,6 +40,11 @@ interface CheckoutFormProps {
   /** Si el admin desactivó COD en /admin/configuracion, la opción no se muestra. */
   codEnabled: boolean
   /**
+   * Anticipo pre-envío de contraentrega en centavos COP (Settings.COD_DEPOSIT_AMOUNT). 0 = sin anticipo.
+   * Solo aplica a envío a domicilio: el retiro en tienda está exento. El backend decide el valor real.
+   */
+  codDepositCents: number
+  /**
    * Política global (no elegible por el cliente): si el admin la desactivó en
    * /admin/configuracion, todos los pedidos pagados en línea (WOMPI) nacen con
    * el flete contraentrega en vez de cobrarse desde la billetera del negocio.
@@ -71,7 +76,7 @@ function formatCOP(cents: number): string {
   }).format(cents / 100)
 }
 
-export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: CheckoutFormProps) {
+export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingOnlineEnabled }: CheckoutFormProps) {
   const { data: session } = useSession()
   const router = useRouter()
   const { items, total, selectedCity, setSelectedCity } = useCart()
@@ -120,6 +125,9 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
   })
 
   const cartTotal = total()
+  const codDeposit = paymentMethod === 'COD' && deliveryMethod === 'HOME_DELIVERY'
+    ? Math.min(codDepositCents, cartTotal)
+    : 0
   const shippingItems = items.map((i) => ({ productId: i.product.id, quantity: i.quantity }))
   const quotePaymentMethod = paymentMethod === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT'
   // Retiro en tienda: no hay nada que cotizar — se pasa `null` para que el hook
@@ -239,8 +247,9 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
 
       const { order, payment, accessToken } = orderRes.data
 
-      if (paymentMethod === 'COD') {
+      if (paymentMethod === 'COD' && !payment?.publicKey) {
         // El pedido COD ya nació confirmado — no hay widget de pago que mostrar.
+        // (Con anticipo, `payment` trae los datos de Wompi y se sigue al paso de pago.)
         // El token permite ver la confirmación sin sesión (invitados).
         router.push(`/checkout/confirmacion?orderId=${order.id}&token=${encodeURIComponent(accessToken)}`)
         return
@@ -590,6 +599,18 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
                   </label>
                 </div>
 
+                {codDeposit > 0 && (
+                  <div className="mt-3 border border-dashed border-sky-300 bg-sky-50 rounded-lg px-4 py-3">
+                    <span className="block text-sm font-semibold text-gray-900">
+                      Anticipo de {formatCOP(codDeposit)} para confirmar tu envío
+                    </span>
+                    <span className="block text-xs text-gray-500 mt-1">
+                      Lo pagas ahora con Wompi y se descuenta de tu pedido: al recibirlo pagas en efectivo
+                      solo el saldo de {formatCOP(Math.max(0, cartTotal - codDeposit))}.
+                    </span>
+                  </div>
+                )}
+
                 {/* Nota informativa — no es una elección del cliente, es una política global
                     del negocio (toggle "Flete pagado en línea" en /admin/configuracion). */}
                 {chargingShippingOnline && (
@@ -744,7 +765,7 @@ export function CheckoutForm({ userEmail, codEnabled, shippingOnlineEnabled }: C
               aria-disabled={!acceptedPolicies}
               className="w-full bg-sky-500 text-white py-3 rounded-xl font-bold text-base hover:bg-sky-600 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? 'Procesando...' : paymentMethod === 'COD' ? 'Confirmar pedido →' : 'Continuar al pago →'}
+              {loading ? 'Procesando...' : paymentMethod === 'COD' ? (codDeposit > 0 ? 'Pagar anticipo →' : 'Confirmar pedido →') : 'Continuar al pago →'}
             </button>
           </form>
         ) : (

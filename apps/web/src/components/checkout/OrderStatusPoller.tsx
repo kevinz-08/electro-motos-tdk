@@ -8,6 +8,8 @@ interface OrderStatusPollerProps {
   orderId: string
   /** Token firmado del enlace — necesario para invitados sin sesión. */
   token?: string | null
+  /** Estado a esperar: el poller se detiene cuando el pedido sale de él. PENDING por defecto. */
+  waitingFor?: string
 }
 
 const POLL_INTERVAL_MS = 5_000
@@ -19,7 +21,7 @@ const MAX_ATTEMPTS = 36 // 3 minutos máximo (36 × 5s)
  * para que el Server Component se re-renderice con los datos actualizados.
  * Se detiene automáticamente tras 3 minutos o cuando el estado cambia.
  */
-export function OrderStatusPoller({ orderId, token }: OrderStatusPollerProps) {
+export function OrderStatusPoller({ orderId, token, waitingFor = 'PENDING' }: OrderStatusPollerProps) {
   const router = useRouter()
   const attemptsRef = useRef(0)
 
@@ -34,14 +36,14 @@ export function OrderStatusPoller({ orderId, token }: OrderStatusPollerProps) {
 
       const status = await getOrderStatus(orderId, token)
 
-      if (status && status !== 'PENDING') {
+      if (status && status !== waitingFor) {
         clearInterval(interval)
         router.refresh()
       }
     }, POLL_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [orderId, token, router])
+  }, [orderId, token, waitingFor, router])
 
   return null
 }

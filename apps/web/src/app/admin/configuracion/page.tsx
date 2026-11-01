@@ -1,15 +1,17 @@
 import { prisma } from '@/infrastructure/database/prisma-client'
 import { MercadoPagoToggle } from '@/components/admin/MercadoPagoToggle'
 import { CodToggle } from '@/components/admin/CodToggle'
+import { CodDepositForm } from '@/components/admin/CodDepositForm'
 import { ShippingOnlineToggle } from '@/components/admin/ShippingOnlineToggle'
 import { CroSettingsForm } from '@/components/admin/CroSettingsForm'
 import { RefreshStoreCacheButton } from '@/components/admin/RefreshStoreCacheButton'
 import { CRO_SETTING_KEYS, parseCroSettings } from '@h2r/domain'
 
 export default async function AdminConfigPage() {
-  const [mpSetting, codSetting, shippingOnlineSetting, croRows] = await Promise.all([
+  const [mpSetting, codSetting, codDepositSetting, shippingOnlineSetting, croRows] = await Promise.all([
     prisma.settings.findUnique({ where: { key: 'MERCADOPAGO_ENABLED' } }),
     prisma.settings.findUnique({ where: { key: 'COD_ENABLED' } }),
+    prisma.settings.findUnique({ where: { key: 'COD_DEPOSIT_AMOUNT' } }),
     prisma.settings.findUnique({ where: { key: 'SHIPPING_ONLINE_ENABLED' } }),
     prisma.settings.findMany({ where: { key: { in: Object.values(CRO_SETTING_KEYS) } } }),
   ])
@@ -18,6 +20,8 @@ export default async function AdminConfigPage() {
   const mpEnabled = mpSetting?.value === 'true'
   // Por defecto habilitado si no existe la fila aún — mismo fallback que orders.controller.ts.
   const codEnabled = codSetting ? codSetting.value === 'true' : true
+  // 0 / sin fila = sin anticipo.
+  const codDepositCents = Math.max(0, parseInt(codDepositSetting?.value ?? '0', 10) || 0)
   // Default FALSE si no existe la fila — no empezar a cobrar flete extra sin
   // opt-in explícito del admin (mismo criterio que orders.controller.ts).
   const shippingOnlineEnabled = shippingOnlineSetting?.value === 'true'
@@ -89,6 +93,17 @@ export default async function AdminConfigPage() {
               </p>
             </div>
             <CodToggle enabled={codEnabled} />
+          </div>
+
+          <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-lg space-y-3">
+            <div className="min-w-0">
+              <p className="font-semibold text-white">Anticipo pre-envío</p>
+              <p className="text-xs text-white/40">
+                El cliente paga este valor por Wompi antes de que despachemos y se descuenta de lo que paga al
+                recibir. Ayuda a reducir devoluciones. 0 = desactivado. El retiro en tienda no paga anticipo.
+              </p>
+            </div>
+            <CodDepositForm initialCents={codDepositCents} />
           </div>
         </div>
 

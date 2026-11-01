@@ -89,7 +89,7 @@ const mockOrderRepo = {
   count: vi.fn(),
 }
 const mockProductRepo = { findById: vi.fn(), save: vi.fn(), findAll: vi.fn() }
-const mockWompiService = { initiate: vi.fn(), validateWebhook: vi.fn() }
+const mockWompiService = { initiate: vi.fn(), validateWebhook: vi.fn(), createTransaction: vi.fn() }
 const mockEmailService = {
   sendOrderReceived: vi.fn().mockResolvedValue(undefined),
 }
@@ -309,8 +309,46 @@ describe('OrdersController', () => {
 
       await controller.create({ ...dto, paymentProvider: 'COD' }, mockUser)
 
-      expect(mockPrismaClient.settings.findUnique).toHaveBeenCalledTimes(1)
+      expect(mockPrismaClient.settings.findUnique).toHaveBeenCalledTimes(2)
       expect(mockPrismaClient.settings.findUnique).toHaveBeenCalledWith({ where: { key: 'COD_ENABLED' } })
+      expect(mockPrismaClient.settings.findUnique).toHaveBeenCalledWith({ where: { key: 'COD_DEPOSIT_AMOUNT' } })
+      expect(mockPrismaClient.settings.findUnique).not.toHaveBeenCalledWith({ where: { key: 'SHIPPING_ONLINE_ENABLED' } })
+    })
+
+    it('COD: pasa el anticipo configurado (centavos) al caso de uso', async () => {
+      mockPrismaClient.settings.findUnique
+        .mockResolvedValueOnce({ value: 'true' })    // COD_ENABLED
+        .mockResolvedValueOnce({ value: '1500000' }) // COD_DEPOSIT_AMOUNT
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: { ...mockOrder, status: 'COD_CONFIRMED' }, payment: null, shippingQuoteFallback: false } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+
+      await controller.create({ ...dto, paymentProvider: 'COD' }, mockUser)
+
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ codDepositCents: 1500000 }))
+    })
+
+    it('COD con anticipo pendiente: no encola correo ni Vendelo ni toca el stock (lo hace el webhook)', async () => {
+      mockPrismaClient.settings.findUnique
+        .mockResolvedValueOnce({ value: 'true' })
+        .mockResolvedValueOnce({ value: '1500000' })
+      const { CreateOrder } = await import('@h2r/domain')
+      const execute = vi.fn().mockResolvedValue({ ok: true, value: { order: { ...mockOrder, status: 'AWAITING_DEPOSIT' }, payment: mockPayment, shippingQuoteFallback: false } })
+      vi.mocked(CreateOrder).mockImplementationOnce(function () {
+        return { execute }
+      })
+      mockEmailQueue.enqueue.mockClear()
+      mockVendeloOrderQueue.enqueue.mockClear()
+      mockStorefrontCache.revalidateOrderProducts.mockClear()
+
+      const result = await controller.create({ ...dto, paymentProvider: 'COD' }, mockUser)
+
+      expect(result.payment).toEqual(mockPayment)
+      expect(mockEmailQueue.enqueue).not.toHaveBeenCalled()
+      expect(mockVendeloOrderQueue.enqueue).not.toHaveBeenCalled()
+      expect(mockStorefrontCache.revalidateOrderProducts).not.toHaveBeenCalled()
     })
 
     it('shippingQuoteFallback:true dispara un warning en el logger', async () => {
@@ -370,10 +408,64 @@ describe('OrdersController', () => {
 
   describe('PATCH /orders/:id/status — updateStatus()', () => {
     it('actualiza el estado y retorna { success: true }', async () => {
+      mockOrderRepo.findById.mockResolvedValueOnce({ ...mockOrder, paymentProvider: 'WOMPI' })
       const result = await controller.updateStatus('order-abc123', { status: 'SHIPPED' })
 
       expect(mockOrderRepo.updateStatus).toHaveBeenCalledWith('order-abc123', 'SHIPPED')
       expect(result).toEqual({ success: true, status: 'SHIPPED' })
+    })
+
+    it('rechaza pasar un pedido contraentrega a un estado de pago en línea', async () => {
+      mockOrderRepo.findById.mockResolvedValueOnce({ ...mockOrder, paymentProvider: 'COD' })
+      mockOrderRepo.updateStatus.mockClear()
+
+      await expect(controller.updateStatus('order-abc123', { status: 'PAID' })).rejects.toThrow(/contraentrega/)
+      expect(mockOrderRepo.updateStatus).not.toHaveBeenCalled()
+    })
+
+    it('rechaza estados exclusivos de contraentrega en un pedido en línea', async () => {
+      mockOrderRepo.findById.mockResolvedValueOnce({ ...mockOrder, paymentProvider: 'WOMPI' })
+      mockOrderRepo.updateStatus.mockClear()
+
+      await expect(controller.updateStatus('order-abc123', { status: 'COD_CONFIRMED' })).rejects.toThrow(/exclusivo/)
+      expect(mockOrderRepo.updateStatus).not.toHaveBeenCalled()
+    })
+
+    it('404 si el pedido no existe', async () => {
+      mockOrderRepo.findById.mockResolvedValueOnce(null)
+      await expect(controller.updateStatus('nope', { status: 'SHIPPED' })).rejects.toThrow(/no encontrado/)
+    })
+  })
+
+  describe('POST /orders/:id/deposit-transaction — retryDeposit()', () => {
+    const awaiting = { ...mockOrder, userId: 'user-1', paymentProvider: 'COD', status: 'AWAITING_DEPOSIT', codDepositAmount: 1500000 }
+
+    beforeEach(() => {
+      process.env['INTERNAL_API_SECRET'] = 'test-secret'
+      mockWompiService.createTransaction.mockResolvedValue(mockPayment)
+    })
+
+    it('el dueño con sesión obtiene una nueva transacción', async () => {
+      mockOrderRepo.findById.mockResolvedValueOnce(awaiting)
+      const result = await controller.retryDeposit('order-abc123', undefined, mockUser)
+      expect(result).toEqual({ payment: mockPayment })
+    })
+
+    it('un invitado con el token firmado también puede', async () => {
+      const { signOrderAccessToken } = await import('../shared/order-access-token')
+      mockOrderRepo.findById.mockResolvedValueOnce({ ...awaiting, userId: null })
+      const result = await controller.retryDeposit('order-abc123', signOrderAccessToken('order-abc123'), undefined)
+      expect(result).toEqual({ payment: mockPayment })
+    })
+
+    it('sin sesión ni token válido responde 404 (no revela si el pedido existe)', async () => {
+      mockOrderRepo.findById.mockResolvedValueOnce(awaiting)
+      await expect(controller.retryDeposit('order-abc123', 'token-falso', undefined)).rejects.toThrow(/no encontrado/)
+    })
+
+    it('rechaza si el pedido ya no espera anticipo', async () => {
+      mockOrderRepo.findById.mockResolvedValueOnce({ ...awaiting, status: 'COD_CONFIRMED' })
+      await expect(controller.retryDeposit('order-abc123', undefined, mockUser)).rejects.toThrow(/anticipo/)
     })
   })
 })

@@ -82,6 +82,7 @@ function toDomain(
       businessName: o.buyerBusinessName ?? undefined,
     },
     paymentProvider: o.paymentProvider as PaymentProvider,
+    codDepositAmount: o.codDepositAmount,
     shippingTotal: o.shippingTotal,
     createdAt: o.createdAt,
     items: o.items?.map(toDomainItem),
@@ -172,6 +173,10 @@ export class PrismaOrderRepository implements IOrderRepository {
         contactEmail: input.contactEmail,
         buyerIdKey: input.buyerIdKey,
         total: input.total,
+        // Anticipo COD: el pedido espera el anticipo y su único Payment es ese cobro Wompi.
+        ...(input.codDepositAmount
+          ? { status: 'AWAITING_DEPOSIT' as const, codDepositAmount: input.codDepositAmount }
+          : {}),
         // Cast necesario: ShippingAddress → Prisma.InputJsonValue (tipo opaco de Prisma para JSON)
         shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
         deliveryMethod: input.deliveryMethod,
@@ -185,8 +190,8 @@ export class PrismaOrderRepository implements IOrderRepository {
         },
         payment: {
           create: {
-            provider: input.paymentProvider,
-            amount: input.total,
+            provider: input.codDepositAmount ? 'WOMPI' : input.paymentProvider,
+            amount: input.codDepositAmount || input.total,
             // externalId queda null hasta que la pasarela confirme via webhook
           },
         },
@@ -297,12 +302,13 @@ export class PrismaOrderRepository implements IOrderRepository {
       orderStatus: OrderStatus
       paymentStatus: PaymentStatus
       externalId: string
+      from?: OrderStatus
       stockDecrements?: Array<{ productId: string; quantity: number }>
     },
   ): Promise<PaymentTransitionResult> {
     return prisma.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({
-        where: { id: orderId, status: 'PENDING' },
+        where: { id: orderId, status: to.from ?? 'PENDING' },
         data: { status: to.orderStatus },
       })
       if (updated.count === 0) {
@@ -312,7 +318,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         where: { orderId },
         data: { status: to.paymentStatus, externalId: to.externalId },
       })
-      if (to.orderStatus === 'PAID') {
+      if (to.orderStatus === 'PAID' || to.orderStatus === 'COD_CONFIRMED') {
         await tx.couponRedemption.updateMany({
           where: { orderId, status: 'RESERVED' },
           data: { status: 'CONFIRMED' },

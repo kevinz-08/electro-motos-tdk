@@ -22,7 +22,7 @@ import { PrismaService } from '../database/prisma.service'
 
 type PrismaOrderRow = {
   id: string; userId: string | null; contactEmail: string; buyerIdKey: string; status: string; total: number
-  shippingAddress: unknown; paymentProvider: string; shippingTotal: number; createdAt: Date
+  shippingAddress: unknown; paymentProvider: string; shippingTotal: number; codDepositAmount: number; createdAt: Date
   deliveryMethod: string
   buyerIdType: string; buyerIdNumber: string; buyerBusinessName: string | null
   items?: Array<{ id: string; orderId: string; productId: string; quantity: number; priceAtPurchase: number; compareAtPriceAtPurchase: number | null }>
@@ -69,6 +69,7 @@ function toDomain(o: PrismaOrderRow): Order {
       businessName: o.buyerBusinessName ?? undefined,
     },
     paymentProvider: o.paymentProvider as PaymentProvider,
+    codDepositAmount: o.codDepositAmount,
     createdAt: o.createdAt,
     items: o.items?.map(toDomainItem),
     payment: o.payment ? toDomainPayment(o.payment) : undefined,
@@ -159,6 +160,10 @@ export class PrismaOrderRepository implements IOrderRepository {
         contactEmail: input.contactEmail,
         buyerIdKey: input.buyerIdKey,
         total: input.total,
+        // Anticipo COD: el pedido espera el anticipo y su único Payment es ese cobro Wompi.
+        ...(input.codDepositAmount
+          ? { status: 'AWAITING_DEPOSIT' as const, codDepositAmount: input.codDepositAmount }
+          : {}),
         shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
         deliveryMethod: input.deliveryMethod,
         buyerIdType: input.buyer.idType,
@@ -170,7 +175,9 @@ export class PrismaOrderRepository implements IOrderRepository {
         discountAmount: input.discountAmount ?? 0,
         items: { create: input.items },
         payment: {
-          create: { provider: input.paymentProvider, amount: input.total },
+          create: input.codDepositAmount
+            ? { provider: 'WOMPI', amount: input.codDepositAmount }
+            : { provider: input.paymentProvider, amount: input.total },
         },
         couponRedemption: couponRedemptionCreate(input, 'RESERVED'),
       },
@@ -255,12 +262,13 @@ export class PrismaOrderRepository implements IOrderRepository {
       orderStatus: OrderStatus
       paymentStatus: PaymentStatus
       externalId: string
+      from?: OrderStatus
       stockDecrements?: Array<{ productId: string; quantity: number }>
     },
   ): Promise<PaymentTransitionResult> {
     return this.prisma.client.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({
-        where: { id: orderId, status: 'PENDING' },
+        where: { id: orderId, status: to.from ?? 'PENDING' },
         data: { status: to.orderStatus },
       })
       if (updated.count === 0) return { applied: false }
@@ -270,7 +278,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         data: { status: to.paymentStatus, externalId: to.externalId },
       })
 
-      if (to.orderStatus === 'PAID') {
+      if (to.orderStatus === 'PAID' || to.orderStatus === 'COD_CONFIRMED') {
         await tx.couponRedemption.updateMany({
           where: { orderId, status: 'RESERVED' },
           data: { status: 'CONFIRMED' },

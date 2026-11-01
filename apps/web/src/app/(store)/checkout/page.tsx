@@ -17,10 +17,13 @@ export const metadata: Metadata = {
 export default async function CheckoutPage() {
   const session = await auth()
 
-  const [codSetting, shippingOnlineSetting] = await Promise.all([
+  const [codSetting, shippingOnlineSetting, codDepositSetting] = await Promise.all([
     prisma.settings.findUnique({ where: { key: 'COD_ENABLED' } }),
     prisma.settings.findUnique({ where: { key: 'SHIPPING_ONLINE_ENABLED' } }),
+    prisma.settings.findUnique({ where: { key: 'COD_DEPOSIT_AMOUNT' } }),
   ])
+  // 0 / sin fila = sin anticipo (mismo criterio que orders.controller.ts).
+  const codDepositCents = Math.max(0, parseInt(codDepositSetting?.value ?? '0', 10) || 0)
   // Por defecto habilitado si no existe la fila aún — mismo fallback que orders.controller.ts.
   const codEnabled = codSetting ? codSetting.value === 'true' : true
   // Default FALSE si no existe la fila — no empezar a cobrar flete extra sin
@@ -34,6 +37,7 @@ export default async function CheckoutPage() {
       <CheckoutForm
         userEmail={session?.user ? (session.user.email ?? '') : null}
         codEnabled={codEnabled}
+        codDepositCents={codDepositCents}
         shippingOnlineEnabled={shippingOnlineEnabled}
       />
     </div>

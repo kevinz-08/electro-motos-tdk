@@ -210,7 +210,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           userId: input.userId,
           contactEmail: input.contactEmail,
           buyerIdKey: input.buyerIdKey,
-          status: 'PAID',
+          status: 'COD_CONFIRMED',
           total: input.total,
           shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
           deliveryMethod: input.deliveryMethod,
@@ -338,7 +338,7 @@ export class PrismaOrderRepository implements IOrderRepository {
 
     const result = await prisma.order.aggregate({
       where: {
-        status: { notIn: ['PENDING', 'CANCELLED'] },
+        status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] },
         createdAt: { gte: today },
       },
       _sum: { total: true },
@@ -358,7 +358,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     firstDay.setHours(0, 0, 0, 0)
 
     const result = await prisma.order.aggregate({
-      where: { status: { notIn: ['PENDING', 'CANCELLED'] }, createdAt: { gte: firstDay } },
+      where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] }, createdAt: { gte: firstDay } },
       _sum: { total: true },
     })
     return result._sum.total ?? 0
@@ -381,14 +381,14 @@ export class PrismaOrderRepository implements IOrderRepository {
 
     if (range === 'all') {
       const earliest = await prisma.order.aggregate({
-        where: { status: { notIn: ['PENDING', 'CANCELLED'] } },
+        where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] } },
         _min: { createdAt: true },
       })
       const firstOrderDate = earliest._min.createdAt
       if (!firstOrderDate) return []
 
       const orders = await prisma.order.findMany({
-        where: { status: { notIn: ['PENDING', 'CANCELLED'] } },
+        where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] } },
         select: { total: true, createdAt: true },
       })
 
@@ -415,7 +415,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     since.setDate(since.getDate() - (days - 1))
 
     const orders = await prisma.order.findMany({
-      where: { status: { notIn: ['PENDING', 'CANCELLED'] }, createdAt: { gte: since } },
+      where: { status: { notIn: ['PENDING', 'AWAITING_DEPOSIT', 'CANCELLED'] }, createdAt: { gte: since } },
       select: { total: true, createdAt: true },
     })
 
@@ -477,7 +477,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     if (customer.buyerIdKey) or.push({ buyerIdKey: customer.buyerIdKey })
     if (or.length === 0) return false
     const row = await prisma.order.findFirst({
-      where: { OR: or, status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      where: { OR: or, status: { in: ['PAID', 'COD_CONFIRMED', 'SHIPPED', 'DELIVERED'] } },
       select: { id: true },
     })
     return row !== null

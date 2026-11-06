@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual — Mantenimiento por modelo</title><style>
+@page { size: A4; margin: 12mm 14mm 12mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2933; font-size: 9.6pt; line-height: 1.36; margin: 0; }
+.head { border-bottom: 3px solid #e11d48; padding-bottom: 8px; margin-bottom: 10px; }
+.kicker { color: #e11d48; font-weight: 700; letter-spacing: 1.5px; font-size: 8.5pt; text-transform: uppercase; }
+h1 { font-size: 21pt; margin: 2px 0 2px; color: #0f172a; }
+.route { font-family: Consolas, monospace; font-size: 10pt; color: #475569; background: #f1f5f9; padding: 1px 7px; border-radius: 4px; }
+.lead { font-size: 10.5pt; color: #334155; margin: 8px 0 4px; }
+h2 { font-size: 12pt; color: #be123c; margin: 11px 0 3px; }
+h3 { font-size: 10.5pt; color: #0f172a; margin: 10px 0 2px; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0 5px 20px; padding: 0; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.9pt; page-break-inside: avoid; }
+th { background: #0f172a; color: #fff; text-align: left; padding: 5px 7px; }
+td { border: 1px solid #cbd5e1; padding: 4px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.box { border-left: 4px solid #e11d48; background: #fff1f2; padding: 7px 11px; margin: 9px 0; page-break-inside: avoid; }
+.box.info { border-color: #0284c7; background: #f0f9ff; }
+.box.ok { border-color: #16a34a; background: #f0fdf4; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 4px; border-radius: 3px; font-size: 9pt; }
+.foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 8.5pt; }
+</style></head>
+<body>
+<div class="head">
+  <div class="kicker">Manual de uso · Panel de administración · Sección 8 de 12</div>
+  <h1>Mantenimiento por modelo</h1>
+  <span class="route">/admin/mantenimiento</span>
+</div>
+<p class="lead">Aquí se escribe, modelo por modelo, la <b>guía de mantenimiento</b> (qué revisar y cada cuántos km o meses). Al guardarla se publica sola en <code>/guias/mantenimiento/[marca]/[modelo]</code>. Mientras un modelo no tenga guía, esa página no existe (responde 404) y su hub no muestra ningún enlace.</p>
+
+<h2>1. La lista de modelos</h2>
+<p>Muestra todos los modelos de moto con el estado de su guía y el revisor que la firma:</p>
+<table>
+  <tr><th style="width:24%">Estado</th><th>Significado</th></tr>
+  <tr><td>Sin guía</td><td>No hay guía; la página pública no existe.</td></tr>
+  <tr><td>Publicada</td><td>Guardada, con al menos un punto de control y revisor activo.</td></tr>
+  <tr><td>Oculta (revisor desactivado)</td><td>Está guardada, pero su revisor fue desactivado, por eso no se publica. Reactiva al revisor o cambia el revisor de la guía.</td></tr>
+</table>
+<p>Pulsa el enlace del modelo para abrir su formulario. Los modelos se crean en <code>/admin/compatibilidades</code>.</p>
+
+<h2>2. Escribir una guía (paso a paso)</h2>
+<ol>
+  <li><b>Revisor técnico que firma *:</b> elige de la lista (si no hay revisores activos, el formulario te lleva a registrar uno).</li>
+  <li><b>Fecha de la revisión *:</b> se muestra en la página como «revisado el…».</li>
+  <li><b>Fuente de los intervalos *:</b> de dónde salen los números. Ej. "Manual del propietario AKT NKD 125 (2023), pág. 34" o "Verificado en taller". <b>Sin fuente no se puede guardar: los intervalos no se inventan.</b></li>
+  <li><b>Puntos de control</b> (hasta <b>12</b>): agrégalos con los botones de abajo. Para cada uno:
+    <ul>
+      <li><b>Nombre</b> (ej. "Aceite de motor"; hay nombres sugeridos que solo insertan el nombre).</li>
+      <li><b>Cada km</b> y/o <b>Cada meses</b>: usa uno o ambos. <b>Los números los escribes tú: no hay valores por defecto.</b></li>
+      <li><b>Detalle opcional</b> (ej. "usar 10W-40 JASO MA2").</li>
+      <li><b>Enlazar repuesto de H2R</b> (opcional): busca el producto exacto y queda enlazado en la guía para que el lector lo compre.</li>
+    </ul>
+  </li>
+  <li><b>Nota general</b> (opcional, máx. 1000 caracteres): condiciones a las que aplican los intervalos (uso normal, ciudad, carretera…).</li>
+  <li>Pulsa <b>Guardar y publicar</b> (o <b>Guardar cambios</b> al editar). La guía queda publicada de inmediato.</li>
+</ol>
+
+<h2>3. Eliminar una guía</h2>
+<p>"Zona de peligro" → eliminar → confirmar. La página pública <b>vuelve a responder 404</b> y el modelo queda "Sin guía".</p>
+
+<div class="box"><b>Ojo:</b> un intervalo equivocado (por ejemplo, aceite cada 10.000 km en una moto que pide 3.000) puede dañar motores y la reputación de la tienda. Copia los valores del manual del propietario o de una fuente confiable, y registra esa fuente.</div>
+
+<div class="foot">tiendah2r · Manual del panel de administración · Versión 1.0 — noviembre de 2026. Menú lateral del panel: <b>Mantenimiento</b>.</div>
+</body></html>

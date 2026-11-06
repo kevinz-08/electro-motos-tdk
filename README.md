@@ -2234,3 +2234,11 @@ Manual para quien administre la tienda: qué hace cada servicio (GCP, Vercel, Ne
 - **Las credenciales no están en el PDF**: cada una dice "Se envía por mensaje para no comprometer el PDF". No agregar contraseñas al repositorio.
 - Regenerar el PDF tras editar el HTML: `chrome --headless=new --no-pdf-header-footer --print-to-pdf=<salida.pdf> <entrada.html>`.
 - Pendiente de completar con datos reales: fecha de cobro de Vercel y Cloudinary y plan vigente de cada uno.
+
+## 29. Manuales de uso del panel de administración (PDF)
+
+Un PDF por sección del admin, en `docs/manuales-admin/pdf/`: Productos, Cupones, Compatibilidades, Kits, Guías, Índice de precios, Revisores, Mantenimiento, Merchant Center, Reseñas, Stock bajo y Configuración. Quedan fuera las secciones básicas (Dashboard, Papelera, Categorías, Banners, Pop-up, Pedidos y Sincronizar).
+
+- Cada manual explica para qué sirve la sección, el paso a paso, los campos y sus reglas, y los errores típicos.
+- El contenido sale de `docs/manuales-admin/data_a.py` y `data_b.py`; `build.py` genera el HTML (`html/`) y el PDF (`pdf/`) con Chrome headless: `python docs/manuales-admin/build.py`.
+- Si cambia un formulario o una regla del admin, actualizar el manual correspondiente y regenerar.

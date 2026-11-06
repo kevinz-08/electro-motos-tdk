@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual — Configuración</title><style>
+@page { size: A4; margin: 12mm 14mm 12mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2933; font-size: 9.6pt; line-height: 1.36; margin: 0; }
+.head { border-bottom: 3px solid #e11d48; padding-bottom: 8px; margin-bottom: 10px; }
+.kicker { color: #e11d48; font-weight: 700; letter-spacing: 1.5px; font-size: 8.5pt; text-transform: uppercase; }
+h1 { font-size: 21pt; margin: 2px 0 2px; color: #0f172a; }
+.route { font-family: Consolas, monospace; font-size: 10pt; color: #475569; background: #f1f5f9; padding: 1px 7px; border-radius: 4px; }
+.lead { font-size: 10.5pt; color: #334155; margin: 8px 0 4px; }
+h2 { font-size: 12pt; color: #be123c; margin: 11px 0 3px; }
+h3 { font-size: 10.5pt; color: #0f172a; margin: 10px 0 2px; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0 5px 20px; padding: 0; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.9pt; page-break-inside: avoid; }
+th { background: #0f172a; color: #fff; text-align: left; padding: 5px 7px; }
+td { border: 1px solid #cbd5e1; padding: 4px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.box { border-left: 4px solid #e11d48; background: #fff1f2; padding: 7px 11px; margin: 9px 0; page-break-inside: avoid; }
+.box.info { border-color: #0284c7; background: #f0f9ff; }
+.box.ok { border-color: #16a34a; background: #f0fdf4; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 4px; border-radius: 3px; font-size: 9pt; }
+.foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 8.5pt; }
+</style></head>
+<body>
+<div class="head">
+  <div class="kicker">Manual de uso · Panel de administración · Sección 12 de 12</div>
+  <h1>Configuración</h1>
+  <span class="route">/admin/configuracion</span>
+</div>
+<p class="lead">Ajustes generales de la tienda: cuándo mostrar la prueba social, los plazos de entrega, el envío gratis, las pasarelas de pago, el pago contra entrega y el botón para refrescar la tienda. <b>Lo que cambies aquí afecta a todos los clientes de inmediato</b>.</p>
+
+<h2>1. Prueba social y entrega en la ficha de producto</h2>
+<p>Todos los indicadores usan datos reales (ventas confirmadas, reseñas verificadas, stock). Estos números solo controlan <b>cuándo se muestran</b>. Todos son enteros. Pulsa <b>Guardar</b> al terminar.</p>
+<table>
+  <tr><th style="width:36%">Campo</th><th>Qué hace</th></tr>
+  <tr><td>Mínimo de ventas para "🔥 X personas han comprado"</td><td>Por debajo de este número el contador no se muestra.</td></tr>
+  <tr><td>Mínimo de reseñas para mostrar estrellas</td><td>Evita mostrar un promedio con muy pocas opiniones (mínimo 1).</td></tr>
+  <tr><td>Urgencia de stock ("¡Solo quedan X!")</td><td>Se muestra cuando el stock es mayor que 0 y menor que este valor.</td></tr>
+  <tr><td>Entrega: días hábiles mínimos / máximos</td><td>Rango prometido desde el despacho hasta la entrega. El máximo debe ser mayor o igual al mínimo.</td></tr>
+  <tr><td>Hora de corte para despachar el mismo día</td><td>Hora de Colombia (0–24). Después de esa hora se cuenta desde el siguiente día hábil.</td></tr>
+  <tr><td>Envío gratis desde (COP)</td><td>Compra mínima <b>en pesos</b>. Alimenta la ficha, el carrito y la barra de progreso. <code>0</code> = no se promete envío gratis.</td></tr>
+</table>
+
+<h2>2. Pasarelas de pago</h2>
+<ul>
+  <li><b>Wompi:</b> pasarela principal (tarjeta, Nequi, PSE, Bancolombia). Siempre está activa y no se puede apagar.</li>
+  <li><b>Mercado Pago:</b> pasarela de respaldo, con interruptor. <b>Actívala solo si Wompi tiene incidentes.</b></li>
+</ul>
+
+<h2>3. Pago contra entrega (COD)</h2>
+<ul>
+  <li><b>Interruptor "Pago contra entrega":</b> si lo desactivas, los clientes dejan de ver esa opción en el checkout (no se borra nada; vuelve al reactivarlo). Por defecto está activo. El cliente paga en efectivo al repartidor de Vendelo.</li>
+  <li><b>Anticipo pre-envío:</b> valor que el cliente paga por Wompi <b>antes</b> de despachar y que se descuenta de lo que paga al recibir. Ayuda a reducir devoluciones. <code>0</code> = desactivado. El retiro en tienda no paga anticipo.</li>
+</ul>
+
+<h2>4. Flete de pedidos pagados en línea</h2>
+<p>Aplica solo a pedidos pagados por Wompi o Mercado Pago (no al contra entrega). <b>Desactivado por defecto.</b></p>
+<ul>
+  <li><b>Activo:</b> el flete cotizado se suma al cobro y el cliente paga producto + envío en un solo cargo.</li>
+  <li><b>Desactivado:</b> el negocio absorbe el flete desde su billetera de Vendelo.</li>
+</ul>
+
+<h2>5. Caché de la tienda — "Refrescar tienda"</h2>
+<p>Los cambios hechos desde el panel se ven de inmediato. Usa este botón <b>solo</b> si cambiaste datos <b>por fuera del panel</b> (carga de catálogo, scripts o la base de datos directamente) y la tienda no los muestra. No daña nada, pero fuerza a la tienda a reconstruir sus páginas.</p>
+
+<h2>6. Sincronización con Optimun</h2>
+<p>Esta tarjeta es informativa: la sincronización automática está planificada. Por ahora el inventario se actualiza con el importador de <code>/admin/sync</code>.</p>
+
+<div class="box"><b>Ojo:</b> el envío gratis, el anticipo y el flete en línea cambian lo que paga el cliente y lo que absorbe el negocio. Confirma los números con el dueño antes de modificarlos y anota el valor anterior por si necesitas volver atrás.</div>
+
+<div class="foot">tiendah2r · Manual del panel de administración · Versión 1.0 — noviembre de 2026. Menú lateral del panel: <b>Configuración</b>.</div>
+</body></html>

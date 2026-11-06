@@ -6910,3 +6910,15 @@ lo consume para búsqueda de usuario, moverlo al mismo motor.
 **Archivos creados:** `docs/manual-operacion/manual-operacion-tiendah2r.{html,pdf}`. **Modificados:** `README.md` (sección 28).
 
 *Última actualización: 2026-11-05*
+
+## 99. Manuales de uso del panel de administración (12 PDFs)
+
+**Contexto:** el cliente administrará la tienda y necesita una guía por cada sección del admin que no es básica.
+
+**Cambios:** se documentan 12 rutas (productos, cupones, compatibilidades, kits, guías, índice de precios, revisores, mantenimiento, merchant, reseñas, stock, configuración). El contenido se redactó a partir del código real de cada página y formulario (campos, límites y mensajes), no de memoria.
+
+**Decisiones:** un PDF por ruta (1–2 páginas); fuente en Python (`data_a.py`, `data_b.py`) con plantilla común para que un cambio de estilo no obligue a tocar 12 archivos. "Eliminar producto" se documenta como envío a la Papelera (soft delete en la API), aunque la etiqueta del botón dice "permanentemente".
+
+**Archivos creados:** `docs/manuales-admin/{build.py,data.py,data_a.py,data_b.py}`, `html/*.html`, `pdf/*.pdf`. **Modificados:** `README.md` (sección 29).
+
+*Última actualización: 2026-11-05*

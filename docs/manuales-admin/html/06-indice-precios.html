@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual — Índice de precios</title><style>
+@page { size: A4; margin: 12mm 14mm 12mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2933; font-size: 9.6pt; line-height: 1.36; margin: 0; }
+.head { border-bottom: 3px solid #e11d48; padding-bottom: 8px; margin-bottom: 10px; }
+.kicker { color: #e11d48; font-weight: 700; letter-spacing: 1.5px; font-size: 8.5pt; text-transform: uppercase; }
+h1 { font-size: 21pt; margin: 2px 0 2px; color: #0f172a; }
+.route { font-family: Consolas, monospace; font-size: 10pt; color: #475569; background: #f1f5f9; padding: 1px 7px; border-radius: 4px; }
+.lead { font-size: 10.5pt; color: #334155; margin: 8px 0 4px; }
+h2 { font-size: 12pt; color: #be123c; margin: 11px 0 3px; }
+h3 { font-size: 10.5pt; color: #0f172a; margin: 10px 0 2px; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0 5px 20px; padding: 0; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.9pt; page-break-inside: avoid; }
+th { background: #0f172a; color: #fff; text-align: left; padding: 5px 7px; }
+td { border: 1px solid #cbd5e1; padding: 4px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.box { border-left: 4px solid #e11d48; background: #fff1f2; padding: 7px 11px; margin: 9px 0; page-break-inside: avoid; }
+.box.info { border-color: #0284c7; background: #f0f9ff; }
+.box.ok { border-color: #16a34a; background: #f0fdf4; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 4px; border-radius: 3px; font-size: 9pt; }
+.foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 8.5pt; }
+</style></head>
+<body>
+<div class="head">
+  <div class="kicker">Manual de uso · Panel de administración · Sección 6 de 12</div>
+  <h1>Índice de precios</h1>
+  <span class="route">/admin/indice-precios</span>
+</div>
+<p class="lead">Genera una "foto" de los precios del catálogo por categoría (mediana, rango y mínimos/máximos) para prensa y citas. Se publica en <code>/indice-precios-repuestos-moto</code>. Se recomienda <b>un corte por semestre</b>, y nada se publica sin que alguien revise las cifras.</p>
+
+<h2>1. El flujo en tres pasos</h2>
+<ol>
+  <li><b>Generar corte de hoy:</b> calcula las cifras con los precios actuales y lo guarda como <b>Borrador</b>.</li>
+  <li><b>Revisar:</b> mira la tabla en pantalla y comprueba que ninguna cifra sea absurda.</li>
+  <li><b>Revisé las cifras: publicar:</b> lo hace visible en la página pública.</li>
+</ol>
+
+<h2>2. Leer la pantalla</h2>
+<ul>
+  <li><b>Columna izquierda:</b> los cortes por fecha, con su estado (Borrador o Publicado). Pulsa uno para verlo.</li>
+  <li><b>Encabezado del corte:</b> fecha, número de referencias, versión de la metodología y categorías publicables.</li>
+  <li><b>Tabla:</b> para cada categoría —<i>n</i> (productos), <b>Mediana</b>, rango <b>P25–P75</b> (la mitad central de los precios) y <b>Mín.–Máx.</b></li>
+  <li><b>"Sin muestra suficiente":</b> categorías con menos de <b>5</b> productos; no se publican porque una cifra con tan pocos datos engaña.</li>
+  <li><b>Ver página pública:</b> abre la página del índice.</li>
+</ul>
+
+<h2>3. Corregir un error antes de publicar</h2>
+<p>Un precio mal cargado (por ejemplo, con un cero de más) mueve el máximo o la mediana. Si lo ves: corrige el producto en <code>/admin/productos</code>, vuelve aquí y pulsa <b>Generar corte de hoy</b> otra vez; luego revisa y publica.</p>
+
+<h2>4. Retirar un corte publicado</h2>
+<p>Un corte <b>publicado no se regenera</b>: primero pulsa <b>Retirar publicación</b> (vuelve a Borrador) y después genera uno nuevo si hace falta.</p>
+
+<div class="box"><b>Ojo:</b> lo que se publica lo pueden citar medios y buscadores. No publiques sin revisar la tabla completa. El índice usa los precios del catálogo del día en que se genera; si cambias muchos precios después, el corte publicado <b>no se actualiza solo</b>.</div>
+<div class="box info">Si la pantalla muestra un aviso de error al cargar los cortes, es probable que falte aplicar una migración de la base de datos; avisa al desarrollador.</div>
+
+<div class="foot">tiendah2r · Manual del panel de administración · Versión 1.0 — noviembre de 2026. Menú lateral del panel: <b>Índice precios</b>.</div>
+</body></html>

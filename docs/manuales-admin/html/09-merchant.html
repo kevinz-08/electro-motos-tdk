@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual — Google Merchant Center</title><style>
+@page { size: A4; margin: 12mm 14mm 12mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2933; font-size: 9.6pt; line-height: 1.36; margin: 0; }
+.head { border-bottom: 3px solid #e11d48; padding-bottom: 8px; margin-bottom: 10px; }
+.kicker { color: #e11d48; font-weight: 700; letter-spacing: 1.5px; font-size: 8.5pt; text-transform: uppercase; }
+h1 { font-size: 21pt; margin: 2px 0 2px; color: #0f172a; }
+.route { font-family: Consolas, monospace; font-size: 10pt; color: #475569; background: #f1f5f9; padding: 1px 7px; border-radius: 4px; }
+.lead { font-size: 10.5pt; color: #334155; margin: 8px 0 4px; }
+h2 { font-size: 12pt; color: #be123c; margin: 11px 0 3px; }
+h3 { font-size: 10.5pt; color: #0f172a; margin: 10px 0 2px; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0 5px 20px; padding: 0; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.9pt; page-break-inside: avoid; }
+th { background: #0f172a; color: #fff; text-align: left; padding: 5px 7px; }
+td { border: 1px solid #cbd5e1; padding: 4px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.box { border-left: 4px solid #e11d48; background: #fff1f2; padding: 7px 11px; margin: 9px 0; page-break-inside: avoid; }
+.box.info { border-color: #0284c7; background: #f0f9ff; }
+.box.ok { border-color: #16a34a; background: #f0fdf4; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 4px; border-radius: 3px; font-size: 9pt; }
+.foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 8.5pt; }
+</style></head>
+<body>
+<div class="head">
+  <div class="kicker">Manual de uso · Panel de administración · Sección 9 de 12</div>
+  <h1>Google Merchant Center</h1>
+  <span class="route">/admin/merchant</span>
+</div>
+<p class="lead">Muestra qué productos recibe <b>Google Shopping</b> a través del feed de la tienda y cuáles quedan fuera (y por qué). Solo entran productos <b>activos, con stock, con foto y con marca del repuesto</b>. La pantalla calcula el feed en el momento: lo que ves es exactamente lo que recibirá Google.</p>
+
+<h2>1. Las tres tarjetas del inicio</h2>
+<ul>
+  <li><b>En el feed:</b> productos que Google recibirá.</li>
+  <li><b>Excluidos:</b> productos que no cumplen algún requisito.</li>
+  <li><b>URL del feed:</b> el enlace que se pega en Merchant Center (se abre en una pestaña nueva).</li>
+</ul>
+
+<h2>2. Cargar marca, MPN, tipo y garantía en bloque (lo que más productos desbloquea)</h2>
+<ol>
+  <li>Pulsa <b>Plantilla (N productos)</b>: descarga un CSV con <b>todos</b> los productos y los datos que ya tengan.</li>
+  <li>Ábrelo en Excel y completa las columnas: <code>sku, nombre, marca, mpn, tipo, garantia_meses</code>. La columna <code>nombre</code> es solo de referencia: se ignora al importar.</li>
+  <li>Reglas de las celdas:
+    <ul>
+      <li><b>Celda vacía = no se toca</b> el dato actual.</li>
+      <li><b>Un guion (<code>-</code>) = borrar</b> el dato.</li>
+      <li><code>tipo</code>: <code>original</code>, <code>homologado</code> o <code>generico</code>.</li>
+      <li><b>No escribas "genérico" como marca</b>: Google lo rechaza.</li>
+      <li><code>mpn</code> es la referencia del <b>fabricante</b> del repuesto, no el SKU de H2R.</li>
+    </ul>
+  </li>
+  <li>Guarda como CSV y pulsa <b>Subir CSV</b>.</li>
+  <li>Revisa el resultado: <i>N actualizados · N con error</i>. Los errores indican la línea y el motivo; corrige y vuelve a subir.</li>
+</ol>
+
+<h2>3. Entender los productos excluidos</h2>
+<p>Debajo aparecen "chips" con cada motivo y cuántos productos afecta, y una tabla con SKU, nombre y motivos de cada producto excluido. Los motivos posibles son: <i>Producto inactivo o en la papelera</i>, <i>Sin precio</i>, <i>Agotado</i>, <i>Sin imagen</i> y <i>Falta la marca del repuesto</i>. Arréglalos en <code>/admin/productos</code> (o con el CSV de arriba) y recarga esta página.</p>
+<h2>4. "En el feed, pero con avisos"</h2>
+<p>Productos que sí entran pero con algo mejorable: <i>Sin MPN</i> (Google puede limitar su visibilidad) o <i>Sin compatibilidades verificadas</i> (el título del anuncio no dice para qué moto es). Conviene completarlos con el tiempo.</p>
+
+<div class="box info"><b>Conectar con Google:</b> en Merchant Center se crea un feed programado con la URL de la primera tarjeta. Envíos y devoluciones se configuran en la cuenta de Merchant Center, no en el feed.</div>
+<div class="box"><b>Ojo:</b> el importador cambia datos reales de los productos. Descarga siempre la plantilla nueva antes de editar (así no sobrescribes con datos viejos) y no borres filas con un guion sin estar seguro.</div>
+
+<div class="foot">tiendah2r · Manual del panel de administración · Versión 1.0 — noviembre de 2026. Menú lateral del panel: <b>Merchant Center</b>.</div>
+</body></html>

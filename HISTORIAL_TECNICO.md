@@ -6898,3 +6898,27 @@ eslint sin errores. Motor probado además contra los 85 productos reales de `cat
 lo consume para búsqueda de usuario, moverlo al mismo motor.
 
 *Última actualización: 2026-09-21*
+
+## 98. Manual de operación de infraestructura (PDF)
+
+**Contexto:** el cliente necesita un documento no técnico que explique los 4 servicios que sostienen la tienda, sus cortes de pago y qué hacer ante una caída.
+
+**Cambios:** se crea `docs/manual-operacion/manual-operacion-tiendah2r.html` y su PDF (8 páginas): resumen con diagrama, un capítulo por servicio (GCP, Vercel, Neon, Cloudinary), calendario mensual (cortes de GCP y Neon el día 1), diagnóstico de caídas y anexo de credenciales.
+
+**Decisiones:** las credenciales NO se incluyen; cada campo dice "Se envía por mensaje para no comprometer el PDF". Los planes y fechas de cobro de Vercel y Cloudinary quedan marcados "[completar]" porque no constan en el repositorio.
+
+**Archivos creados:** `docs/manual-operacion/manual-operacion-tiendah2r.{html,pdf}`. **Modificados:** `README.md` (sección 28).
+
+*Última actualización: 2026-11-05*
+
+## 99. Manuales de uso del panel de administración (12 PDFs)
+
+**Contexto:** el cliente administrará la tienda y necesita una guía por cada sección del admin que no es básica.
+
+**Cambios:** se documentan 12 rutas (productos, cupones, compatibilidades, kits, guías, índice de precios, revisores, mantenimiento, merchant, reseñas, stock, configuración). El contenido se redactó a partir del código real de cada página y formulario (campos, límites y mensajes), no de memoria.
+
+**Decisiones:** un PDF por ruta (1–2 páginas); fuente en Python (`data_a.py`, `data_b.py`) con plantilla común para que un cambio de estilo no obligue a tocar 12 archivos. "Eliminar producto" se documenta como envío a la Papelera (soft delete en la API), aunque la etiqueta del botón dice "permanentemente".
+
+**Archivos creados:** `docs/manuales-admin/{build.py,data.py,data_a.py,data_b.py}`, `html/*.html`, `pdf/*.pdf`. **Modificados:** `README.md` (sección 29).
+
+*Última actualización: 2026-11-05*

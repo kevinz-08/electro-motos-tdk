@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual — Productos</title><style>
+@page { size: A4; margin: 12mm 14mm 12mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2933; font-size: 9.6pt; line-height: 1.36; margin: 0; }
+.head { border-bottom: 3px solid #e11d48; padding-bottom: 8px; margin-bottom: 10px; }
+.kicker { color: #e11d48; font-weight: 700; letter-spacing: 1.5px; font-size: 8.5pt; text-transform: uppercase; }
+h1 { font-size: 21pt; margin: 2px 0 2px; color: #0f172a; }
+.route { font-family: Consolas, monospace; font-size: 10pt; color: #475569; background: #f1f5f9; padding: 1px 7px; border-radius: 4px; }
+.lead { font-size: 10.5pt; color: #334155; margin: 8px 0 4px; }
+h2 { font-size: 12pt; color: #be123c; margin: 11px 0 3px; }
+h3 { font-size: 10.5pt; color: #0f172a; margin: 10px 0 2px; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0 5px 20px; padding: 0; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.9pt; page-break-inside: avoid; }
+th { background: #0f172a; color: #fff; text-align: left; padding: 5px 7px; }
+td { border: 1px solid #cbd5e1; padding: 4px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.box { border-left: 4px solid #e11d48; background: #fff1f2; padding: 7px 11px; margin: 9px 0; page-break-inside: avoid; }
+.box.info { border-color: #0284c7; background: #f0f9ff; }
+.box.ok { border-color: #16a34a; background: #f0fdf4; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 4px; border-radius: 3px; font-size: 9pt; }
+.foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 8.5pt; }
+</style></head>
+<body>
+<div class="head">
+  <div class="kicker">Manual de uso · Panel de administración · Sección 1 de 12</div>
+  <h1>Productos</h1>
+  <span class="route">/admin/productos</span>
+</div>
+<p class="lead">Aquí se crea, edita, activa o retira cada repuesto del catálogo: nombre, precio, stock, fotos, medidas de envío, compatibilidades y datos para Google. Es la sección que más se usa.</p>
+
+<h2>1. La lista de productos</h2>
+<ul>
+  <li><b>Buscar:</b> el cuadro "Buscar por nombre, SKU…" filtra la lista.</li>
+  <li><b>Filtrar por categoría:</b> el desplegable muestra cada categoría con sus subcategorías.</li>
+  <li>La lista muestra <b>20 productos por página</b> (navegación al pie) e incluye también los productos <b>inactivos</b>.</li>
+  <li>Columnas: Producto, SKU, Categoría, Precio, Stock y Estado. Haz clic en el nombre para editarlo.</li>
+  <li>El botón <b>Nuevo producto</b> (arriba a la derecha) abre el formulario vacío.</li>
+</ul>
+
+<h2>2. Crear o editar un producto (paso a paso)</h2>
+<ol>
+  <li>Abre <b>Nuevo producto</b> o entra a uno existente.</li>
+  <li>Completa <b>Información general</b> (tabla de abajo). Los campos con <b>*</b> son obligatorios.</li>
+  <li>Completa <b>Envío</b> y sube las <b>Imágenes</b>.</li>
+  <li>Pulsa <b>Guardar</b> al final del formulario.</li>
+  <li><b>Solo después de guardar la primera vez</b> aparecen activos los bloques de Venta cruzada, Identificación del repuesto y Compatibilidades (necesitan que el producto ya exista).</li>
+</ol>
+
+<table>
+  <tr><th style="width:24%">Campo</th><th>Qué escribir / regla</th></tr>
+  <tr><td>Nombre *</td><td>Nombre comercial. El slug (URL) se genera solo mientras escribes.</td></tr>
+  <tr><td>Slug (URL)</td><td>Opcional personalizarlo, pero <b>después</b> de terminar el nombre: si vuelves a editar el nombre, el slug se sobrescribe. Cambiarlo cambia la URL pública.</td></tr>
+  <tr><td>Descripción *</td><td>Texto principal de la ficha.</td></tr>
+  <tr><td>Beneficios</td><td>Hasta 10 puntos cortos (ej. "Alta durabilidad y resistencia"). Pueden quedar vacíos.</td></tr>
+  <tr><td>Compatibilidad (texto libre)</td><td>Motos compatibles escritas a mano (ej. "Honda CB160F 2020-2023"). <b>No</b> reemplaza al bloque verificado de Compatibilidades (sección 3).</td></tr>
+  <tr><td>Precio (COP) *</td><td>En pesos normales, <b>sin centavos ni puntos</b>: <code>85000</code>. El sistema lo convierte solo.</td></tr>
+  <tr><td>Precio anterior (tachado)</td><td>Debe ser <b>mayor</b> al precio y haberse cobrado realmente (Ley 1480). Vacío = sin descuento.</td></tr>
+  <tr><td>Stock</td><td>Unidades disponibles. El stock baja automáticamente cuando un pago se aprueba, no al crear el pedido.</td></tr>
+  <tr><td>Personas que recomiendan</td><td>Clientes de la tienda física que lo compraron o recomiendan; se suma a las ventas online en la ficha ("+X personas han comprado…").</td></tr>
+  <tr><td>SKU *</td><td>Código único del producto (ej. <code>FRE-BRE-FZ25-001</code>).</td></tr>
+  <tr><td>Categoría *</td><td>Elige de la lista.</td></tr>
+  <tr><td>Producto activo</td><td>Si lo desmarcas, el producto se <b>oculta del catálogo sin borrarse</b>. Es la forma reversible de dejar de venderlo.</td></tr>
+  <tr><td>Envío: peso, alto, ancho, largo</td><td>Medidas reales ya embaladas. Vacías, la cotización de envío usa valores genéricos que pueden no coincidir con el flete real.</td></tr>
+  <tr><td>Imágenes</td><td>PNG, JPG o WEBP, máx. 10 MB c/u. Se recomiendan hasta 4 para que la galería se vea bien (no es límite estricto). Se guardan en Cloudinary.</td></tr>
+</table>
+
+<h2>3. Bloques que se guardan aparte</h2>
+<h3>Venta cruzada ("normalmente se cambia junto con…")</h3>
+<p>Hasta <b>4</b> productos sugeridos, en el orden en que aparecen. Busca por nombre o SKU. Cada uno admite un <i>motivo</i> opcional (máx. 120 caracteres). La casilla "también sugerir en sentido inverso" agrega este producto a la lista del otro (si tiene cupo) sin quitarle nada. Un producto agotado o inactivo se puede vincular, pero la ficha lo oculta mientras no tenga stock. <b>Se guarda junto con el producto</b>.</p>
+<h3>Identificación del repuesto</h3>
+<p>Marca (ej. NGK, Bosch), MPN (referencia del fabricante, <b>no</b> el SKU de H2R), tipo (Original / Homologado / Genérico) y garantía en meses. Google Merchant Center exige marca y MPN. <b>Tiene su propio botón de guardar</b>.</p>
+<h3>Compatibilidades y referencias OEM</h3>
+<p>Qué moto exacta usa este repuesto: modelo, posición (delantera/trasera/ambas), años, <b>fuente obligatoria</b> (manual, catálogo del proveedor, "verificado en taller…"), notas y la casilla <b>verificada</b>. <b>Solo las verificadas se publican.</b> Cada alta o borrado se guarda al instante, sin pulsar "Guardar". Si falta un modelo de moto, créalo primero en <code>/admin/compatibilidades</code>. También aquí se cargan las referencias OEM (referencia + fabricante).</p>
+
+<h2>4. Retirar un producto</h2>
+<ul>
+  <li><b>Ocultar temporalmente:</b> desmarca "Producto activo" y guarda.</li>
+  <li><b>Eliminar:</b> "Zona de peligro" al final del formulario → <b>Eliminar producto</b> → confirmar. El producto sale del catálogo y pasa a la <b>Papelera</b> (<code>/admin/productos/papelera</code>), desde donde puede restaurarse.</li>
+</ul>
+
+<div class="box"><b>Ojo:</b> mover el precio o el stock hacia valores incorrectos se ve de inmediato en la tienda. Revisa dos veces el precio (sin centavos) antes de guardar. Si cambiaste datos por fuera del panel (scripts, base de datos), usa "Refrescar tienda" en Configuración.</div>
+
+<div class="foot">tiendah2r · Manual del panel de administración · Versión 1.0 — noviembre de 2026. Menú lateral del panel: <b>Productos</b>.</div>
+</body></html>

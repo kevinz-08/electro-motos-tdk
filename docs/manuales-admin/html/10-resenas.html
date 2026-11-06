@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual — Reseñas</title><style>
+@page { size: A4; margin: 12mm 14mm 12mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2933; font-size: 9.6pt; line-height: 1.36; margin: 0; }
+.head { border-bottom: 3px solid #e11d48; padding-bottom: 8px; margin-bottom: 10px; }
+.kicker { color: #e11d48; font-weight: 700; letter-spacing: 1.5px; font-size: 8.5pt; text-transform: uppercase; }
+h1 { font-size: 21pt; margin: 2px 0 2px; color: #0f172a; }
+.route { font-family: Consolas, monospace; font-size: 10pt; color: #475569; background: #f1f5f9; padding: 1px 7px; border-radius: 4px; }
+.lead { font-size: 10.5pt; color: #334155; margin: 8px 0 4px; }
+h2 { font-size: 12pt; color: #be123c; margin: 11px 0 3px; }
+h3 { font-size: 10.5pt; color: #0f172a; margin: 10px 0 2px; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0 5px 20px; padding: 0; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.9pt; page-break-inside: avoid; }
+th { background: #0f172a; color: #fff; text-align: left; padding: 5px 7px; }
+td { border: 1px solid #cbd5e1; padding: 4px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.box { border-left: 4px solid #e11d48; background: #fff1f2; padding: 7px 11px; margin: 9px 0; page-break-inside: avoid; }
+.box.info { border-color: #0284c7; background: #f0f9ff; }
+.box.ok { border-color: #16a34a; background: #f0fdf4; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 4px; border-radius: 3px; font-size: 9pt; }
+.foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 8.5pt; }
+</style></head>
+<body>
+<div class="head">
+  <div class="kicker">Manual de uso · Panel de administración · Sección 10 de 12</div>
+  <h1>Reseñas</h1>
+  <span class="route">/admin/resenas</span>
+</div>
+<p class="lead">Modera las opiniones de los clientes sobre los productos. Solo pueden reseñar compradores con un pedido <b>entregado</b>, y <b>nada se publica hasta que tú lo apruebes</b>.</p>
+
+<h2>1. Las tres pestañas</h2>
+<table>
+  <tr><th style="width:24%">Pestaña</th><th>Qué contiene</th></tr>
+  <tr><td>Pendientes</td><td>Reseñas nuevas que esperan decisión (es la pestaña que se abre por defecto).</td></tr>
+  <tr><td>Aprobadas</td><td>Las que ya se ven en la tienda.</td></tr>
+  <tr><td>Rechazadas</td><td>Las que se descartaron; no se ven en la tienda.</td></tr>
+</table>
+<p>Cada pestaña muestra entre paréntesis cuántas reseñas tiene. Se muestran las 100 más recientes de la pestaña.</p>
+
+<h2>2. Moderar una reseña (paso a paso)</h2>
+<ol>
+  <li>Entra a <b>Pendientes</b>.</li>
+  <li>Lee la tarjeta: producto (el nombre abre su ficha en otra pestaña), estrellas (1 a 5), si <i>lo recomienda</i>, el comentario, el autor y la fecha.</li>
+  <li>Pulsa <b>Aprobar</b> (se publica) o <b>Rechazar</b> (no se publica).</li>
+  <li>El cambio actualiza la tienda de inmediato.</li>
+</ol>
+<p>Puedes cambiar de decisión después: en Aprobadas aparece <b>Rechazar</b>; en Rechazadas aparece <b>Aprobar</b>.</p>
+
+<h2>3. Criterios sugeridos</h2>
+<ul>
+  <li><b>Aprobar:</b> opiniones reales sobre el producto, buenas o malas. Las reseñas críticas y honestas dan credibilidad.</li>
+  <li><b>Rechazar:</b> insultos, datos personales (teléfonos, direcciones), publicidad o enlaces de terceros, texto sin relación con el producto o spam.</li>
+  <li>Una reseña sin comentario (solo estrellas) es válida: aparece como "Sin comentario".</li>
+</ul>
+
+<div class="box info"><b>Relación con otras secciones:</b> la ficha del producto solo muestra el promedio de estrellas cuando hay un mínimo de reseñas aprobadas (se define en <code>/admin/configuracion</code> → "Mínimo de reseñas para mostrar estrellas").</div>
+<div class="box"><b>Ojo:</b> no rechaces reseñas solo porque son negativas: puede verse como manipulación y quita credibilidad a las demás. Si una reseña negativa señala un problema real, atiéndelo con el cliente.</div>
+
+<div class="foot">tiendah2r · Manual del panel de administración · Versión 1.0 — noviembre de 2026. Menú lateral del panel: <b>Reseñas</b>.</div>
+</body></html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Manual — Kits</title><style>
+@page { size: A4; margin: 12mm 14mm 12mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2933; font-size: 9.6pt; line-height: 1.36; margin: 0; }
+.head { border-bottom: 3px solid #e11d48; padding-bottom: 8px; margin-bottom: 10px; }
+.kicker { color: #e11d48; font-weight: 700; letter-spacing: 1.5px; font-size: 8.5pt; text-transform: uppercase; }
+h1 { font-size: 21pt; margin: 2px 0 2px; color: #0f172a; }
+.route { font-family: Consolas, monospace; font-size: 10pt; color: #475569; background: #f1f5f9; padding: 1px 7px; border-radius: 4px; }
+.lead { font-size: 10.5pt; color: #334155; margin: 8px 0 4px; }
+h2 { font-size: 12pt; color: #be123c; margin: 11px 0 3px; }
+h3 { font-size: 10.5pt; color: #0f172a; margin: 10px 0 2px; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0 5px 20px; padding: 0; }
+li { margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.9pt; page-break-inside: avoid; }
+th { background: #0f172a; color: #fff; text-align: left; padding: 5px 7px; }
+td { border: 1px solid #cbd5e1; padding: 4px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.box { border-left: 4px solid #e11d48; background: #fff1f2; padding: 7px 11px; margin: 9px 0; page-break-inside: avoid; }
+.box.info { border-color: #0284c7; background: #f0f9ff; }
+.box.ok { border-color: #16a34a; background: #f0fdf4; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 4px; border-radius: 3px; font-size: 9pt; }
+.foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 8.5pt; }
+</style></head>
+<body>
+<div class="head">
+  <div class="kicker">Manual de uso · Panel de administración · Sección 4 de 12</div>
+  <h1>Kits</h1>
+  <span class="route">/admin/kits</span>
+</div>
+<p class="lead">Un kit agrupa varios productos que se compran juntos (por ejemplo, el cambio de aceite completo) con un descuento opcional. El kit <b>no tiene stock propio</b>: su precio y su disponibilidad se calculan siempre a partir de los productos que lo componen.</p>
+
+<h2>1. La lista de kits</h2>
+<p>Columnas: Kit, Moto, Productos (cantidad), Precio (con el precio sin descuento tachado), <b>Disponibilidad</b> (cuántos kits se pueden armar hoy con el stock actual) y Estado (punto verde = activo). El botón <b>Nuevo kit</b> crea uno; "Editar" abre el existente.</p>
+
+<h2>2. Crear un kit (paso a paso)</h2>
+<ol>
+  <li>Pulsa <b>Nuevo kit</b>.</li>
+  <li>Completa los datos generales (tabla).</li>
+  <li>En <b>Productos del kit</b> busca por nombre o SKU y agrégalos. Define la <b>cantidad</b> (<i>Cant.</i>) de cada uno.</li>
+  <li>Escribe el <b>descuento</b> si lo hay y revisa el resumen de precio a la derecha/abajo.</li>
+  <li>Pulsa <b>Crear kit</b> (o <b>Guardar cambios</b> si editas).</li>
+</ol>
+<table>
+  <tr><th style="width:26%">Campo</th><th>Qué escribir / regla</th></tr>
+  <tr><td>Nombre del kit *</td><td>Ej. "Kit de mantenimiento NKD 125".</td></tr>
+  <tr><td>Slug (URL) *</td><td>Ej. <code>kit-mantenimiento-nkd-125</code>.</td></tr>
+  <tr><td>Descripción</td><td>Opcional. Ej. "Para el cambio de aceite completo, incluye filtro y bujía."</td></tr>
+  <tr><td>Modelo de moto</td><td>Opcional: agrupa el kit en la página de esa moto. "Kit genérico" = sin moto asociada.</td></tr>
+  <tr><td>Kit activo</td><td>Visible en la tienda <b>solo si además tiene disponibilidad</b>.</td></tr>
+  <tr><td>Productos del kit</td><td><b>Mínimo 2, máximo 8</b> productos distintos.</td></tr>
+  <tr><td>Descuento del kit (COP)</td><td>En pesos. <code>0</code> = sin descuento: el precio es la suma de los productos. <b>Debe ser menor que la suma.</b></td></tr>
+</table>
+
+<h2>3. El resumen de precio</h2>
+<p>Muestra <b>Suma de productos</b>, <b>Descuento</b>, <b>Precio final del kit</b> y <b>Disponibilidad hoy</b>. Si dice "sin stock (no se mostrará)", algún producto está agotado o inactivo y el kit no aparece en la tienda hasta que se reponga. Los productos con problema se marcan en ámbar como <i>Inactivo</i> o <i>Agotado</i>.</p>
+
+<h2>4. Cómo compra el cliente</h2>
+<p>Al agregar el kit al carrito se convierte en líneas normales de cada producto. El pago, el stock y los envíos funcionan igual que con productos sueltos.</p>
+
+<h2>5. Eliminar un kit</h2>
+<p>"Zona de peligro" → <b>Eliminar</b> → confirmar. El kit se retira de la tienda y se desactiva; los productos que lo componían no se tocan.</p>
+
+<div class="box"><b>Ojo:</b> si cambias el precio de un producto, el kit cambia solo (nunca se guarda un precio fijo). Si el nuevo precio hace que el descuento iguale o supere la suma, el servidor rechaza el guardado: baja el descuento.</div>
+
+<div class="foot">tiendah2r · Manual del panel de administración · Versión 1.0 — noviembre de 2026. Menú lateral del panel: <b>Kits</b>.</div>
+</body></html>

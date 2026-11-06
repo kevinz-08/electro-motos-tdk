@@ -6898,3 +6898,15 @@ eslint sin errores. Motor probado además contra los 85 productos reales de `cat
 lo consume para búsqueda de usuario, moverlo al mismo motor.
 
 *Última actualización: 2026-09-21*
+
+## 98. Manual de operación de infraestructura (PDF)
+
+**Contexto:** el cliente necesita un documento no técnico que explique los 4 servicios que sostienen la tienda, sus cortes de pago y qué hacer ante una caída.
+
+**Cambios:** se crea `docs/manual-operacion/manual-operacion-tiendah2r.html` y su PDF (8 páginas): resumen con diagrama, un capítulo por servicio (GCP, Vercel, Neon, Cloudinary), calendario mensual (cortes de GCP y Neon el día 1), diagnóstico de caídas y anexo de credenciales.
+
+**Decisiones:** las credenciales NO se incluyen; cada campo dice "Se envía por mensaje para no comprometer el PDF". Los planes y fechas de cobro de Vercel y Cloudinary quedan marcados "[completar]" porque no constan en el repositorio.
+
+**Archivos creados:** `docs/manual-operacion/manual-operacion-tiendah2r.{html,pdf}`. **Modificados:** `README.md` (sección 28).
+
+*Última actualización: 2026-11-05*

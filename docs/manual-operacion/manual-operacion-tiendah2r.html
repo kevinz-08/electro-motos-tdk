@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de operación — tiendah2r</title>
+<style>
+  @page { size: A4; margin: 13mm 15mm 13mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: #1f2933; font-size: 9.6pt; line-height: 1.38; margin: 0; }
+  h1 { font-size: 26pt; margin: 0 0 6px; color: #0f172a; }
+  h2 { font-size: 16pt; color: #0f172a; border-bottom: 3px solid #e11d48; padding-bottom: 4px; margin: 0 0 12px; }
+  h3 { font-size: 12pt; color: #be123c; margin: 11px 0 4px; }
+  p { margin: 6px 0; }
+  ul, ol { margin: 6px 0 6px 20px; padding: 0; }
+  li { margin: 1.5px 0; }
+  .page { page-break-before: always; }
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover .tag { color: #e11d48; font-weight: 700; letter-spacing: 2px; font-size: 10pt; text-transform: uppercase; }
+  .cover .sub { font-size: 13pt; color: #475569; margin-bottom: 30px; }
+  .meta { color: #64748b; font-size: 9.5pt; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 8px; font-size: 9.2pt; page-break-inside: avoid; }
+  th { background: #0f172a; color: #fff; text-align: left; padding: 6px 8px; }
+  td { border: 1px solid #cbd5e1; padding: 4px 7px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .box { border-left: 4px solid #e11d48; background: #fff1f2; padding: 8px 12px; margin: 10px 0; page-break-inside: avoid; }
+  .box.info { border-color: #0284c7; background: #f0f9ff; }
+  .box.ok { border-color: #16a34a; background: #f0fdf4; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 8.5pt; font-weight: 700; color: #fff; background: #e11d48; }
+  .pill.g { background: #16a34a; }
+  .pill.b { background: #0284c7; }
+  .diagram { font-family: Consolas, "Courier New", monospace; font-size: 8.8pt; background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 6px; white-space: pre; line-height: 1.35; page-break-inside: avoid; }
+  .cred { color: #64748b; font-style: italic; }
+  code { font-family: Consolas, monospace; background: #f1f5f9; padding: 0 4px; border-radius: 3px; font-size: 9.5pt; }
+</style>
+</head>
+<body>
+
+<!-- ============ PORTADA ============ -->
+<div class="cover">
+  <div class="tag">Documento de operación</div>
+  <h1>Manual de operación<br>de tiendah2r</h1>
+  <div class="sub">Los 4 servicios que mantienen la tienda en línea:<br>Google Cloud (GCP) · Vercel · Neon · Cloudinary</div>
+  <p class="meta">Sitio: https://www.tiendah2r.com<br>Versión 1.0 — noviembre de 2026<br>Próximo corte de facturación: <b>1 de diciembre de 2026</b></p>
+  <div class="box">
+    <b>Importante.</b> Este documento <b>no contiene contraseñas</b>. Las credenciales de cada servicio se entregan por mensaje aparte, para no comprometer el PDF si este se reenvía o se guarda en un lugar compartido.
+  </div>
+</div>
+
+<!-- ============ 1. RESUMEN ============ -->
+<div class="page">
+<h2>1. Resumen: cómo funciona la tienda</h2>
+<p>tiendah2r no es un solo programa en un solo lugar: son <b>cuatro servicios en la nube</b> que trabajan juntos. Si uno deja de funcionar (por ejemplo, por un pago pendiente), la tienda pierde esa parte aunque los otros tres sigan activos.</p>
+
+<div class="diagram">                    Cliente (navegador / celular)
+                               │
+                               ▼
+              ┌─────────────────────────────────┐
+              │  VERCEL — Frontend (la tienda)  │  páginas, catálogo, carrito
+              └───────┬───────────────┬─────────┘
+                      │               │ imágenes
+        lee catálogo  │               ▼
+                      │      ┌──────────────────┐
+                      │      │ CLOUDINARY       │  fotos de productos y banners
+                      │      └──────────────────┘
+                      ▼
+              ┌───────────────┐   compras, login,   ┌────────────────────────┐
+              │ NEON — Base   │◄──pedidos, pagos────│ GCP (Cloud Run) — API  │
+              │ de datos      │                     │ + login con Google     │
+              └───────────────┘                     └────────────────────────┘</div>
+
+<table>
+  <tr><th>Servicio</th><th>Qué hace por la tienda</th><th>¿Factura?</th><th>Corte</th><th>Si falla</th></tr>
+  <tr><td><b>GCP</b></td><td>Mantiene la API (pedidos, pagos, correos, envíos) y el login con Google.</td><td><span class="pill">Sí</span></td><td><b>Día 1</b> de cada mes</td><td>No se puede comprar, iniciar sesión ni procesar pagos.</td></tr>
+  <tr><td><b>Vercel</b></td><td>Publica la página web que ven los clientes.</td><td>Verificar plan</td><td>Según su plan</td><td>La tienda no abre.</td></tr>
+  <tr><td><b>Neon</b></td><td>Guarda productos, usuarios, pedidos y stock.</td><td><span class="pill">Sí</span></td><td><b>Día 1</b> de cada mes</td><td>Sin catálogo, sin pedidos: la tienda cae.</td></tr>
+  <tr><td><b>Cloudinary</b></td><td>Almacena y entrega las imágenes optimizadas.</td><td>Verificar plan</td><td>Según su plan</td><td>La tienda abre pero sin imágenes.</td></tr>
+</table>
+
+<div class="box info"><b>Regla de oro:</b> los cobros de GCP y Neon ocurren el <b>día 1 de cada mes</b>. Una tarjeta vencida, sin cupo o con el cobro rechazado ese día puede suspender el servicio y dejar la tienda caída. Ver el calendario en la sección 6.</div>
+</div>
+
+<!-- ============ 2. GCP ============ -->
+<div class="page">
+<h2>2. Google Cloud Platform (GCP)</h2>
+<p class="meta">Consola: https://console.cloud.google.com · Facturación: menú ☰ → Facturación</p>
+
+<h3>Para qué sirve</h3>
+<ul>
+  <li><b>Cloud Run</b> ejecuta la <b>API</b> de la tienda (servicio <code>electro-motos-api</code>): crea pedidos, confirma pagos (Wompi / Mercado Pago), descuenta stock, envía correos de confirmación y se conecta con Vendelo para los envíos.</li>
+  <li><b>Login con Google</b>: el proyecto de GCP aloja las credenciales OAuth (Cliente ID y secreto) que permiten a los clientes entrar con su cuenta de Google.</li>
+  <li><b>Secret Manager</b> guarda las claves secretas de la API (base de datos, JWT, pasarelas de pago).</li>
+  <li><b>Artifact Registry</b> guarda las imágenes (versiones) de la API que se despliegan.</li>
+</ul>
+
+<h3>Qué pasa si se suspende</h3>
+<p>Los clientes pueden ver el catálogo, pero <b>no pueden comprar, iniciar sesión ni ver pedidos</b>; los pagos aprobados no se confirmarían y los correos no saldrían. Es el servicio más crítico para vender.</p>
+
+<h3>Facturación</h3>
+<ul>
+  <li><b>Corte: el día 1 de cada mes.</b></li>
+  <li>Cloud Run cobra por uso (peticiones y tiempo de cómputo) y tiene una cuota mensual gratuita; con el tráfico actual el costo suele ser bajo, pero <b>un pico de visitas o un error puede subirlo</b>.</li>
+  <li>Se paga con la tarjeta/método registrado en la cuenta de facturación de GCP. Si el cobro falla, Google avisa por correo y puede suspender los servicios.</li>
+</ul>
+
+<h3>Qué revisar (mensualmente)</h3>
+<ol>
+  <li>Facturación → <b>Informes</b>: ver el gasto del mes en curso y compararlo con el anterior.</li>
+  <li>Facturación → <b>Presupuestos y alertas</b>: confirmar que existe una alerta de presupuesto y que llega a un correo que se revise.</li>
+  <li>Facturación → <b>Administración de pagos</b>: tarjeta vigente y sin vencer.</li>
+  <li>Cloud Run → servicio <code>electro-motos-api</code> → pestaña <b>Registros</b> (logs): buscar errores repetidos.</li>
+  <li>Comprobar que la API responde: abrir <code>[URL de la API]/health</code> (debe responder "ok").</li>
+</ol>
+
+<h3>Problemas típicos</h3>
+<table>
+  <tr><th>Síntoma</th><th>Qué revisar</th></tr>
+  <tr><td>No se puede comprar ni iniciar sesión</td><td>Estado de facturación en GCP; luego Cloud Run → Registros.</td></tr>
+  <tr><td>"Iniciar con Google" falla</td><td>APIs y servicios → Credenciales → Cliente OAuth: que los dominios autorizados y las URL de redirección sigan siendo los de la tienda.</td></tr>
+  <tr><td>La primera petición del día tarda unos segundos</td><td>Normal: Cloud Run se "duerme" sin tráfico (escala a cero) y arranca al recibir una visita.</td></tr>
+  <tr><td>Gasto inesperado</td><td>Informes de facturación, filtrar por servicio; revisar tráfico anómalo en Cloud Run.</td></tr>
+</table>
+
+<div class="box"><b>No tocar</b> sin asesoría técnica: variables de entorno y secretos de Cloud Run, el cliente OAuth de Google, y el servicio <code>electro-motos-api</code> (no borrar ni cambiar región). Cambiar un secreto en un lado y no en el otro rompe la comunicación entre la web y la API.</div>
+</div>
+
+<!-- ============ 3. VERCEL ============ -->
+<div class="page">
+<h2>3. Vercel</h2>
+<p class="meta">Consola: https://vercel.com/dashboard</p>
+
+<h3>Para qué sirve</h3>
+<ul>
+  <li>Aloja y publica el <b>frontend</b> (aplicación Next.js): home, catálogo, fichas de producto, carrito, checkout, panel de administración y páginas de SEO.</li>
+  <li>Cada vez que se sube código nuevo al repositorio de GitHub, Vercel construye y publica la nueva versión (<i>deploy</i>).</li>
+  <li>Guarda las <b>variables de entorno</b> de la web (conexión a la base de datos, claves de NextAuth, Cloudinary, etc.).</li>
+  <li>Gestiona el dominio <b>www.tiendah2r.com</b> y su certificado HTTPS.</li>
+</ul>
+
+<h3>Qué pasa si se suspende</h3>
+<p>La tienda deja de abrir por completo: ni catálogo, ni carrito, ni panel de administración.</p>
+
+<h3>Qué tener en cuenta</h3>
+<ul>
+  <li><b>Plan:</b> verificar en Settings → Billing qué plan está activo (Hobby o Pro). Los términos de Vercel indican que el plan <b>Hobby es para uso personal/no comercial</b>; una tienda con ventas suele requerir <b>Pro</b>. Confirmar con el plan actual y las condiciones vigentes.</li>
+  <li><b>Fecha de cobro:</b> si el plan es de pago, Vercel cobra según la fecha de alta de la suscripción (no necesariamente el día 1). Anotar aquí la fecha real: <span class="cred">[completar con el ciclo de facturación que muestre la cuenta]</span>.</li>
+  <li><b>Límites:</b> Vercel mide ancho de banda, invocaciones de funciones y minutos de build. Revisar Usage de forma mensual.</li>
+  <li><b>Almacenamiento de despliegues:</b> cada rama o deploy ocupa espacio. Por eso el proyecto evita publicar ramas innecesarias.</li>
+  <li><b>Dominio:</b> la renovación del dominio se paga donde se compró (registrador), no en Vercel, salvo que se haya comprado allí. Verificar el vencimiento.</li>
+</ul>
+
+<h3>Qué revisar (mensualmente)</h3>
+<ol>
+  <li>Dashboard → proyecto → <b>Deployments</b>: el último deploy de Production debe estar en estado <i>Ready</i>.</li>
+  <li><b>Settings → Billing / Usage</b>: consumo y próxima factura.</li>
+  <li><b>Settings → Domains</b>: dominio con estado válido y sin advertencias.</li>
+  <li>Pestaña <b>Logs</b>: errores recurrentes de las funciones del servidor.</li>
+</ol>
+
+<h3>Problemas típicos</h3>
+<table>
+  <tr><th>Síntoma</th><th>Qué hacer</th></tr>
+  <tr><td>La web no abre</td><td>Revisar estado de la cuenta y del último deploy; probar el enlace *.vercel.app del proyecto.</td></tr>
+  <tr><td>Un deploy falló</td><td>Deployments → abrir el deploy fallido → ver el log. Se puede volver a la versión anterior con <b>Promote / Rollback</b> sobre un deploy que estaba bien.</td></tr>
+  <tr><td>Cambié algo en el admin y no se ve</td><td>En <code>/admin/configuracion</code> usar "Refrescar tienda" (invalida la caché).</td></tr>
+</table>
+
+<div class="box"><b>No tocar</b> las variables de entorno sin avisar al desarrollador: varias deben ser <b>idénticas</b> a las de la API en GCP (por ejemplo <code>INTERNAL_API_SECRET</code>). Un valor distinto rompe el login.</div>
+</div>
+
+<!-- ============ 4. NEON ============ -->
+<div class="page">
+<h2>4. Neon (base de datos)</h2>
+<p class="meta">Consola: https://console.neon.tech</p>
+
+<h3>Para qué sirve</h3>
+<ul>
+  <li>Es la <b>base de datos PostgreSQL</b> donde viven: productos, categorías, stock, precios, usuarios, pedidos, pagos, banners, reseñas y la cola de correos.</li>
+  <li>Tanto la web (Vercel) como la API (GCP) se conectan a ella mediante la variable <code>DATABASE_URL</code>.</li>
+  <li>Es "serverless": el cómputo se apaga tras unos minutos sin consultas y se enciende al recibir una.</li>
+</ul>
+
+<h3>Qué pasa si se suspende o se agota</h3>
+<p>Sin base de datos <b>no hay catálogo ni pedidos</b>. Ya ocurrió una vez (octubre de 2026): se agotó la cuota de cómputo del mes y la tienda mostró el error <i>"exceeded the quota"</i>. Por eso el proyecto fue optimizado para consultar la base lo mínimo posible.</p>
+
+<h3>Facturación</h3>
+<ul>
+  <li><b>Corte: el día 1 de cada mes.</b></li>
+  <li>Neon cobra por <b>CU-hours</b> (tiempo de cómputo encendido × tamaño del cómputo) y por almacenamiento, no por número de consultas.</li>
+  <li>Cada plan incluye una cantidad de CU-hours al mes; superarla bloquea el servicio (plan gratuito) o genera cobros adicionales (planes de pago). Confirmar el plan vigente en <b>Billing</b>.</li>
+</ul>
+
+<h3>Qué revisar (mensualmente, y a mitad de mes)</h3>
+<ol>
+  <li><b>Billing → Usage</b>: CU-hours consumidas vs. incluidas. Meta del proyecto: no superar ~2 CU-hours por día.</li>
+  <li><b>Monitoring → Compute</b>: el cómputo debe estar apagado la mayor parte del día, con picos cortos al comprar o usar el admin.</li>
+  <li>Configuración de <b>Autoscaling</b>: mínimo y máximo 0,25 CU, y <i>Scale to zero</i> activado.</li>
+  <li>Tarjeta vigente en Billing.</li>
+  <li>Almacenamiento usado (Storage) y que existan copias de seguridad / <i>restore window</i> según el plan.</li>
+</ol>
+
+<h3>Qué sube el consumo (y conviene evitar)</h3>
+<ul>
+  <li>Dejar el panel <code>/admin</code> abierto navegando de forma constante.</li>
+  <li>Scripts masivos o herramientas (Prisma Studio, cargas de catálogo) que mantienen la conexión abierta.</li>
+  <li>Tráfico automatizado o bots sobre rutas dinámicas (búsquedas con muchos filtros).</li>
+</ul>
+
+<div class="box"><b>Nunca</b> borrar el proyecto, la rama principal ni la base de datos desde la consola. Tampoco regenerar la contraseña de la base sin actualizar <code>DATABASE_URL</code> en Vercel <b>y</b> en GCP (Secret Manager) al mismo tiempo; si no, la tienda queda sin conexión.</div>
+</div>
+
+<!-- ============ 5. CLOUDINARY ============ -->
+<div class="page">
+<h2>5. Cloudinary (imágenes)</h2>
+<p class="meta">Consola: https://console.cloudinary.com</p>
+
+<h3>Para qué sirve</h3>
+<ul>
+  <li>Almacena todas las <b>imágenes</b> de la tienda: fotos de productos, banners del home, imágenes de categorías y del pop-up.</li>
+  <li>Las entrega optimizadas (formato y tamaño adecuados para cada dispositivo) mediante su red de distribución (CDN), lo que acelera la tienda.</li>
+  <li>Cuando el administrador sube una imagen en el panel <code>/admin</code>, la API la envía a Cloudinary con las claves guardadas en las variables de entorno.</li>
+</ul>
+
+<h3>Qué pasa si falla</h3>
+<p>La tienda sigue abierta y se puede comprar, pero las <b>imágenes dejan de verse</b> y no se pueden subir nuevas. Afecta mucho la confianza del cliente y las ventas.</p>
+
+<h3>Qué tener en cuenta</h3>
+<ul>
+  <li><b>Plan y límites:</b> Cloudinary mide el uso en <b>créditos</b> (almacenamiento, ancho de banda y transformaciones). Verificar en la consola (Settings / Dashboard) el plan actual y el porcentaje de créditos usados. Si se superan, puede restringir la entrega de imágenes.</li>
+  <li><b>Fecha de cobro:</b> si el plan es de pago, anotarla aquí: <span class="cred">[completar con la fecha que muestre la cuenta]</span>. Si es plan gratuito, no hay cobro pero sí límites mensuales.</li>
+  <li><b>Claves:</b> la tienda usa tres datos (<code>CLOUD_NAME</code>, <code>API_KEY</code>, <code>API_SECRET</code>) configurados en Vercel y en GCP. Si se regeneran en Cloudinary, hay que actualizarlos en ambos lugares.</li>
+  <li><b>No borrar</b> imágenes desde la biblioteca de Cloudinary: los productos las referencian por enlace y quedarían con la foto rota.</li>
+</ul>
+
+<h3>Qué revisar (mensualmente)</h3>
+<ol>
+  <li>Dashboard: créditos usados, almacenamiento y ancho de banda del mes.</li>
+  <li>Que el correo de la cuenta reciba y se lean los avisos de cuota (80 % / 100 %).</li>
+  <li>Abrir la tienda y confirmar que las imágenes cargan.</li>
+</ol>
+</div>
+
+<!-- ============ 6. CALENDARIO ============ -->
+<div class="page">
+<h2>6. Calendario mensual de pagos y revisiones</h2>
+
+<table>
+  <tr><th>Día del mes</th><th>Qué hacer</th><th>Servicio</th></tr>
+  <tr><td><b>Día 15</b></td><td>Revisión de mitad de mes: consumo de CU-hours en Neon y gasto acumulado en GCP. Si van por encima de lo normal, actuar antes de fin de mes.</td><td>Neon · GCP</td></tr>
+  <tr><td><b>Día 25</b></td><td>Verificar que la tarjeta registrada esté vigente, con cupo y sin bloqueos. Avisar al banco si es necesario.</td><td>GCP · Neon</td></tr>
+  <tr><td><b>Día 28 – 30</b></td><td>Confirmar saldo/cupo suficiente para el cobro. Revisar el estimado de la factura en cada consola.</td><td>GCP · Neon</td></tr>
+  <tr><td><b>Día 1</b></td><td><span class="pill">CORTE</span> Se generan los cobros mensuales de GCP y Neon.</td><td>GCP · Neon</td></tr>
+  <tr><td><b>Día 2 – 3</b></td><td>Confirmar que ambos cobros fueron aprobados y descargar las facturas. Abrir la tienda y verificar que todo funciona.</td><td>GCP · Neon</td></tr>
+  <tr><td><b>Mensual</b></td><td>Revisar uso y fecha de cobro de Vercel y Cloudinary; vencimiento del dominio.</td><td>Vercel · Cloudinary</td></tr>
+</table>
+
+<h3>Próximos cortes</h3>
+<table>
+  <tr><th>Corte</th><th>Fecha</th></tr>
+  <tr><td>Diciembre 2026</td><td>1 de diciembre de 2026</td></tr>
+  <tr><td>Enero 2027</td><td>1 de enero de 2027</td></tr>
+  <tr><td>Febrero 2027</td><td>1 de febrero de 2027</td></tr>
+  <tr><td>Marzo 2027</td><td>1 de marzo de 2027</td></tr>
+</table>
+
+<div class="box ok"><b>Recomendación:</b> crear recordatorios recurrentes en el calendario del celular (días 15, 25 y 1 de cada mes) y activar alertas de presupuesto en GCP y de uso en Neon, dirigidas a un correo que se revise a diario.</div>
+
+<h2 style="margin-top:22px">7. Si la tienda no funciona: ¿cuál servicio es?</h2>
+<table>
+  <tr><th>Lo que se observa</th><th>Servicio probable</th><th>Primer paso</th></tr>
+  <tr><td>La página no abre en absoluto</td><td>Vercel</td><td>Revisar cuenta y último deploy.</td></tr>
+  <tr><td>Abre, pero dice error de "cuota" o no muestra productos</td><td>Neon</td><td>Billing → Usage; ver si se agotó la cuota o si hay cobro pendiente.</td></tr>
+  <tr><td>Abre y hay productos, pero no se puede comprar ni entrar con Google</td><td>GCP</td><td>Facturación de GCP y registros de Cloud Run.</td></tr>
+  <tr><td>Todo funciona pero sin imágenes</td><td>Cloudinary</td><td>Créditos usados y estado de la cuenta.</td></tr>
+</table>
+
+<h2 style="margin-top:22px">8. Otros servicios que usa la tienda (referencia)</h2>
+<p>Además de los cuatro anteriores, la tienda depende de otras cuentas que también conviene tener documentadas: <b>GitHub</b> (código y despliegues), <b>Wompi</b> y <b>Mercado Pago</b> (pagos), <b>Resend</b> (correos de confirmación), <b>Vendelo</b> (envíos), <b>Sentry</b> (monitoreo de errores) y el <b>registrador del dominio</b>. Este manual cubre los cuatro servicios de infraestructura; los demás pueden añadirse en una próxima versión.</p>
+</div>
+
+<!-- ============ 9. CREDENCIALES ============ -->
+<div class="page">
+<h2>9. Credenciales de acceso</h2>
+<div class="box"><b>Por seguridad, ninguna credencial se incluye en este PDF.</b> Cada dato se envía por mensaje privado a quien administre la tienda. Si algún dato se comparte por error, cambiar la contraseña de inmediato.</div>
+
+<h3>Google Cloud Platform (GCP)</h3>
+<table>
+  <tr><td style="width:34%"><b>URL de acceso</b></td><td>https://console.cloud.google.com</td></tr>
+  <tr><td><b>Correo / usuario</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Contraseña</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Método de pago asociado</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Verificación en dos pasos / recuperación</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+</table>
+
+<h3>Vercel</h3>
+<table>
+  <tr><td style="width:34%"><b>URL de acceso</b></td><td>https://vercel.com/login</td></tr>
+  <tr><td><b>Correo / usuario</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Contraseña</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Método de pago asociado</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Verificación en dos pasos / recuperación</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+</table>
+
+<h3>Neon</h3>
+<table>
+  <tr><td style="width:34%"><b>URL de acceso</b></td><td>https://console.neon.tech</td></tr>
+  <tr><td><b>Correo / usuario</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Contraseña</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Método de pago asociado</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Verificación en dos pasos / recuperación</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+</table>
+
+<h3>Cloudinary</h3>
+<table>
+  <tr><td style="width:34%"><b>URL de acceso</b></td><td>https://console.cloudinary.com</td></tr>
+  <tr><td><b>Correo / usuario</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Contraseña</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Método de pago asociado</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+  <tr><td><b>Verificación en dos pasos / recuperación</b></td><td class="cred">Se envía por mensaje para no comprometer el PDF</td></tr>
+</table>
+</div>
+
+</body>
+</html>

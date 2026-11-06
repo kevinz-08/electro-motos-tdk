@@ -2225,3 +2225,12 @@ Cloud Run (`--min-instances 0`, CPU solo durante requests) congela los timers cu
 - Autoscaling: mínimo y máximo **0,25 CU**. A ese tamaño, 2 CU-h/día equivalen a 8 h encendido.
 - Scale to zero activado (5 min, el valor fijo del plan Free).
 - Vigilar **Monitoring → Compute** durante 3 días: el compute debe estar en 0 la mayor parte del día, con picos cortos ligados a pedidos o al uso del admin.
+
+## 28. Manual de operación de la infraestructura (PDF)
+
+Manual para quien administre la tienda: qué hace cada servicio (GCP, Vercel, Neon, Cloudinary), qué falla si se suspende, fechas de corte (GCP y Neon: día 1 de cada mes), calendario de revisiones y diagnóstico de caídas.
+
+- Fuente: `docs/manual-operacion/manual-operacion-tiendah2r.html`; salida: `docs/manual-operacion/manual-operacion-tiendah2r.pdf` (8 páginas).
+- **Las credenciales no están en el PDF**: cada una dice "Se envía por mensaje para no comprometer el PDF". No agregar contraseñas al repositorio.
+- Regenerar el PDF tras editar el HTML: `chrome --headless=new --no-pdf-header-footer --print-to-pdf=<salida.pdf> <entrada.html>`.
+- Pendiente de completar con datos reales: fecha de cobro de Vercel y Cloudinary y plan vigente de cada uno.

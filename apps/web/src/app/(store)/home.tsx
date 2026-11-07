@@ -6,6 +6,7 @@
  *   1b. INTRO — el <h1> de la página (marca + qué vende), debajo del hero
  *   2. TRUST BAR — Sellos de confianza con iconos SVG
  *   3. CATEGORÍAS — Grid horizontal de categorías con imágenes
+ *   3b. MARCAS — 8 logos de marcas aliadas, cada uno enlaza al buscador
  *   4. PRODUCTOS DESTACADOS — 4 productos in-stock más recientes
  *   5. SOCIAL PROOF — Reseñas reales de ProductReview (no se pinta si no hay ninguna)
  *   6. FAQ — Acordeón de preguntas frecuentes
@@ -18,6 +19,7 @@ import { HomeIntro } from '@/components/store/HomeIntro'
 import { PromoModal } from '@/components/store/PromoModal'
 import { TrustBadges } from '@/components/store/TrustBadges'
 import { CategoryGrid } from '@/components/store/CategoryGrid'
+import { BrandsShowcase } from '@/components/store/BrandsShowcase'
 import { SocialProof } from '@/components/store/SocialProof'
 import { CtaMidSection } from '@/components/store/CtaMidSection'
 import { FAQ } from '@/components/store/FAQ'
@@ -65,6 +67,9 @@ export default async function HomePage() {
 
       {/* 3. Categorías */}
       {categories.length > 0 && <CategoryGrid categories={categories} />}
+
+      {/* 3b. Marcas aliadas — logos que enlazan al buscador del catálogo (README §30) */}
+      <BrandsShowcase />
 
       {/* 4. Productos destacados */}
       {featuredProducts.length > 0 && (

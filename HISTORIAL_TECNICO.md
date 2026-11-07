@@ -6922,3 +6922,15 @@ lo consume para búsqueda de usuario, moverlo al mismo motor.
 **Archivos creados:** `docs/manuales-admin/{build.py,data.py,data_a.py,data_b.py}`, `html/*.html`, `pdf/*.pdf`. **Modificados:** `README.md` (sección 29).
 
 *Última actualización: 2026-11-05*
+
+## 100. Sección "Marcas que respaldan tu moto" en la home
+
+**Contexto:** el cliente quiere mostrar las marcas conocidas que maneja (8 logos) arriba de "Productos destacados", con un diseño llamativo acorde al sitio.
+
+**Cambios:** nuevo `BrandsShowcase` (franja oscura, grilla 4×2 / 2×4, tarjetas blancas con hover celeste) registrado en `home.tsx` entre Categorías y Destacados. Cada tarjeta enlaza a `/catalogo?search=<marca>`. Como el índice de búsqueda no incluía `partBrand`, se agregó a los `tags` de cada documento para que la búsqueda por marca funcione.
+
+**Decisiones:** se usa el buscador existente en vez de crear un filtro por marca nuevo (cambio mucho mayor). La lista de marcas es un array estático, no una tabla administrable.
+
+**Archivos creados:** `apps/web/src/components/store/BrandsShowcase.tsx`, `apps/web/public/assets/marcasConocidas/*`. **Modificados:** `apps/web/src/app/(store)/home.tsx`, `apps/web/src/lib/search-index.ts`, `README.md` (sección 30).
+
+*Última actualización: 2026-11-06*

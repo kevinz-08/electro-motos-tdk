@@ -28,6 +28,7 @@ export async function buildSearchIndex(): Promise<SearchDoc[]> {
       name: true,
       sku: true,
       description: true,
+      partBrand: true,
       price: true,
       stock: true,
       isActive: true,
@@ -59,11 +60,15 @@ export async function buildSearchIndex(): Promise<SearchDoc[]> {
       categoryId: p.categoryId,
       categoryName: p.category?.name,
       parentCategoryName: p.category?.parent?.name,
-      tags: p.fitments.flatMap((f) => [
-        `${f.model.brand.name} ${f.model.name}`,
-        f.model.name,
-        ...f.model.aliases,
-      ]),
+      tags: [
+        // Marca del repuesto (NGK, Bosch...): lo que enlaza la sección "Marcas" de la home.
+        ...(p.partBrand ? [p.partBrand] : []),
+        ...p.fitments.flatMap((f) => [
+          `${f.model.brand.name} ${f.model.name}`,
+          f.model.name,
+          ...f.model.aliases,
+        ]),
+      ],
       createdAt: p.createdAt.getTime(),
     }),
   )

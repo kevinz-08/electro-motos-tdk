@@ -35,22 +35,13 @@ export function BrandsShowcase() {
     <section
       id="marcas"
       aria-labelledby="marcas-titulo"
-      className="relative overflow-hidden py-20 px-4 bg-white border-t border-gray-100"
+      className="py-20 px-4 bg-white border-t border-gray-100"
     >
-      {/* Resplandor decorativo detrás del título */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[36rem] max-w-full -translate-x-1/2 rounded-full bg-sky-100/70 blur-3xl"
-      />
-
-      <div className="relative max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-600">
-            Marcas aliadas
-          </p>
           <h2
             id="marcas-titulo"
-            className="mt-3 text-3xl md:text-4xl font-bold text-gray-900 tracking-tight"
+            className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight"
           >
             Marcas que respaldan tu moto
           </h2>

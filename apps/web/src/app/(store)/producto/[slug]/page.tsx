@@ -242,7 +242,7 @@ export default async function ProductPage({ params }: PageProps) {
         {/* Detalle */}
         <div>
           {/* Todos los productos son nuevos (NewCondition en el JSON-LD y condition=new en el feed) */}
-          <p className="text-sm text-gray-400 mb-1">SKU: {product.sku} - Nuevo</p>
+          <p className="text-sm text-gray-400 mb-1">SKU: {product.sku} | NUEVO</p>
           <h1 className="text-3xl font-bold text-gray-900 mb-3">{product.name}</h1>
 
           <PriceTag

@@ -4,6 +4,7 @@ import { WHATSAPP_URL } from '@/lib/contact'
 import { getCachedCroSettings } from '@/lib/cache'
 import { ManageConsentLink } from '@/components/analytics/CookieConsentBanner'
 import { formatCOP } from '@/components/store/PriceTag'
+import { VerifiedSellerBadges } from '@/components/store/VerifiedSellerBadges'
 
 const WHATSAPP_FOOTER_URL = WHATSAPP_URL('Hola Tienda H2R')
 
@@ -264,6 +265,10 @@ export async function Footer() {
             © {year} H2R Online Store. Todos los derechos reservados.
           </p>
 
+          <div className="flex flex-col lg:flex-row items-center gap-3 lg:gap-6">
+          {/* Vendedor verificado en Mercado Libre y Addi (README §31) */}
+          <VerifiedSellerBadges variant="footer" />
+
           {/* Métodos de pago */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-600 mr-1">Pagos seguros con</span>
@@ -279,6 +284,7 @@ export async function Footer() {
             <span className="px-2.5 py-1 rounded bg-white/5 text-[11px] font-semibold text-gray-300 tracking-wide border border-white/10">
               PSE
             </span>
+          </div>
           </div>
         </div>
       </div>

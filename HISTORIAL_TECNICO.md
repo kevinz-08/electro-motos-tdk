@@ -6934,3 +6934,15 @@ lo consume para búsqueda de usuario, moverlo al mismo motor.
 **Archivos creados:** `apps/web/src/components/store/BrandsShowcase.tsx`, `apps/web/public/assets/marcasConocidas/*`. **Modificados:** `apps/web/src/app/(store)/home.tsx`, `apps/web/src/lib/search-index.ts`, `README.md` (sección 30).
 
 *Última actualización: 2026-11-06*
+
+## 101. Sellos de vendedor verificado (Mercado Libre y Addi)
+
+**Contexto:** el cliente quiere transmitir fiabilidad mostrando que vende en Mercado Libre y es aliado de Addi, y que ese mensaje se repita en varias páginas.
+
+**Cambios:** nuevo `VerifiedSellerBadges` con tres variantes (banner en la home entre Marcas y Destacados, línea compacta en el bloque de confianza de la ficha, logos pequeños en el footer) y `seller-platforms.ts` como fuente única de datos.
+
+**Decisiones:** enlaces provisionales a las páginas principales hasta recibir los del cliente. Las cifras de ventas son números de prueba (marcados en el código y el README); con `null` desaparecen. Los logos se recortan en un recuadro porque traen fondo propio.
+
+**Archivos creados:** `apps/web/src/components/store/VerifiedSellerBadges.tsx`, `apps/web/src/lib/seller-platforms.ts`, `apps/web/public/assets/plataformas/*`. **Modificados:** `home.tsx`, `ProductTrustBlock.tsx`, `Footer.tsx`, `README.md` (sección 31).
+
+*Última actualización: 2026-11-06*

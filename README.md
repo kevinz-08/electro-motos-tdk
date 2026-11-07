@@ -2252,3 +2252,14 @@ Sección de fondo blanco en la home, entre **Categorías** y **Productos destaca
 - **Distribución:** 4 columnas en escritorio y tablet (2 filas), 2 columnas en móvil (4 filas). Tarjetas con borde gris y acento `sky` al pasar el cursor, igual que `CategoryGrid`.
 - **Enlaces:** cada tarjeta lleva a `/catalogo?search=<marca>`. Para que esa búsqueda encuentre productos por su marca real, `partBrand` se agregó a los `tags` del índice de búsqueda (`apps/web/src/lib/search-index.ts`); antes solo se buscaba en nombre, SKU, descripción y motos compatibles.
 - **Requisito para que el enlace muestre resultados:** los productos de cada marca deben tener `partBrand` cargado en el admin (o la marca en el nombre/descripción).
+
+## 31. Sellos de vendedor verificado (Mercado Libre y Addi)
+
+Componente reutilizable que muestra que la tienda vende en **Mercado Libre** y es aliada de **Addi**, para reforzar la confianza en varios puntos del recorrido.
+
+- **Componente:** `apps/web/src/components/store/VerifiedSellerBadges.tsx` (Server Component), con 3 variantes: `banner` (home), `compact` (ficha de producto) y `footer`.
+- **Datos:** `apps/web/src/lib/seller-platforms.ts` (nombre, logo, enlace, texto y cifra de cada plataforma). Es el único sitio que hay que editar.
+- **Logos:** `apps/web/public/assets/plataformas/` (`mercado-libre-logo.jpg`, `addi-logo.png`). Se muestran recortados en un recuadro porque cada archivo trae su propio fondo.
+- **Dónde se ve:** home (entre Marcas y Productos destacados), `ProductTrustBlock` de la ficha y la barra inferior del `Footer`.
+- **Enlaces:** hoy apuntan a las páginas principales de cada plataforma. Cuando el cliente entregue los enlaces de su tienda en Mercado Libre y de su perfil en Addi, se cambian en `seller-platforms.ts`.
+- **⚠️ Cifras de prueba:** las ventas que muestra el `banner` ("+1.200 ventas", "+800 compras a cuotas") son **inventadas** para ver el diseño. Antes de publicar se reemplazan por datos reales o se ponen en `null` (la cifra se oculta sola). Mostrar números falsos como reales es publicidad engañosa.

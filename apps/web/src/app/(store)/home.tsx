@@ -73,9 +73,6 @@ export default async function HomePage() {
       {/* 3b. Marcas aliadas — logos que enlazan al buscador del catálogo (README §30) */}
       <BrandsShowcase />
 
-      {/* 3c. Vendedor verificado en Mercado Libre y Addi (README §31) */}
-      <VerifiedSellerBadges variant="banner" />
-
       {/* 4. Productos destacados */}
       {featuredProducts.length > 0 && (
         <section className="py-20 px-4 bg-white border-t border-gray-100">
@@ -118,17 +115,20 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 5. Social proof (testimonios + stats) */}
+      {/* 5. Vendedor verificado en Mercado Libre y Addi (README §31) */}
+      <VerifiedSellerBadges variant="banner" />
+
+      {/* 6. Social proof (testimonios + stats) */}
       <SocialProof />
 
       {/*
-        6. FAQ — el acordeón visible y su FAQPage salen del mismo array
+        7. FAQ — el acordeón visible y su FAQPage salen del mismo array
         (`faqItems`), así que el marcado no puede contradecir lo que se ve.
       */}
       <JsonLd data={faqPageJsonLd(faqItems)} />
       <FAQ items={faqItems} />
 
-      {/* 7. CTA final combinado */}
+      {/* 8. CTA final combinado */}
       <CtaMidSection />
     </>
   )

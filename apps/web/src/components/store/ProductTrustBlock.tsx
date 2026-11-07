@@ -12,6 +12,7 @@
 import Link from 'next/link'
 import { CreditCard, ShieldCheck, Store } from 'lucide-react'
 import { ORGANIZATION } from '@/lib/structured-data'
+import { VerifiedSellerBadges } from '@/components/store/VerifiedSellerBadges'
 
 /** Garantía general confirmada por el negocio (H-17): "hasta 6 meses". */
 const DEFAULT_WARRANTY_MONTHS = 6
@@ -49,6 +50,7 @@ export function ProductTrustBlock({
           </Link>
         </p>
       </div>
+      <VerifiedSellerBadges variant="compact" />
       <div className="flex items-start gap-3 px-4 py-3">
         <Store className={ICON_CLASS} aria-hidden="true" />
         <p className="text-gray-600">

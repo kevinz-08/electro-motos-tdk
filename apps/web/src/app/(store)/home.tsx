@@ -7,6 +7,7 @@
  *   2. TRUST BAR — Sellos de confianza con iconos SVG
  *   3. CATEGORÍAS — Grid horizontal de categorías con imágenes
  *   3b. MARCAS — 8 logos de marcas aliadas, cada uno enlaza al buscador
+ *   3c. VENDEDOR VERIFICADO — sellos de Mercado Libre y Addi
  *   4. PRODUCTOS DESTACADOS — 4 productos in-stock más recientes
  *   5. SOCIAL PROOF — Reseñas reales de ProductReview (no se pinta si no hay ninguna)
  *   6. FAQ — Acordeón de preguntas frecuentes
@@ -20,6 +21,7 @@ import { PromoModal } from '@/components/store/PromoModal'
 import { TrustBadges } from '@/components/store/TrustBadges'
 import { CategoryGrid } from '@/components/store/CategoryGrid'
 import { BrandsShowcase } from '@/components/store/BrandsShowcase'
+import { VerifiedSellerBadges } from '@/components/store/VerifiedSellerBadges'
 import { SocialProof } from '@/components/store/SocialProof'
 import { CtaMidSection } from '@/components/store/CtaMidSection'
 import { FAQ } from '@/components/store/FAQ'
@@ -70,6 +72,9 @@ export default async function HomePage() {
 
       {/* 3b. Marcas aliadas — logos que enlazan al buscador del catálogo (README §30) */}
       <BrandsShowcase />
+
+      {/* 3c. Vendedor verificado en Mercado Libre y Addi (README §31) */}
+      <VerifiedSellerBadges variant="banner" />
 
       {/* 4. Productos destacados */}
       {featuredProducts.length > 0 && (

@@ -2245,10 +2245,10 @@ Un PDF por sección del admin, en `docs/manuales-admin/pdf/`: Productos, Cupones
 
 ## 30. Sección "Marcas que respaldan tu moto" (home)
 
-Franja oscura en la home, entre **Categorías** y **Productos destacados**, con 8 logos de marcas aliadas: Bosch, Liqui Moly, Dunlop, Kontrol, Varroc, Magna, Motoled y NGK.
+Sección de fondo blanco en la home, entre **Categorías** y **Productos destacados**, con 8 logos de marcas aliadas: Bosch, Liqui Moly, Dunlop, Kontrol, Varroc, Magna, Motoled y NGK.
 
 - **Componente:** `apps/web/src/components/store/BrandsShowcase.tsx` (Server Component, sin estado). La lista de marcas es un array estático `BRANDS` dentro del archivo.
 - **Logos:** `apps/web/public/assets/marcasConocidas/`. Para cambiar un logo se reemplaza el archivo y su ruta en `BRANDS`.
-- **Distribución:** 4 columnas en escritorio y tablet (2 filas), 2 columnas en móvil (4 filas). Tarjetas blancas sobre fondo `#082032 → black` con acento `sky`.
+- **Distribución:** 4 columnas en escritorio y tablet (2 filas), 2 columnas en móvil (4 filas). Tarjetas con borde gris y acento `sky` al pasar el cursor, igual que `CategoryGrid`.
 - **Enlaces:** cada tarjeta lleva a `/catalogo?search=<marca>`. Para que esa búsqueda encuentre productos por su marca real, `partBrand` se agregó a los `tags` del índice de búsqueda (`apps/web/src/lib/search-index.ts`); antes solo se buscaba en nombre, SKU, descripción y motos compatibles.
 - **Requisito para que el enlace muestre resultados:** los productos de cada marca deben tener `partBrand` cargado en el admin (o la marca en el nombre/descripción).

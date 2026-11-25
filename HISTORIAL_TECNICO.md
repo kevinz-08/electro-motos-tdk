@@ -6946,3 +6946,15 @@ lo consume para búsqueda de usuario, moverlo al mismo motor.
 **Archivos creados:** `apps/web/src/components/store/VerifiedSellerBadges.tsx`, `apps/web/src/lib/seller-platforms.ts`, `apps/web/public/assets/plataformas/*`. **Modificados:** `home.tsx`, `ProductTrustBlock.tsx`, `Footer.tsx`, `README.md` (sección 31).
 
 *Última actualización: 2026-11-06*
+
+## 102. Logos de vendedor verificado sin pixelado
+
+**Contexto:** los logos de Mercado Libre y Addi se veían pixelados en "Vendedor verificado".
+
+**Causa:** se cargaba la imagen panorámica completa (1200 px) con `sizes="80px"`, así que Next servía una versión de ~100 px de ancho de toda la imagen y luego `object-cover` + `scale` ampliaba el logo, que ocupa solo el centro.
+
+**Cambios:** recortes cuadrados de cada logo a resolución original (`*-logo-square.png`), sin `scale` ampliador (solo 1.04 en Addi para ocultar el borde gris), `sizes` acorde al tamaño real del recuadro y `quality={95}`.
+
+**Archivos creados:** `apps/web/public/assets/plataformas/addi-logo-square.png`, `mercado-libre-logo-square.png`. **Modificados:** `VerifiedSellerBadges.tsx`, `seller-platforms.ts`, `README.md` (sección 31).
+
+*Última actualización: 2026-11-10*

@@ -24,7 +24,8 @@ function LogoTile({ platform, className }: { platform: SellerPlatform; className
         src={platform.logo}
         alt={`Logo de ${platform.name}`}
         fill
-        sizes="80px"
+        sizes="(min-width: 768px) 192px, 160px"
+        quality={95}
         className={`object-cover ${platform.logoClass}`}
       />
     </span>

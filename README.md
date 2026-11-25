@@ -2259,7 +2259,7 @@ Componente reutilizable que muestra que la tienda vende en **Mercado Libre** y e
 
 - **Componente:** `apps/web/src/components/store/VerifiedSellerBadges.tsx` (Server Component), con 3 variantes: `banner` (home), `compact` (ficha de producto) y `footer`.
 - **Datos:** `apps/web/src/lib/seller-platforms.ts` (nombre, logo, enlace, texto y cifra de cada plataforma). Es el único sitio que hay que editar.
-- **Logos:** `apps/web/public/assets/plataformas/` (`mercado-libre-logo.jpg`, `addi-logo.png`). Se muestran recortados en un recuadro porque cada archivo trae su propio fondo.
+- **Logos:** `apps/web/public/assets/plataformas/` (`mercado-libre-logo-square.png`, `addi-logo-square.png`). Son recortes cuadrados del logo a resolución original (los originales panorámicos `mercado-libre-logo.jpg` y `addi-logo.png` se conservan como fuente); recortar con `scale` sobre la imagen panorámica provocaba pixelado.
 - **Dónde se ve:** home (entre Marcas y Productos destacados), `ProductTrustBlock` de la ficha y la barra inferior del `Footer`.
 - **Enlaces:** hoy apuntan a las páginas principales de cada plataforma. Cuando el cliente entregue los enlaces de su tienda en Mercado Libre y de su perfil en Addi, se cambian en `seller-platforms.ts`.
 - **⚠️ Cifras de prueba:** las ventas que muestra el `banner` ("+1.200 ventas", "+800 compras a cuotas") son **inventadas** para ver el diseño. Antes de publicar se reemplazan por datos reales o se ponen en `null` (la cifra se oculta sola). Mostrar números falsos como reales es publicidad engañosa.

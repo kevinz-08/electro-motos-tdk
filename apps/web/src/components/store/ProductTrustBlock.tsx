@@ -50,7 +50,6 @@ export function ProductTrustBlock({
           </Link>
         </p>
       </div>
-      <VerifiedSellerBadges variant="compact" />
       <div className="flex items-start gap-3 px-4 py-3">
         <Store className={ICON_CLASS} aria-hidden="true" />
         <p className="text-gray-600">
@@ -58,6 +57,7 @@ export function ProductTrustBlock({
           {ORGANIZATION.address.locality}, {ORGANIZATION.address.region}
         </p>
       </div>
+      <VerifiedSellerBadges variant="compact" />
     </section>
   )
 }

@@ -4,6 +4,31 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 199. Pedidos (admin): botón de WhatsApp para contactar al cliente
+
+**Requerimiento:** que el admin pueda escribirle al cliente desde `/admin/pedidos` con mensajes predeterminados,
+incluyendo obligatoriamente el de soporte general.
+
+**Decisiones:** envío con enlace `wa.me` desde la sesión de WhatsApp del propio admin (sin API de WhatsApp Business,
+sin número configurado en el sistema, sin registro de quién escribió ni qué se envió → sin migración ni cambios en
+NestJS). Plantillas como constante en código.
+
+**Hecho:**
+
+- `apps/web/src/lib/whatsapp.ts`: `normalizeColombianPhone` (10 dígitos que empiezan en 3, con o sin `57`),
+  `renderTemplate` (`{nombre}`, `{pedido}`, `{total}`, `{estado}`), `buildWhatsAppUrl` y `WHATSAPP_TEMPLATES`
+  (soporte general, pedido recibido, enviado, pago pendiente, anticipo, reseña y personalizado).
+- `OrderWhatsAppModal`: guía de 3 pasos, selector de plantillas, textarea editable y botón «Abrir en WhatsApp».
+  Botón deshabilitado si el teléfono es inválido. Esc cierra y el foco queda atrapado en el diálogo.
+- `/admin/pedidos`: el botón va en la columna Acciones; lee `shippingAddress` (ya cargado por `findAll`), sin queries nuevas.
+- Ayuda contextual de pedidos actualizada.
+- Primeros tests unitarios del web: `vitest` como devDependency, `vitest.config.ts` (solo `src/**/*.test.ts`, para no
+  recoger los specs de Playwright) y script `pnpm --filter @h2r/web test`.
+
+*Última actualización: 2026-11-24*
+
+---
+
 ## 198. Políticas de envío y devoluciones: contraentrega y anticipo
 
 **Requerimiento:** que las políticas legales expliquen el anticipo de contraentrega y cuándo se devuelve.

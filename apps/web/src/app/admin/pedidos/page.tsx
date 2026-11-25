@@ -3,6 +3,7 @@ import { prisma } from '@/infrastructure/database/prisma-client'
 import { OrderStatus } from '@h2r/domain'
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect'
 import { OrderInfoModal } from '@/components/admin/OrderInfoModal'
+import { OrderWhatsAppModal } from '@/components/admin/OrderWhatsAppModal'
 import { AdminHelpButton } from '@/components/admin/AdminHelpButton'
 import { pedidosHelpContent } from '@/components/admin/help-content/pedidos'
 import { getPaginationPages } from '@/lib/pagination'
@@ -193,6 +194,14 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
                       <OrderInfoModal orderId={order.id} />
+                      <OrderWhatsAppModal
+                        orderId={order.id}
+                        // shippingAddress es JSON sin garantía de forma: se lee defensivamente.
+                        phone={typeof order.shippingAddress?.phone === 'string' ? order.shippingAddress.phone : null}
+                        fullName={typeof order.shippingAddress?.fullName === 'string' ? order.shippingAddress.fullName : ''}
+                        total={formatCOP(order.total)}
+                        statusLabel={sc.label}
+                      />
                       <a
                         href={`/api/orders/${order.id}/comprobante`}
                         target="_blank"

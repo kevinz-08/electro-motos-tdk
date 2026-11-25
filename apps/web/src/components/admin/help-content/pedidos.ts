@@ -15,6 +15,7 @@ export const pedidosHelpContent: AdminHelpContent = {
     'Tras "Reintentar envío a Vendelo" o "Generar guía", el resultado no es inmediato: Vendelo procesa de forma asincrónica. Usa "Actualizar" en esa misma sección al cabo de unos minutos en vez de repetir la acción.',
     'Si el reintento vuelve a fallar, el mensaje rojo muestra el error exacto que devolvió Vendelo — normalmente apunta a un dato del comprador o de la dirección que Vendelo rechaza.',
     'Resolver novedades de transporte (paquetes con incidencia) todavía no tiene pantalla propia en el panel.',
+    'El botón verde de WhatsApp abre una guía para escribirle al cliente: eliges una plantilla (soporte general, pedido enviado, pago pendiente, etc.), puedes editar el texto y al pulsar "Abrir en WhatsApp" se abre el chat con el mensaje listo; el envío sale desde tu propio WhatsApp. Si el teléfono del pedido es inválido o falta, el botón aparece deshabilitado.',
     'El botón ↓ descarga el comprobante de venta en PDF.',
   ],
 }

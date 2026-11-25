@@ -1275,12 +1275,28 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | `/admin/productos` | Lista de productos — crear, editar, mover a papelera |
 | `/admin/productos/papelera` | Productos eliminados — restaurar desde la papelera |
 | `/admin/productos/[id]` | Formulario de edición con upload a Cloudinary |
-| `/admin/pedidos` | Todos los pedidos filtrados por estado + columna "Guía" y sección **Guía Vendelo** en el modal de detalle (reintentar despacho, generar guía, descargar PDF — ver [9.4](#94-apartado-guía-vendelo-en-el-panel-admin)) |
+| `/admin/pedidos` | Todos los pedidos filtrados por estado + columna "Guía" y sección **Guía Vendelo** en el modal de detalle (reintentar despacho, generar guía, descargar PDF — ver [9.4](#94-apartado-guía-vendelo-en-el-panel-admin)) + botón de **WhatsApp** por fila (ver [16.1](#161-contactar-al-cliente-por-whatsapp-desde-pedidos)) |
 | `/admin/stock` | Productos con stock ≤ 5, actualización individual de stock |
 | `/admin/sync` | Sincroniza stock y precio con el export `.xlsx` de Optimun (local físico) |
 | `/admin/resenas` | Moderación de reseñas verificadas (pendientes / aprobadas / rechazadas) |
 | `/admin/banners` | Banners del Hero: imagen desktop + imagen mobile, texto alternativo y botón CTA |
 | `/admin/configuracion` | Toggles de pasarelas y umbrales de prueba social / estimación de entrega |
+
+### 16.1 Contactar al cliente por WhatsApp desde Pedidos
+
+La columna **Acciones** de `/admin/pedidos` incluye un botón verde de WhatsApp que abre `OrderWhatsAppModal`:
+
+1. Muestra una guía de 3 pasos (elegir plantilla → revisar/editar el texto → abrir WhatsApp).
+2. Ofrece plantillas predeterminadas (`WHATSAPP_TEMPLATES` en `apps/web/src/lib/whatsapp.ts`), entre ellas
+   **Soporte general** ("Hola! Hablas con el soporte de Tiendah2r…") y un mensaje personalizado.
+3. El texto se rellena con variables (`{nombre}`, `{pedido}`, `{total}`, `{estado}`) y es editable antes de enviar.
+4. "Abrir en WhatsApp" abre `https://wa.me/57XXXXXXXXXX?text=…` en una pestaña nueva: el mensaje sale desde la
+   sesión de WhatsApp (Web o app) del propio admin. No hay API de WhatsApp Business, credenciales ni número
+   configurado en el sistema, y **no se registra** quién escribió ni qué se envió.
+
+El teléfono se lee de `Order.shippingAddress.phone` (texto libre) y se normaliza con `normalizeColombianPhone`:
+10 dígitos que empiezan en `3`, con o sin prefijo `57`. Si no es válido, el botón queda deshabilitado.
+Tests: `pnpm --filter @h2r/web test`.
 
 **Barra lateral:** la marca (arriba) y el bloque de la cuenta (email, "Ver tienda", "Salir") quedan fijos;
 solo la lista de secciones (`AdminNav`) hace scroll cuando no cabe en pantallas bajas. Al cambiar de ruta,

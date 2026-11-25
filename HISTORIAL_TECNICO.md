@@ -6958,3 +6958,11 @@ lo consume para búsqueda de usuario, moverlo al mismo motor.
 **Archivos creados:** `apps/web/public/assets/plataformas/addi-logo-square.png`, `mercado-libre-logo-square.png`. **Modificados:** `VerifiedSellerBadges.tsx`, `seller-platforms.ts`, `README.md` (sección 31).
 
 *Última actualización: 2026-11-10*
+
+## 103. Productos destacados justo debajo de "¿Qué estás buscando?"
+
+**Cambios:** en `home.tsx`, el orden de la home pasa a Categorías → Productos destacados → Marcas → Vendedor verificado (antes Marcas iba antes de Destacados). Solo se reordenó; no cambió ningún componente.
+
+**Archivos modificados:** `apps/web/src/app/(store)/home.tsx`, `VerifiedSellerBadges.tsx` (comentario), `README.md`.
+
+*Última actualización: 2026-11-24*

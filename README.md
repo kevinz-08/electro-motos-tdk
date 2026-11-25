@@ -1275,12 +1275,44 @@ Acceso exclusivo para usuarios con rol `ADMIN`. URL: `http://localhost:3000/admi
 | `/admin/productos` | Lista de productos — crear, editar, mover a papelera |
 | `/admin/productos/papelera` | Productos eliminados — restaurar desde la papelera |
 | `/admin/productos/[id]` | Formulario de edición con upload a Cloudinary |
-| `/admin/pedidos` | Todos los pedidos filtrados por estado + columna "Guía" y sección **Guía Vendelo** en el modal de detalle (reintentar despacho, generar guía, descargar PDF — ver [9.4](#94-apartado-guía-vendelo-en-el-panel-admin)) |
+| `/admin/pedidos` | Todos los pedidos filtrados por estado + columna "Guía" y sección **Guía Vendelo** en el modal de detalle (reintentar despacho, generar guía, descargar PDF — ver [9.4](#94-apartado-guía-vendelo-en-el-panel-admin)) + botón de **WhatsApp** por fila (ver [16.1](#161-contactar-al-cliente-por-whatsapp-desde-pedidos)) |
 | `/admin/stock` | Productos con stock ≤ 5, actualización individual de stock |
 | `/admin/sync` | Sincroniza stock y precio con el export `.xlsx` de Optimun (local físico) |
 | `/admin/resenas` | Moderación de reseñas verificadas (pendientes / aprobadas / rechazadas) |
 | `/admin/banners` | Banners del Hero: imagen desktop + imagen mobile, texto alternativo y botón CTA |
 | `/admin/configuracion` | Toggles de pasarelas y umbrales de prueba social / estimación de entrega |
+
+### 16.1 Contactar al cliente por WhatsApp desde Pedidos
+
+La columna **Acciones** de `/admin/pedidos` incluye un botón verde de WhatsApp que abre `OrderWhatsAppModal`:
+
+1. Muestra una guía de 3 pasos (elegir plantilla → revisar/editar el texto → abrir WhatsApp).
+2. Ofrece plantillas predeterminadas (`WHATSAPP_TEMPLATES` en `apps/web/src/lib/whatsapp.ts`), entre ellas
+   **Soporte general** ("Hola! Hablas con el soporte de Tiendah2r…") y un mensaje personalizado.
+3. El texto se rellena con variables (`{nombre}`, `{pedido}`, `{total}`, `{estado}`) y es editable antes de enviar.
+4. "Abrir en WhatsApp" abre `https://wa.me/57XXXXXXXXXX?text=…` en una pestaña nueva: el mensaje sale desde la
+   sesión de WhatsApp (Web o app) del propio admin. No hay API de WhatsApp Business, credenciales ni número
+   configurado en el sistema, y **no se registra** quién escribió ni qué se envió.
+
+El teléfono se lee de `Order.shippingAddress.phone` (texto libre) y se normaliza con `normalizeColombianPhone`:
+10 dígitos que empiezan en `3`, con o sin prefijo `57`. Si no es válido, el botón queda deshabilitado.
+Tests: `pnpm --filter @h2r/web test`.
+
+### 16.2 Contacto del cliente por WhatsApp (lado tienda)
+
+Inverso de 16.1: el cliente abre un chat con el WhatsApp de la tienda (`NEXT_PUBLIC_WHATSAPP_NUMBER`, vía
+`WHATSAPP_URL()` de `lib/contact.ts`) con un mensaje armado según el pedido (`buildCustomerSupportMessage` en
+`lib/whatsapp.ts`: nombre, nº de pedido, estado, total y guía si existe; nunca documento, dirección ni correo).
+Se renderiza con `OrderSupportLink` y no escribe nada en la base de datos.
+
+| Lugar | Quién | Cuándo |
+|---|---|---|
+| `/pedidos`, por pedido | Cliente con cuenta | `PENDING`/`AWAITING_DEPOSIT` (problema de pago), `PAID`/`COD_CONFIRMED` (consulta), `SHIPPED` (envío, con guía), `DELIVERED` solo dentro de 30 días desde la entrega. `CANCELLED`: sin botón |
+| Confirmación del checkout | Cliente e invitado | Siempre |
+| `WompiWidget` | Cliente e invitado | Solo si el script de Wompi falla (`scriptFailed`), junto al botón de pago de respaldo |
+
+Los invitados no tienen `/pedidos`, así que solo ven el botón en esos dos últimos lugares. `/pedidos` lee además
+`Shipment.trackingNumber` y `Shipment.updatedAt` en la misma query (sin consultas adicionales).
 
 **Barra lateral:** la marca (arriba) y el bloque de la cuenta (email, "Ver tienda", "Salir") quedan fijos;
 solo la lista de secciones (`AdminNav`) hace scroll cuando no cabe en pantallas bajas. Al cambiar de ruta,
@@ -2259,7 +2291,7 @@ Componente reutilizable que muestra que la tienda vende en **Mercado Libre** y e
 
 - **Componente:** `apps/web/src/components/store/VerifiedSellerBadges.tsx` (Server Component), con 3 variantes: `banner` (home), `compact` (ficha de producto) y `footer`.
 - **Datos:** `apps/web/src/lib/seller-platforms.ts` (nombre, logo, enlace, texto y cifra de cada plataforma). Es el único sitio que hay que editar.
-- **Logos:** `apps/web/public/assets/plataformas/` (`mercado-libre-logo.jpg`, `addi-logo.png`). Se muestran recortados en un recuadro porque cada archivo trae su propio fondo.
-- **Dónde se ve:** home (entre Marcas y Productos destacados), `ProductTrustBlock` de la ficha y la barra inferior del `Footer`.
+- **Logos:** `apps/web/public/assets/plataformas/` (`mercado-libre-logo-square.png`, `addi-logo-square.png`). Son recortes cuadrados del logo a resolución original (los originales panorámicos `mercado-libre-logo.jpg` y `addi-logo.png` se conservan como fuente); recortar con `scale` sobre la imagen panorámica provocaba pixelado.
+- **Dónde se ve:** home (debajo de Marcas), `ProductTrustBlock` de la ficha y la barra inferior del `Footer`.
 - **Enlaces:** hoy apuntan a las páginas principales de cada plataforma. Cuando el cliente entregue los enlaces de su tienda en Mercado Libre y de su perfil en Addi, se cambian en `seller-platforms.ts`.
 - **⚠️ Cifras de prueba:** las ventas que muestra el `banner` ("+1.200 ventas", "+800 compras a cuotas") son **inventadas** para ver el diseño. Antes de publicar se reemplazan por datos reales o se ponen en `null` (la cifra se oculta sola). Mostrar números falsos como reales es publicidad engañosa.

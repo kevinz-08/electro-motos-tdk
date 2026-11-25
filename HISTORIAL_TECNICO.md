@@ -4,6 +4,57 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 200. Tienda: el cliente puede contactar a la tienda por WhatsApp según su pedido
+
+**Requerimiento:** contraparte de la 199. El cliente abre un chat con el WhatsApp de la tienda (`NEXT_PUBLIC_WHATSAPP_NUMBER`,
+ya definido en Vercel) con un mensaje armado según el pedido. Sin registro en BD, sin backend.
+
+**Decisiones:** el mensaje incluye nombre (solo el primero), nº de pedido, estado, total y guía si existe; nunca documento,
+dirección ni correo. Para reducir ruido, el botón solo aparece donde tiene sentido. Los invitados (sin `/pedidos`) solo lo
+ven en la confirmación del checkout o cuando falla el widget de Wompi. Plazo de soporte tras la entrega: 30 días.
+
+**Hecho:**
+
+- `lib/whatsapp.ts`: `buildCustomerSupportMessage` (por estado; `null` en CANCELLED o DELIVERED fuera de 30 días),
+  `buildConfirmationSupportMessage`, `buildPaymentFailedSupportMessage`, `shortOrderLabel`. 9 tests nuevos (26 en total).
+- `OrderSupportLink`: enlace a `WHATSAPP_URL(mensaje)`; no renderiza nada sin mensaje o sin número.
+- `/pedidos`: enlace por pedido. `getOrderHistory` añade `shipment` (guía y fecha) como join de la misma query, y el nombre
+  del destinatario; sin consultas adicionales.
+- Confirmación del checkout: enlace visible para cliente e invitado; `PayDepositSection` recibe `supportMessage`.
+- `WompiWidget`: nuevo prop opcional `supportMessage`; el enlace aparece solo si `scriptFailed`, junto al botón de pago de
+  respaldo (que se conserva). `CheckoutForm` lo pasa tras crear el pedido.
+
+**Nota:** la fecha de entrega se toma de `Shipment.updatedAt` (no existe `deliveredAt`); sin envío, se usa `createdAt`.
+
+*Última actualización: 2026-11-24*
+
+---
+
+## 199. Pedidos (admin): botón de WhatsApp para contactar al cliente
+
+**Requerimiento:** que el admin pueda escribirle al cliente desde `/admin/pedidos` con mensajes predeterminados,
+incluyendo obligatoriamente el de soporte general.
+
+**Decisiones:** envío con enlace `wa.me` desde la sesión de WhatsApp del propio admin (sin API de WhatsApp Business,
+sin número configurado en el sistema, sin registro de quién escribió ni qué se envió → sin migración ni cambios en
+NestJS). Plantillas como constante en código.
+
+**Hecho:**
+
+- `apps/web/src/lib/whatsapp.ts`: `normalizeColombianPhone` (10 dígitos que empiezan en 3, con o sin `57`),
+  `renderTemplate` (`{nombre}`, `{pedido}`, `{total}`, `{estado}`), `buildWhatsAppUrl` y `WHATSAPP_TEMPLATES`
+  (soporte general, pedido recibido, enviado, pago pendiente, anticipo, reseña y personalizado).
+- `OrderWhatsAppModal`: guía de 3 pasos, selector de plantillas, textarea editable y botón «Abrir en WhatsApp».
+  Botón deshabilitado si el teléfono es inválido. Esc cierra y el foco queda atrapado en el diálogo.
+- `/admin/pedidos`: el botón va en la columna Acciones; lee `shippingAddress` (ya cargado por `findAll`), sin queries nuevas.
+- Ayuda contextual de pedidos actualizada.
+- Primeros tests unitarios del web: `vitest` como devDependency, `vitest.config.ts` (solo `src/**/*.test.ts`, para no
+  recoger los specs de Playwright) y script `pnpm --filter @h2r/web test`.
+
+*Última actualización: 2026-11-24*
+
+---
+
 ## 198. Políticas de envío y devoluciones: contraentrega y anticipo
 
 **Requerimiento:** que las políticas legales expliquen el anticipo de contraentrega y cuándo se devuelve.
@@ -6946,3 +6997,23 @@ lo consume para búsqueda de usuario, moverlo al mismo motor.
 **Archivos creados:** `apps/web/src/components/store/VerifiedSellerBadges.tsx`, `apps/web/src/lib/seller-platforms.ts`, `apps/web/public/assets/plataformas/*`. **Modificados:** `home.tsx`, `ProductTrustBlock.tsx`, `Footer.tsx`, `README.md` (sección 31).
 
 *Última actualización: 2026-11-06*
+
+## 102. Logos de vendedor verificado sin pixelado
+
+**Contexto:** los logos de Mercado Libre y Addi se veían pixelados en "Vendedor verificado".
+
+**Causa:** se cargaba la imagen panorámica completa (1200 px) con `sizes="80px"`, así que Next servía una versión de ~100 px de ancho de toda la imagen y luego `object-cover` + `scale` ampliaba el logo, que ocupa solo el centro.
+
+**Cambios:** recortes cuadrados de cada logo a resolución original (`*-logo-square.png`), sin `scale` ampliador (solo 1.04 en Addi para ocultar el borde gris), `sizes` acorde al tamaño real del recuadro y `quality={95}`.
+
+**Archivos creados:** `apps/web/public/assets/plataformas/addi-logo-square.png`, `mercado-libre-logo-square.png`. **Modificados:** `VerifiedSellerBadges.tsx`, `seller-platforms.ts`, `README.md` (sección 31).
+
+*Última actualización: 2026-11-10*
+
+## 103. Productos destacados justo debajo de "¿Qué estás buscando?"
+
+**Cambios:** en `home.tsx`, el orden de la home pasa a Categorías → Productos destacados → Marcas → Vendedor verificado (antes Marcas iba antes de Destacados). Solo se reordenó; no cambió ningún componente.
+
+**Archivos modificados:** `apps/web/src/app/(store)/home.tsx`, `VerifiedSellerBadges.tsx` (comentario), `README.md`.
+
+*Última actualización: 2026-11-24*

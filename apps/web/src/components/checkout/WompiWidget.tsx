@@ -32,6 +32,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Lock } from 'lucide-react'
+import { OrderSupportLink } from '@/components/store/OrderSupportLink'
 
 interface WompiWidgetProps {
   publicKey: string
@@ -39,6 +40,8 @@ interface WompiWidgetProps {
   reference: string
   integritySignature: string
   redirectUrl: string
+  /** Mensaje de WhatsApp para pedir ayuda si el script de Wompi no carga. Opcional. */
+  supportMessage?: string
 }
 
 interface WompiCheckoutInstance {
@@ -60,7 +63,7 @@ declare global {
 
 const WOMPI_SCRIPT_URL = 'https://checkout.wompi.co/widget.js'
 
-export function WompiWidget({ publicKey, amountInCents, reference, integritySignature, redirectUrl }: WompiWidgetProps) {
+export function WompiWidget({ publicKey, amountInCents, reference, integritySignature, redirectUrl, supportMessage }: WompiWidgetProps) {
   const [scriptReady, setScriptReady] = useState(
     typeof window !== 'undefined' && typeof window.WidgetCheckout === 'function',
   )
@@ -137,6 +140,13 @@ export function WompiWidget({ publicKey, amountInCents, reference, integritySign
         </svg>
         {!scriptReady && !scriptFailed ? 'Cargando pasarela...' : 'Pagar con Wompi'}
       </button>
+
+      {scriptFailed && supportMessage && (
+        <p className="text-center text-xs text-gray-500">
+          ¿No puedes pagar?{' '}
+          <OrderSupportLink message={supportMessage} label="Escríbenos por WhatsApp" />
+        </p>
+      )}
 
       <p className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
         <Lock className="w-3.5 h-3.5 text-sky-500" aria-hidden="true" />

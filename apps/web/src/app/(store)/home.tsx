@@ -6,9 +6,9 @@
  *   1b. INTRO — el <h1> de la página (marca + qué vende), debajo del hero
  *   2. TRUST BAR — Sellos de confianza con iconos SVG
  *   3. CATEGORÍAS — Grid horizontal de categorías con imágenes
- *   3b. MARCAS — 8 logos de marcas aliadas, cada uno enlaza al buscador
- *   3c. VENDEDOR VERIFICADO — sellos de Mercado Libre y Addi
- *   4. PRODUCTOS DESTACADOS — 4 productos in-stock más recientes
+ *   3b. PRODUCTOS DESTACADOS — 4 productos in-stock más recientes
+ *   4. MARCAS — 8 logos de marcas aliadas, cada uno enlaza al buscador
+ *   5. VENDEDOR VERIFICADO — sellos de Mercado Libre y Addi
  *   5. SOCIAL PROOF — Reseñas reales de ProductReview (no se pinta si no hay ninguna)
  *   6. FAQ — Acordeón de preguntas frecuentes
  *   7. CTA FINAL — Sección combinada de contacto directo
@@ -70,10 +70,7 @@ export default async function HomePage() {
       {/* 3. Categorías */}
       {categories.length > 0 && <CategoryGrid categories={categories} />}
 
-      {/* 3b. Marcas aliadas — logos que enlazan al buscador del catálogo (README §30) */}
-      <BrandsShowcase />
-
-      {/* 4. Productos destacados */}
+      {/* 3b. Productos destacados */}
       {featuredProducts.length > 0 && (
         <section className="py-20 px-4 bg-white border-t border-gray-100">
           <div className="max-w-6xl mx-auto">
@@ -114,6 +111,9 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* 4. Marcas aliadas — logos que enlazan al buscador del catálogo (README §30) */}
+      <BrandsShowcase />
 
       {/* 5. Vendedor verificado en Mercado Libre y Addi (README §31) */}
       <VerifiedSellerBadges variant="banner" />

@@ -21,9 +21,11 @@ interface WompiParams {
 interface PayDepositSectionProps {
   orderId: string
   token?: string | null
+  /** Mensaje de WhatsApp si el widget de Wompi no carga (lo arma la página, que conoce el pedido). */
+  supportMessage?: string
 }
 
-export function PayDepositSection({ orderId, token }: PayDepositSectionProps) {
+export function PayDepositSection({ orderId, token, supportMessage }: PayDepositSectionProps) {
   const { data: session } = useSession()
   const [params, setParams] = useState<WompiParams | null>(null)
   const [loading, setLoading] = useState(false)
@@ -53,7 +55,7 @@ export function PayDepositSection({ orderId, token }: PayDepositSectionProps) {
         Tu pedido contraentrega se despacha cuando recibimos el anticipo. Ese valor se descuenta de lo que pagas al recibir.
       </p>
       {params ? (
-        <WompiWidget {...params} redirectUrl={redirectUrl} />
+        <WompiWidget {...params} redirectUrl={redirectUrl} supportMessage={supportMessage} />
       ) : (
         <button
           type="button"

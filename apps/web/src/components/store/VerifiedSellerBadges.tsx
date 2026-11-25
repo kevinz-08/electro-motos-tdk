@@ -4,7 +4,7 @@
  * Un solo componente con tres variantes para repetir el mensaje de confianza
  * en todo el recorrido. Los datos salen de `lib/seller-platforms.ts`.
  *
- *   - `banner`  → home, entre Marcas y Productos destacados.
+ *   - `banner`  → home, debajo de Marcas.
  *   - `compact` → fila dentro del bloque de confianza de la ficha de producto.
  *   - `footer`  → logos pequeños en la barra inferior (fondo oscuro).
  */
@@ -24,7 +24,8 @@ function LogoTile({ platform, className }: { platform: SellerPlatform; className
         src={platform.logo}
         alt={`Logo de ${platform.name}`}
         fill
-        sizes="80px"
+        sizes="(min-width: 768px) 192px, 160px"
+        quality={95}
         className={`object-cover ${platform.logoClass}`}
       />
     </span>

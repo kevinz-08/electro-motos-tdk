@@ -4,6 +4,19 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 201. Checkout: el widget de Wompi se abre solo tras "Continuar al pago"
+
+**Problema:** al pulsar "Continuar al pago" el paso de pago se renderizaba pero la página quedaba scrolleada al final
+del formulario largo (se veía el footer) y el cliente debía pulsar además "Pagar con Wompi".
+
+**Cambio:**
+- `WompiWidget.tsx`: nueva prop `autoOpen`; cuando el script de Wompi está listo (o falló, usando el redirect de respaldo)
+  llama a `handlePay()` una sola vez (guard con `useRef`, seguro con StrictMode). Si el cliente cierra el modal, el botón
+  "Pagar con Wompi" sigue disponible para reintentar.
+- `CheckoutForm.tsx`: pasa `autoOpen` y hace `window.scrollTo({ top: 0 })` al cambiar a `payment`.
+
+---
+
 ## 200. Tienda: el cliente puede contactar a la tienda por WhatsApp según su pedido
 
 **Requerimiento:** contraparte de la 199. El cliente abre un chat con el WhatsApp de la tienda (`NEXT_PUBLIC_WHATSAPP_NUMBER`,

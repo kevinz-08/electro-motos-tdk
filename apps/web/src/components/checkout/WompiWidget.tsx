@@ -30,7 +30,7 @@
  * hay `transaction` en el resultado y se queda en /checkout para reintentar.
  */
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Lock } from 'lucide-react'
 import { OrderSupportLink } from '@/components/store/OrderSupportLink'
 
@@ -42,6 +42,8 @@ interface WompiWidgetProps {
   redirectUrl: string
   /** Mensaje de WhatsApp para pedir ayuda si el script de Wompi no carga. Opcional. */
   supportMessage?: string
+  /** Abre el modal de Wompi automáticamente en cuanto el script esté listo. */
+  autoOpen?: boolean
 }
 
 interface WompiCheckoutInstance {
@@ -63,7 +65,7 @@ declare global {
 
 const WOMPI_SCRIPT_URL = 'https://checkout.wompi.co/widget.js'
 
-export function WompiWidget({ publicKey, amountInCents, reference, integritySignature, redirectUrl, supportMessage }: WompiWidgetProps) {
+export function WompiWidget({ publicKey, amountInCents, reference, integritySignature, redirectUrl, supportMessage, autoOpen = false }: WompiWidgetProps) {
   const [scriptReady, setScriptReady] = useState(
     typeof window !== 'undefined' && typeof window.WidgetCheckout === 'function',
   )
@@ -126,6 +128,16 @@ export function WompiWidget({ publicKey, amountInCents, reference, integritySign
       }
     })
   }, [publicKey, amountInCents, reference, integritySignature, redirectUrl])
+
+  // Apertura automática: al llegar al paso de pago el modal de Wompi se abre
+  // solo, una única vez. Si el usuario lo cierra, el botón queda para reintentar.
+  const autoOpened = useRef(false)
+  useEffect(() => {
+    if (!autoOpen || autoOpened.current) return
+    if (!scriptReady && !scriptFailed) return
+    autoOpened.current = true
+    handlePay()
+  }, [autoOpen, scriptReady, scriptFailed, handlePay])
 
   return (
     <div className="space-y-4">

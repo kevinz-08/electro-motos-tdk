@@ -264,6 +264,8 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
       setOrderAccessToken(accessToken)
       setWompiParams(payment)
       setStep('payment')
+      // El formulario es largo: sin esto el paso de pago queda fuera de vista (abajo).
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error inesperado')
     } finally {
@@ -778,6 +780,7 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
             {wompiParams && wompiParams.publicKey && wompiParams.integritySignature && (
               <WompiWidget
                 {...wompiParams}
+                autoOpen
                 publicKey={wompiParams.publicKey}
                 integritySignature={wompiParams.integritySignature}
                 supportMessage={orderId ? buildPaymentFailedSupportMessage({ orderId, fullName: form.fullName, total: formatCOP(wompiParams.amountInCents) }) : undefined}

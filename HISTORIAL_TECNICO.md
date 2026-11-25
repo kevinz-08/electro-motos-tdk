@@ -4,6 +4,32 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 200. Tienda: el cliente puede contactar a la tienda por WhatsApp según su pedido
+
+**Requerimiento:** contraparte de la 199. El cliente abre un chat con el WhatsApp de la tienda (`NEXT_PUBLIC_WHATSAPP_NUMBER`,
+ya definido en Vercel) con un mensaje armado según el pedido. Sin registro en BD, sin backend.
+
+**Decisiones:** el mensaje incluye nombre (solo el primero), nº de pedido, estado, total y guía si existe; nunca documento,
+dirección ni correo. Para reducir ruido, el botón solo aparece donde tiene sentido. Los invitados (sin `/pedidos`) solo lo
+ven en la confirmación del checkout o cuando falla el widget de Wompi. Plazo de soporte tras la entrega: 30 días.
+
+**Hecho:**
+
+- `lib/whatsapp.ts`: `buildCustomerSupportMessage` (por estado; `null` en CANCELLED o DELIVERED fuera de 30 días),
+  `buildConfirmationSupportMessage`, `buildPaymentFailedSupportMessage`, `shortOrderLabel`. 9 tests nuevos (26 en total).
+- `OrderSupportLink`: enlace a `WHATSAPP_URL(mensaje)`; no renderiza nada sin mensaje o sin número.
+- `/pedidos`: enlace por pedido. `getOrderHistory` añade `shipment` (guía y fecha) como join de la misma query, y el nombre
+  del destinatario; sin consultas adicionales.
+- Confirmación del checkout: enlace visible para cliente e invitado; `PayDepositSection` recibe `supportMessage`.
+- `WompiWidget`: nuevo prop opcional `supportMessage`; el enlace aparece solo si `scriptFailed`, junto al botón de pago de
+  respaldo (que se conserva). `CheckoutForm` lo pasa tras crear el pedido.
+
+**Nota:** la fecha de entrega se toma de `Shipment.updatedAt` (no existe `deliveredAt`); sin envío, se usa `createdAt`.
+
+*Última actualización: 2026-11-24*
+
+---
+
 ## 199. Pedidos (admin): botón de WhatsApp para contactar al cliente
 
 **Requerimiento:** que el admin pueda escribirle al cliente desde `/admin/pedidos` con mensajes predeterminados,

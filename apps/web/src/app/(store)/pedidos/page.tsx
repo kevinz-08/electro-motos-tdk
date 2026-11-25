@@ -9,6 +9,8 @@ import { OrderItemThumbnail } from '@/components/store/OrderItemThumbnail'
 import { Package } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getPaginationPages } from '@/lib/pagination'
+import { OrderSupportLink } from '@/components/store/OrderSupportLink'
+import { buildCustomerSupportMessage } from '@/lib/whatsapp'
 
 export const metadata: Metadata = {
   title: 'Mis pedidos',
@@ -126,6 +128,16 @@ export default async function PedidosPage({ searchParams }: PageProps) {
                     Envío a {order.shippingCity}, {order.shippingDepartment}
                   </p>
                   <div className="flex items-center gap-4">
+                    <OrderSupportLink
+                      message={buildCustomerSupportMessage({
+                        status: order.status,
+                        orderId: order.id,
+                        fullName: order.shippingFullName,
+                        total: formatCOP(order.total),
+                        trackingNumber: order.trackingNumber,
+                        deliveredAt: order.shipmentUpdatedAt ?? order.createdAt,
+                      })}
+                    />
                     <InvoiceDownloadButton orderId={order.id} />
                     <Link
                       href={`/checkout/confirmacion?orderId=${order.id}`}

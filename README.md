@@ -1298,6 +1298,22 @@ El teléfono se lee de `Order.shippingAddress.phone` (texto libre) y se normaliz
 10 dígitos que empiezan en `3`, con o sin prefijo `57`. Si no es válido, el botón queda deshabilitado.
 Tests: `pnpm --filter @h2r/web test`.
 
+### 16.2 Contacto del cliente por WhatsApp (lado tienda)
+
+Inverso de 16.1: el cliente abre un chat con el WhatsApp de la tienda (`NEXT_PUBLIC_WHATSAPP_NUMBER`, vía
+`WHATSAPP_URL()` de `lib/contact.ts`) con un mensaje armado según el pedido (`buildCustomerSupportMessage` en
+`lib/whatsapp.ts`: nombre, nº de pedido, estado, total y guía si existe; nunca documento, dirección ni correo).
+Se renderiza con `OrderSupportLink` y no escribe nada en la base de datos.
+
+| Lugar | Quién | Cuándo |
+|---|---|---|
+| `/pedidos`, por pedido | Cliente con cuenta | `PENDING`/`AWAITING_DEPOSIT` (problema de pago), `PAID`/`COD_CONFIRMED` (consulta), `SHIPPED` (envío, con guía), `DELIVERED` solo dentro de 30 días desde la entrega. `CANCELLED`: sin botón |
+| Confirmación del checkout | Cliente e invitado | Siempre |
+| `WompiWidget` | Cliente e invitado | Solo si el script de Wompi falla (`scriptFailed`), junto al botón de pago de respaldo |
+
+Los invitados no tienen `/pedidos`, así que solo ven el botón en esos dos últimos lugares. `/pedidos` lee además
+`Shipment.trackingNumber` y `Shipment.updatedAt` en la misma query (sin consultas adicionales).
+
 **Barra lateral:** la marca (arriba) y el bloque de la cuenta (email, "Ver tienda", "Salir") quedan fijos;
 solo la lista de secciones (`AdminNav`) hace scroll cuando no cabe en pantallas bajas. Al cambiar de ruta,
 la sección activa se desplaza a la vista (`scrollIntoView({ block: 'nearest' })`).

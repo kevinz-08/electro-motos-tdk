@@ -20,6 +20,12 @@ export type OrderHistoryEntry = {
   paymentProvider: string
   shippingCity: string
   shippingDepartment: string
+  /** Nombre del destinatario (solo se usa para saludar en el mensaje de ayuda por WhatsApp). */
+  shippingFullName: string
+  /** Guía del envío si ya existe. */
+  trackingNumber: string | null
+  /** Última actualización del envío; para pedidos DELIVERED marca la entrega. */
+  shipmentUpdatedAt: Date | null
   items: OrderHistoryItem[]
 }
 
@@ -57,6 +63,8 @@ async function _getOrderHistory(
       skip,
       take: ORDERS_PER_PAGE,
       include: {
+        // Misma query: un join, sin consultas adicionales por pedido.
+        shipment: { select: { trackingNumber: true, updatedAt: true } },
         items: {
           include: {
             product: { select: { name: true, slug: true, images: true } },
@@ -68,7 +76,7 @@ async function _getOrderHistory(
   ])
 
   const orders: OrderHistoryEntry[] = rows.map((o) => {
-    const addr = o.shippingAddress as { city?: string; department?: string }
+    const addr = o.shippingAddress as { city?: string; department?: string; fullName?: string }
     return {
       id: o.id,
       status: o.status,
@@ -77,6 +85,9 @@ async function _getOrderHistory(
       paymentProvider: o.paymentProvider,
       shippingCity: addr.city ?? '',
       shippingDepartment: addr.department ?? '',
+      shippingFullName: addr.fullName ?? '',
+      trackingNumber: o.shipment?.trackingNumber ?? null,
+      shipmentUpdatedAt: o.shipment?.updatedAt ?? null,
       items: o.items.map((item) => ({
         id: item.id,
         productId: item.productId,

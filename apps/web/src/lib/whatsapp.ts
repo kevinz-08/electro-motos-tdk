@@ -92,3 +92,91 @@ export function renderTemplate(template: string, vars: TemplateVars): string {
 export function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
 }
+
+// ─── Lado cliente: el cliente escribe al WhatsApp de la tienda ───────────────
+
+/** Días tras la entrega durante los que se ofrece contactar por un problema con el producto. */
+export const SUPPORT_WINDOW_DAYS = 30
+
+const CUSTOMER_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendiente de pago',
+  AWAITING_DEPOSIT: 'Esperando anticipo',
+  PAID: 'Pagado',
+  COD_CONFIRMED: 'Confirmado contraentrega',
+  SHIPPED: 'Enviado',
+  DELIVERED: 'Entregado',
+  CANCELLED: 'Cancelado',
+}
+
+export interface CustomerSupportInput {
+  status: string
+  orderId: string
+  fullName: string
+  /** Total ya formateado en COP. */
+  total: string
+  trackingNumber?: string | null
+  /** Fecha de entrega (o la más cercana disponible). Solo se usa en pedidos DELIVERED. */
+  deliveredAt?: Date | null
+  now?: Date
+}
+
+/** Nº de pedido corto que ve el cliente (`#AB12CD34`). */
+export function shortOrderLabel(orderId: string): string {
+  return `#${orderId.slice(-8).toUpperCase()}`
+}
+
+function firstNameOf(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] || 'cliente'
+}
+
+/**
+ * Mensaje que el cliente enviará a la tienda según el estado de su pedido.
+ * Devuelve `null` cuando no se debe ofrecer el botón (pedido cancelado o
+ * entrega fuera de la ventana de soporte). Incluye nombre, pedido, estado,
+ * total y guía; nunca documento, dirección ni correo.
+ */
+export function buildCustomerSupportMessage(input: CustomerSupportInput): string | null {
+  const { status, orderId, fullName, total, trackingNumber, deliveredAt } = input
+  const pedido = shortOrderLabel(orderId)
+  const estado = CUSTOMER_STATUS_LABELS[status] ?? status
+  const intro = `Hola, soy ${firstNameOf(fullName)}.`
+  const resumen = `pedido ${pedido} (${estado}, ${total})`
+
+  switch (status) {
+    case 'PENDING':
+    case 'AWAITING_DEPOSIT':
+      return `${intro} Tuve un problema para pagar mi ${resumen}, ¿me ayudan?`
+    case 'PAID':
+    case 'COD_CONFIRMED':
+      return `${intro} Tengo una consulta sobre mi ${resumen}.`
+    case 'SHIPPED':
+      return (
+        `${intro} Quiero consultar el estado del envío de mi ${resumen}.` +
+        (trackingNumber ? ` Guía: ${trackingNumber}.` : '')
+      )
+    case 'DELIVERED': {
+      if (deliveredAt) {
+        const now = input.now ?? new Date()
+        const days = (now.getTime() - deliveredAt.getTime()) / 86_400_000
+        if (days > SUPPORT_WINDOW_DAYS) return null
+      }
+      return `${intro} Tengo un problema con lo que recibí en mi ${resumen}.`
+    }
+    default:
+      return null
+  }
+}
+
+/** Mensaje desde la página de confirmación del checkout (cliente o invitado). */
+export function buildConfirmationSupportMessage(
+  input: Pick<CustomerSupportInput, 'orderId' | 'fullName' | 'total'>,
+): string {
+  return `Hola, soy ${firstNameOf(input.fullName)}. Acabo de hacer el pedido ${shortOrderLabel(input.orderId)} (${input.total}) y tengo una duda.`
+}
+
+/** Mensaje cuando el widget de Wompi no carga y el cliente no puede pagar. */
+export function buildPaymentFailedSupportMessage(
+  input: Pick<CustomerSupportInput, 'orderId' | 'fullName' | 'total'>,
+): string {
+  return `Hola, soy ${firstNameOf(input.fullName)}. No pude pagar mi pedido ${shortOrderLabel(input.orderId)} por ${input.total}, ¿me ayudan?`
+}

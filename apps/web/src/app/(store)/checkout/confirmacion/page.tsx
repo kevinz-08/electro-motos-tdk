@@ -10,6 +10,8 @@ import { OrderStatusPoller } from '@/components/checkout/OrderStatusPoller'
 import { PayDepositSection } from '@/components/checkout/PayDepositSection'
 import { TrackEvent } from '@/components/analytics/TrackEvent'
 import { toPesos } from '@/lib/analytics'
+import { OrderSupportLink } from '@/components/store/OrderSupportLink'
+import { buildConfirmationSupportMessage, buildPaymentFailedSupportMessage } from '@/lib/whatsapp'
 
 interface PageProps {
   searchParams: Promise<{ orderId?: string; token?: string }>
@@ -250,7 +252,17 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
           </p>
         )}
 
-        {isAwaitingDeposit && <PayDepositSection orderId={order.id} token={token} />}
+        {isAwaitingDeposit && (
+          <PayDepositSection
+            orderId={order.id}
+            token={token}
+            supportMessage={buildPaymentFailedSupportMessage({
+              orderId: order.id,
+              fullName: order.shippingAddress.fullName,
+              total: formatCOP(order.codDepositAmount),
+            })}
+          />
+        )}
 
         {/* ── Acciones ───────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
@@ -288,6 +300,19 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
           >
             Seguir comprando
           </Link>
+        </div>
+
+        {/* Ayuda por WhatsApp — visible para clientes e invitados (los invitados no tienen /pedidos). */}
+        <div className="mt-4 text-center">
+          <OrderSupportLink
+            message={buildConfirmationSupportMessage({
+              orderId: order.id,
+              fullName: order.shippingAddress.fullName,
+              total: formatCOP(order.total),
+            })}
+            label="¿Tienes alguna duda? Escríbenos por WhatsApp"
+            className="text-sm font-semibold text-green-600 hover:text-green-700 transition-colors"
+          />
         </div>
 
       </div>

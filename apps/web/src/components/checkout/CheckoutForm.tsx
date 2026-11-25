@@ -30,6 +30,7 @@ import { apiClient } from '@/lib/api-client'
 import { useShippingQuote } from '@/lib/shipping-quote'
 import { STORE_ADDRESS, STORE_CITY, STORE_MAP_EMBED_URL } from '@/lib/contact'
 import { cartSavings } from '@/lib/pricing'
+import { buildPaymentFailedSupportMessage } from '@/lib/whatsapp'
 
 type PaymentMethod = 'WOMPI' | 'COD'
 type DeliveryMethod = 'HOME_DELIVERY' | 'STORE_PICKUP'
@@ -779,6 +780,7 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
                 {...wompiParams}
                 publicKey={wompiParams.publicKey}
                 integritySignature={wompiParams.integritySignature}
+                supportMessage={orderId ? buildPaymentFailedSupportMessage({ orderId, fullName: form.fullName, total: formatCOP(wompiParams.amountInCents) }) : undefined}
                 redirectUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')}/checkout/confirmacion?orderId=${orderId}&token=${encodeURIComponent(orderAccessToken ?? '')}`}
               />
             )}

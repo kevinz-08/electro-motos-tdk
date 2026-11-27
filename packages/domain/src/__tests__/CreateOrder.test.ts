@@ -435,7 +435,7 @@ describe('CreateOrder', () => {
     }))
   })
 
-  it('paymentProvider COD con chargeShippingOnline:true igual deja shippingTotal en 0 (guard explícito)', async () => {
+  it('paymentProvider COD con chargeShippingOnline:true deja shippingTotal en 0 y guarda el flete aparte (codShippingDue)', async () => {
     const product = makeProduct()
     const order = makeOrder({ total: product.price, paymentProvider: 'COD', status: 'COD_CONFIRMED' })
     const productRepo = { findById: vi.fn().mockResolvedValue(product) } as unknown as IProductRepository
@@ -452,8 +452,12 @@ describe('CreateOrder', () => {
       chargeShippingOnline: true,
     })
 
-    expect(quoteShipping.execute).not.toHaveBeenCalled()
-    expect(createPaidOrder).toHaveBeenCalledWith(expect.objectContaining({ shippingTotal: 0 }))
+    // COD cotiza solo con método COD para registrar el flete que se paga al recibir; nunca entra a total/shippingTotal.
+    expect(quoteShipping.execute).toHaveBeenCalledTimes(1)
+    expect(quoteShipping.execute).toHaveBeenCalledWith(expect.objectContaining({ paymentMethod: 'COD' }))
+    expect(createPaidOrder).toHaveBeenCalledWith(expect.objectContaining({
+      shippingTotal: 0, total: product.price, codShippingDue: 9000,
+    }))
   })
 
   it('STORE_PICKUP: deja shippingTotal en 0 y no llama a QuoteShipping aunque chargeShippingOnline sea true', async () => {
@@ -729,6 +733,64 @@ describe('CreateOrder', () => {
         .execute({ ...t.base, codDepositCents: t.product.price * 10 })
 
       expect(t.create).toHaveBeenCalledWith(expect.objectContaining({ codDepositAmount: t.product.price }))
+    })
+
+    it('el tope del anticipo incluye el flete COD (producto 5.000.000 + flete 1.200.000, anticipo configurado 15.000.000)', async () => {
+      const t = setup()
+      const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 1200000, freeShipping: false }))
+      await new CreateOrder(t.orderRepo, t.productRepo, t.paymentService, quoteShipping)
+        .execute({ ...t.base, codDepositCents: 1500000 })
+
+      expect(quoteShipping.execute).toHaveBeenCalledWith(expect.objectContaining({ paymentMethod: 'COD' }))
+      // El anticipo configurado (1.500.000) cabe dentro de producto + flete → no se recorta.
+      expect(t.create).toHaveBeenCalledWith(expect.objectContaining({
+        codDepositAmount: 1500000, codShippingDue: 1200000, shippingTotal: 0, total: t.product.price,
+      }))
+    })
+
+    it('un anticipo mayor que el producto ya no se recorta al valor del producto: llega hasta producto + flete', async () => {
+      const t = setup()
+      const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 1390000, freeShipping: false }))
+      await new CreateOrder(t.orderRepo, t.productRepo, t.paymentService, quoteShipping)
+        .execute({ ...t.base, codDepositCents: t.product.price * 10 })
+
+      expect(t.create).toHaveBeenCalledWith(expect.objectContaining({
+        codDepositAmount: t.product.price + 1390000, codShippingDue: 1390000,
+      }))
+    })
+
+    it('COD sin anticipo también guarda el flete que se paga al recibir', async () => {
+      const t = setup()
+      const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 1210000, freeShipping: false }))
+      await new CreateOrder(t.orderRepo, t.productRepo, t.paymentService, quoteShipping)
+        .execute({ ...t.base, codDepositCents: 0 })
+
+      expect(t.createPaidOrder).toHaveBeenCalledWith(expect.objectContaining({ codShippingDue: 1210000 }))
+    })
+
+    it('envío gratis o cotización fallida: codShippingDue queda sin definir y el anticipo se limita al producto', async () => {
+      const free = setup()
+      await new CreateOrder(free.orderRepo, free.productRepo, free.paymentService,
+        makeQuoteShippingMock(ok({ quotedShippingTotal: 0, freeShipping: true })))
+        .execute({ ...free.base, codDepositCents: free.product.price * 10 })
+      expect(free.create).toHaveBeenCalledWith(expect.not.objectContaining({ codShippingDue: expect.anything() }))
+      expect(free.create).toHaveBeenCalledWith(expect.objectContaining({ codDepositAmount: free.product.price }))
+
+      const failed = setup()
+      await new CreateOrder(failed.orderRepo, failed.productRepo, failed.paymentService,
+        makeQuoteShippingMock(err(new AppError('INTERNAL_ERROR', 'Vendelo caído'))))
+        .execute({ ...failed.base, codDepositCents: failed.product.price * 10 })
+      expect(failed.create).toHaveBeenCalledWith(expect.not.objectContaining({ codShippingDue: expect.anything() }))
+      expect(failed.create).toHaveBeenCalledWith(expect.objectContaining({ codDepositAmount: failed.product.price }))
+    })
+
+    it('retiro en tienda no cotiza flete COD', async () => {
+      const t = setup()
+      const quoteShipping = makeQuoteShippingMock(ok({ quotedShippingTotal: 1200000, freeShipping: false }))
+      await new CreateOrder(t.orderRepo, t.productRepo, t.paymentService, quoteShipping)
+        .execute({ ...t.base, deliveryMethod: 'STORE_PICKUP', codDepositCents: 1500000 })
+
+      expect(quoteShipping.execute).not.toHaveBeenCalled()
     })
 
     it('retiro en tienda queda exento: nace COD_CONFIRMED sin anticipo', async () => {

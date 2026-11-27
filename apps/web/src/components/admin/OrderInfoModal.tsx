@@ -24,6 +24,7 @@ interface OrderDetails {
   shippingTotal: number
   paymentProvider: string
   codDepositAmount: number
+  codShippingDue: number
   vendeloOrderId: string | null
   policiesAcceptedAt: string | null
   buyer: { idType: string; idNumber: string; businessName: string | null }
@@ -260,7 +261,10 @@ export function OrderInfoModal({ orderId }: { orderId: string }) {
                   {data.paymentProvider === 'COD' && data.codDepositAmount > 0 && (
                     <Section title="Anticipo contraentrega">
                       <KV label="Anticipo (Wompi)" value={`${formatCOP(data.codDepositAmount)} — ${data.payment?.status ?? 'PENDING'}`} />
-                      <KV label="Saldo a cobrar en la puerta" value={formatCOP(Math.max(0, data.total - data.codDepositAmount))} />
+                      {data.codShippingDue > 0 && (
+                        <KV label="Envío (se paga al recibir)" value={formatCOP(data.codShippingDue)} />
+                      )}
+                      <KV label="Saldo a cobrar en la puerta" value={formatCOP(Math.max(0, data.total + data.codShippingDue - data.codDepositAmount))} />
                     </Section>
                   )}
                 </>

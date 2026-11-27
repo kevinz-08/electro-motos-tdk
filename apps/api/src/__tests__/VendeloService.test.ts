@@ -268,6 +268,25 @@ describe('VendeloService — createOrder', () => {
     )
   })
 
+  it('COD con anticipo mayor al producto pero menor a producto + flete: EXTERNAL_PAYMENT y advierte el saldo de flete', async () => {
+    const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
+    const service = new VendeloService(http)
+    const warn = vi.spyOn((service as unknown as { logger: { warn: () => void } }).logger, 'warn').mockImplementation(() => {})
+
+    // Producto $50.000 + flete $12.100; anticipo $55.000 cubre el producto y deja $7.100 de flete por cobrar.
+    await service.createOrder(
+      makeOrder({ paymentProvider: 'COD', total: 5000000, codShippingDue: 1210000, codDepositAmount: 5500000 }),
+      'cliente@test.com',
+    )
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/v1/admin/orders',
+      expect.objectContaining({ payment_method_code: 'EXTERNAL_PAYMENT' }),
+      expect.anything(),
+    )
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('saldo de flete'))
+  })
+
   it('un pedido online ignora codDepositAmount', async () => {
     const http = makeHttpClientMock({ items: [{ id: 'vendelo-1' }] })
     const service = new VendeloService(http)

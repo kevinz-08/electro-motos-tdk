@@ -492,8 +492,11 @@ model Order {
   paymentProvider    PaymentProvider
   /// centavos COP — anticipo pre-envío de un pedido contraentrega (0 = sin anticipo).
   /// Se cobra por Wompi (el único Payment del pedido es ese anticipo) y se descuenta
-  /// del cobro en la puerta: saldo = total - codDepositAmount.
+  /// del cobro en la puerta: saldo = total + codShippingDue - codDepositAmount.
   codDepositAmount   Int               @default(0)
+  /// centavos COP — flete que un pedido COD paga a la transportadora al recibir (cotizado al crear, 0 = ninguno).
+  /// No está incluido en `total` ni lo cobra Wompi.
+  codShippingDue     Int               @default(0)
   /// ID del pedido creado en Vendelo API. Null hasta que VendeloOrderQueueService lo procesa.
   vendeloOrderId     String?
   /// Timestamp del momento exacto en que el usuario marcó el checkbox de políticas en el checkout.

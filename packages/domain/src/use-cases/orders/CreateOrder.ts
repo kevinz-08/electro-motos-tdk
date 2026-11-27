@@ -45,7 +45,7 @@ export interface CreateOrderUseCaseInput {
   couponCode?: string
   /**
    * Anticipo pre-envío (centavos COP) que el caller resolvió desde Settings. Solo aplica a COD con
-   * entrega a domicilio (el retiro en tienda está exento). Se limita al total del pedido.
+   * entrega a domicilio (el retiro en tienda está exento). Se limita a producto + flete COD.
    * 0/undefined = sin anticipo (el pedido COD nace COD_CONFIRMED).
    */
   codDepositCents?: number
@@ -238,6 +238,31 @@ export class CreateOrder {
       }
     }
 
+    // 3b. COD a domicilio: el flete no se cobra en línea ni entra a `total`, pero el cliente lo paga a la
+    // transportadora al recibir. Se cotiza (método COD) y se guarda en codShippingDue para que el tope del
+    // anticipo y el saldo se calculen sobre producto + flete. Si no se puede cotizar, queda en 0.
+    let codShippingDue = 0
+    if (
+      input.paymentProvider === 'COD'
+      && (input.deliveryMethod ?? 'HOME_DELIVERY') === 'HOME_DELIVERY'
+      && this.quoteShipping
+      && input.shippingAddress.cityCode
+      && input.shippingAddress.subdivisionCode
+    ) {
+      const codQuote = await this.quoteShipping.execute({
+        shippingCityCode: input.shippingAddress.cityCode,
+        shippingSubdivisionCode: input.shippingAddress.subdivisionCode,
+        items: input.items,
+        paymentMethod: 'COD',
+      })
+      if (codQuote.ok && !codQuote.value.freeShipping) {
+        const quoted = codQuote.value.quotedShippingTotal
+        codShippingDue = input.maxShippingChargeCents !== undefined
+          ? Math.min(quoted, input.maxShippingChargeCents)
+          : quoted
+      }
+    }
+
     const total = Math.max(0, productSubtotal - discountAmount + shippingTotal)
 
     const createInput: CreateOrderInput = {
@@ -251,6 +276,7 @@ export class CreateOrder {
       deliveryMethod: input.deliveryMethod ?? 'HOME_DELIVERY',
       shippingTotal,
       total,
+      ...(codShippingDue > 0 ? { codShippingDue } : {}),
       couponCode: input.couponCode,
       discountAmount,
       couponRedemption,
@@ -261,7 +287,7 @@ export class CreateOrder {
     const codDepositAmount = input.paymentProvider === 'COD'
       && (input.deliveryMethod ?? 'HOME_DELIVERY') === 'HOME_DELIVERY'
       && (input.codDepositCents ?? 0) > 0
-      ? Math.min(input.codDepositCents as number, total)
+      ? Math.min(input.codDepositCents as number, total + codShippingDue)
       : 0
 
     if (codDepositAmount > 0) {

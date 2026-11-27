@@ -22,9 +22,13 @@ export type OrderStatus = 'PENDING' | 'PAID' | 'AWAITING_DEPOSIT' | 'COD_CONFIRM
  * COD ("Cash On Delivery") no es una pasarela — el pedido se confirma sin paso de
  * autorización online y el cliente paga en efectivo al repartidor de Vendelo.
  */
-/** Saldo que el repartidor cobra en la puerta de un pedido contraentrega (total menos el anticipo ya pagado). */
-export function codBalanceDue(order: { total: number; codDepositAmount?: number }): number {
-  return Math.max(0, order.total - (order.codDepositAmount ?? 0))
+/**
+ * Saldo que el repartidor cobra en la puerta de un pedido contraentrega:
+ * producto (total) + flete que paga el cliente a la transportadora (codShippingDue) − anticipo ya pagado.
+ * En COD el flete no va en `total` (shippingTotal = 0), por eso se suma aparte.
+ */
+export function codBalanceDue(order: { total: number; codDepositAmount?: number; codShippingDue?: number }): number {
+  return Math.max(0, order.total + (order.codShippingDue ?? 0) - (order.codDepositAmount ?? 0))
 }
 
 export type PaymentProvider = 'WOMPI' | 'MERCADO_PAGO' | 'COD'
@@ -237,9 +241,15 @@ export interface Order {
   /**
    * Anticipo pre-envío de un pedido contraentrega, en centavos COP (0 o ausente = sin anticipo).
    * Se paga por Wompi antes del despacho y se descuenta del cobro en la puerta:
-   * saldo = total - codDepositAmount (ver codBalanceDue).
+   * saldo = total + codShippingDue - codDepositAmount (ver codBalanceDue).
    */
   codDepositAmount?: number
+  /**
+   * Flete (centavos COP) que un pedido contraentrega paga a la transportadora al recibirlo. Se cotiza
+   * al crear el pedido y queda congelado. No forma parte de `total` ni de lo que cobra Wompi.
+   * 0 o ausente = envío gratis, retiro en tienda, pedido online o cotización fallida.
+   */
+  codShippingDue?: number
   /** Fecha de creación del pedido */
   createdAt: Date
   /** Ítems del pedido. Opcional — depende de si el query los incluye (include: { items: true }) */

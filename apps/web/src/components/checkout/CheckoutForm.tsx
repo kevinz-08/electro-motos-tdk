@@ -126,9 +126,6 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
   })
 
   const cartTotal = total()
-  const codDeposit = paymentMethod === 'COD' && deliveryMethod === 'HOME_DELIVERY'
-    ? Math.min(codDepositCents, cartTotal)
-    : 0
   const shippingItems = items.map((i) => ({ productId: i.product.id, quantity: i.quantity }))
   const quotePaymentMethod = paymentMethod === 'COD' ? 'COD' : 'EXTERNAL_PAYMENT'
   // Retiro en tienda: no hay nada que cotizar — se pasa `null` para que el hook
@@ -140,6 +137,11 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
   )
   const shippingCost = deliveryMethod === 'HOME_DELIVERY' && shippingQuote && !shippingQuote.freeShipping
     ? shippingQuote.quotedShippingTotal
+    : 0
+  // Anticipo COD: el tope es producto + flete (el flete se paga a la transportadora al recibir, por eso
+  // el saldo también lo incluye). Mismo cálculo que CreateOrder en el servidor.
+  const codDeposit = paymentMethod === 'COD' && deliveryMethod === 'HOME_DELIVERY'
+    ? Math.min(codDepositCents, cartTotal + shippingCost)
     : 0
   // Si el admin activó "Flete pagado en línea", el estimado de arriba es lo que
   // realmente va a cobrar Wompi junto al producto (CreateOrder lo recalcula server-side
@@ -499,8 +501,8 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
                 Quedan registrados en el comprobante de venta. Si el comprador es una empresa, elige NIT.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+                <div className="sm:col-span-2">
                   <label htmlFor="buyer-id-type" className="block text-sm font-medium text-gray-700 mb-1">
                     Tipo de documento *
                   </label>
@@ -517,7 +519,7 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
                   </select>
                 </div>
 
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-3">
                   <label htmlFor="buyer-id-number" className="block text-sm font-medium text-gray-700 mb-1">
                     Número *
                   </label>
@@ -535,7 +537,7 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
                 </div>
 
                 {buyer.idType === 'NIT' && (
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-5">
                     <label htmlFor="buyer-business-name" className="block text-sm font-medium text-gray-700 mb-1">
                       Razón social *
                     </label>
@@ -604,12 +606,11 @@ export function CheckoutForm({ userEmail, codEnabled, codDepositCents, shippingO
 
                 {codDeposit > 0 && (
                   <div className="mt-3 border border-dashed border-sky-300 bg-sky-50 rounded-lg px-4 py-3">
-                    <span className="block text-sm font-semibold text-gray-900">
-                      Anticipo de {formatCOP(codDeposit)} para confirmar tu envío
-                    </span>
-                    <span className="block text-xs text-gray-500 mt-1">
-                      Lo pagas ahora con Wompi y se descuenta de tu pedido: al recibirlo pagas en efectivo
-                      solo el saldo de {formatCOP(Math.max(0, cartTotal - codDeposit))}.
+                    <span className="block text-sm text-gray-700">
+                      Para confirmar tu pedido contra entrega pagas ahora con Wompi un mínimo anticipo de{' '}
+                      <strong className="text-gray-900">{formatCOP(codDeposit)}</strong> y el saldo de{' '}
+                      <strong className="text-gray-900">{formatCOP(Math.max(0, cartTotal + shippingCost - codDeposit))}</strong>{' '}
+                      lo pagas en efectivo al recibir tu pedido.
                     </span>
                   </div>
                 )}

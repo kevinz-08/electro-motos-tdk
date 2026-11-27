@@ -22,7 +22,7 @@ import { PrismaService } from '../database/prisma.service'
 
 type PrismaOrderRow = {
   id: string; userId: string | null; contactEmail: string; buyerIdKey: string; status: string; total: number
-  shippingAddress: unknown; paymentProvider: string; shippingTotal: number; codDepositAmount: number; createdAt: Date
+  shippingAddress: unknown; paymentProvider: string; shippingTotal: number; codDepositAmount: number; codShippingDue: number; createdAt: Date
   deliveryMethod: string
   buyerIdType: string; buyerIdNumber: string; buyerBusinessName: string | null
   items?: Array<{ id: string; orderId: string; productId: string; quantity: number; priceAtPurchase: number; compareAtPriceAtPurchase: number | null }>
@@ -70,6 +70,7 @@ function toDomain(o: PrismaOrderRow): Order {
     },
     paymentProvider: o.paymentProvider as PaymentProvider,
     codDepositAmount: o.codDepositAmount,
+    codShippingDue: o.codShippingDue,
     createdAt: o.createdAt,
     items: o.items?.map(toDomainItem),
     payment: o.payment ? toDomainPayment(o.payment) : undefined,
@@ -171,6 +172,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         buyerBusinessName: input.buyer.businessName ?? null,
         paymentProvider: input.paymentProvider,
         shippingTotal: input.shippingTotal,
+        codShippingDue: input.codShippingDue ?? 0,
         couponCode: input.couponCode ?? null,
         discountAmount: input.discountAmount ?? 0,
         items: { create: input.items },
@@ -202,6 +204,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           buyerBusinessName: input.buyer.businessName ?? null,
           paymentProvider: input.paymentProvider,
           shippingTotal: input.shippingTotal,
+          codShippingDue: input.codShippingDue ?? 0,
           couponCode: input.couponCode ?? null,
           discountAmount: input.discountAmount ?? 0,
           items: { create: input.items },

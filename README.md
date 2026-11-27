@@ -666,7 +666,7 @@ desactivado** (default). Se puede cambiar sin desplegar.
 | --- | --- |
 | Anticipo activo + envío a domicilio | `AWAITING_DEPOSIT`, sin descontar stock; el checkout abre el widget Wompi por el anticipo |
 | Retiro en tienda | **Exento**: nace `COD_CONFIRMED` sin anticipo |
-| Anticipo mayor al total | Se limita al total |
+| Anticipo mayor a producto + flete | Se limita a **producto + flete COD** (no solo al producto) |
 | Anticipo desactivado | Flujo anterior (`COD_CONFIRMED` inmediato) |
 
 **Ciclo de vida:** `AWAITING_DEPOSIT` → (webhook Wompi `APPROVED`) → `COD_CONFIRMED` → `SHIPPED` → `DELIVERED`.
@@ -679,6 +679,15 @@ stock que restaurar).
 referencia `ORDER-{id}-{ts}`, de modo que el webhook de Wompi no cambia. `Order.codDepositAmount` guarda el monto
 y `codBalanceDue(order)` calcula el saldo. `ConfirmPayment` valida el monto del webhook contra el anticipo (no
 contra el total) y transiciona desde `AWAITING_DEPOSIT`. Un pedido COD con anticipo conserva `paymentProvider = COD`.
+
+**Flete en COD (`Order.codShippingDue`):** en contraentrega el flete no se cobra en línea ni entra a `total`
+(`shippingTotal = 0`): el cliente lo paga a la transportadora al recibir. `CreateOrder` lo cotiza con método `COD`
+al crear el pedido (retiro en tienda no cotiza; envío gratis o cotización fallida = 0) y lo congela en
+`codShippingDue`. El saldo en la puerta es `total + codShippingDue − codDepositAmount` (`codBalanceDue`), y el tope
+del anticipo es `total + codShippingDue`. Lo muestran el checkout, la confirmación, el correo y el admin. Wompi sigue
+cobrando exactamente `codDepositAmount`. Si el anticipo cubre el producto pero no todo el flete, Vendelo no puede
+recaudar solo el saldo de flete (no acepta `unit_price` 0 en COD): el pedido va `EXTERNAL_PAYMENT` y el servicio
+registra una advertencia para cobrar ese saldo manualmente.
 
 **Reintento de pago:** `POST /orders/:id/deposit-transaction?token=` genera una transacción Wompi nueva (dueño con
 sesión o enlace firmado de invitado). La página `/checkout/confirmacion` lo ofrece con `PayDepositSection`.

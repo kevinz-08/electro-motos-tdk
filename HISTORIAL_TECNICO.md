@@ -4,6 +4,33 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 202. COD: el saldo y el tope del anticipo ahora incluyen el flete
+
+**Problema:** en contraentrega el flete no entra a `total` (`shippingTotal = 0`), pero el cliente lo paga a la
+transportadora. El checkout, el correo, la confirmación y el admin calculaban el saldo como `total − anticipo` (sin flete)
+y el anticipo se recortaba con `min(anticipo, total)`: con producto $7.000 + envío $13.900 el anticipo quedaba en $7.000 y
+el saldo en $0; con producto $65.000 + envío $12.100 y anticipo $15.000 se mostraba un saldo de $50.000 (real: $62.100).
+
+**Cambio:**
+- Migración `20261126000000_cod_shipping_due`: `Order.codShippingDue` (centavos, default 0).
+- `CreateOrder`: en COD a domicilio cotiza el flete (método `COD`), lo guarda en `codShippingDue` y topa el anticipo en
+  `total + codShippingDue`. Sin cotización posible o envío gratis queda en 0. Wompi sigue cobrando solo el anticipo.
+- `codBalanceDue` = `total + codShippingDue − codDepositAmount`. Repositorios (API y web), `getOrderConfirmation`, página de
+  confirmación, `OrderInfoModal` y `/api/admin/orders/[id]` exponen/usan el campo.
+- `CheckoutForm`: `codDeposit = min(anticipo, producto + envío)` y saldo `producto + envío − anticipo`.
+- `VendeloService`: si el anticipo cubre el producto pero queda saldo de flete, envía `EXTERNAL_PAYMENT` y registra una
+  advertencia (Vendelo no recauda solo flete en COD).
+- Pruebas: `CreateOrder`, `codBalanceDue`, `VendeloService`.
+- Texto del aviso en el checkout (COD con anticipo): «Para confirmar tu pedido contra entrega pagas ahora con Wompi un
+  mínimo anticipo de $X y el saldo de $Y lo pagas en efectivo al recibir tu pedido.» (Y = producto + envío − anticipo).
+- Checkout, «Datos del comprador»: el selector «Tipo de documento» se ensanchó (grid de 5 columnas: 2 para el tipo, 3 para el
+  número) porque «Cédula de Ciudadanía (CC)» se cortaba.
+
+**Pendiente:** aplicar la migración en producción (`prisma migrate deploy`); los pedidos COD previos quedan con
+`codShippingDue = 0`; validar en un pedido real el caso de anticipo mayor al producto con Vendelo.
+
+---
+
 ## 201. Checkout: el widget de Wompi se abre solo tras "Continuar al pago"
 
 **Problema:** al pulsar "Continuar al pago" el paso de pago se renderizaba pero la página quedaba scrolleada al final

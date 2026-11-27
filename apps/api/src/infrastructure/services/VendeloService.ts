@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import {
   Order,
+  codBalanceDue,
   IVendeloShippingPort,
   ShipmentExceptionDetail,
   ExceptionResolution,
@@ -205,6 +206,14 @@ export class VendeloService implements IVendeloShippingPort {
     const items = order.items ?? []
     const unitPricesCents = prorateDepositIntoUnitPrices(items, depositCents)
     const fullyPrepaid = unitPricesCents === null
+    if (fullyPrepaid && order.paymentProvider === 'COD' && codBalanceDue(order) > 0) {
+      // El anticipo cubre todo el producto pero no el flete: el cliente aún debe un saldo de flete
+      // que Vendelo no puede recaudar (no acepta unit_price 0 en COD). Requiere gestión manual.
+      this.logger.warn(
+        `Pedido ${order.id}: anticipo cubre el producto pero queda saldo de flete `
+        + `(${codBalanceDue(order)} centavos) — se envía EXTERNAL_PAYMENT, cobrar el saldo manualmente`,
+      )
+    }
     const prices = unitPricesCents ?? items.map((i) => i.priceAtPurchase)
 
     const body: VendeloCreateOrderBody = {

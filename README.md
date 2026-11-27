@@ -666,7 +666,7 @@ desactivado** (default). Se puede cambiar sin desplegar.
 | --- | --- |
 | Anticipo activo + envío a domicilio | `AWAITING_DEPOSIT`, sin descontar stock; el checkout abre el widget Wompi por el anticipo |
 | Retiro en tienda | **Exento**: nace `COD_CONFIRMED` sin anticipo |
-| Anticipo mayor al total | Se limita al total |
+| Anticipo mayor a producto + flete | Se limita a **producto + flete COD** (no solo al producto) |
 | Anticipo desactivado | Flujo anterior (`COD_CONFIRMED` inmediato) |
 
 **Ciclo de vida:** `AWAITING_DEPOSIT` → (webhook Wompi `APPROVED`) → `COD_CONFIRMED` → `SHIPPED` → `DELIVERED`.
@@ -679,6 +679,15 @@ stock que restaurar).
 referencia `ORDER-{id}-{ts}`, de modo que el webhook de Wompi no cambia. `Order.codDepositAmount` guarda el monto
 y `codBalanceDue(order)` calcula el saldo. `ConfirmPayment` valida el monto del webhook contra el anticipo (no
 contra el total) y transiciona desde `AWAITING_DEPOSIT`. Un pedido COD con anticipo conserva `paymentProvider = COD`.
+
+**Flete en COD (`Order.codShippingDue`):** en contraentrega el flete no se cobra en línea ni entra a `total`
+(`shippingTotal = 0`): el cliente lo paga a la transportadora al recibir. `CreateOrder` lo cotiza con método `COD`
+al crear el pedido (retiro en tienda no cotiza; envío gratis o cotización fallida = 0) y lo congela en
+`codShippingDue`. El saldo en la puerta es `total + codShippingDue − codDepositAmount` (`codBalanceDue`), y el tope
+del anticipo es `total + codShippingDue`. Lo muestran el checkout, la confirmación, el correo y el admin. Wompi sigue
+cobrando exactamente `codDepositAmount`. Si el anticipo cubre el producto pero no todo el flete, Vendelo no puede
+recaudar solo el saldo de flete (no acepta `unit_price` 0 en COD): el pedido va `EXTERNAL_PAYMENT` y el servicio
+registra una advertencia para cobrar ese saldo manualmente.
 
 **Reintento de pago:** `POST /orders/:id/deposit-transaction?token=` genera una transacción Wompi nueva (dueño con
 sesión o enlace firmado de invitado). La página `/checkout/confirmacion` lo ofrece con `PayDepositSection`.
@@ -2295,3 +2304,15 @@ Componente reutilizable que muestra que la tienda vende en **Mercado Libre** y e
 - **Dónde se ve:** home (debajo de Marcas), `ProductTrustBlock` de la ficha y la barra inferior del `Footer`.
 - **Enlaces:** hoy apuntan a las páginas principales de cada plataforma. Cuando el cliente entregue los enlaces de su tienda en Mercado Libre y de su perfil en Addi, se cambian en `seller-platforms.ts`.
 - **⚠️ Cifras de prueba:** las ventas que muestra el `banner` ("+1.200 ventas", "+800 compras a cuotas") son **inventadas** para ver el diseño. Antes de publicar se reemplazan por datos reales o se ponen en `null` (la cifra se oculta sola). Mostrar números falsos como reales es publicidad engañosa.
+
+## 32. Kits para Motos visibles en la tienda
+
+Los kits (`/admin/kits`, ver `docs/seo/plan-kits.md`) ahora se ven en toda la tienda y cada uno puede tener su propia imagen.
+
+- **Navbar:** enlace fijo **"Kits"** entre *Categorías* y *Catálogo* (desktop y menú móvil). Siempre visible; `/kits` muestra un estado vacío si no hay kits.
+- **Home:** sección **"Conoce los Kits para Motos"** debajo de *Productos destacados*: hasta **4 kits apilados a ancho completo** (`KitFeatureRow`, enlazan a `/kits/[slug]`). Si no hay kits visibles la sección no se pinta; si la lectura falla (p. ej. migración sin aplicar) la home se sirve igual sin ella. Se refresca con el tag de caché `kits`.
+- **Imágenes por kit (opcionales):** el formulario de `/admin/kits` permite subir una imagen **para computador** (ideal 1600×686, 21:9) y otra **para celular** (ideal 1080×1080, 1:1). JPG/PNG/WEBP, máx. 5 MB, a Cloudinary (`h2r-online-store/kits`). Se muestran con `<picture>` en la home y en la tarjeta de `/kits`.
+- **Cadena de respaldo:** imagen de esa variante → imagen de la otra variante → foto del primer producto del kit (se muestra contenida sobre fondo claro, `imageIsFallback`).
+- **Limpieza en Cloudinary:** al reemplazar una imagen, borrar el kit o descartar una subida sin guardar se borra el asset huérfano (`POST /admin/kits/discard-image` solo acepta la carpeta de kits y nunca una imagen en uso).
+- **Base de datos:** migración aditiva `20261126100000_kit_images` (4 columnas nulables en `Kit`: `desktopImageUrl/PublicId`, `mobileImageUrl/PublicId`). Aplicar con `prisma migrate deploy` **antes** de desplegar el código.
+- **Kits de ejemplo:** `pnpm --filter @h2r/database seed:kits` (dry-run) y `... seed:kits -- --apply` crean 4 kits con productos reales en stock (idempotente por `slug`). Las imágenes se suben después desde el admin.

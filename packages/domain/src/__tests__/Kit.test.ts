@@ -107,6 +107,19 @@ describe('SetKit', () => {
     }))
   })
 
+  it('guarda la imagen solo si llegan url y publicId juntos', async () => {
+    const repo = makeRepo()
+    await new SetKit(repo).execute({
+      ...baseInput,
+      desktopImageUrl: 'https://cdn/d.jpg', desktopImagePublicId: 'kits/d',
+      mobileImageUrl: 'https://cdn/m.jpg', // sin publicId → se descarta
+    })
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({
+      desktopImageUrl: 'https://cdn/d.jpg', desktopImagePublicId: 'kits/d',
+      mobileImageUrl: null, mobileImagePublicId: null,
+    }))
+  })
+
   it('rechaza nombre o slug vacíos', async () => {
     const repo = makeRepo()
     expect((await new SetKit(repo).execute({ ...baseInput, name: '  ' })).ok).toBe(false)

@@ -7,6 +7,7 @@
  *   2. TRUST BAR — Sellos de confianza con iconos SVG
  *   3. CATEGORÍAS — Grid horizontal de categorías con imágenes
  *   3b. PRODUCTOS DESTACADOS — 4 productos in-stock más recientes
+ *   3c. KITS PARA MOTOS — hasta 4 kits visibles, apilados a ancho completo (se administran en /admin/kits)
  *   4. MARCAS — 8 logos de marcas aliadas, cada uno enlaza al buscador
  *   5. VENDEDOR VERIFICADO — sellos de Mercado Libre y Addi
  *   5. SOCIAL PROOF — Reseñas reales de ProductReview (no se pinta si no hay ninguna)
@@ -20,6 +21,7 @@ import { HomeIntro } from '@/components/store/HomeIntro'
 import { PromoModal } from '@/components/store/PromoModal'
 import { TrustBadges } from '@/components/store/TrustBadges'
 import { CategoryGrid } from '@/components/store/CategoryGrid'
+import { KitFeatureRow } from '@/components/store/KitFeatureRow'
 import { BrandsShowcase } from '@/components/store/BrandsShowcase'
 import { VerifiedSellerBadges } from '@/components/store/VerifiedSellerBadges'
 import { SocialProof } from '@/components/store/SocialProof'
@@ -28,17 +30,23 @@ import { FAQ } from '@/components/store/FAQ'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { faqPageJsonLd } from '@/lib/structured-data'
 import { buildFaqItems } from '@/lib/faq'
-import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal, getCachedCroSettings, getCachedStoreFacts } from '@/lib/cache'
+import { getCachedFeaturedProducts, getCachedHomeCategories, getCachedHeroBanners, getCachedPromoModal, getCachedCroSettings, getCachedStoreFacts, getCachedAllVisibleKits } from '@/lib/cache'
 
 export default async function HomePage() {
-  const [featuredProducts, categories, heroBanners, promo, cro, facts] = await Promise.all([
+  const [featuredProducts, categories, heroBanners, promo, cro, facts, allKits] = await Promise.all([
     getCachedFeaturedProducts(),
     getCachedHomeCategories(),
     getCachedHeroBanners(),
     getCachedPromoModal(),
     getCachedCroSettings(),
     getCachedStoreFacts(),
+    // Complemento opcional: si falla (p. ej. migración sin aplicar) la home se sirve sin la sección.
+    getCachedAllVisibleKits().catch((e) => {
+      console.error('[home] no se pudieron leer los kits', e)
+      return []
+    }),
   ])
+  const homeKits = allKits.slice(0, 4)
   const faqItems = buildFaqItems({
     freeShippingThreshold: cro.freeShippingThreshold,
     cutoffHour: cro.shippingCutoffHour,
@@ -103,6 +111,49 @@ export default async function HomePage() {
                 className="inline-flex items-center gap-1 text-sky-600 font-semibold hover:text-sky-700 text-sm transition-colors"
               >
                 Ver todos los productos
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 3c. Kits para motos — hasta 4 filas a ancho completo; sin kits visibles no se pinta */}
+      {homeKits.length > 0 && (
+        <section className="py-20 px-4 bg-gray-50 border-t border-gray-100">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-end justify-between mb-10">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">
+                  Conoce los Kits para Motos
+                </h2>
+                <p className="text-gray-500 mt-2 text-sm">
+                  Repuestos armados para el mantenimiento de tu moto, con precio especial
+                </p>
+              </div>
+              <Link
+                href="/kits"
+                className="hidden sm:inline-flex items-center gap-1 text-sky-600 font-semibold hover:text-sky-700 text-sm transition-colors"
+              >
+                Ver todos los kits
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            <div className="flex flex-col gap-6">
+              {homeKits.map((kit, i) => (
+                <KitFeatureRow key={kit.id} kit={kit} reverse={i % 2 === 1} />
+              ))}
+            </div>
+            <div className="mt-8 text-center sm:hidden">
+              <Link
+                href="/kits"
+                className="inline-flex items-center gap-1 text-sky-600 font-semibold hover:text-sky-700 text-sm transition-colors"
+              >
+                Ver todos los kits
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>

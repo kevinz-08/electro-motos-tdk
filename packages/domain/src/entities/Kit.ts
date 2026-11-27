@@ -31,6 +31,11 @@ export interface Kit {
   discountCents: number
   /** Modelo de moto al que se asocia. Null = kit genérico (no depende de una moto). */
   modelId: string | null
+  /** Imágenes opcionales (Cloudinary). Null = la tienda usa la foto del primer producto. */
+  desktopImageUrl: string | null
+  desktopImagePublicId: string | null
+  mobileImageUrl: string | null
+  mobileImagePublicId: string | null
   isActive: boolean
   createdAt: Date
   deletedAt: Date | null

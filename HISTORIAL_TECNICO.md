@@ -4,6 +4,52 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 203. Kits para Motos: navbar, sección en la home e imágenes por kit
+
+**Qué se pidió:** que los kits sean visibles en toda la tienda: enlace en el navbar, sección en la home y una imagen
+(desktop y mobile) por kit desde el formulario de nuevo kit.
+- **BD:** migración aditiva `20261126100000_kit_images` — 4 columnas nulables en `Kit` (URL + public_id para desktop y mobile).
+- **Dominio/API:** `Kit`, `IKitRepository`, `SetKit` y `SetKitDto` con las imágenes (se guardan URL y public_id juntos o ninguno).
+  `AdminKitsController`: `POST /admin/kits/upload-image` (Cloudinary, carpeta `h2r-online-store/kits`), `POST /admin/kits/discard-image`
+  y borrado de imágenes huérfanas al reemplazar o eliminar un kit. `CloudinaryService.uploadKitImage`.
+- **Admin:** `KitEditForm` con dos campos de subida (computador 21:9 y celular 1:1), preview, aviso de proporción y descarte al cancelar.
+- **Tienda:** `lib/kits.ts` expone `imageDesktop`/`imageMobile`/`imageIsFallback` (respaldo: variante opuesta → foto del primer producto).
+  `Navbar` con "Kits" entre Categorías y Catálogo (desktop y móvil). `home.tsx` con la sección "Conoce los Kits para Motos"
+  (hasta 4 `KitFeatureRow` apilados a ancho completo, tolerante a fallos). `KitCard` muestra la imagen del kit.
+  `/kits` pasa a titularse "Kits para Motos: kits de mantenimiento". El admin invalida también el tag `home` al guardar/borrar.
+- **Datos:** `packages/database/prisma/seed-kits.ts` (`seed:kits`, dry-run por defecto, `--apply` para escribir) con 4 kits de ejemplo.
+- **Tests:** domain (433) y api (271) en verde; type-check de web y api limpio.
+- **Decisión:** el campo de subida del kit es propio (`KitImageField`) y no se refactorizó `BannerManager` para no tocar un componente ajeno al cambio.
+
+---
+
+## 202. COD: el saldo y el tope del anticipo ahora incluyen el flete
+
+**Problema:** en contraentrega el flete no entra a `total` (`shippingTotal = 0`), pero el cliente lo paga a la
+transportadora. El checkout, el correo, la confirmación y el admin calculaban el saldo como `total − anticipo` (sin flete)
+y el anticipo se recortaba con `min(anticipo, total)`: con producto $7.000 + envío $13.900 el anticipo quedaba en $7.000 y
+el saldo en $0; con producto $65.000 + envío $12.100 y anticipo $15.000 se mostraba un saldo de $50.000 (real: $62.100).
+
+**Cambio:**
+- Migración `20261126000000_cod_shipping_due`: `Order.codShippingDue` (centavos, default 0).
+- `CreateOrder`: en COD a domicilio cotiza el flete (método `COD`), lo guarda en `codShippingDue` y topa el anticipo en
+  `total + codShippingDue`. Sin cotización posible o envío gratis queda en 0. Wompi sigue cobrando solo el anticipo.
+- `codBalanceDue` = `total + codShippingDue − codDepositAmount`. Repositorios (API y web), `getOrderConfirmation`, página de
+  confirmación, `OrderInfoModal` y `/api/admin/orders/[id]` exponen/usan el campo.
+- `CheckoutForm`: `codDeposit = min(anticipo, producto + envío)` y saldo `producto + envío − anticipo`.
+- `VendeloService`: si el anticipo cubre el producto pero queda saldo de flete, envía `EXTERNAL_PAYMENT` y registra una
+  advertencia (Vendelo no recauda solo flete en COD).
+- Pruebas: `CreateOrder`, `codBalanceDue`, `VendeloService`.
+- Texto del aviso en el checkout (COD con anticipo): «Para confirmar tu pedido contra entrega pagas ahora con Wompi un
+  mínimo anticipo de $X y el saldo de $Y lo pagas en efectivo al recibir tu pedido.» (Y = producto + envío − anticipo).
+- Checkout, «Datos del comprador»: el selector «Tipo de documento» se ensanchó (grid de 5 columnas: 2 para el tipo, 3 para el
+  número) porque «Cédula de Ciudadanía (CC)» se cortaba.
+
+**Pendiente:** aplicar la migración en producción (`prisma migrate deploy`); los pedidos COD previos quedan con
+`codShippingDue = 0`; validar en un pedido real el caso de anticipo mayor al producto con Vendelo.
+
+---
+
 ## 201. Checkout: el widget de Wompi se abre solo tras "Continuar al pago"
 
 **Problema:** al pulsar "Continuar al pago" el paso de pago se renderizaba pero la página quedaba scrolleada al final

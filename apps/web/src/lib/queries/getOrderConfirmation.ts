@@ -17,6 +17,8 @@ export type OrderConfirmation = {
   total: number
   /** Anticipo pre-envío de contraentrega (centavos COP). 0 = sin anticipo. */
   codDepositAmount: number
+  /** Flete de un pedido COD que se paga a la transportadora al recibir (centavos COP). 0 = ninguno. */
+  codShippingDue: number
   createdAt: Date
   paymentProvider: string
   shippingAddress: {
@@ -75,6 +77,7 @@ export async function getOrderConfirmation(orderId: string, access: OrderAccess)
     status: order.status,
     total: order.total,
     codDepositAmount: order.codDepositAmount,
+    codShippingDue: order.codShippingDue,
     createdAt: order.createdAt,
     paymentProvider: order.paymentProvider,
     isGuest: order.userId === null,

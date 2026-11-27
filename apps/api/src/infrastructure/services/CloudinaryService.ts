@@ -73,6 +73,12 @@ export class CloudinaryService {
     return this.uploadImage(file, 'h2r-online-store/promo-modal', `promo-${variant}`, { width, crop: 'limit' })
   }
 
+  /** Imagen del kit (home y /kits): banner ancho en desktop (1600px), 1080px en mobile. */
+  async uploadKitImage(file: Buffer, slug: string, variant: 'desktop' | 'mobile' = 'desktop'): Promise<UploadResult> {
+    const width = variant === 'mobile' ? 1080 : 1600
+    return this.uploadImage(file, 'h2r-online-store/kits', `${slug}-${variant}`, { width, crop: 'limit' })
+  }
+
   /** Foto del revisor tecnico (Fase 5, H-21): cuadrada, 800 px alcanzan para la pagina de autor. */
   async uploadReviewerPhoto(file: Buffer, slug: string): Promise<UploadResult> {
     return this.uploadImage(file, 'h2r-online-store/reviewers', slug, { width: 800, crop: 'limit' })

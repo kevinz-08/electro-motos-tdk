@@ -13,6 +13,10 @@ export interface SaveKitInput {
   description: string | null
   discountCents: number
   modelId: string | null
+  desktopImageUrl: string | null
+  desktopImagePublicId: string | null
+  mobileImageUrl: string | null
+  mobileImagePublicId: string | null
   isActive: boolean
   items: KitItemInput[]
 }

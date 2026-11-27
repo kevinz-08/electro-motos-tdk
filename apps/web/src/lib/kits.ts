@@ -66,12 +66,22 @@ export interface KitSummary {
   discountCents: number
   price: number
   availableUnits: number
+  /**
+   * Imagen del kit por tamaño de pantalla. Cadena de respaldo: la propia de esa variante →
+   * la de la otra variante → la foto del primer producto (`imageIsFallback`). Null solo si
+   * el kit no tiene imagen propia y su primer producto tampoco.
+   */
+  imageDesktop: string | null
+  imageMobile: string | null
+  /** true cuando la imagen es la foto de un producto (cuadrada, fondo blanco), no un banner del kit. */
+  imageIsFallback: boolean
   items: KitItemSummary[]
 }
 
 function toSummary(kit: {
   id: string; name: string; slug: string; description: string | null; discountCents: number
   modelId: string | null; isActive: boolean; deletedAt: Date | null
+  desktopImageUrl: string | null; mobileImageUrl: string | null
   items: Array<{
     quantity: number
     product: {
@@ -85,6 +95,10 @@ function toSummary(kit: {
   const availableUnits = computeKitAvailability(kit.items.map((i) => ({ quantity: i.quantity, ...i.product })))
   if (!isKitVisible(kit, availableUnits)) return null
 
+  const ownDesktop = kit.desktopImageUrl ?? kit.mobileImageUrl
+  const ownMobile = kit.mobileImageUrl ?? kit.desktopImageUrl
+  const productImage = kit.items[0]?.product.images[0] ?? null
+
   return {
     id: kit.id,
     name: kit.name,
@@ -95,6 +109,9 @@ function toSummary(kit: {
     discountCents: kit.discountCents,
     price: computeKitPrice(itemsTotal, kit.discountCents),
     availableUnits,
+    imageDesktop: ownDesktop ?? productImage,
+    imageMobile: ownMobile ?? productImage,
+    imageIsFallback: !ownDesktop && !ownMobile,
     items: kit.items.map((i) => ({
       productId: i.product.id,
       name: i.product.name,

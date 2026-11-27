@@ -55,6 +55,8 @@ export interface CreateOrderInput {
    * ConfirmPayment cuando el webhook aprueba el anticipo.
    */
   codDepositAmount?: number
+  /** Flete COD que se paga a la transportadora al recibir (centavos COP). Ver Order.codShippingDue. */
+  codShippingDue?: number
   /** Código del cupón aplicado. null si no se usó cupón. */
   couponCode?: string
   /** Centavos COP descontados por el cupón. 0 si no se usó cupón. */

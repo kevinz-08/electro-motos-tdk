@@ -36,6 +36,22 @@ export class SetKitDto {
   @IsOptional() @IsString() @MaxLength(64)
   modelId?: string
 
+  @ApiPropertyOptional({ description: 'URL de la imagen desktop (Cloudinary)' })
+  @IsOptional() @IsString() @MaxLength(500)
+  desktopImageUrl?: string
+
+  @ApiPropertyOptional({ description: 'public_id Cloudinary de la imagen desktop' })
+  @IsOptional() @IsString() @MaxLength(300)
+  desktopImagePublicId?: string
+
+  @ApiPropertyOptional({ description: 'URL de la imagen mobile (Cloudinary)' })
+  @IsOptional() @IsString() @MaxLength(500)
+  mobileImageUrl?: string
+
+  @ApiPropertyOptional({ description: 'public_id Cloudinary de la imagen mobile' })
+  @IsOptional() @IsString() @MaxLength(300)
+  mobileImagePublicId?: string
+
   @ApiProperty({ default: true })
   @IsBoolean()
   isActive: boolean

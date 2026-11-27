@@ -89,7 +89,8 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
   const isCod = order.paymentProvider === 'COD'
   // COD con anticipo sin pagar: el pedido no está confirmado ni se despacha todavía.
   const isAwaitingDeposit = order.status === 'AWAITING_DEPOSIT'
-  const codBalance = Math.max(0, order.total - order.codDepositAmount)
+  // Saldo en la puerta = producto + flete COD − anticipo (misma fórmula que codBalanceDue en el dominio).
+  const codBalance = Math.max(0, order.total + order.codShippingDue - order.codDepositAmount)
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -202,6 +203,13 @@ export default async function ConfirmacionPage({ searchParams }: PageProps) {
               ))}
             </ul>
           </div>
+
+          {isCod && order.codShippingDue > 0 && (
+            <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
+              <span>Envío (se paga al recibir)</span>
+              <span className="font-semibold text-gray-700">{formatCOP(order.codShippingDue)}</span>
+            </div>
+          )}
 
           {/* Total */}
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">

@@ -17,7 +17,7 @@ import { getCachedAllVisibleKits } from '@/lib/cache'
 export const revalidate = 86400
 
 export const metadata: Metadata = {
-  title: 'Kits de mantenimiento para moto',
+  title: 'Kits para Motos: kits de mantenimiento',
   description: 'Kits de repuestos armados para el mantenimiento de tu moto, con precio total y envío a toda Colombia.',
   alternates: canonical('/kits'),
   robots: { index: true, follow: true },

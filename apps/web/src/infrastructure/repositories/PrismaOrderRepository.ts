@@ -83,6 +83,7 @@ function toDomain(
     },
     paymentProvider: o.paymentProvider as PaymentProvider,
     codDepositAmount: o.codDepositAmount,
+    codShippingDue: o.codShippingDue,
     shippingTotal: o.shippingTotal,
     createdAt: o.createdAt,
     items: o.items?.map(toDomainItem),
@@ -185,6 +186,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         buyerBusinessName: input.buyer.businessName ?? null,
         paymentProvider: input.paymentProvider,
         shippingTotal: input.shippingTotal,
+        codShippingDue: input.codShippingDue ?? 0,
         items: {
           create: input.items, // { productId, quantity, priceAtPurchase }[]
         },
@@ -224,6 +226,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           buyerBusinessName: input.buyer.businessName ?? null,
           paymentProvider: input.paymentProvider,
           shippingTotal: input.shippingTotal,
+          codShippingDue: input.codShippingDue ?? 0,
           items: { create: input.items },
           payment: {
             create: { provider: input.paymentProvider, amount: input.total, status: 'APPROVED' },

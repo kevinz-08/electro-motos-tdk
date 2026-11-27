@@ -21,12 +21,59 @@ const validDto = {
 
 describe('AdminKitsController', () => {
   const kitRepo = { save: vi.fn(), findById: vi.fn(), slugExists: vi.fn(), findProducts: vi.fn(), softDelete: vi.fn() }
-  const prisma = { client: { kit: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() } } }
+  const prisma = { client: { kit: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() } } }
+  const cloudinary = { uploadKitImage: vi.fn(), deleteImage: vi.fn() }
   let controller: AdminKitsController
 
   beforeEach(() => {
     vi.resetAllMocks()
-    controller = new AdminKitsController(kitRepo as unknown as IKitRepository, prisma as never)
+    cloudinary.deleteImage.mockResolvedValue(undefined)
+    controller = new AdminKitsController(kitRepo as unknown as IKitRepository, prisma as never, cloudinary as never)
+  })
+
+  it('uploadImage: sube a la carpeta de kits y devuelve url y publicId', async () => {
+    cloudinary.uploadKitImage.mockResolvedValue({ secureUrl: 'https://cdn/k.jpg', publicId: 'h2r-online-store/kits/k-desktop-1' })
+    const out = await controller.uploadImage({ buffer: Buffer.from('x') }, 'mobile', 'Kit Frenos!')
+    expect(cloudinary.uploadKitImage).toHaveBeenCalledWith(expect.any(Buffer), 'kitfrenos', 'mobile')
+    expect(out).toEqual({ url: 'https://cdn/k.jpg', publicId: 'h2r-online-store/kits/k-desktop-1' })
+  })
+
+  it('uploadImage: rechaza si no llega un archivo válido', async () => {
+    await expect(controller.uploadImage(undefined, 'desktop', 'k')).rejects.toThrow()
+  })
+
+  it('update: borra de Cloudinary la imagen reemplazada y conserva la que sigue en uso', async () => {
+    kitRepo.findById.mockResolvedValue({ desktopImagePublicId: 'old/d', mobileImagePublicId: 'keep/m' })
+    kitRepo.slugExists.mockResolvedValue(false)
+    kitRepo.findProducts.mockResolvedValue([{ id: 'A', price: 100000 }, { id: 'B', price: 50000 }])
+    kitRepo.save.mockImplementation(async (input) => ({ ...input }))
+    await controller.update('k1', {
+      ...validDto,
+      desktopImageUrl: 'https://cdn/new.jpg', desktopImagePublicId: 'new/d',
+      mobileImageUrl: 'https://cdn/m.jpg', mobileImagePublicId: 'keep/m',
+    })
+    expect(cloudinary.deleteImage).toHaveBeenCalledTimes(1)
+    expect(cloudinary.deleteImage).toHaveBeenCalledWith('old/d')
+  })
+
+  it('remove: borra las imágenes del kit en Cloudinary', async () => {
+    kitRepo.findById.mockResolvedValue({ desktopImagePublicId: 'a/d', mobileImagePublicId: 'a/m' })
+    await controller.remove('k1')
+    expect(cloudinary.deleteImage).toHaveBeenCalledWith('a/d')
+    expect(cloudinary.deleteImage).toHaveBeenCalledWith('a/m')
+  })
+
+  it('discardImage: no borra una imagen que un kit ya usa ni una fuera de la carpeta de kits', async () => {
+    prisma.client.kit.findFirst.mockResolvedValue({ id: 'k1' })
+    await controller.discardImage('h2r-online-store/kits/x')
+    expect(cloudinary.deleteImage).not.toHaveBeenCalled()
+    await expect(controller.discardImage('h2r-online-store/products/x')).rejects.toThrow()
+  })
+
+  it('discardImage: borra una subida huérfana', async () => {
+    prisma.client.kit.findFirst.mockResolvedValue(null)
+    await controller.discardImage('h2r-online-store/kits/x')
+    expect(cloudinary.deleteImage).toHaveBeenCalledWith('h2r-online-store/kits/x')
   })
 
   it('list: calcula precio y disponibilidad en vivo, no confía en nada guardado', async () => {

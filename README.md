@@ -2304,3 +2304,15 @@ Componente reutilizable que muestra que la tienda vende en **Mercado Libre** y e
 - **Dónde se ve:** home (debajo de Marcas), `ProductTrustBlock` de la ficha y la barra inferior del `Footer`.
 - **Enlaces:** hoy apuntan a las páginas principales de cada plataforma. Cuando el cliente entregue los enlaces de su tienda en Mercado Libre y de su perfil en Addi, se cambian en `seller-platforms.ts`.
 - **⚠️ Cifras de prueba:** las ventas que muestra el `banner` ("+1.200 ventas", "+800 compras a cuotas") son **inventadas** para ver el diseño. Antes de publicar se reemplazan por datos reales o se ponen en `null` (la cifra se oculta sola). Mostrar números falsos como reales es publicidad engañosa.
+
+## 32. Kits para Motos visibles en la tienda
+
+Los kits (`/admin/kits`, ver `docs/seo/plan-kits.md`) ahora se ven en toda la tienda y cada uno puede tener su propia imagen.
+
+- **Navbar:** enlace fijo **"Kits para Motos"** entre *Categorías* y *Catálogo* (desktop y menú móvil). Siempre visible; `/kits` muestra un estado vacío si no hay kits.
+- **Home:** sección **"Conoce los Kits para Motos"** debajo de *Productos destacados*: hasta **4 kits apilados a ancho completo** (`KitFeatureRow`, enlazan a `/kits/[slug]`). Si no hay kits visibles la sección no se pinta; si la lectura falla (p. ej. migración sin aplicar) la home se sirve igual sin ella. Se refresca con el tag de caché `kits`.
+- **Imágenes por kit (opcionales):** el formulario de `/admin/kits` permite subir una imagen **para computador** (ideal 1600×686, 21:9) y otra **para celular** (ideal 1080×1080, 1:1). JPG/PNG/WEBP, máx. 5 MB, a Cloudinary (`h2r-online-store/kits`). Se muestran con `<picture>` en la home y en la tarjeta de `/kits`.
+- **Cadena de respaldo:** imagen de esa variante → imagen de la otra variante → foto del primer producto del kit (se muestra contenida sobre fondo claro, `imageIsFallback`).
+- **Limpieza en Cloudinary:** al reemplazar una imagen, borrar el kit o descartar una subida sin guardar se borra el asset huérfano (`POST /admin/kits/discard-image` solo acepta la carpeta de kits y nunca una imagen en uso).
+- **Base de datos:** migración aditiva `20261126100000_kit_images` (4 columnas nulables en `Kit`: `desktopImageUrl/PublicId`, `mobileImageUrl/PublicId`). Aplicar con `prisma migrate deploy` **antes** de desplegar el código.
+- **Kits de ejemplo:** `pnpm --filter @h2r/database seed:kits` (dry-run) y `... seed:kits -- --apply` crean 4 kits con productos reales en stock (idempotente por `slug`). Las imágenes se suben después desde el admin.

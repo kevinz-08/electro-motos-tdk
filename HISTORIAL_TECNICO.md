@@ -4,6 +4,25 @@ Registro cronológico de todos los cambios de código realizados durante el desa
 
 ---
 
+## 203. Kits para Motos: navbar, sección en la home e imágenes por kit
+
+**Qué se pidió:** que los kits sean visibles en toda la tienda: enlace en el navbar, sección en la home y una imagen
+(desktop y mobile) por kit desde el formulario de nuevo kit.
+- **BD:** migración aditiva `20261126100000_kit_images` — 4 columnas nulables en `Kit` (URL + public_id para desktop y mobile).
+- **Dominio/API:** `Kit`, `IKitRepository`, `SetKit` y `SetKitDto` con las imágenes (se guardan URL y public_id juntos o ninguno).
+  `AdminKitsController`: `POST /admin/kits/upload-image` (Cloudinary, carpeta `h2r-online-store/kits`), `POST /admin/kits/discard-image`
+  y borrado de imágenes huérfanas al reemplazar o eliminar un kit. `CloudinaryService.uploadKitImage`.
+- **Admin:** `KitEditForm` con dos campos de subida (computador 21:9 y celular 1:1), preview, aviso de proporción y descarte al cancelar.
+- **Tienda:** `lib/kits.ts` expone `imageDesktop`/`imageMobile`/`imageIsFallback` (respaldo: variante opuesta → foto del primer producto).
+  `Navbar` con "Kits para Motos" entre Categorías y Catálogo (desktop y móvil). `home.tsx` con la sección "Conoce los Kits para Motos"
+  (hasta 4 `KitFeatureRow` apilados a ancho completo, tolerante a fallos). `KitCard` muestra la imagen del kit.
+  `/kits` pasa a titularse "Kits para Motos: kits de mantenimiento". El admin invalida también el tag `home` al guardar/borrar.
+- **Datos:** `packages/database/prisma/seed-kits.ts` (`seed:kits`, dry-run por defecto, `--apply` para escribir) con 4 kits de ejemplo.
+- **Tests:** domain (433) y api (271) en verde; type-check de web y api limpio.
+- **Decisión:** el campo de subida del kit es propio (`KitImageField`) y no se refactorizó `BannerManager` para no tocar un componente ajeno al cambio.
+
+---
+
 ## 202. COD: el saldo y el tope del anticipo ahora incluyen el flete
 
 **Problema:** en contraentrega el flete no entra a `total` (`shippingTotal = 0`), pero el cliente lo paga a la

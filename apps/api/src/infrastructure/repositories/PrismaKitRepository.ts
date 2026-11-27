@@ -5,6 +5,8 @@ import { PrismaService } from '../database/prisma.service'
 type PrismaKitRow = {
   id: string; name: string; slug: string; description: string | null
   discountCents: number; modelId: string | null; isActive: boolean
+  desktopImageUrl: string | null; desktopImagePublicId: string | null
+  mobileImageUrl: string | null; mobileImagePublicId: string | null
   createdAt: Date; deletedAt: Date | null
   items: Array<{ productId: string; quantity: number; order: number }>
 }
@@ -17,6 +19,10 @@ function toDomain(k: PrismaKitRow): Kit {
     description: k.description,
     discountCents: k.discountCents,
     modelId: k.modelId,
+    desktopImageUrl: k.desktopImageUrl,
+    desktopImagePublicId: k.desktopImagePublicId,
+    mobileImageUrl: k.mobileImageUrl,
+    mobileImagePublicId: k.mobileImagePublicId,
     isActive: k.isActive,
     createdAt: k.createdAt,
     deletedAt: k.deletedAt,
@@ -38,6 +44,10 @@ export class PrismaKitRepository implements IKitRepository {
       description: input.description,
       discountCents: input.discountCents,
       modelId: input.modelId,
+      desktopImageUrl: input.desktopImageUrl,
+      desktopImagePublicId: input.desktopImagePublicId,
+      mobileImageUrl: input.mobileImageUrl,
+      mobileImagePublicId: input.mobileImagePublicId,
       isActive: input.isActive,
     }
 

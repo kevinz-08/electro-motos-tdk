@@ -299,6 +299,12 @@ model Kit {
   discountCents Int       @default(0)
   /// Modelo de moto al que se asocia, para agruparlo en su hub. Null = kit generico.
   modelId       String?
+  /// Imagen del kit para desktop y mobile (Cloudinary). Opcionales: sin ellas la tienda
+  /// usa la foto del primer producto del kit. Se muestran en la home y en /kits.
+  desktopImageUrl      String?
+  desktopImagePublicId String?
+  mobileImageUrl       String?
+  mobileImagePublicId  String?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

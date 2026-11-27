@@ -16,6 +16,10 @@ export interface SetKitInput {
   /** Centavos COP. 0 = sin descuento. */
   discountCents: number
   modelId?: string | null
+  desktopImageUrl?: string | null
+  desktopImagePublicId?: string | null
+  mobileImageUrl?: string | null
+  mobileImagePublicId?: string | null
   isActive: boolean
   items: readonly SetKitItemInput[]
 }
@@ -77,6 +81,11 @@ export class SetKit {
         description: input.description?.trim() || null,
         discountCents: input.discountCents,
         modelId: input.modelId ?? null,
+        // Una URL sin su publicId (o al revés) no se puede limpiar luego: se guardan juntos o ninguno.
+        desktopImageUrl: input.desktopImageUrl && input.desktopImagePublicId ? input.desktopImageUrl : null,
+        desktopImagePublicId: input.desktopImageUrl && input.desktopImagePublicId ? input.desktopImagePublicId : null,
+        mobileImageUrl: input.mobileImageUrl && input.mobileImagePublicId ? input.mobileImageUrl : null,
+        mobileImagePublicId: input.mobileImageUrl && input.mobileImagePublicId ? input.mobileImagePublicId : null,
         isActive: input.isActive,
         items: input.items.map((i, order) => ({ productId: i.productId, quantity: i.quantity, order })),
       })

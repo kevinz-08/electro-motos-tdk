@@ -638,6 +638,10 @@ export function Navbar() {
                 </button>
               </div>
 
+              <Link href="/kits" className="px-4 py-2 text-sm font-medium tracking-wide text-white/80 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                Kits para Motos
+              </Link>
+
               <Link href="/catalogo" className="px-4 py-2 text-sm font-medium tracking-wide text-white/80 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
                 Catálogo
               </Link>
@@ -815,6 +819,10 @@ export function Navbar() {
                 </div>
               )}
             </div>
+
+            <Link href="/kits" className="block px-3 py-2.5 text-sm font-medium text-white hover:bg-white/5 rounded-lg transition-colors" onClick={() => setMobileOpen(false)}>
+              Kits para Motos
+            </Link>
 
             <Link href="/catalogo" className="block px-3 py-2.5 text-sm font-medium text-white hover:bg-white/5 rounded-lg transition-colors" onClick={() => setMobileOpen(false)}>
               Catálogo

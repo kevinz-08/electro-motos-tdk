@@ -46,6 +46,10 @@ export default async function EditKitPage({ params }: PageProps) {
         description: kitRow.description,
         discountCents: kitRow.discountCents,
         modelId: kitRow.modelId,
+        desktopImage: kitRow.desktopImageUrl && kitRow.desktopImagePublicId
+          ? { url: kitRow.desktopImageUrl, publicId: kitRow.desktopImagePublicId } : null,
+        mobileImage: kitRow.mobileImageUrl && kitRow.mobileImagePublicId
+          ? { url: kitRow.mobileImageUrl, publicId: kitRow.mobileImagePublicId } : null,
         isActive: kitRow.isActive,
         items: kitRow.items.map(
           (i): KitItemDraft => ({

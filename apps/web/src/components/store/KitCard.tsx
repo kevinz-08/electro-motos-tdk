@@ -59,6 +59,19 @@ export function KitCard({ kit, className = '' }: { kit: KitSummary; className?: 
 
   return (
     <div className={`rounded-2xl border border-gray-200 p-5 flex flex-col ${className}`}>
+      {kit.imageDesktop && (
+        <Link href={`/kits/${kit.slug}`} tabIndex={-1} aria-hidden className="relative mb-4 block aspect-[16/9] overflow-hidden rounded-xl bg-gray-50">
+          <picture>
+            <source media="(min-width: 768px)" srcSet={cloudinaryUrl(kit.imageDesktop, 'card')} />
+            <img
+              src={cloudinaryUrl(kit.imageMobile ?? kit.imageDesktop, 'card')}
+              alt=""
+              loading="lazy"
+              className={`absolute inset-0 h-full w-full ${kit.imageIsFallback ? 'object-contain p-3' : 'object-cover'}`}
+            />
+          </picture>
+        </Link>
+      )}
       <Link href={`/kits/${kit.slug}`} className="font-bold text-gray-900 hover:text-sky-600 leading-snug">
         {kit.name}
       </Link>

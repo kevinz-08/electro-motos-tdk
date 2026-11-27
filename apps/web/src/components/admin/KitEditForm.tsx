@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowDown, ArrowUp, Search, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ImagePlus, Loader2, Search, Trash2, X } from 'lucide-react'
 import { MAX_KIT_ITEMS, MIN_KIT_ITEMS, computeKitAvailability, computeKitPrice, validateKitPricing } from '@h2r/domain'
 import { apiClient } from '@/lib/api-client'
 import { revalidateAdminCache } from '@/lib/revalidate'
@@ -51,6 +51,100 @@ interface SearchHit {
   image: string | null
 }
 
+type ImageVariant = 'desktop' | 'mobile'
+type UploadedImage = { url: string; publicId: string }
+
+const IMAGE_META: Record<ImageVariant, { label: string; hint: string; ratio: number; previewClass: string }> = {
+  desktop: { label: 'Imagen para computador', hint: 'Horizontal · ideal 1600 × 686 px (21:9)', ratio: 21 / 9, previewClass: 'aspect-[21/9] w-full' },
+  mobile: { label: 'Imagen para celular', hint: 'Cuadrada · ideal 1080 × 1080 px (1:1)', ratio: 1, previewClass: 'aspect-square w-40' },
+}
+
+function readImageRatio(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const img = new window.Image()
+    img.onload = () => { resolve(img.naturalWidth / img.naturalHeight); URL.revokeObjectURL(url) }
+    img.onerror = () => { resolve(null); URL.revokeObjectURL(url) }
+    img.src = url
+  })
+}
+
+interface KitImageFieldProps {
+  variant: ImageVariant
+  image: UploadedImage | null
+  uploading: boolean
+  error: string | null
+  warning: string | null
+  onFile: (file: File) => void
+  onRemove: () => void
+}
+
+function KitImageField({ variant, image, uploading, error, warning, onFile, onRemove }: KitImageFieldProps) {
+  const meta = IMAGE_META[variant]
+  const inputId = `kit-image-upload-${variant}`
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest mb-1">
+        {meta.label} <span className="font-normal normal-case tracking-normal text-white/30">(opcional)</span>
+      </label>
+      <p className="text-xs text-white/30 mb-1.5">{meta.hint}</p>
+      {image ? (
+        <div className={`relative ${meta.previewClass} rounded-lg overflow-hidden bg-white/5 border border-white/10 group`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
+            aria-label={`Quitar ${meta.label.toLowerCase()}`}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div>
+          <input
+            ref={inputRef}
+            id={inputId}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            disabled={uploading}
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onFile(file)
+              if (inputRef.current) inputRef.current.value = ''
+            }}
+          />
+          <label
+            htmlFor={inputId}
+            className={`flex flex-col items-center justify-center gap-2 w-full h-28 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+              uploading ? 'border-blue-500/50 bg-blue-500/5 cursor-not-allowed' : 'border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5'
+            }`}
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+                <span className="text-sm text-white/50">Subiendo...</span>
+              </>
+            ) : (
+              <>
+                <ImagePlus className="w-6 h-6 text-white/30" />
+                <span className="text-sm text-white/50">Subir imagen</span>
+                <span className="text-xs text-white/25">JPG, PNG, WEBP · Máx. 5 MB</span>
+              </>
+            )}
+          </label>
+        </div>
+      )}
+      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+      {!error && warning && <p className="text-amber-400 text-xs mt-1">{warning}</p>}
+    </div>
+  )
+}
+
 interface KitEditFormProps {
   kit?: {
     id: string
@@ -59,6 +153,8 @@ interface KitEditFormProps {
     description: string | null
     discountCents: number
     modelId: string | null
+    desktopImage: UploadedImage | null
+    mobileImage: UploadedImage | null
     isActive: boolean
     items: KitItemDraft[]
   }
@@ -84,6 +180,20 @@ export function KitEditForm({ kit, modelOptions }: KitEditFormProps) {
   const [isActive, setIsActive] = useState(kit?.isActive ?? true)
   const [discountInput, setDiscountInput] = useState(kit ? String(kit.discountCents / 100) : '0')
   const [items, setItems] = useState<KitItemDraft[]>(kit?.items ?? [])
+
+  // ── Imágenes (opcionales; sin ellas la tienda usa la foto del primer producto) ──
+  const [images, setImages] = useState<Record<ImageVariant, UploadedImage | null>>({
+    desktop: kit?.desktopImage ?? null,
+    mobile: kit?.mobileImage ?? null,
+  })
+  const [uploading, setUploading] = useState<Record<ImageVariant, boolean>>({ desktop: false, mobile: false })
+  const [imageErrors, setImageErrors] = useState<Record<ImageVariant, string | null>>({ desktop: null, mobile: null })
+  const [imageWarnings, setImageWarnings] = useState<Record<ImageVariant, string | null>>({ desktop: null, mobile: null })
+  // PublicIds ya guardados en el kit: solo los subidos en esta sesión se pueden descartar sin riesgo.
+  const savedPublicIds = useMemo(
+    () => new Set([kit?.desktopImage?.publicId, kit?.mobileImage?.publicId].filter(Boolean) as string[]),
+    [kit],
+  )
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -144,6 +254,51 @@ export function KitEditForm({ kit, modelOptions }: KitEditFormProps) {
     setQuery('')
   }
 
+  /** Borra en Cloudinary una subida que nunca quedó guardada en el kit. No bloquea ni reporta errores. */
+  const discardIfUnsaved = (image: UploadedImage | null) => {
+    if (!image || savedPublicIds.has(image.publicId)) return
+    apiClient(accessToken).post('/admin/kits/discard-image', { publicId: image.publicId }).catch(() => {})
+  }
+
+  const handleImageFile = async (variant: ImageVariant, file: File) => {
+    if (uploading[variant]) return
+    setUploading((p) => ({ ...p, [variant]: true }))
+    setImageErrors((p) => ({ ...p, [variant]: null }))
+
+    const ratio = await readImageRatio(file)
+    const expected = IMAGE_META[variant].ratio
+    setImageWarnings((p) => ({
+      ...p,
+      [variant]: ratio !== null && Math.abs(ratio - expected) / expected > 0.15
+        ? 'La proporción no es la recomendada; se recortará para llenar el espacio.'
+        : null,
+    }))
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('slug', slug || 'kit')
+    formData.append('variant', variant)
+    const res = await apiClient(accessToken).postForm<UploadedImage>('/admin/kits/upload-image', formData)
+    if (!res.ok) {
+      setImageErrors((p) => ({ ...p, [variant]: res.error ?? 'Error al subir la imagen' }))
+    } else {
+      setImages((p) => ({ ...p, [variant]: { url: res.data.url, publicId: res.data.publicId } }))
+    }
+    setUploading((p) => ({ ...p, [variant]: false }))
+  }
+
+  const handleImageRemove = (variant: ImageVariant) => {
+    discardIfUnsaved(images[variant])
+    setImages((p) => ({ ...p, [variant]: null }))
+    setImageWarnings((p) => ({ ...p, [variant]: null }))
+  }
+
+  const handleCancel = () => {
+    discardIfUnsaved(images.desktop)
+    discardIfUnsaved(images.mobile)
+    router.back()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -165,6 +320,10 @@ export function KitEditForm({ kit, modelOptions }: KitEditFormProps) {
         description: description.trim() || undefined,
         discountCents,
         modelId: modelId || undefined,
+        desktopImageUrl: images.desktop?.url,
+        desktopImagePublicId: images.desktop?.publicId,
+        mobileImageUrl: images.mobile?.url,
+        mobileImagePublicId: images.mobile?.publicId,
         isActive,
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       }
@@ -174,7 +333,7 @@ export function KitEditForm({ kit, modelOptions }: KitEditFormProps) {
         : await client.post<{ id: string }>('/admin/kits', payload)
       if (!res.ok) throw new Error(res.error ?? 'Error al guardar el kit')
 
-      await revalidateAdminCache([CACHE_TAGS.kits, CACHE_TAGS.products])
+      await revalidateAdminCache([CACHE_TAGS.kits, CACHE_TAGS.products, CACHE_TAGS.home])
       router.push('/admin/kits')
       router.refresh()
     } catch (e) {
@@ -190,7 +349,7 @@ export function KitEditForm({ kit, modelOptions }: KitEditFormProps) {
     try {
       const res = await apiClient(accessToken).delete(`/admin/kits/${kit.id}`)
       if (!res.ok) throw new Error(res.error ?? 'Error al eliminar el kit')
-      await revalidateAdminCache([CACHE_TAGS.kits, CACHE_TAGS.products])
+      await revalidateAdminCache([CACHE_TAGS.kits, CACHE_TAGS.products, CACHE_TAGS.home])
       router.push('/admin/kits')
       router.refresh()
     } catch (e) {
@@ -259,6 +418,30 @@ export function KitEditForm({ kit, modelOptions }: KitEditFormProps) {
             <option key={m.id} value={m.id}>{m.brandName} {m.name}</option>
           ))}
         </select>
+      </div>
+
+      {/* ── Imágenes del kit ── */}
+      <div className="space-y-3 border-t border-white/10 pt-5">
+        <div>
+          <p className="text-sm font-medium text-white/70">Imágenes del kit</p>
+          <p className="text-xs text-white/30 mt-0.5">
+            Se muestran en la landing y en /kits. Si no subes ninguna, se usa la foto del primer producto del kit.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-4 items-start">
+          {(['desktop', 'mobile'] as const).map((variant) => (
+            <KitImageField
+              key={variant}
+              variant={variant}
+              image={images[variant]}
+              uploading={uploading[variant]}
+              error={imageErrors[variant]}
+              warning={imageWarnings[variant]}
+              onFile={(file) => handleImageFile(variant, file)}
+              onRemove={() => handleImageRemove(variant)}
+            />
+          ))}
+        </div>
       </div>
 
       <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer select-none">
@@ -417,7 +600,7 @@ export function KitEditForm({ kit, modelOptions }: KitEditFormProps) {
         >
           {loading ? 'Guardando...' : kit ? 'Guardar cambios' : 'Crear kit'}
         </button>
-        <button type="button" onClick={() => router.back()} className="border border-white/20 text-white/70 px-6 py-2.5 rounded-lg font-medium hover:border-white/40 transition-colors">
+        <button type="button" onClick={handleCancel} className="border border-white/20 text-white/70 px-6 py-2.5 rounded-lg font-medium hover:border-white/40 transition-colors">
           Cancelar
         </button>
       </div>

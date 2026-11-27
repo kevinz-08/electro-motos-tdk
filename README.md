@@ -2309,7 +2309,7 @@ Componente reutilizable que muestra que la tienda vende en **Mercado Libre** y e
 
 Los kits (`/admin/kits`, ver `docs/seo/plan-kits.md`) ahora se ven en toda la tienda y cada uno puede tener su propia imagen.
 
-- **Navbar:** enlace fijo **"Kits para Motos"** entre *Categorías* y *Catálogo* (desktop y menú móvil). Siempre visible; `/kits` muestra un estado vacío si no hay kits.
+- **Navbar:** enlace fijo **"Kits"** entre *Categorías* y *Catálogo* (desktop y menú móvil). Siempre visible; `/kits` muestra un estado vacío si no hay kits.
 - **Home:** sección **"Conoce los Kits para Motos"** debajo de *Productos destacados*: hasta **4 kits apilados a ancho completo** (`KitFeatureRow`, enlazan a `/kits/[slug]`). Si no hay kits visibles la sección no se pinta; si la lectura falla (p. ej. migración sin aplicar) la home se sirve igual sin ella. Se refresca con el tag de caché `kits`.
 - **Imágenes por kit (opcionales):** el formulario de `/admin/kits` permite subir una imagen **para computador** (ideal 1600×686, 21:9) y otra **para celular** (ideal 1080×1080, 1:1). JPG/PNG/WEBP, máx. 5 MB, a Cloudinary (`h2r-online-store/kits`). Se muestran con `<picture>` en la home y en la tarjeta de `/kits`.
 - **Cadena de respaldo:** imagen de esa variante → imagen de la otra variante → foto del primer producto del kit (se muestra contenida sobre fondo claro, `imageIsFallback`).

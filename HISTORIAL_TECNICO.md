@@ -14,7 +14,7 @@ Registro cronológico de todos los cambios de código realizados durante el desa
   y borrado de imágenes huérfanas al reemplazar o eliminar un kit. `CloudinaryService.uploadKitImage`.
 - **Admin:** `KitEditForm` con dos campos de subida (computador 21:9 y celular 1:1), preview, aviso de proporción y descarte al cancelar.
 - **Tienda:** `lib/kits.ts` expone `imageDesktop`/`imageMobile`/`imageIsFallback` (respaldo: variante opuesta → foto del primer producto).
-  `Navbar` con "Kits para Motos" entre Categorías y Catálogo (desktop y móvil). `home.tsx` con la sección "Conoce los Kits para Motos"
+  `Navbar` con "Kits" entre Categorías y Catálogo (desktop y móvil). `home.tsx` con la sección "Conoce los Kits para Motos"
   (hasta 4 `KitFeatureRow` apilados a ancho completo, tolerante a fallos). `KitCard` muestra la imagen del kit.
   `/kits` pasa a titularse "Kits para Motos: kits de mantenimiento". El admin invalida también el tag `home` al guardar/borrar.
 - **Datos:** `packages/database/prisma/seed-kits.ts` (`seed:kits`, dry-run por defecto, `--apply` para escribir) con 4 kits de ejemplo.
